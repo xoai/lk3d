@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · AC generator</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>An AC generator</h1>
+    <p>
+      Point at a part to read about it. Take the machine apart, cut it open, make the casing see-through. Drag the rotor
+      (the magnets or the shaft) round to turn it by hand: the lamp lights with the speed of your hand.
+    </p>
+    <div id="fig"></div>
+    <p class="info" id="info"></p>
+    <div class="row"><button id="run" type="button">Run the motor</button></div>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    import { scene } from './load.js';
+    const info = document.getElementById('info');
+    let speed = 0,
+      hand = 0,
+      angle = 0,
+      last = 0;
+    const fig = LK3D.mount(document.getElementById('fig'), await scene('generator'), {
+      info,
+      infoIdle: 'Point at a part to see what it is.',
+      // the rotor turned by the reader: how fast the hand goes (degrees per second), fading when it stops
+      onHandle: (id, deg) => {
+        const now = performance.now();
+        if (last) hand = (Math.abs(deg - angle) / Math.max(1, now - last)) * 1000;
+        angle = deg;
+        last = now;
+      },
+    });
+    document.getElementById('run').addEventListener('click', (e) => {
+      speed = speed ? 0 : 360;
+      e.target.textContent = speed ? 'Stop' : 'Run the motor';
+    });
+    fig.tick((now) => {
+      if (speed) {
+        angle += speed / 60;
+        fig.handle('loi-roto').set(angle);
+      }
+      hand *= 0.95;
+      const rate = speed || hand,
+        lit = Math.min(1, rate / 720) * Math.abs(Math.sin((2 * angle * Math.PI) / 180));
+      fig.set({ glow: { 'bong-den': lit * 0.6, 'day-toc': lit * 1.1 } });
+      return true;
+    });
+  </script>
+</html>

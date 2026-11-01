@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · current in a circuit</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>Current in a circuit</h1>
+    <p>
+      Particles run along a closed path (<code>particles({ path, closed: true })</code>) at the speed the page sets; the
+      filament glows with the current. Raise the voltage.
+    </p>
+    <div id="fig"></div>
+    <div class="row">
+      <label>Voltage <input id="v" type="range" min="0" max="12" step="0.5" value="6" /></label>
+      <output id="out"></output>
+    </div>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    const loop = [
+      [-1, -0.5, 0],
+      [1, -0.5, 0],
+      [1, 0.5, 0],
+      [0.12, 0.5, 0],
+      [-0.12, 0.5, 0],
+      [-1, 0.5, 0],
+    ];
+    const scene = {
+      w: 16,
+      h: 9,
+      title: 'A simple circuit',
+      alt: 'A battery, wires and a lamp in a loop.',
+      view: { yaw: -20, pitch: 25 },
+      section: false,
+      parts: [
+        {
+          id: 'wire',
+          name: 'Wire',
+          note: 'copper: the current flows along it.',
+          material: 'copper',
+          color: '#c8743a',
+          shapes: [{ tube: loop, r: 0.012, closed: true }],
+        },
+        {
+          id: 'battery',
+          name: 'Battery',
+          note: 'pushes the charges round the circuit.',
+          material: 'paint',
+          color: '#3a3a40',
+          shapes: [
+            { cylinder: { r: 0.12, x0: -0.25, x1: 0.25 }, at: [0, -0.5, 0] },
+            { cylinder: { r: 0.05, x0: 0.25, x1: 0.3 }, at: [0, -0.5, 0], color: '#c9b27a' },
+          ],
+        },
+        {
+          id: 'socket',
+          name: 'Lamp holder',
+          note: 'joins the lamp to the wire.',
+          material: 'metal',
+          color: '#c9b27a',
+          shapes: [{ cylinder: { r: 0.05, r1: 0.06, x0: 0.5, x1: 0.6 }, rot: [0, 0, 90] }],
+        },
+        {
+          id: 'bulb',
+          name: 'Lamp',
+          note: 'its thin filament heats up and glows when current flows.',
+          material: 'glass',
+          color: '#f4efe0',
+          glow: '#ffcc55',
+          opacity: 0.4,
+          refract: 0.6,
+          shapes: [{ sphere: 0.15, at: [0, 0.74, 0] }],
+        },
+        {
+          id: 'filament',
+          name: 'Filament',
+          material: 'metal',
+          color: '#7a5a3a',
+          glow: '#ffb030',
+          label: false,
+          shapes: [{ helix: { r: 0.02, x0: -0.06, x1: 0.06, turns: 6, wire: 0.006 }, at: [0, 0.74, 0] }],
+        },
+      ],
+    };
+    const fig = LK3D.mount(document.getElementById('fig'), scene, { style: 'studio' });
+    const current = fig.particles({ part: 'wire', path: loop, closed: true, count: 40, color: '#ffd25a', size: 10 });
+    const input = document.getElementById('v');
+    function set() {
+      const v = +input.value;
+      current.speed = v * 0.12; // the drift speed grows with the voltage
+      fig.set({ glow: { filament: Math.min(1.4, (v / 6) ** 2), bulb: Math.min(0.5, (v / 12) ** 2) } }); // the lamp's power grows with the square
+      document.getElementById('out').textContent = v.toFixed(1) + ' V';
+    }
+    input.addEventListener('input', set);
+    set();
+  </script>
+</html>

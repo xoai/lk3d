@@ -2,31 +2,61 @@
 <!-- The image tests' page: ?scene=NAME&look=ink|studio|2d draws scenes/NAME.json with the built engine
      (dist/lk3d.min.js) at a fixed size and resolution, waits until everything has arrived (the trees for picking, the
      crease shading, texture maps), then sets window.__ready to what it drew. -->
-<html lang="en"><meta charset="utf-8"><title>lk3d image test</title>
-<style>
-  body { margin: 0; background: #fff; font-family: system-ui, sans-serif }
-  #g { width: 480px }
-  .lk3d { margin: 0 }
-  .lk3d-hint { display: none }   /* fades on a timer: not part of what is compared */
-</style>
-<div id="g"></div>
-<script src="../../dist/lk3d.min.js"></script>
-<script type="module">
-const q = new URLSearchParams(location.search), look = q.get('look') || 'ink', errors = [];
-window.addEventListener('error', (e) => errors.push(String(e.message)));
-const scene = await (await fetch(`scenes/${q.get('scene')}.json`)).json();
-for (const m of Object.values(scene.models || {})) {  // a model given as a file: read it into base64, as a build would
-  if (m.file && !m.data) { const b = new Uint8Array(await (await fetch(m.file)).arrayBuffer()); let s = ''; for (const x of b) s += String.fromCharCode(x); m.data = btoa(s); }
-}
-const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, adaptive: false, maxDpr: 1, locale: 'en', labels: 'none',
-  style: look === '2d' ? 'ink' : look, force2d: look === '2d' });
-const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
-for (let k = 0; k < 600; k++) {   // at most about ten seconds
-  const s = fig.stats();
-  if (s.treesMs != null && (s.aoMs != null || fig.renderer === '2d') && !s.textures) break;
-  await frame();
-}
-await frame(); await frame();
-window.__ready = { renderer: fig.renderer, errors, triangles: fig.stats().triangles };
-</script>
+<html lang="en">
+  <meta charset="utf-8" /><title>lk3d image test</title>
+  <style>
+    body {
+      margin: 0;
+      background: #fff;
+      font-family: system-ui, sans-serif;
+    }
+    #g {
+      width: 480px;
+    }
+    .lk3d {
+      margin: 0;
+    }
+    .lk3d-hint {
+      display: none;
+    } /* fades on a timer: not part of what is compared */
+  </style>
+  <div id="g"></div>
+  <script src="../../dist/lk3d.min.js"></script>
+  <script type="module">
+    const q = new URLSearchParams(location.search),
+      look = q.get('look') || 'ink',
+      errors = [];
+    if (q.get('w')) document.getElementById('g').style.width = q.get('w') + 'px'; // (smaller pictures, for the docs)
+    window.addEventListener('error', (e) => errors.push(String(e.message)));
+    const scene = await (await fetch(`scenes/${q.get('scene')}.json`)).json();
+    for (const m of Object.values(scene.models || {})) {
+      // a model given as a file: read it into base64, as a build would
+      if (m.file && !m.data) {
+        const b = new Uint8Array(await (await fetch(m.file)).arrayBuffer());
+        let s = '';
+        for (const x of b) s += String.fromCharCode(x);
+        m.data = btoa(s);
+      }
+    }
+    const fig = LK3D.mount(document.getElementById('g'), scene, {
+      controls: false,
+      adaptive: false,
+      maxDpr: 1,
+      locale: 'en',
+      labels: 'none',
+      style: look === '2d' ? 'ink' : look,
+      force2d: look === '2d',
+    });
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+    for (let k = 0; k < 600; k++) {
+      // at most about ten seconds
+      const s = fig.stats();
+      if (s.treesMs != null && (s.aoMs != null || fig.renderer === '2d') && !s.textures) break;
+      await frame();
+    }
+    await frame();
+    await frame();
+    window.__fig = fig; // (for the docs' pictures)
+    window.__ready = { renderer: fig.renderer, errors, triangles: fig.stats().triangles };
+  </script>
 </html>

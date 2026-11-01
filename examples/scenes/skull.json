@@ -1,0 +1,60 @@
+{
+  "w": 16,
+  "h": 10,
+  "title": "Homo erectus skull KNM-ER 3733",
+  "alt": "A 3D scan of the fossil skull KNM-ER 3733, about 1.8 million years old, in the true colours of the bone.",
+  "style": "studio",
+  "env": "warm",
+  "section": false,
+  "view": { "yaw": 50, "pitch": 12, "target": [0, 0, -10] },
+  "scale": { "bar": { "length": 50, "label": "5 cm" } },
+  "models": {
+    "knm-er-3733": {
+      "file": "assets/knm-er-3733.glb",
+      "title": "Homo erectus: cranium (KNM-ER 3733)",
+      "author": "Smithsonian Institution, NMNH Human Origins Program; original: National Museums of Kenya",
+      "license": "CC0 (Smithsonian Open Access)",
+      "source": "scan",
+      "url": "https://3d.si.edu/object/3d/homo-erectus-cranium:8b87e356-a0fe-44ee-9800-9e0ea91c358c"
+    }
+  },
+  "parts": [
+    {
+      "id": "skull",
+      "name": "KNM-ER 3733",
+      "note": "found in 1975 at Koobi Fora, Kenya; about 1.8 million years old. The colours are the scan's own.",
+      "material": "bone",
+      "color": "#b89a78",
+      "studioColor": "#c9ad8a",
+      "label": [0, 78, -14],
+      "shapes": [{ "model": "knm-er-3733", "at": [6, 181, 5] }]
+    },
+    {
+      "id": "brow",
+      "name": "Brow ridge",
+      "note": "a thick ridge of bone above the eyes.",
+      "material": "paint",
+      "color": "#e0532a",
+      "studioColor": "#ff8a4a",
+      "shapes": [{ "sphere": 3.5, "at": [0, 24, 62] }]
+    },
+    {
+      "id": "forehead",
+      "name": "Low, sloping forehead",
+      "note": "above the brow ridge, the forehead slopes back.",
+      "material": "paint",
+      "color": "#e0532a",
+      "studioColor": "#ff8a4a",
+      "shapes": [{ "sphere": 3.5, "at": [0, 51, 49] }]
+    },
+    {
+      "id": "jaw",
+      "name": "Jutting jaw",
+      "note": "the upper jaw stands out in front of the face.",
+      "material": "paint",
+      "color": "#e0532a",
+      "studioColor": "#ff8a4a",
+      "shapes": [{ "sphere": 3.5, "at": [0, -24, 86] }]
+    }
+  ]
+}

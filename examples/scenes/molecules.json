@@ -1,0 +1,509 @@
+{
+  "w": 16,
+  "h": 10,
+  "narrow": "1 / 1",
+  "title": "Five molecules, to one scale",
+  "alt": "Mô hình 3D của các phân tử CO2, BF3, CH4, NH3 và H2O, vẽ cùng tỉ lệ theo ångström: mỗi nguyên tử là một quả cầu tô màu theo nguyên tố, nối với nhau bằng các que liên kết; quanh N và O có các vùng mờ là cặp electron chưa liên kết.",
+  "style": "ink",
+  "section": false,
+  "view": {
+    "yaw": -24,
+    "pitch": 14
+  },
+  "scale": {
+    "bar": {
+      "length": 1,
+      "label": "1 Å"
+    }
+  },
+  "parts": [
+    {
+      "id": "co2",
+      "name": "Carbon dioxide (CO2)",
+      "group": "que",
+      "material": "plastic",
+      "color": "#3d3d3d",
+      "at": [-12, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "atoms": [
+              {
+                "el": "C",
+                "at": [0, 0, 0]
+              },
+              {
+                "el": "O",
+                "at": [-1.16, 0, 0]
+              },
+              {
+                "el": "O",
+                "at": [1.16, 0, 0]
+              }
+            ],
+            "bonds": [
+              [0, 1, 2],
+              [0, 2, 2]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "co2-dac",
+      "name": "Carbon dioxide (CO2)",
+      "note": "space-filling: each atom a sphere of its van der Waals radius, close to the room the real molecule takes up.",
+      "group": "dac",
+      "material": "plastic",
+      "color": "#3d3d3d",
+      "at": [-12, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "style": "space",
+            "atoms": [
+              {
+                "el": "C",
+                "at": [0, 0, 0]
+              },
+              {
+                "el": "O",
+                "at": [-1.16, 0, 0]
+              },
+              {
+                "el": "O",
+                "at": [1.16, 0, 0]
+              }
+            ],
+            "bonds": [
+              [0, 1, 2],
+              [0, 2, 2]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "bf3",
+      "name": "Boron trifluoride (BF3)",
+      "group": "que",
+      "material": "plastic",
+      "color": "#ffb5b5",
+      "at": [-6, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "atoms": [
+              {
+                "el": "B",
+                "at": [0, 0, 0],
+                "color": "#ffb5b5",
+                "r": 0.36
+              },
+              {
+                "el": "F",
+                "at": [0, 1.31, 0]
+              },
+              {
+                "el": "F",
+                "at": [-1.1345, -0.655, 0]
+              },
+              {
+                "el": "F",
+                "at": [1.1345, -0.655, 0]
+              }
+            ],
+            "bonds": [
+              [0, 1, 1],
+              [0, 2, 1],
+              [0, 3, 1]
+            ],
+            "bond": 0.001
+          }
+        },
+        {
+          "molecule": {
+            "atoms": [
+              {
+                "el": "B",
+                "at": [0, 0, 0],
+                "r": 0.02
+              },
+              {
+                "el": "F",
+                "at": [0, 0.655, 0],
+                "r": 0.02
+              },
+              {
+                "el": "F",
+                "at": [-0.56725, -0.3275, 0],
+                "r": 0.02
+              },
+              {
+                "el": "F",
+                "at": [0.56725, -0.3275, 0],
+                "r": 0.02
+              }
+            ],
+            "bonds": [
+              [0, 1, 1],
+              [0, 2, 1],
+              [0, 3, 1]
+            ]
+          },
+          "color": "#ffb5b5"
+        },
+        {
+          "molecule": {
+            "atoms": [
+              {
+                "el": "F",
+                "at": [0, 0.655, 0],
+                "r": 0.02
+              },
+              {
+                "el": "F",
+                "at": [-0.56725, -0.3275, 0],
+                "r": 0.02
+              },
+              {
+                "el": "F",
+                "at": [0.56725, -0.3275, 0],
+                "r": 0.02
+              },
+              {
+                "el": "F",
+                "at": [0, 1.31, 0],
+                "r": 0.02
+              },
+              {
+                "el": "F",
+                "at": [-1.1345, -0.655, 0],
+                "r": 0.02
+              },
+              {
+                "el": "F",
+                "at": [1.1345, -0.655, 0],
+                "r": 0.02
+              }
+            ],
+            "bonds": [
+              [0, 3, 1],
+              [1, 4, 1],
+              [2, 5, 1]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "bf3-dac",
+      "name": "Boron trifluoride (BF3)",
+      "note": "space-filling: each atom a sphere of its van der Waals radius (B: 1.92 Å; F: 1.47 Å).",
+      "group": "dac",
+      "material": "plastic",
+      "color": "#ffb5b5",
+      "at": [-6, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "style": "space",
+            "atoms": [
+              {
+                "el": "B",
+                "at": [0, 0, 0],
+                "color": "#ffb5b5",
+                "r": 1.92
+              },
+              {
+                "el": "F",
+                "at": [0, 1.31, 0]
+              },
+              {
+                "el": "F",
+                "at": [-1.1345, -0.655, 0]
+              },
+              {
+                "el": "F",
+                "at": [1.1345, -0.655, 0]
+              }
+            ],
+            "bonds": [
+              [0, 1, 1],
+              [0, 2, 1],
+              [0, 3, 1]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "ch4",
+      "name": "Methane (CH4)",
+      "group": "que",
+      "material": "plastic",
+      "color": "#3d3d3d",
+      "at": [0, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "atoms": [
+              {
+                "el": "C",
+                "at": [0, 0, 0]
+              },
+              {
+                "el": "H",
+                "at": [0, 1.09, 0]
+              },
+              {
+                "el": "H",
+                "at": [1.0277, -0.3633, 0]
+              },
+              {
+                "el": "H",
+                "at": [-0.5138, -0.3633, 0.89]
+              },
+              {
+                "el": "H",
+                "at": [-0.5138, -0.3633, -0.89]
+              }
+            ],
+            "bonds": [
+              [0, 1, 1],
+              [0, 2, 1],
+              [0, 3, 1],
+              [0, 4, 1]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "ch4-dac",
+      "name": "Methane (CH4)",
+      "note": "space-filling: each atom a sphere of its van der Waals radius (C: 1.7 Å; H: 1.2 Å).",
+      "group": "dac",
+      "material": "plastic",
+      "color": "#3d3d3d",
+      "at": [0, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "style": "space",
+            "atoms": [
+              {
+                "el": "C",
+                "at": [0, 0, 0]
+              },
+              {
+                "el": "H",
+                "at": [0, 1.09, 0]
+              },
+              {
+                "el": "H",
+                "at": [1.0277, -0.3633, 0]
+              },
+              {
+                "el": "H",
+                "at": [-0.5138, -0.3633, 0.89]
+              },
+              {
+                "el": "H",
+                "at": [-0.5138, -0.3633, -0.89]
+              }
+            ],
+            "bonds": [
+              [0, 1, 1],
+              [0, 2, 1],
+              [0, 3, 1],
+              [0, 4, 1]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "nh3",
+      "name": "Ammonia (NH3)",
+      "group": "que",
+      "material": "plastic",
+      "color": "#3050f8",
+      "at": [6, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "atoms": [
+              {
+                "el": "N",
+                "at": [0, 0, 0]
+              },
+              {
+                "el": "H",
+                "at": [0.9375, -0.3758, 0]
+              },
+              {
+                "el": "H",
+                "at": [-0.4687, -0.3758, 0.8119]
+              },
+              {
+                "el": "H",
+                "at": [-0.4687, -0.3758, -0.8119]
+              }
+            ],
+            "bonds": [
+              [0, 1, 1],
+              [0, 2, 1],
+              [0, 3, 1]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "nh3-dac",
+      "name": "Ammonia (NH3)",
+      "note": "space-filling: each atom a sphere of its van der Waals radius (N: 1.55 Å; H: 1.2 Å).",
+      "group": "dac",
+      "material": "plastic",
+      "color": "#3050f8",
+      "at": [6, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "style": "space",
+            "atoms": [
+              {
+                "el": "N",
+                "at": [0, 0, 0]
+              },
+              {
+                "el": "H",
+                "at": [0.9375, -0.3758, 0]
+              },
+              {
+                "el": "H",
+                "at": [-0.4687, -0.3758, 0.8119]
+              },
+              {
+                "el": "H",
+                "at": [-0.4687, -0.3758, -0.8119]
+              }
+            ],
+            "bonds": [
+              [0, 1, 1],
+              [0, 2, 1],
+              [0, 3, 1]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "nh3-cap",
+      "name": "Lone pair of N",
+      "note": "an illustration: the region of the lone pair, where CH4 has its fourth H atom.",
+      "group": "cap",
+      "material": "glass",
+      "color": "#f2c14e",
+      "opacity": 0.4,
+      "label": false,
+      "at": [6, 0, 0],
+      "shapes": [
+        {
+          "ellipsoid": [0.2, 0.4, 0.2],
+          "at": [0, 0.62, 0]
+        }
+      ]
+    },
+    {
+      "id": "h2o",
+      "name": "Water (H2O)",
+      "group": "que",
+      "material": "plastic",
+      "color": "#ff2d1f",
+      "at": [12, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "atoms": [
+              {
+                "el": "O",
+                "at": [0, 0, 0]
+              },
+              {
+                "el": "H",
+                "at": [0.7591, -0.5877, 0]
+              },
+              {
+                "el": "H",
+                "at": [-0.7591, -0.5877, 0]
+              }
+            ],
+            "bonds": [
+              [0, 1, 1],
+              [0, 2, 1]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h2o-dac",
+      "name": "Water (H2O)",
+      "note": "space-filling: each atom a sphere of its van der Waals radius (O: 1.52 Å; H: 1.2 Å).",
+      "group": "dac",
+      "material": "plastic",
+      "color": "#ff2d1f",
+      "at": [12, 0, 0],
+      "shapes": [
+        {
+          "molecule": {
+            "style": "space",
+            "atoms": [
+              {
+                "el": "O",
+                "at": [0, 0, 0]
+              },
+              {
+                "el": "H",
+                "at": [0.7591, -0.5877, 0]
+              },
+              {
+                "el": "H",
+                "at": [-0.7591, -0.5877, 0]
+              }
+            ],
+            "bonds": [
+              [0, 1, 1],
+              [0, 2, 1]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "h2o-cap",
+      "name": "Two lone pairs of O",
+      "note": "an illustration: the regions of the two lone pairs, out of the H–O–H plane.",
+      "group": "cap",
+      "material": "glass",
+      "color": "#f2c14e",
+      "opacity": 0.4,
+      "label": false,
+      "at": [12, 0, 0],
+      "shapes": [
+        {
+          "ellipsoid": [0.2, 0.4, 0.2],
+          "at": [0, 0.3556, 0.5079],
+          "rot": [55, 0, 0]
+        },
+        {
+          "ellipsoid": [0.2, 0.4, 0.2],
+          "at": [0, 0.3556, -0.5079],
+          "rot": [-55, 0, 0]
+        }
+      ]
+    }
+  ]
+}

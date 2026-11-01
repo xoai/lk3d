@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · converging lens</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>A converging lens</h1>
+    <p>
+      Drag the orange object along the bench, or a blue focal point to change the lens. Two rays leave the object's tip:
+      one through the optical centre, straight on; one parallel to the axis, then through F′. Where they meet (or,
+      behind the object, where their extensions meet) is the image. One scene unit is 10 cm.
+    </p>
+    <div id="fig"></div>
+    <p class="info" id="read" aria-live="polite"></p>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    import { scene } from './load.js';
+    const U = 10,
+      H = 4; // cm per scene unit; the object is 4 cm tall
+    let d = 45,
+      f = 15;
+    const P = ([x, y]) => [x / U, y / U, 0];
+    const fig = LK3D.mount(document.getElementById('fig'), await scene('lens'), {
+      style: 'studio',
+      onHandle: (id, v) => {
+        if (id === 'vat') d = Math.round(-v * U);
+        else {
+          f = Math.round(Math.abs(v) * U);
+          fig
+            .handle(id === 'tieu-diem-sau' ? 'tieu-diem-truoc' : 'tieu-diem-sau')
+            .set((id === 'tieu-diem-sau' ? -f : f) / U);
+        }
+        draw();
+      },
+      handleText: (id, v) => (id === 'vat' ? `d = ${Math.round(-v * U)} cm` : `f = ${Math.round(Math.abs(v) * U)} cm`),
+    });
+    const rays = fig.lines({ count: 4, radius: 0.012, color: '#d99a00', studioColor: '#ffcf66', glow: '#ffb030' });
+    const back = fig.lines({ count: 2, radius: 0.007, color: '#7d93a8', studioColor: '#9fb4c8' });
+    const img = fig.lines({ count: 3, radius: 0.026, color: '#e0532a', studioColor: '#ff7a45', glow: '#ff7a45' });
+    rays.glow(0.9);
+    img.glow(0.6);
+    function draw() {
+      const B = [-d, H],
+        far = (p, dir) => {
+          const t = (63 - p[0]) / dir[0];
+          return [p[0] + dir[0] * t, p[1] + dir[1] * t];
+        };
+      rays.set(0, P(B), P([0, 0]));
+      rays.set(1, P([0, 0]), P(far([0, 0], [d, -H]))); // through O: straight on
+      rays.set(2, P(B), P([0, H]));
+      rays.set(3, P([0, H]), P(far([0, H], [f, -H]))); // parallel, then through F′
+      back.clear();
+      img.clear();
+      const read = document.getElementById('read');
+      if (d === f) {
+        read.textContent = `d = f = ${f} cm: the rays leave parallel, there is no image.`;
+        return;
+      }
+      const dp = (d * f) / (d - f),
+        hp = (-dp / d) * H; // 1/f = 1/d + 1/d′
+      if (Math.abs(dp) < 63 && Math.abs(hp) < 25) {
+        const s = Math.sign(hp),
+          w = Math.min(0.7, Math.abs(hp) * 0.3);
+        img.set(0, P([dp, 0]), P([dp, hp]));
+        img.set(1, P([dp, hp]), P([dp - w, hp - s * w * 1.4]));
+        img.set(2, P([dp, hp]), P([dp + w, hp - s * w * 1.4]));
+        if (dp < 0) {
+          back.set(0, P([0, 0]), P([dp, hp]));
+          back.set(1, P([0, H]), P([dp, hp]));
+        } // a virtual image: the rays' extensions
+      }
+      read.textContent = `d = ${d} cm, f = ${f} cm, so d′ = d·f / (d − f) = ${dp.toFixed(1)} cm: a ${dp > 0 ? 'real, upside-down' : 'virtual, upright'} image, ${Math.abs(dp / d).toFixed(2)} times the object's size.`;
+    }
+    draw();
+  </script>
+</html>

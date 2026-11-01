@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · two looks</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>Two looks</h1>
+    <p>
+      The same scene in the drawn look (<code>style: 'ink'</code>: coloured-pencil bands, hatching, ink outlines) and
+      the studio look (<code>'studio'</code>: physically based materials, a generated environment, soft shadows).
+      Readers switch with the built-in button; a page sets the first.
+    </p>
+    <div class="pair">
+      <div id="ink"></div>
+      <div id="studio"></div>
+    </div>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    import { scene } from './load.js';
+    LK3D.mount(document.getElementById('ink'), await scene('generator'), { style: 'ink', controls: false });
+    LK3D.mount(document.getElementById('studio'), await scene('generator'), { style: 'studio', controls: false });
+  </script>
+</html>

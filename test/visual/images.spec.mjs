@@ -6,9 +6,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const SCENES = fs.readdirSync(path.join(HERE, 'scenes')).map((f) => f.replace(/\.json$/, '')).sort();
-const FALLBACK = ['generator', 'molecules', 'earth'];  // the 2D fallback: a few are enough
-const runs = [...SCENES.flatMap((s) => [[s, 'ink'], [s, 'studio']]), ...FALLBACK.map((s) => [s, '2d'])];
+const SCENES = fs
+  .readdirSync(path.join(HERE, 'scenes'))
+  .map((f) => f.replace(/\.json$/, ''))
+  .sort();
+const FALLBACK = ['generator', 'molecules', 'earth']; // the 2D fallback: a few are enough
+const runs = [
+  ...SCENES.flatMap((s) => [
+    [s, 'ink'],
+    [s, 'studio'],
+  ]),
+  ...FALLBACK.map((s) => [s, '2d']),
+];
 
 for (const [scene, look] of runs) {
   test(`${scene}, ${look}`, async ({ page, browserName }) => {
@@ -16,7 +25,7 @@ for (const [scene, look] of runs) {
     const done = await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 }).then((h) => h.jsonValue());
     expect(done.errors, 'no errors on the page').toEqual([]);
     if (look === '2d') expect(done.renderer).toBe('2d');
-    else test.info().annotations.push({ type: 'renderer', description: done.renderer });   // WebGL 2 where the browser has it
+    else test.info().annotations.push({ type: 'renderer', description: done.renderer }); // WebGL 2 where the browser has it
     expect(done.triangles).toBeGreaterThan(0);
     await expect(page.locator('.lk3d-stage')).toHaveScreenshot(`${scene}-${look}.png`);
   });

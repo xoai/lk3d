@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · rock layers</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>Rock layers</h1>
+    <p>
+      Two blocks of ground made by the <code>terrain</code> shape: a landscape on top, tilted rock layers on the sides.
+      One block has slipped down along a fault. Take them apart to see the fault plane.
+    </p>
+    <div id="fig"></div>
+    <p class="info" id="info"></p>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    const layers = [
+      { thick: 0.12, color: '#c9a46a' },
+      { thick: 0.18, color: '#9b6b43' },
+      { thick: 0.16, color: '#d8c7a0' },
+      { thick: 0.3, color: '#7d7f86' },
+    ];
+    const block = (seed) => ({
+      terrain: {
+        size: [1.4, 1.6],
+        res: 28,
+        base: 0.7,
+        height: { amp: 0.12, freq: 1.4, seed },
+        layers,
+        top: '#7a9a55',
+        tilt: 9,
+      },
+    });
+    const scene = {
+      w: 16,
+      h: 10,
+      title: 'Rock layers and a fault',
+      alt: 'Two blocks of ground with tilted rock layers, one dropped down along a fault.',
+      view: { yaw: -35, pitch: 22 },
+      scale: { note: 'A diagram: not to scale' },
+      section: false,
+      parts: [
+        {
+          id: 'left',
+          name: 'Footwall',
+          note: 'the block that stayed in place.',
+          material: 'rock',
+          surface: { kind: 'grain', scale: 6, strength: 0.6 },
+          explode: [-0.3, 0, 0],
+          shapes: [{ ...block(3), at: [-0.72, 0, 0] }],
+        },
+        {
+          id: 'right',
+          name: 'Hanging wall',
+          note: 'the block that slipped down along the fault: the same layers, lower.',
+          material: 'rock',
+          surface: { kind: 'grain', scale: 6, strength: 0.6 },
+          explode: [0.3, 0, 0],
+          shapes: [{ ...block(5), at: [0.72, -0.22, 0] }],
+        },
+      ],
+    };
+    LK3D.mount(document.getElementById('fig'), scene, {
+      info: document.getElementById('info'),
+      infoIdle: 'Point at a block.',
+      style: 'studio',
+    });
+  </script>
+</html>

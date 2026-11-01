@@ -1,0 +1,6 @@
+dist/
+node_modules/
+test/visual/baselines/
+test/visual/scenes/
+test-results/
+package-lock.json

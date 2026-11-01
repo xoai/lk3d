@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · fossil skull</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>A fossil skull</h1>
+    <p>
+      A textured glTF model: the Smithsonian's scan of KNM-ER 3733, a Homo erectus skull about 1.8 million years old
+      (CC0). It is in millimetres, so the 5 cm bar is true. lk3d decodes the colour and normal maps in the background
+      and draws the bone's base colour until they arrive. The model's credit and its source (<code>scan</code>) appear
+      under the figure.
+    </p>
+    <div id="fig"></div>
+    <p class="info" id="info"></p>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    import { scene } from './load.js';
+    LK3D.mount(document.getElementById('fig'), await scene('skull'), {
+      info: document.getElementById('info'),
+      infoIdle: 'Point at a red dot to read about the feature.',
+    });
+  </script>
+</html>

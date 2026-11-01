@@ -11,20 +11,38 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url)), ENTRY = path.join(HERE, 'src/index.js');
+const HERE = path.dirname(fileURLToPath(import.meta.url)),
+  ENTRY = path.join(HERE, 'src/index.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this without a decision to raise it
 export const BUDGET_KB = 40;
 
-export const squeeze = (glsl) => glsl.replace(/\/\/[^\n]*/g, '').replace(/[ \t]+/g, ' ').replace(/ ?([=+\-*/<>,;(){}?:&|!]) ?/g, '$1').replace(/\n\s*/g, '\n');
+export const squeeze = (glsl) =>
+  glsl
+    .replace(/\/\/[^\n]*/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ?([=+\-*/<>,;(){}?:&|!]) ?/g, '$1')
+    .replace(/\n\s*/g, '\n');
 const glsl = {
   name: 'glsl',
   setup(b) {
     // the shaders' template literals (not one with ${…}: the header's is code that writes #defines)
     b.onLoad({ filter: /lk3d[\\/]src[\\/]shaders\.js$/ }, (a) => ({
-      contents: fs.readFileSync(a.path, 'utf8').replace(/`((?:[^`\\]|\\.)*)`/g, (m, g) => (g.includes('${') ? m : '`' + squeeze(g) + '`')), loader: 'js' }));
+      contents: fs
+        .readFileSync(a.path, 'utf8')
+        .replace(/`((?:[^`\\]|\\.)*)`/g, (m, g) => (g.includes('${') ? m : '`' + squeeze(g) + '`')),
+      loader: 'js',
+    }));
   },
 };
-const options = (format) => ({ entryPoints: [ENTRY], bundle: true, write: false, format, minify: true, target: 'es2018', plugins: [glsl] });
+const options = (format) => ({
+  entryPoints: [ENTRY],
+  bundle: true,
+  write: false,
+  format,
+  minify: true,
+  target: 'es2018',
+  plugins: [glsl],
+});
 
 export async function bundle(format = 'iife') {
   return (await esbuild.build(options(format))).outputFiles[0].text;
@@ -33,10 +51,12 @@ export async function bundle(format = 'iife') {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const dist = path.join(HERE, 'dist');
   fs.mkdirSync(dist, { recursive: true });
-  const iife = await bundle('iife'), esm = await bundle('esm');
+  const iife = await bundle('iife'),
+    esm = await bundle('esm');
   fs.writeFileSync(path.join(dist, 'lk3d.min.js'), iife);
   fs.writeFileSync(path.join(dist, 'lk3d.mjs'), esm);
-  const kb = (s) => (Buffer.byteLength(s) / 1024).toFixed(1), gz = (s) => (zlib.gzipSync(s, { level: 9 }).length / 1024).toFixed(1);
+  const kb = (s) => (Buffer.byteLength(s) / 1024).toFixed(1),
+    gz = (s) => (zlib.gzipSync(s, { level: 9 }).length / 1024).toFixed(1);
   console.log(`dist/lk3d.min.js ${kb(iife)} KB (${gz(iife)} KB gzipped), dist/lk3d.mjs ${kb(esm)} KB`);
   if (process.argv.includes('--size') && +gz(iife) > BUDGET_KB) {
     console.error(`✗ dist/lk3d.min.js is ${gz(iife)} KB gzipped, over the budget of ${BUDGET_KB} KB`);

@@ -15,10 +15,23 @@ export default defineConfig({
   reporter: [['list']],
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002, threshold: 0.02, animations: 'disabled' } },
   use: { baseURL: 'http://localhost:4173', viewport: { width: 520, height: 420 }, deviceScaleFactor: 1 },
-  webServer: { command: 'node serve.mjs', url: 'http://localhost:4173/test/visual/index.html', reuseExistingServer: true },
+  webServer: {
+    command: 'node serve.mjs',
+    url: 'http://localhost:4173/test/visual/index.html',
+    reuseExistingServer: true,
+  },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 520, height: 420 }, deviceScaleFactor: 1 } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'], viewport: { width: 520, height: 420 }, deviceScaleFactor: 1 } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 520, height: 420 }, deviceScaleFactor: 1 } },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 520, height: 420 }, deviceScaleFactor: 1 },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'], viewport: { width: 520, height: 420 }, deviceScaleFactor: 1 },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'], viewport: { width: 520, height: 420 }, deviceScaleFactor: 1 },
+    },
   ].filter((p) => !(oldMac && p.name === 'webkit')),
 });

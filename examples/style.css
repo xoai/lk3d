@@ -1,0 +1,105 @@
+/* The examples' page style: plain, readable, light and dark. lk3d itself takes its colours from --lk3d-* variables. */
+:root {
+  --bg: #fbfaf7;
+  --fg: #1d1a1e;
+  --muted: #6b6670;
+  --line: rgba(29, 26, 30, 0.14);
+  --link: #2f5fb3;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171b;
+    --fg: #e9e7e3;
+    --muted: #a29fa8;
+    --line: rgba(255, 255, 255, 0.14);
+    --link: #8db4ff;
+    --lk3d-ink: #e9e7e3;
+    --lk3d-paper: #22252b;
+    --lk3d-muted: #a29fa8;
+  }
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    16px/1.55 system-ui,
+    sans-serif;
+}
+main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+h1 {
+  font-size: 26px;
+  margin: 0 0 6px;
+}
+h2 {
+  font-size: 19px;
+  margin: 28px 0 6px;
+}
+p {
+  margin: 8px 0;
+}
+a {
+  color: var(--link);
+}
+.muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+.info {
+  min-height: 3em;
+  padding: 8px 12px;
+  border-left: 3px solid var(--link);
+  background: rgba(127, 127, 127, 0.08);
+  margin-top: 10px;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+.row button,
+.row label {
+  font: inherit;
+  font-size: 14px;
+}
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 720px) {
+  .pair {
+    grid-template-columns: 1fr;
+  }
+}
+code {
+  font:
+    14px ui-monospace,
+    Menlo,
+    monospace;
+  background: rgba(127, 127, 127, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.gallery {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.gallery li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+nav {
+  font-size: 14px;
+  margin-bottom: 14px;
+}

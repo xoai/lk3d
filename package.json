@@ -23,11 +23,19 @@
     "test": "node --test test/*.test.cjs",
     "size": "node build.mjs --size",
     "typecheck": "tsc -p test/tsconfig.json",
-    "test:visual": "node build.mjs && playwright test -c test/visual/playwright.config.mjs"
+    "test:visual": "node build.mjs && playwright test -c test/visual/playwright.config.mjs",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "examples": "node build.mjs && node test/visual/serve.mjs",
+    "docs": "node docs/scene-format.mjs && node docs/shapes/render.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@playwright/test": "1.64.1",
     "esbuild": "0.25.0",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "prettier": "3.9.10",
     "typescript": "7.0.2"
   },
   "types": "./index.d.ts"

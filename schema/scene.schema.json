@@ -4,9 +4,7 @@
   "title": "lk3d scene",
   "description": "A 3D figure as data: parts made of shapes, each with a name and a note, that the reader turns, takes apart, cuts open and moves. Other fields are allowed (a page's own data).",
   "type": "object",
-  "required": [
-    "parts"
-  ],
+  "required": ["parts"],
   "properties": {
     "w": {
       "description": "The stage's width in proportion to h (16 by default).",
@@ -31,18 +29,11 @@
       "description": "A description of the model for screen readers."
     },
     "style": {
-      "enum": [
-        "ink",
-        "studio"
-      ],
+      "enum": ["ink", "studio"],
       "description": "The first look: ink (drawn, the default) or studio (realistic)."
     },
     "env": {
-      "enum": [
-        "studio",
-        "warm",
-        "night"
-      ],
+      "enum": ["studio", "warm", "night"],
       "description": "The studio look's environment."
     },
     "view": {
@@ -50,27 +41,34 @@
       "description": "The first camera.",
       "properties": {
         "yaw": {
-          "type": "number"
+          "type": "number",
+          "description": "Degrees round the vertical."
         },
         "pitch": {
-          "type": "number"
+          "type": "number",
+          "description": "Degrees up."
         },
         "dist": {
           "type": "number",
-          "exclusiveMinimum": 0
+          "exclusiveMinimum": 0,
+          "description": "Distance from the target (default: to fit)."
         },
         "target": {
-          "$ref": "#/$defs/vec3"
+          "$ref": "#/$defs/vec3",
+          "description": "The point looked at (default: the middle)."
         },
         "fov": {
           "type": "number",
-          "exclusiveMinimum": 0
+          "exclusiveMinimum": 0,
+          "description": "Field of view, degrees (35)."
         },
         "explodeZoom": {
-          "type": "number"
+          "type": "number",
+          "description": "How far the camera steps back when the model is taken apart (0.5)."
         },
         "explodeShift": {
-          "$ref": "#/$defs/vec3"
+          "$ref": "#/$defs/vec3",
+          "description": "Where the view moves when the model is taken apart."
         }
       }
     },
@@ -103,10 +101,7 @@
       "properties": {
         "bar": {
           "type": "object",
-          "required": [
-            "length",
-            "label"
-          ],
+          "required": ["length", "label"],
           "properties": {
             "length": {
               "type": "number",
@@ -126,14 +121,10 @@
       },
       "anyOf": [
         {
-          "required": [
-            "bar"
-          ]
+          "required": ["bar"]
         },
         {
-          "required": [
-            "note"
-          ]
+          "required": ["note"]
         }
       ],
       "x-message": "scale is a bar ({bar: {length, label}}) and/or a note ({note: \"not to scale\"})"
@@ -151,7 +142,8 @@
       "items": {
         "$ref": "#/$defs/part"
       },
-      "x-message": "a scene needs parts"
+      "x-message": "a scene needs parts",
+      "description": "The parts of the model, each a list of shapes with a name and a note."
     }
   },
   "$defs": {
@@ -185,24 +177,23 @@
           "description": "The .glb as base64 (a build tool may fill it in from a file)."
         },
         "title": {
-          "type": "string"
+          "type": "string",
+          "description": "Its name in the credit line."
         },
         "author": {
-          "type": "string"
+          "type": "string",
+          "description": "Who made it (credited under the figure)."
         },
         "license": {
-          "type": "string"
+          "type": "string",
+          "description": "Its licence (credited under the figure)."
         },
         "url": {
-          "type": "string"
+          "type": "string",
+          "description": "Where it comes from (the credit links to it)."
         },
         "source": {
-          "enum": [
-            "scan",
-            "dataset",
-            "artist",
-            "ai"
-          ],
+          "enum": ["scan", "dataset", "artist", "ai"],
           "description": "Where it comes from: a scan of a real specimen, a scientific dataset, an artist's model, or made by AI (then called an illustration under the figure)."
         }
       }
@@ -213,9 +204,7 @@
       "properties": {
         "turn": {
           "type": "object",
-          "required": [
-            "axis"
-          ],
+          "required": ["axis"],
           "properties": {
             "axis": {
               "$ref": "#/$defs/vec3"
@@ -228,9 +217,7 @@
         },
         "slide": {
           "type": "object",
-          "required": [
-            "axis"
-          ],
+          "required": ["axis"],
           "properties": {
             "axis": {
               "$ref": "#/$defs/vec3"
@@ -240,9 +227,7 @@
         },
         "along": {
           "type": "object",
-          "required": [
-            "path"
-          ],
+          "required": ["path"],
           "properties": {
             "path": {
               "type": "array",
@@ -259,23 +244,29 @@
           "description": "A place on a path, 0 at its start to 1 at its end."
         },
         "min": {
-          "type": "number"
+          "type": "number",
+          "description": "The least value (degrees, distance or place)."
         },
         "max": {
-          "type": "number"
+          "type": "number",
+          "description": "The greatest value."
         },
         "snap": {
           "type": "number",
-          "exclusiveMinimum": 0
+          "exclusiveMinimum": 0,
+          "description": "Values move in these steps."
         },
         "value": {
-          "type": "number"
+          "type": "number",
+          "description": "Where the part is drawn (default 0, or min)."
         },
         "label": {
-          "type": "string"
+          "type": "string",
+          "description": "What a screen reader calls it."
         },
         "unit": {
-          "type": "string"
+          "type": "string",
+          "description": "A unit read out after the value."
         },
         "moves": {
           "type": "array",
@@ -287,31 +278,20 @@
       },
       "oneOf": [
         {
-          "required": [
-            "turn"
-          ]
+          "required": ["turn"]
         },
         {
-          "required": [
-            "slide",
-            "min",
-            "max"
-          ]
+          "required": ["slide", "min", "max"]
         },
         {
-          "required": [
-            "along"
-          ]
+          "required": ["along"]
         }
       ],
       "x-message": "a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}"
     },
     "part": {
       "type": "object",
-      "required": [
-        "id",
-        "shapes"
-      ],
+      "required": ["id", "shapes"],
       "properties": {
         "id": {
           "type": "string",
@@ -327,7 +307,8 @@
           "description": "Shown when the part is pointed at (may hold simple HTML)."
         },
         "group": {
-          "type": "string"
+          "type": "string",
+          "description": "Parts of one group move, hide and are framed together (set({hide}), focus, a handle's moves)."
         },
         "material": {
           "enum": [
@@ -351,39 +332,50 @@
             "ice",
             "water",
             "gas"
-          ]
+          ],
+          "description": "How it reflects light in the studio look (and how much light wraps round into it, for soft materials)."
         },
         "color": {
-          "$ref": "#/$defs/color"
+          "$ref": "#/$defs/color",
+          "description": "Its colour in the drawn look."
         },
         "studioColor": {
-          "$ref": "#/$defs/color"
+          "$ref": "#/$defs/color",
+          "description": "Its colour in the studio look (default: color)."
         },
         "glow": {
-          "$ref": "#/$defs/color"
+          "$ref": "#/$defs/color",
+          "description": "The colour it glows when the page lights it (set({glow}))."
         },
         "opacity": {
           "type": "number",
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Always see-through: 1 is solid (glass about 0.35)."
         },
         "xray": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Becomes see-through with the \"See through\" control."
         },
         "hidden": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Not drawn at first (set({hide}) changes it)."
         },
         "explode": {
-          "$ref": "#/$defs/vec3"
+          "$ref": "#/$defs/vec3",
+          "description": "Where it moves to when the model is taken apart."
         },
         "at": {
-          "$ref": "#/$defs/vec3"
+          "$ref": "#/$defs/vec3",
+          "description": "Moves the whole part."
         },
         "rot": {
-          "$ref": "#/$defs/vec3"
+          "$ref": "#/$defs/vec3",
+          "description": "Turns the whole part (degrees about x, y, z)."
         },
         "scale": {
-          "$ref": "#/$defs/vec3"
+          "$ref": "#/$defs/vec3",
+          "description": "Stretches the whole part."
         },
         "label": {
           "anyOf": [
@@ -400,11 +392,7 @@
           "type": "object",
           "properties": {
             "axis": {
-              "enum": [
-                "x",
-                "y",
-                "z"
-              ]
+              "enum": ["x", "y", "z"]
             },
             "ratio": {
               "type": "number"
@@ -412,26 +400,19 @@
             "center": {
               "$ref": "#/$defs/vec3"
             }
-          }
+          },
+          "description": "Turns with the figure's spin angle, set({spin}): about an axis through center, ratio times as fast."
         },
         "handle": {
-          "$ref": "#/$defs/handle"
+          "$ref": "#/$defs/handle",
+          "description": "The reader moves this part with the pointer or the keys."
         },
         "surface": {
           "type": "object",
-          "required": [
-            "kind"
-          ],
+          "required": ["kind"],
           "properties": {
             "kind": {
-              "enum": [
-                "brushed",
-                "knurl",
-                "ribs",
-                "grain",
-                "skin",
-                "cast"
-              ]
+              "enum": ["brushed", "knurl", "ribs", "grain", "skin", "cast"]
             },
             "scale": {
               "type": "number",
@@ -442,7 +423,8 @@
               "exclusiveMinimum": 0
             }
           },
-          "x-message": "surface is {kind: brushed|knurl|ribs|grain|skin|cast, scale, strength} (positive numbers)"
+          "x-message": "surface is {kind: brushed|knurl|ribs|grain|skin|cast, scale, strength} (positive numbers)",
+          "description": "Fine surface detail in the studio look (WebGL 2): kind, bumps per unit, strength (0.3 to 1)."
         },
         "refract": {
           "type": "number",
@@ -456,14 +438,13 @@
             "$ref": "#/$defs/shape"
           },
           "minItems": 1,
-          "x-message": "a part needs its shapes (a list of one or more)"
+          "x-message": "a part needs its shapes (a list of one or more)",
+          "description": "What the part is made of: one or more shapes."
         }
       },
       "dependentSchemas": {
         "refract": {
-          "required": [
-            "material"
-          ],
+          "required": ["material"],
           "properties": {
             "material": {
               "const": "glass"
@@ -497,9 +478,7 @@
         "cylinder": {
           "description": "A cylinder along x from x0 to x1; ri makes it hollow, r1 a cone.",
           "type": "object",
-          "required": [
-            "r"
-          ],
+          "required": ["r"],
           "properties": {
             "r": {
               "type": "number",
@@ -585,9 +564,7 @@
         "molecule": {
           "description": "Atoms (CPK colours) and bonds: {atoms: [{el, at}], bonds: [[i, j, order]], scale, style}.",
           "type": "object",
-          "required": [
-            "atoms"
-          ]
+          "required": ["atoms"]
         },
         "dna": {
           "description": "A double helix with base pairs: {pairs, seq, scale}.",
@@ -608,9 +585,7 @@
         "orbit": {
           "description": "An ellipse with the Sun at a focus: {a, e, wire}.",
           "type": "object",
-          "required": [
-            "a"
-          ]
+          "required": ["a"]
         },
         "blade": {
           "description": "A twisted airfoil blade along y: {root, span, chord, tip, twist, thickness, camber, sweep}.",
@@ -619,9 +594,7 @@
         "scatter": {
           "description": "Copies of a shape at random places: {shape, n, within, avoid, size, seed}.",
           "type": "object",
-          "required": [
-            "shape"
-          ],
+          "required": ["shape"],
           "properties": {
             "shape": {
               "$ref": "#/$defs/shape"
@@ -637,10 +610,12 @@
           "type": "string"
         },
         "at": {
-          "$ref": "#/$defs/vec3"
+          "$ref": "#/$defs/vec3",
+          "description": "Where the shape is, in the part."
         },
         "rot": {
-          "$ref": "#/$defs/vec3"
+          "$ref": "#/$defs/vec3",
+          "description": "Turned (degrees about x, y, z)."
         },
         "scale": {
           "anyOf": [
@@ -650,14 +625,17 @@
             {
               "type": "number"
             }
-          ]
+          ],
+          "description": "Stretched: [x, y, z], or one number for all three."
         },
         "color": {
-          "$ref": "#/$defs/color"
+          "$ref": "#/$defs/color",
+          "description": "Its own colour (vertex colours), over the part's."
         },
         "detail": {
           "type": "number",
-          "exclusiveMinimum": 0
+          "exclusiveMinimum": 0,
+          "description": "More or less detail than the figure's quality: 0.5 for a shape repeated hundreds of times, 2 for a close-up."
         },
         "repeat": {
           "anyOf": [
@@ -667,9 +645,7 @@
             },
             {
               "type": "object",
-              "required": [
-                "n"
-              ],
+              "required": ["n"],
               "properties": {
                 "n": {
                   "type": "integer",
@@ -682,144 +658,102 @@
                   "type": "number"
                 },
                 "axis": {
-                  "enum": [
-                    "x",
-                    "y",
-                    "z"
-                  ]
+                  "enum": ["x", "y", "z"]
                 }
               }
             }
-          ]
+          ],
+          "description": "Copies around an axis: n of them, step degrees apart from start."
         },
         "node": {
-          "type": "string"
+          "type": "string",
+          "description": "With model: one node of the model (and what is under it)."
         },
         "closed": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "lathe: a closed outline (a ring); tube: a loop."
         },
         "mirror": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "lathe: flipped along x."
         },
         "seg": {
           "type": "integer",
-          "minimum": 3
+          "minimum": 3,
+          "description": "Segments around (sphere 32; 8 for a tiny bead)."
         },
         "r": {
           "type": "number",
-          "exclusiveMinimum": 0
+          "exclusiveMinimum": 0,
+          "description": "tube: its radius."
         }
       },
       "oneOf": [
         {
-          "required": [
-            "lathe"
-          ]
+          "required": ["lathe"]
         },
         {
-          "required": [
-            "cylinder"
-          ]
+          "required": ["cylinder"]
         },
         {
-          "required": [
-            "box"
-          ]
+          "required": ["box"]
         },
         {
-          "required": [
-            "sphere"
-          ]
+          "required": ["sphere"]
         },
         {
-          "required": [
-            "torus"
-          ]
+          "required": ["torus"]
         },
         {
-          "required": [
-            "tube"
-          ]
+          "required": ["tube"]
         },
         {
-          "required": [
-            "helix"
-          ]
+          "required": ["helix"]
         },
         {
-          "required": [
-            "loop"
-          ]
+          "required": ["loop"]
         },
         {
-          "required": [
-            "ellipsoid"
-          ]
+          "required": ["ellipsoid"]
         },
         {
-          "required": [
-            "capsule"
-          ]
+          "required": ["capsule"]
         },
         {
-          "required": [
-            "blob"
-          ]
+          "required": ["blob"]
         },
         {
-          "required": [
-            "shell"
-          ]
+          "required": ["shell"]
         },
         {
-          "required": [
-            "tree"
-          ]
+          "required": ["tree"]
         },
         {
-          "required": [
-            "molecule"
-          ]
+          "required": ["molecule"]
         },
         {
-          "required": [
-            "dna"
-          ]
+          "required": ["dna"]
         },
         {
-          "required": [
-            "extrude"
-          ]
+          "required": ["extrude"]
         },
         {
-          "required": [
-            "terrain"
-          ]
+          "required": ["terrain"]
         },
         {
-          "required": [
-            "ring"
-          ]
+          "required": ["ring"]
         },
         {
-          "required": [
-            "orbit"
-          ]
+          "required": ["orbit"]
         },
         {
-          "required": [
-            "blade"
-          ]
+          "required": ["blade"]
         },
         {
-          "required": [
-            "scatter"
-          ]
+          "required": ["scatter"]
         },
         {
-          "required": [
-            "model"
-          ]
+          "required": ["model"]
         }
       ],
       "x-message": "a shape is exactly one of: lathe, cylinder, box, sphere, torus, tube, helix, loop, ellipsoid, capsule, blob, shell, tree, molecule, dna, extrude, terrain, ring, orbit, blade, scatter, model"

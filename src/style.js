@@ -4,7 +4,8 @@
 //   --lk3d-font (labels in the drawn look)
 function css() {
   if (document.getElementById('lk3d-css')) return;
-  const s = document.createElement('style'); s.id = 'lk3d-css';
+  const s = document.createElement('style');
+  s.id = 'lk3d-css';
   s.textContent = `
 .lk3d{position:relative; margin:24px 0 6px}
 .lk3d-stage{position:relative; width:100%; overflow:hidden; border-radius:6px; touch-action:none; user-select:none; -webkit-user-select:none}

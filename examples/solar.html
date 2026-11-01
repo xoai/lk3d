@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · the inner Solar System</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>The inner Solar System</h1>
+    <p>
+      The four inner planets on their true orbits (ellipses with the Sun at a focus). Drag a planet round its orbit:
+      each one is an <code>along</code> handle whose path is its own orbit, made here from the orbit shape's numbers.
+    </p>
+    <div id="fig"></div>
+    <p class="info" id="info"></p>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    import { scene } from './load.js';
+    const s = await scene('solar');
+    s.env = 'night';
+    s.style = 'studio';
+    // an orbit {a, e} turned by rot [0, peri, 0]: its points, starting at the perihelion where the planet is drawn
+    const orbitPath = (a, e, peri, n = 128) => {
+      const w = (peri * Math.PI) / 180,
+        b = a * Math.sqrt(1 - e * e),
+        pts = [];
+      for (let k = 0; k < n; k++) {
+        const E = (2 * Math.PI * k) / n,
+          x = a * (Math.cos(E) - e),
+          z = -b * Math.sin(E);
+        pts.push([x * Math.cos(w) + z * Math.sin(w), 0, -x * Math.sin(w) + z * Math.cos(w)]);
+      }
+      return pts;
+    };
+    for (const p of s.parts) {
+      const orbit = s.parts.find((q) => q.id === 'qd-' + p.id);
+      if (!orbit) continue;
+      const { a, e } = orbit.shapes[0].orbit;
+      p.handle = { along: { path: orbitPath(a, e, orbit.rot[1]), closed: true }, label: p.name };
+    }
+    const info = document.getElementById('info');
+    LK3D.mount(document.getElementById('fig'), s, {
+      info,
+      infoIdle: 'Drag a planet along its orbit.',
+      labels: 'all',
+      handleText: (id, u) =>
+        `${s.parts.find((p) => p.id === id).name}: ${Math.round(u * 100)}% of the way round from perihelion`,
+    });
+  </script>
+</html>

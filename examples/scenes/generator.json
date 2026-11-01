@@ -1,0 +1,431 @@
+{
+  "w": 16,
+  "h": 10,
+  "title": "An AC generator",
+  "alt": "A 3D model of an AC generator: casing, stator core and coils, a magnet rotor on a shaft, end covers, a terminal box and a lamp.",
+  "style": "ink",
+  "view": {
+    "yaw": -38,
+    "pitch": 20,
+    "explodeZoom": 0.95,
+    "explodeShift": [0.95, 0, 0]
+  },
+  "section": {
+    "normal": [0, 0, 1],
+    "offset": 0
+  },
+  "parts": [
+    {
+      "id": "vo",
+      "name": "Casing",
+      "note": "holds and protects the parts inside; the fins on the outside carry heat away.",
+      "group": "stato",
+      "material": "metal",
+      "surface": {
+        "kind": "cast",
+        "strength": 0.35
+      },
+      "color": "#c3cbd2",
+      "studioColor": "#9aa3ad",
+      "xray": true,
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.56,
+            "ri": 0.5,
+            "x0": -0.55,
+            "x1": 0.55
+          }
+        },
+        {
+          "box": [1.02, 0.045, 0.016],
+          "at": [0, 0.585, 0],
+          "repeat": 28
+        },
+        {
+          "box": [0.16, 0.13, 0.9],
+          "at": [-0.33, -0.6, 0]
+        },
+        {
+          "box": [0.16, 0.13, 0.9],
+          "at": [0.33, -0.6, 0]
+        }
+      ]
+    },
+    {
+      "id": "loi-stato",
+      "name": "Stator core",
+      "note": "laminated steel with teeth pointing inwards, around which the coils are wound.",
+      "group": "stato",
+      "material": "steel",
+      "color": "#8d949c",
+      "studioColor": "#5d646c",
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.5,
+            "ri": 0.4,
+            "x0": -0.45,
+            "x1": 0.45
+          }
+        },
+        {
+          "box": [0.9, 0.075, 0.07],
+          "at": [0, 0.365, 0],
+          "repeat": 12
+        }
+      ]
+    },
+    {
+      "id": "cuon-day",
+      "name": "Stator coils",
+      "note": "they stay still; as the magnets turn, the magnetic flux through them changes, so a current is induced in them.",
+      "group": "stato",
+      "material": "copper",
+      "color": "#d98a45",
+      "studioColor": "#c8743a",
+      "shapes": [
+        {
+          "loop": {
+            "a": 0.98,
+            "b": 0.12,
+            "R": 0.352,
+            "wire": 0.017,
+            "corner": 0.04,
+            "turns": 3,
+            "gap": 0.03
+          },
+          "repeat": 12
+        }
+      ]
+    },
+    {
+      "id": "loi-roto",
+      "name": "Rotor core",
+      "note": "a steel block fixed to the shaft, carrying the magnets. Drag the rotor round its shaft to turn the generator by hand.",
+      "group": "roto",
+      "material": "steel",
+      "color": "#9aa0a8",
+      "studioColor": "#6c737b",
+      "handle": {
+        "turn": {
+          "axis": [1, 0, 0]
+        },
+        "label": "Rôto",
+        "moves": ["roto"]
+      },
+      "explode": [1.3, 0, 0],
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.27,
+            "ri": 0.065,
+            "x0": -0.44,
+            "x1": 0.44
+          }
+        }
+      ]
+    },
+    {
+      "id": "nam-cham-n",
+      "name": "Magnet, north pole (N)",
+      "note": "turns with the rotor. Two north and two south poles alternate: two pairs of poles.",
+      "group": "roto",
+      "material": "magnet",
+      "color": "#e0604f",
+      "studioColor": "#c9402f",
+      "explode": [1.3, 0, 0],
+      "shapes": [
+        {
+          "lathe": [
+            [-0.44, 0.272],
+            [0.44, 0.272],
+            [0.44, 0.318],
+            [-0.44, 0.318]
+          ],
+          "from": -36,
+          "to": 36,
+          "repeat": {
+            "n": 2,
+            "step": 180
+          }
+        }
+      ]
+    },
+    {
+      "id": "nam-cham-s",
+      "name": "Magnet, south pole (S)",
+      "note": "turns with the rotor, between the north poles.",
+      "group": "roto",
+      "material": "magnet",
+      "color": "#5b86c9",
+      "studioColor": "#3a64ad",
+      "explode": [1.3, 0, 0],
+      "shapes": [
+        {
+          "lathe": [
+            [-0.44, 0.272],
+            [0.44, 0.272],
+            [0.44, 0.318],
+            [-0.44, 0.318]
+          ],
+          "from": -36,
+          "to": 36,
+          "repeat": {
+            "n": 2,
+            "step": 180,
+            "start": 90
+          }
+        }
+      ]
+    },
+    {
+      "id": "truc",
+      "name": "Shaft",
+      "note": "turned by an engine, a water turbine or a steam turbine, it turns the rotor.",
+      "group": "roto",
+      "material": "steel",
+      "surface": {
+        "kind": "brushed",
+        "scale": 60,
+        "strength": 0.3
+      },
+      "color": "#b6bcc3",
+      "studioColor": "#c0c6cc",
+      "explode": [1.3, 0, 0],
+      "shapes": [
+        {
+          "lathe": [
+            [-1.25, 0],
+            [-1.25, 0.05],
+            [-1.0, 0.05],
+            [-1.0, 0.065],
+            [1.0, 0.065],
+            [1.0, 0.05],
+            [1.15, 0.05],
+            [1.15, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nap-truoc",
+      "name": "Front cover",
+      "note": "closes one end and holds a bearing for the shaft.",
+      "group": "vo",
+      "material": "metal",
+      "surface": {
+        "kind": "cast",
+        "strength": 0.35
+      },
+      "color": "#b3bcc5",
+      "studioColor": "#8d969f",
+      "explode": [-0.9, 0, 0],
+      "shapes": [
+        {
+          "lathe": [
+            [-0.55, 0.56],
+            [-0.6, 0.55],
+            [-0.67, 0.45],
+            [-0.71, 0.25],
+            [-0.71, 0.075],
+            [-0.63, 0.075],
+            [-0.63, 0.24],
+            [-0.6, 0.42],
+            [-0.55, 0.5]
+          ],
+          "closed": true
+        },
+        {
+          "torus": [0.085, 0.022],
+          "at": [-0.67, 0, 0]
+        },
+        {
+          "cylinder": {
+            "r": 0.026,
+            "x0": -0.61,
+            "x1": -0.53
+          },
+          "at": [0, 0.53, 0],
+          "repeat": {
+            "n": 4,
+            "start": 45
+          }
+        }
+      ]
+    },
+    {
+      "id": "nap-sau",
+      "name": "Rear cover",
+      "note": "closes the other end and holds the second bearing.",
+      "group": "vo",
+      "material": "metal",
+      "surface": {
+        "kind": "cast",
+        "strength": 0.35
+      },
+      "color": "#b3bcc5",
+      "studioColor": "#8d969f",
+      "explode": [2.6, 0, 0],
+      "shapes": [
+        {
+          "lathe": [
+            [-0.55, 0.56],
+            [-0.6, 0.55],
+            [-0.67, 0.45],
+            [-0.71, 0.25],
+            [-0.71, 0.075],
+            [-0.63, 0.075],
+            [-0.63, 0.24],
+            [-0.6, 0.42],
+            [-0.55, 0.5]
+          ],
+          "closed": true,
+          "mirror": true
+        },
+        {
+          "torus": [0.085, 0.022],
+          "at": [0.67, 0, 0]
+        },
+        {
+          "cylinder": {
+            "r": 0.026,
+            "x0": 0.53,
+            "x1": 0.61
+          },
+          "at": [0, 0.53, 0],
+          "repeat": {
+            "n": 4,
+            "start": 45
+          }
+        }
+      ]
+    },
+    {
+      "id": "hop-dau-day",
+      "name": "Terminal box",
+      "note": "where the ends of the stator coils come out.",
+      "group": "stato",
+      "material": "paint",
+      "color": "#6f8f6a",
+      "studioColor": "#3d4a44",
+      "explode": [0, 0.45, 0],
+      "shapes": [
+        {
+          "box": [0.28, 0.1, 0.24],
+          "at": [0.1, 0.61, 0]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": -0.05,
+            "x1": 0.05
+          },
+          "rot": [0, 0, 90],
+          "at": [0.04, 0.7, 0]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": -0.05,
+            "x1": 0.05
+          },
+          "rot": [0, 0, 90],
+          "at": [0.16, 0.7, 0]
+        }
+      ]
+    },
+    {
+      "id": "day-dan",
+      "name": "Wires",
+      "note": "carry the alternating current from the generator to the lamp.",
+      "group": "mach",
+      "material": "rubber",
+      "color": "#3a3a40",
+      "studioColor": "#1e1f22",
+      "explode": [0, 0.45, 0],
+      "label": false,
+      "shapes": [
+        {
+          "tube": [
+            [0.04, 0.74, 0],
+            [0.04, 0.9, 0],
+            [0.07, 1.04, 0]
+          ],
+          "r": 0.012
+        },
+        {
+          "tube": [
+            [0.16, 0.74, 0],
+            [0.16, 0.9, 0],
+            [0.13, 1.04, 0]
+          ],
+          "r": 0.012
+        }
+      ]
+    },
+    {
+      "id": "bong-den",
+      "name": "Lamp",
+      "note": "lights up when current flows; turned slowly, it flickers with the alternating current.",
+      "group": "mach",
+      "material": "glass",
+      "refract": 0.6,
+      "color": "#f4efe0",
+      "studioColor": "#e8eef5",
+      "opacity": 0.45,
+      "glow": "#ffcc55",
+      "explode": [0, 0.45, 0],
+      "shapes": [
+        {
+          "sphere": 0.12,
+          "at": [0.1, 1.2, 0]
+        }
+      ]
+    },
+    {
+      "id": "de-den",
+      "name": "Lamp base",
+      "group": "mach",
+      "material": "metal",
+      "color": "#c9b27a",
+      "studioColor": "#b59a5a",
+      "explode": [0, 0.45, 0],
+      "label": false,
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.05,
+            "r1": 0.06,
+            "x0": -0.06,
+            "x1": 0.06
+          },
+          "rot": [0, 0, 90],
+          "at": [0.1, 1.06, 0]
+        }
+      ]
+    },
+    {
+      "id": "day-toc",
+      "name": "Filament",
+      "group": "mach",
+      "material": "metal",
+      "color": "#7a5a3a",
+      "glow": "#ffb030",
+      "explode": [0, 0.45, 0],
+      "label": false,
+      "shapes": [
+        {
+          "helix": {
+            "r": 0.014,
+            "x0": -0.04,
+            "x1": 0.04,
+            "turns": 6,
+            "wire": 0.004
+          },
+          "at": [0.1, 1.21, 0]
+        }
+      ]
+    }
+  ]
+}

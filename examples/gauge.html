@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · pressure gauge</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>A pressure gauge</h1>
+    <p>
+      Drag the needle round: it is a <code>turn</code> handle between stops at −120° and +120°, snapping to 1°. With the
+      keyboard, press Tab to reach it and the arrow keys to move it; a screen reader hears the pressure, worded by
+      <code>handleText</code>.
+    </p>
+    <div id="fig"></div>
+    <p class="info" id="read" aria-live="polite"></p>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    const bar = (deg) => ((120 - deg) / 240) * 10; // +120° (the needle turned left) reads 0 bar, −120° (right) 10 bar
+    const scene = {
+      w: 16,
+      h: 11,
+      title: 'A pressure gauge',
+      alt: 'A round pressure gauge with a scale from 0 to 10 bar and a needle.',
+      view: { yaw: 0, pitch: 0 },
+      section: false,
+      ground: false,
+      parts: [
+        {
+          id: 'case',
+          name: 'Case',
+          note: 'a steel ring around the dial.',
+          material: 'steel',
+          color: '#9aa3ad',
+          surface: { kind: 'brushed', scale: 40, strength: 0.3 },
+          shapes: [
+            { torus: [1.02, 0.07], rot: [0, -90, 0] },
+            { cylinder: { r: 1.02, x0: -0.08, x1: -0.02 }, rot: [0, -90, 0] },
+          ],
+        },
+        {
+          id: 'dial',
+          name: 'Dial',
+          note: 'its scale runs from 0 to 10 bar.',
+          material: 'paint',
+          color: '#f4efe0',
+          shapes: [
+            { cylinder: { r: 0.98, x0: -0.02, x1: 0 }, rot: [0, -90, 0] },
+            {
+              box: [0.025, 0.14, 0.02],
+              at: [0, 0.8, 0.01],
+              repeat: { n: 11, step: 24, start: -120, axis: 'z' },
+              color: '#1d1a1e',
+            },
+          ],
+        },
+        {
+          id: 'needle',
+          name: 'Needle',
+          note: 'drag it round, or Tab to it and use the arrow keys.',
+          material: 'paint',
+          color: '#c0392b',
+          glow: '#ff6a4a',
+          handle: {
+            turn: { axis: [0, 0, 1], center: [0, 0, 0.05] },
+            min: -120,
+            max: 120,
+            snap: 1,
+            value: 0,
+            label: 'Pressure',
+          },
+          shapes: [
+            { box: [0.05, 0.78, 0.02], at: [0, 0.34, 0.05] },
+            { cylinder: { r: 0.07, x0: 0.02, x1: 0.08 }, rot: [0, -90, 0] },
+          ],
+        },
+      ],
+    };
+    const read = document.getElementById('read'),
+      say = (deg) => `${bar(deg).toFixed(1)} bar`;
+    LK3D.mount(document.getElementById('fig'), scene, {
+      style: 'studio',
+      onHandle: (id, deg) => (read.textContent = say(deg)),
+      handleText: (id, deg) => say(deg),
+    });
+    read.textContent = say(0);
+  </script>
+</html>

@@ -8,7 +8,8 @@ function header(gl2, stage, defs) {
   for (const d of defs) h += `#define ${d} 1\n`;
   if (stage === 'vs') h += gl2 ? '#define attribute in\n#define varying out\n' : '';
   else {
-    h += gl2 ? 'precision highp float;\nprecision highp sampler2DShadow;\n#define varying in\nout vec4 fragColor;\n#define gl_FragColor fragColor\n#define texture2D texture\n#define textureCube texture\n'
+    h += gl2
+      ? 'precision highp float;\nprecision highp sampler2DShadow;\n#define varying in\nout vec4 fragColor;\n#define gl_FragColor fragColor\n#define texture2D texture\n#define textureCube texture\n'
       : '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n';
   }
   return h;
@@ -272,10 +273,16 @@ vec4 encode(vec3 c) {
   return vec4(c, 1.0);
 #endif
 }`;
-const ENV_FS = `uniform int uFace; varying vec2 vUV;` + STUDIO + `
+const ENV_FS =
+  `uniform int uFace; varying vec2 vUV;` +
+  STUDIO +
+  `
 void main() { gl_FragColor = encode(studio(faceDir(uFace, vUV))); }`;
 // prefiltering for a roughness: GGX-importance-sampled reflections of the environment, computed analytically from studio()
-const PREFILTER_FS = `uniform int uFace; uniform float uRough; varying vec2 vUV;` + STUDIO + `
+const PREFILTER_FS =
+  `uniform int uFace; uniform float uRough; varying vec2 vUV;` +
+  STUDIO +
+  `
 void main() {
   vec3 N = faceDir(uFace, vUV), up = abs(N.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), T = normalize(cross(up, N)), B = cross(N, T);
   float a = uRough * uRough; vec3 sum = vec3(0.0); float w = 0.0;
@@ -288,4 +295,17 @@ void main() {
   gl_FragColor = encode(sum / max(w, 1e-4));
 }`;
 
-export { header, PART_VS, PART_FS, DEPTH_FS, GLOW_FS, GROUND_VS, GROUND_FS, QUAD_VS, BLUR_FS, ADD_FS, ENV_FS, PREFILTER_FS };
+export {
+  header,
+  PART_VS,
+  PART_FS,
+  DEPTH_FS,
+  GLOW_FS,
+  GROUND_VS,
+  GROUND_FS,
+  QUAD_VS,
+  BLUR_FS,
+  ADD_FS,
+  ENV_FS,
+  PREFILTER_FS,
+};

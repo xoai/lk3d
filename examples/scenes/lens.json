@@ -1,0 +1,241 @@
+{
+  "w": 16,
+  "h": 9,
+  "title": "A converging lens on an optical bench",
+  "alt": "An optical bench with a converging lens in the middle, a bright arrow-shaped object on the left and the two focal points F and F′.",
+  "style": "studio",
+  "view": {
+    "yaw": -10,
+    "pitch": 7,
+    "dist": 10.5,
+    "target": [0, -0.3, 0]
+  },
+  "scale": {
+    "bar": {
+      "length": 1,
+      "label": "10 cm"
+    }
+  },
+  "parts": [
+    {
+      "id": "thau-kinh",
+      "name": "Converging lens",
+      "note": "thinner at the rim than in the middle. Its optical centre O is at the very middle.",
+      "material": "glass",
+      "refract": 1,
+      "color": "#cfe3ee",
+      "studioColor": "#d8ecf6",
+      "opacity": 0.35,
+      "shapes": [
+        {
+          "lathe": [
+            [-0.08, 0],
+            [-0.0772, 0.2],
+            [-0.0688, 0.4],
+            [-0.0548, 0.6],
+            [-0.0352, 0.8],
+            [-0.0168, 0.95],
+            [-0.01, 1.0],
+            [0.01, 1.0],
+            [0.0168, 0.95],
+            [0.0352, 0.8],
+            [0.0548, 0.6],
+            [0.0688, 0.4],
+            [0.0772, 0.2],
+            [0.08, 0]
+          ],
+          "closed": true,
+          "seg": 72
+        }
+      ]
+    },
+    {
+      "id": "gia-thau-kinh",
+      "name": "Lens holder",
+      "note": "a metal ring that holds the lens, fixed on the bench.",
+      "material": "metal",
+      "surface": {
+        "kind": "cast",
+        "strength": 0.3
+      },
+      "color": "#9aa3ad",
+      "studioColor": "#7d868f",
+      "shapes": [
+        {
+          "torus": [1.02, 0.03]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": -1.47,
+            "x1": -1.04
+          },
+          "rot": [0, 0, 90]
+        },
+        {
+          "box": [0.3, 0.12, 0.42],
+          "at": [0, -1.45, 0]
+        }
+      ]
+    },
+    {
+      "id": "vat",
+      "name": "Object AB",
+      "note": "an arrow 4 cm tall standing on the principal axis. Drag it along the bench to change its distance d.",
+      "material": "paint",
+      "color": "#e8743b",
+      "studioColor": "#ff8a4a",
+      "glow": "#ff9a50",
+      "handle": {
+        "slide": {
+          "axis": [1, 0, 0]
+        },
+        "value": -4.5,
+        "min": -5.5,
+        "max": -0.3,
+        "snap": 0.1,
+        "label": "Vật sáng AB",
+        "moves": ["gia-vat"]
+      },
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.29
+          },
+          "rot": [0, 0, 90],
+          "at": [-4.5, 0, 0]
+        },
+        {
+          "cylinder": {
+            "r": 0.08,
+            "r1": 0.001,
+            "x0": 0.28,
+            "x1": 0.4
+          },
+          "rot": [0, 0, 90],
+          "at": [-4.5, 0, 0]
+        }
+      ]
+    },
+    {
+      "id": "gia-vat",
+      "name": "Object holder",
+      "note": "slides along the bench with the object.",
+      "material": "metal",
+      "color": "#9aa3ad",
+      "studioColor": "#7d868f",
+      "label": false,
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.022,
+            "x0": -1.47,
+            "x1": -0.01
+          },
+          "rot": [0, 0, 90],
+          "at": [-4.5, 0, 0]
+        },
+        {
+          "box": [0.3, 0.12, 0.42],
+          "at": [-4.5, -1.45, 0]
+        }
+      ]
+    },
+    {
+      "id": "tieu-diem-sau",
+      "name": "Focal point F′",
+      "note": "rays parallel to the principal axis pass through it after the lens. Drag F′ to change the focal length.",
+      "material": "paint",
+      "color": "#2f7fb8",
+      "studioColor": "#6cc4ff",
+      "glow": "#6cc4ff",
+      "handle": {
+        "slide": {
+          "axis": [1, 0, 0]
+        },
+        "value": 1.5,
+        "min": 0.8,
+        "max": 2.0,
+        "snap": 0.1,
+        "label": "Tiêu điểm F′"
+      },
+      "shapes": [
+        {
+          "sphere": 0.07,
+          "at": [1.5, 0, 0]
+        }
+      ]
+    },
+    {
+      "id": "tieu-diem-truoc",
+      "name": "Focal point F",
+      "note": "a ray through this point leaves the lens parallel to the principal axis. Drag F to change the focal length.",
+      "material": "paint",
+      "color": "#2f7fb8",
+      "studioColor": "#6cc4ff",
+      "glow": "#6cc4ff",
+      "handle": {
+        "slide": {
+          "axis": [1, 0, 0]
+        },
+        "value": -1.5,
+        "min": -2.0,
+        "max": -0.8,
+        "snap": 0.1,
+        "label": "Tiêu điểm F"
+      },
+      "shapes": [
+        {
+          "sphere": 0.07,
+          "at": [-1.5, 0, 0]
+        }
+      ]
+    },
+    {
+      "id": "truc-chinh",
+      "name": "Principal axis",
+      "note": "the line through the optical centre O, at right angles to the lens.",
+      "material": "paint",
+      "color": "#6b6670",
+      "studioColor": "#8a93a3",
+      "shapes": [
+        {
+          "tube": [
+            [-6.3, 0, 0],
+            [6.3, 0, 0]
+          ],
+          "r": 0.006
+        }
+      ]
+    },
+    {
+      "id": "gia-quang-hoc",
+      "name": "Optical bench",
+      "note": "a straight rail with a scale, along which the object and the lens slide.",
+      "material": "metal",
+      "surface": {
+        "kind": "brushed",
+        "scale": 30,
+        "strength": 0.4
+      },
+      "color": "#6e7680",
+      "studioColor": "#4a5059",
+      "shapes": [
+        {
+          "box": [12.8, 0.1, 0.34],
+          "at": [0, -1.56, 0]
+        },
+        {
+          "box": [0.12, 0.4, 0.5],
+          "at": [-6.2, -1.8, 0]
+        },
+        {
+          "box": [0.12, 0.4, 0.5],
+          "at": [6.2, -1.8, 0]
+        }
+      ]
+    }
+  ]
+}

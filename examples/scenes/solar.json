@@ -1,0 +1,170 @@
+{
+  "env": "night",
+  "w": 16,
+  "h": 10,
+  "title": "The Solar System",
+  "alt": "The Sun and the four inner planets on their true orbits.",
+  "style": "ink",
+  "section": false,
+  "ground": false,
+  "view": {
+    "yaw": -20,
+    "pitch": 40,
+    "target": [0, 0, 0],
+    "dist": 6
+  },
+  "scale": {
+    "bar": {
+      "length": 1,
+      "label": "1 AU"
+    },
+    "note": "Distances to scale; planets drawn 2 000 times larger, the Sun 40 times."
+  },
+  "parts": [
+    {
+      "id": "mat-troi",
+      "name": "Sun",
+      "material": "gas",
+      "color": "#f6c344",
+      "studioColor": "#ffcf5a",
+      "glow": "#ffb52e",
+      "shapes": [
+        {
+          "sphere": 0.186
+        }
+      ]
+    },
+    {
+      "id": "qd-thuy-tinh",
+      "name": "Orbit of Mercury",
+      "group": "trong",
+      "material": "matte",
+      "color": "#8a8478",
+      "label": false,
+      "rot": [0, 77.46, 0],
+      "shapes": [
+        {
+          "orbit": {
+            "a": 0.387,
+            "e": 0.206,
+            "wire": 0.0075
+          }
+        }
+      ]
+    },
+    {
+      "id": "qd-kim-tinh",
+      "name": "Orbit of Venus",
+      "group": "trong",
+      "material": "matte",
+      "color": "#8a8478",
+      "label": false,
+      "rot": [0, 131.6, 0],
+      "shapes": [
+        {
+          "orbit": {
+            "a": 0.723,
+            "e": 0.007,
+            "wire": 0.0089
+          }
+        }
+      ]
+    },
+    {
+      "id": "qd-trai-dat",
+      "name": "Orbit of Earth",
+      "group": "trong",
+      "material": "matte",
+      "color": "#8a8478",
+      "label": false,
+      "rot": [0, 102.94, 0],
+      "shapes": [
+        {
+          "orbit": {
+            "a": 1.0,
+            "e": 0.017,
+            "wire": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "id": "qd-hoa-tinh",
+      "name": "Orbit of Mars",
+      "group": "trong",
+      "material": "matte",
+      "color": "#8a8478",
+      "label": false,
+      "rot": [0, 336.06, 0],
+      "shapes": [
+        {
+          "orbit": {
+            "a": 1.524,
+            "e": 0.093,
+            "wire": 0.0121
+          }
+        }
+      ]
+    },
+    {
+      "id": "thuy-tinh",
+      "name": "Mercury",
+      "note": "the first planet from the Sun.",
+      "group": "trong",
+      "material": "rock",
+      "color": "#a39e98",
+      "rot": [0, 77.46, 0],
+      "shapes": [
+        {
+          "sphere": 0.0326,
+          "at": [0.3073, 0, 0]
+        }
+      ]
+    },
+    {
+      "id": "kim-tinh",
+      "name": "Venus",
+      "note": "the second planet from the Sun.",
+      "group": "trong",
+      "material": "rock",
+      "color": "#e6c47e",
+      "rot": [0, 131.6, 0],
+      "shapes": [
+        {
+          "sphere": 0.0809,
+          "at": [0.7179, 0, 0]
+        }
+      ]
+    },
+    {
+      "id": "trai-dat",
+      "name": "Earth",
+      "note": "the third planet from the Sun, where we live.",
+      "group": "trong",
+      "material": "rock",
+      "color": "#4a86c5",
+      "rot": [0, 102.94, 0],
+      "shapes": [
+        {
+          "sphere": 0.0852,
+          "at": [0.983, 0, 0]
+        }
+      ]
+    },
+    {
+      "id": "hoa-tinh",
+      "name": "Mars",
+      "note": "the fourth planet from the Sun.",
+      "group": "trong",
+      "material": "rock",
+      "color": "#c8603a",
+      "rot": [0, 336.06, 0],
+      "shapes": [
+        {
+          "sphere": 0.0453,
+          "at": [1.3823, 0, 0]
+        }
+      ]
+    }
+  ]
+}

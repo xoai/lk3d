@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · animal cell</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>An animal cell</h1>
+    <p>
+      The cell is cut open, to scale (the bar is 5 µm) except where the note says. Choose an organelle: the figure
+      selects it and the camera frames it (<code>select</code> and <code>focus</code>).
+    </p>
+    <div id="fig"></div>
+    <p class="info" id="info"></p>
+    <div class="row" id="pick"></div>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    import { scene } from './load.js';
+    const s = await scene('cell'),
+      info = document.getElementById('info');
+    const fig = LK3D.mount(document.getElementById('fig'), s, {
+      info,
+      infoIdle: 'Point at an organelle, or choose one below.',
+      style: 'studio',
+    });
+    const seen = new Set();
+    for (const p of s.parts) {
+      if (seen.has(p.name)) continue;
+      seen.add(p.name);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = p.name;
+      b.addEventListener('click', () => {
+        const all = s.parts.filter((q) => q.name === p.name).map((q) => q.id); // the six mitochondria together
+        fig.select(p.id);
+        fig.focus(all);
+        info.innerHTML = `<b>${p.name}</b> ${p.note}`;
+      });
+      document.getElementById('pick').append(b);
+    }
+    document
+      .getElementById('pick')
+      .insertAdjacentHTML('beforeend', '<button type="button" id="all">Whole cell</button>');
+    document.getElementById('all').addEventListener('click', () => {
+      fig.select(null);
+      fig.view('home');
+    });
+  </script>
+</html>

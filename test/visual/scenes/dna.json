@@ -1,0 +1,94 @@
+{
+ "w": 16,
+ "h": 8,
+ "title": "Một đoạn phân tử DNA",
+ "alt": "Mô hình 3D một đoạn DNA gồm 20 cặp nucleotide: hai mạch xoắn quanh một trục, nối với nhau bằng các cặp base A–T và G–C tô bốn màu. Bên cạnh là một phân tử nước vẽ cùng tỉ lệ.",
+ "style": "ink",
+ "section": false,
+ "view": {
+  "yaw": -18,
+  "pitch": 12
+ },
+ "scale": {
+  "bar": {
+   "length": 1,
+   "label": "1 nm = 10 Å"
+  }
+ },
+ "parts": [
+  {
+   "id": "dna",
+   "name": "Đoạn phân tử DNA",
+   "material": "plastic",
+   "color": "#e0a14a",
+   "shapes": [
+    {
+     "dna": {
+      "pairs": 20,
+      "seq": "ATGCCGTAAGCTTACGGATC",
+      "r": 0.89,
+      "wire": 0.11,
+      "twist": 36
+     }
+    }
+   ]
+  },
+  {
+   "id": "nuoc-dna",
+   "name": "Một phân tử nước",
+   "note": "vẽ cùng tỉ lệ với đoạn DNA (cùng tọa độ như ở Hình 1, đổi ra nanomét): đoạn DNA rộng gấp khoảng mười lần một phân tử nước.",
+   "material": "plastic",
+   "color": "#ff2d1f",
+   "at": [
+    -1.2,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "molecule": {
+      "atoms": [
+       {
+        "el": "O",
+        "at": [
+         0,
+         0,
+         0
+        ]
+       },
+       {
+        "el": "H",
+        "at": [
+         0.7591,
+         -0.5877,
+         0
+        ]
+       },
+       {
+        "el": "H",
+        "at": [
+         -0.7591,
+         -0.5877,
+         0
+        ]
+       }
+      ],
+      "bonds": [
+       [
+        0,
+        1,
+        1
+       ],
+       [
+        0,
+        2,
+        1
+       ]
+      ],
+      "scale": 0.1
+     }
+    }
+   ]
+  }
+ ]
+}

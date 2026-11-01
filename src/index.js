@@ -627,7 +627,7 @@ function mount(el, spec, opts = {}) {
     stats() {
       let gpu = '';
       try { const e = gl && gl.getExtension('WEBGL_debug_renderer_info'); gpu = e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : (gl ? gl.getParameter(gl.RENDERER) : ''); } catch (e) { gpu = ''; }
-      return { ...stats, backend: R.kind, hifi: R.hifi, shadows: R.shadows, parallelCompile: !!R.parallel, triangles: Math.round(S.parts.reduce((a, p) => a + p.tris, 0)), scale, dpr, gpu };
+      return { ...stats, textures: R.pending || 0, backend: R.kind, hifi: R.hifi, shadows: R.shadows, parallelCompile: !!R.parallel, triangles: Math.round(S.parts.reduce((a, p) => a + p.tris, 0)), scale, dpr, gpu };
     },
     destroy() {
       dead = true; cancelAnimationFrame(raf); raf = 0; clearTimeout(idleTimer); anim.clear();

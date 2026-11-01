@@ -1,0 +1,358 @@
+{
+ "w": 16,
+ "h": 11,
+ "title": "Khí trong bình có pít-tông",
+ "alt": "Mô hình 3D: một bình thủy tinh đặt trên bếp, đậy bằng pít-tông, nối với một áp kế. Bên trong, hàng nghìn phân tử khí chuyển động hỗn loạn, tô màu theo tốc độ.",
+ "style": "ink",
+ "section": false,
+ "view": {
+  "yaw": -30,
+  "pitch": 20,
+  "target": [
+   -0.17,
+   0.6,
+   0
+  ]
+ },
+ "parts": [
+  {
+   "id": "thanh-binh",
+   "name": "Thành bình",
+   "note": "thủy tinh trong suốt để nhìn thấy các phân tử. Mỗi phân tử va vào thành bình lại bật ra và đẩy thành bình một chút.",
+   "group": "binh",
+   "material": "glass",
+   "color": "#d6e6ee",
+   "studioColor": "#c8dce8",
+   "opacity": 0.16,
+   "label": false,
+   "shapes": [
+    {
+     "box": [
+      1.0,
+      1.12,
+      0.012
+     ],
+     "at": [
+      0,
+      0.56,
+      0.506
+     ]
+    },
+    {
+     "box": [
+      1.0,
+      1.12,
+      0.012
+     ],
+     "at": [
+      0,
+      0.56,
+      -0.506
+     ]
+    },
+    {
+     "box": [
+      0.012,
+      1.12,
+      1.0
+     ],
+     "at": [
+      0.506,
+      0.56,
+      0
+     ]
+    },
+    {
+     "box": [
+      0.012,
+      1.12,
+      1.0
+     ],
+     "at": [
+      -0.506,
+      0.56,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "khung",
+   "name": "Khung bình",
+   "note": "bốn cột kim loại giữ các tấm thủy tinh.",
+   "group": "binh",
+   "material": "metal",
+   "color": "#b9c1c9",
+   "studioColor": "#8d969f",
+   "shapes": [
+    {
+     "box": [
+      0.03,
+      1.14,
+      0.03
+     ],
+     "at": [
+      0.515,
+      0.57,
+      0.515
+     ],
+     "repeat": {
+      "n": 4,
+      "axis": "y"
+     }
+    }
+   ]
+  },
+  {
+   "id": "day",
+   "name": "Đáy bình",
+   "note": "tấm kim loại đặt trên bếp.",
+   "group": "binh",
+   "material": "metal",
+   "color": "#a9b1b9",
+   "studioColor": "#7d868f",
+   "shapes": [
+    {
+     "box": [
+      1.1,
+      0.05,
+      1.1
+     ],
+     "at": [
+      0,
+      -0.025,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bep",
+   "name": "Bếp",
+   "note": "giữ khí ở nhiệt độ đã chọn. Trong mô phỏng, bếp chỉnh nhẹ tốc độ của mọi phân tử cho đến khi khí đạt nhiệt độ đó.",
+   "group": "bep",
+   "material": "paint",
+   "color": "#59565e",
+   "studioColor": "#2c2b30",
+   "glow": "#ff6a2a",
+   "shapes": [
+    {
+     "box": [
+      1.2,
+      0.1,
+      1.2
+     ],
+     "at": [
+      0,
+      -0.1,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pit-tong",
+   "name": "Pít-tông",
+   "note": "nắp đậy kín, trượt lên xuống được. Đẩy pít-tông xuống thì thể tích khí giảm. Có thể kéo pít-tông bằng chuột hay ngón tay.",
+   "group": "pit-tong",
+   "handle": {
+    "slide": {
+     "axis": [
+      0,
+      1,
+      0
+     ]
+    },
+    "value": 1,
+    "min": 0.3,
+    "max": 1,
+    "snap": 0.01,
+    "label": "Pít-tông"
+   },
+   "material": "metal",
+   "color": "#9aa3ad",
+   "studioColor": "#6c737b",
+   "shapes": [
+    {
+     "box": [
+      0.99,
+      0.05,
+      0.99
+     ],
+     "at": [
+      0,
+      1.025,
+      0
+     ]
+    },
+    {
+     "cylinder": {
+      "r": 0.025,
+      "x0": 1.05,
+      "x1": 1.42
+     },
+     "rot": [
+      0,
+      0,
+      90
+     ]
+    },
+    {
+     "box": [
+      0.4,
+      0.045,
+      0.07
+     ],
+     "at": [
+      0,
+      1.44,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ong-noi",
+   "name": "Ống nối",
+   "note": "đưa áp suất của khí trong bình tới áp kế.",
+   "group": "ap-ke",
+   "material": "rubber",
+   "color": "#3a3a40",
+   "studioColor": "#1e1f22",
+   "label": false,
+   "shapes": [
+    {
+     "tube": [
+      [
+       -0.512,
+       0.25,
+       0.2
+      ],
+      [
+       -0.66,
+       0.25,
+       0.2
+      ],
+      [
+       -0.8,
+       0.3,
+       0.2
+      ],
+      [
+       -0.8,
+       0.44,
+       0.2
+      ]
+     ],
+     "r": 0.018
+    }
+   ]
+  },
+  {
+   "id": "ap-ke",
+   "name": "Áp kế",
+   "note": "đo áp suất của khí trong bình.",
+   "group": "ap-ke",
+   "material": "paint",
+   "color": "#f4efe0",
+   "studioColor": "#e8e4da",
+   "at": [
+    -0.8,
+    0.62,
+    0.2
+   ],
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.17,
+      "x0": -0.025,
+      "x1": 0.025
+     },
+     "rot": [
+      0,
+      90,
+      0
+     ]
+    },
+    {
+     "torus": [
+      0.17,
+      0.016
+     ],
+     "rot": [
+      0,
+      90,
+      0
+     ]
+    },
+    {
+     "box": [
+      0.012,
+      0.04,
+      0.006
+     ],
+     "at": [
+      0,
+      0.135,
+      0.027
+     ],
+     "repeat": {
+      "n": 9,
+      "axis": "z",
+      "step": 30,
+      "start": -120
+     }
+    }
+   ]
+  },
+  {
+   "id": "kim",
+   "name": "Kim áp kế",
+   "note": "quay theo áp suất đo được.",
+   "group": "ap-ke",
+   "material": "paint",
+   "color": "#b8352b",
+   "studioColor": "#c9402f",
+   "label": false,
+   "at": [
+    -0.8,
+    0.62,
+    0.2
+   ],
+   "spin": {
+    "axis": "z",
+    "center": [
+     -0.8,
+     0.62,
+     0.2
+    ]
+   },
+   "shapes": [
+    {
+     "box": [
+      0.014,
+      0.13,
+      0.006
+     ],
+     "at": [
+      0,
+      0.055,
+      0.036
+     ]
+    },
+    {
+     "cylinder": {
+      "r": 0.02,
+      "x0": -0.042,
+      "x1": -0.026
+     },
+     "rot": [
+      0,
+      90,
+      0
+     ]
+    }
+   ]
+  }
+ ]
+}

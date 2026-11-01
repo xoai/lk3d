@@ -1,0 +1,1582 @@
+{
+ "w": 16,
+ "h": 9,
+ "narrow": "1 / 0.72",
+ "title": "Động cơ phản lực tua-bin quạt",
+ "alt": "Mô hình 3D của một động cơ phản lực tua-bin quạt, trục nằm ngang, không khí đi từ trái sang phải: chóp quạt và 24 cánh quạt, cánh tĩnh sau quạt, máy nén áp thấp và máy nén áp cao với nhiều tầng cánh quay xen cánh tĩnh, buồng đốt hình vành khăn với các vòi phun nhiên liệu, tua-bin áp cao và tua-bin áp thấp, hai trục lồng nhau, ống xả và nón xả, vỏ ngoài và vỏ lõi có thể nhìn xuyên.",
+ "style": "ink",
+ "view": {
+  "yaw": -50,
+  "pitch": 14,
+  "explodeZoom": 0.78,
+  "explodeShift": [
+   0.15,
+   0.45,
+   0
+  ]
+ },
+ "section": {
+  "normal": [
+   0,
+   0,
+   1
+  ],
+  "offset": 0
+ },
+ "scale": {
+  "note": "Mô hình minh họa, không theo tỉ lệ"
+ },
+ "parts": [
+  {
+   "id": "vo-ngoai",
+   "name": "Vỏ ngoài",
+   "note": "bọc quạt và ống dẫn vòng ngoài. Phía trước là cửa hút gió; phía sau, luồng khí đi vòng ngoài lõi thoát ra ở mép sau của vỏ.",
+   "group": "vo",
+   "material": "paint",
+   "surface": {
+    "kind": "brushed",
+    "scale": 30,
+    "strength": 0.3
+   },
+   "color": "#e8e4da",
+   "studioColor": "#dcdad5",
+   "xray": true,
+   "explode": [
+    0,
+    1.55,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -1.64,
+       0.86
+      ],
+      [
+       -1.58,
+       0.93
+      ],
+      [
+       -1.45,
+       0.965
+      ],
+      [
+       -1.0,
+       0.985
+      ],
+      [
+       -0.4,
+       0.965
+      ],
+      [
+       0.2,
+       0.9
+      ],
+      [
+       0.62,
+       0.795
+      ],
+      [
+       0.62,
+       0.775
+      ],
+      [
+       0.2,
+       0.79
+      ],
+      [
+       -0.4,
+       0.8
+      ],
+      [
+       -0.9,
+       0.81
+      ],
+      [
+       -1.3,
+       0.81
+      ],
+      [
+       -1.5,
+       0.82
+      ],
+      [
+       -1.6,
+       0.835
+      ]
+     ],
+     "closed": true
+    }
+   ]
+  },
+  {
+   "id": "vo-loi",
+   "name": "Vỏ lõi động cơ",
+   "note": "bọc máy nén, buồng đốt và tua-bin. Mặt ngoài của nó là thành trong của ống dẫn vòng ngoài; mặt trong ôm sát đầu các cánh, hẹp dần qua máy nén.",
+   "group": "loi",
+   "material": "metal",
+   "color": "#b9c0c8",
+   "studioColor": "#9aa3ad",
+   "xray": true,
+   "explode": [
+    0,
+    -1.05,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -0.92,
+       0.475
+      ],
+      [
+       -0.85,
+       0.5
+      ],
+      [
+       -0.7,
+       0.525
+      ],
+      [
+       -0.3,
+       0.55
+      ],
+      [
+       0.3,
+       0.56
+      ],
+      [
+       0.8,
+       0.54
+      ],
+      [
+       1.2,
+       0.5
+      ],
+      [
+       1.46,
+       0.475
+      ],
+      [
+       1.46,
+       0.458
+      ],
+      [
+       1.42,
+       0.458
+      ],
+      [
+       1.0,
+       0.385
+      ],
+      [
+       0.94,
+       0.345
+      ],
+      [
+       0.86,
+       0.345
+      ],
+      [
+       0.8,
+       0.4
+      ],
+      [
+       0.5,
+       0.4
+      ],
+      [
+       0.44,
+       0.31
+      ],
+      [
+       0.36,
+       0.314
+      ],
+      [
+       -0.24,
+       0.374
+      ],
+      [
+       -0.3,
+       0.378
+      ],
+      [
+       -0.38,
+       0.41
+      ],
+      [
+       -0.45,
+       0.435
+      ],
+      [
+       -0.52,
+       0.44
+      ],
+      [
+       -0.82,
+       0.47
+      ],
+      [
+       -0.9,
+       0.468
+      ]
+     ],
+     "closed": true
+    }
+   ]
+  },
+  {
+   "id": "chop-quat",
+   "name": "Chóp quạt",
+   "note": "dẫn không khí vào quạt một cách êm, quay cùng quạt.",
+   "group": "truc-thap",
+   "material": "paint",
+   "surface": {
+    "kind": "brushed",
+    "scale": 50,
+    "strength": 0.25
+   },
+   "color": "#4a4e57",
+   "studioColor": "#2e3138",
+   "spin": {
+    "axis": "x"
+   },
+   "explode": [
+    -1.3,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -1.66,
+       0
+      ],
+      [
+       -1.62,
+       0.05
+      ],
+      [
+       -1.54,
+       0.115
+      ],
+      [
+       -1.42,
+       0.18
+      ],
+      [
+       -1.3,
+       0.222
+      ],
+      [
+       -1.2,
+       0.24
+      ],
+      [
+       -1.2,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "quat",
+   "name": "Quạt",
+   "note": "24 cánh rộng bản, xoắn từ gốc ra đầu cánh. Quạt hút không khí vào và đẩy phần lớn số khí đó ra phía sau qua ống dẫn vòng ngoài; phần còn lại đi vào lõi động cơ.",
+   "group": "truc-thap",
+   "material": "metal",
+   "color": "#c3cad2",
+   "studioColor": "#a9b2bc",
+   "spin": {
+    "axis": "x"
+   },
+   "explode": [
+    -0.85,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -1.2,
+       0.05
+      ],
+      [
+       -1.2,
+       0.24
+      ],
+      [
+       -1.0,
+       0.25
+      ],
+      [
+       -0.92,
+       0.28
+      ],
+      [
+       -0.86,
+       0.298
+      ],
+      [
+       -0.86,
+       0.05
+      ]
+     ],
+     "closed": true
+    },
+    {
+     "blade": {
+      "root": 0.24,
+      "span": 0.545,
+      "chord": 0.2,
+      "tip": 0.3,
+      "twist": 35,
+      "thickness": 0.06,
+      "camber": 0.05,
+      "sweep": 0.1
+     },
+     "at": [
+      -1.11,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      60,
+      0
+     ],
+     "repeat": 24
+    }
+   ]
+  },
+  {
+   "id": "mn-thap-roto",
+   "name": "Máy nén áp thấp, cánh quay",
+   "note": "3 tầng cánh quay (30, 32 và 34 cánh), gắn trên trục áp thấp nên quay cùng quạt; bắt đầu nén không khí đi vào lõi.",
+   "group": "truc-thap",
+   "material": "steel",
+   "color": "#aab3bc",
+   "studioColor": "#8d969f",
+   "spin": {
+    "axis": "x"
+   },
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -0.86,
+       0.22
+      ],
+      [
+       -0.86,
+       0.3
+      ],
+      [
+       -0.46,
+       0.288
+      ],
+      [
+       -0.4,
+       0.27
+      ],
+      [
+       -0.4,
+       0.22
+      ]
+     ],
+     "closed": true
+    },
+    {
+     "blade": {
+      "root": 0.298,
+      "span": 0.157,
+      "chord": 0.075,
+      "twist": 15,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.8,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 30,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.294,
+      "span": 0.147,
+      "chord": 0.07,
+      "twist": 15,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.66,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 32,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.29,
+      "span": 0.137,
+      "chord": 0.065,
+      "twist": 15,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.52,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 34,
+     "detail": 0.5
+    }
+   ]
+  },
+  {
+   "id": "tb-thap",
+   "name": "Tua-bin áp thấp",
+   "note": "4 tầng cánh quay (36, 38, 40 và 42 cánh), cánh dài dần về phía sau vì khí nở ra. Khí nóng làm tua-bin quay; trục áp thấp truyền chuyển động quay ra trước cho quạt và máy nén áp thấp.",
+   "group": "truc-thap",
+   "material": "metal",
+   "color": "#b98a62",
+   "studioColor": "#9a7050",
+   "spin": {
+    "axis": "x"
+   },
+   "glow": "#ff9a4a",
+   "shapes": [
+    {
+     "lathe": [
+      [
+       0.96,
+       0.18
+      ],
+      [
+       0.96,
+       0.245
+      ],
+      [
+       1.44,
+       0.235
+      ],
+      [
+       1.44,
+       0.18
+      ]
+     ],
+     "closed": true
+    },
+    {
+     "lathe": [
+      [
+       1.3,
+       0.05
+      ],
+      [
+       1.44,
+       0.18
+      ],
+      [
+       1.46,
+       0.18
+      ],
+      [
+       1.32,
+       0.05
+      ]
+     ],
+     "closed": true
+    },
+    {
+     "blade": {
+      "root": 0.243,
+      "span": 0.137,
+      "chord": 0.05,
+      "twist": 15,
+      "thickness": 0.12,
+      "camber": -0.08
+     },
+     "at": [
+      1.04,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -45,
+      0
+     ],
+     "repeat": 36,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.241,
+      "span": 0.16,
+      "chord": 0.054,
+      "twist": 15,
+      "thickness": 0.12,
+      "camber": -0.08
+     },
+     "at": [
+      1.16,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -45,
+      0
+     ],
+     "repeat": 38,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.238,
+      "span": 0.183,
+      "chord": 0.058,
+      "twist": 15,
+      "thickness": 0.12,
+      "camber": -0.08
+     },
+     "at": [
+      1.28,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -45,
+      0
+     ],
+     "repeat": 40,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.236,
+      "span": 0.207,
+      "chord": 0.062,
+      "twist": 15,
+      "thickness": 0.12,
+      "camber": -0.08
+     },
+     "at": [
+      1.4,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -45,
+      0
+     ],
+     "repeat": 42,
+     "detail": 0.5
+    }
+   ]
+  },
+  {
+   "id": "truc-thap",
+   "name": "Trục áp thấp",
+   "note": "trục trong, dài, nối tua-bin áp thấp ở phía sau với quạt và máy nén áp thấp ở phía trước. Nó chạy xuyên qua trục áp cao.",
+   "group": "truc-thap",
+   "material": "steel",
+   "color": "#8f979f",
+   "studioColor": "#c0c6cc",
+   "spin": {
+    "axis": "x"
+   },
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.05,
+      "x0": -1.18,
+      "x1": 1.46
+     }
+    }
+   ]
+  },
+  {
+   "id": "mn-cao-roto",
+   "name": "Máy nén áp cao, cánh quay",
+   "note": "6 tầng cánh quay (26, 28, 30, 32, 34 và 36 cánh), quay nhanh hơn quạt. Không khí bị nén mạnh, đường dẫn khí hẹp dần nên cánh ngắn dần về phía sau.",
+   "group": "truc-cao",
+   "material": "steel",
+   "color": "#9fa9b3",
+   "studioColor": "#7d868f",
+   "spin": {
+    "axis": "x",
+    "ratio": 2.4
+   },
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -0.26,
+       0.12
+      ],
+      [
+       -0.26,
+       0.215
+      ],
+      [
+       0.42,
+       0.27
+      ],
+      [
+       0.42,
+       0.12
+      ]
+     ],
+     "closed": true
+    },
+    {
+     "blade": {
+      "root": 0.218,
+      "span": 0.142,
+      "chord": 0.07,
+      "twist": 15,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.22,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 26,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.227,
+      "span": 0.122,
+      "chord": 0.064,
+      "twist": 15,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.11,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 28,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.236,
+      "span": 0.102,
+      "chord": 0.058,
+      "twist": 15,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 30,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.245,
+      "span": 0.082,
+      "chord": 0.052,
+      "twist": 15,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      0.11,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 32,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.254,
+      "span": 0.062,
+      "chord": 0.046,
+      "twist": 15,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      0.22,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 34,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.263,
+      "span": 0.042,
+      "chord": 0.04,
+      "twist": 15,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      0.33,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 36,
+     "detail": 0.5
+    }
+   ]
+  },
+  {
+   "id": "tb-cao",
+   "name": "Tua-bin áp cao",
+   "note": "1 tầng 40 cánh, ngay sau buồng đốt, chịu khí nóng nhất. Nó quay trục áp cao, kéo máy nén áp cao.",
+   "group": "truc-cao",
+   "material": "metal",
+   "color": "#c08a5a",
+   "studioColor": "#a0704a",
+   "spin": {
+    "axis": "x",
+    "ratio": 2.4
+   },
+   "glow": "#ff8a3a",
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.256,
+      "ri": 0.11,
+      "x0": 0.875,
+      "x1": 0.925
+     }
+    },
+    {
+     "blade": {
+      "root": 0.255,
+      "span": 0.078,
+      "chord": 0.045,
+      "twist": 10,
+      "thickness": 0.18,
+      "camber": -0.12
+     },
+     "at": [
+      0.9,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -40,
+      0
+     ],
+     "repeat": 40,
+     "detail": 0.5
+    }
+   ]
+  },
+  {
+   "id": "truc-cao",
+   "name": "Trục áp cao",
+   "note": "trục rỗng, ngắn, nối tua-bin áp cao với máy nén áp cao. Trục áp thấp chạy bên trong nó; hai trục quay với tốc độ khác nhau.",
+   "group": "truc-cao",
+   "material": "steel",
+   "color": "#7f8891",
+   "studioColor": "#b0b7be",
+   "spin": {
+    "axis": "x",
+    "ratio": 2.4
+   },
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.11,
+      "ri": 0.07,
+      "x0": -0.3,
+      "x1": 0.95
+     }
+    }
+   ]
+  },
+  {
+   "id": "canh-huong-dong",
+   "name": "Cánh tĩnh sau quạt",
+   "note": "36 cánh đứng yên trong ống dẫn vòng ngoài, nắn dòng khí xoáy sau quạt cho đi thẳng ra phía sau; chúng cũng giữ vỏ ngoài với vỏ lõi.",
+   "group": "vo",
+   "material": "metal",
+   "color": "#9aa3ad",
+   "studioColor": "#7d868f",
+   "explode": [
+    0,
+    1.55,
+    0
+   ],
+   "shapes": [
+    {
+     "blade": {
+      "root": 0.51,
+      "span": 0.305,
+      "chord": 0.12,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.7,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -10,
+      0
+     ],
+     "repeat": 36,
+     "detail": 0.5
+    }
+   ]
+  },
+  {
+   "id": "mn-thap-stato",
+   "name": "Máy nén áp thấp, cánh tĩnh",
+   "note": "3 hàng cánh tĩnh (36, 38 và 40 cánh) gắn vào vỏ, xen giữa các hàng cánh quay: chúng nắn dòng khí và biến tốc độ của khí thành áp suất.",
+   "group": "loi",
+   "material": "metal",
+   "color": "#8c96a0",
+   "studioColor": "#6f7983",
+   "explode": [
+    0,
+    -1.05,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -0.4,
+       0.27
+      ],
+      [
+       -0.26,
+       0.215
+      ],
+      [
+       -0.26,
+       0.19
+      ],
+      [
+       -0.4,
+       0.25
+      ]
+     ],
+     "closed": true
+    },
+    {
+     "blade": {
+      "root": 0.302,
+      "span": 0.163,
+      "chord": 0.06,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.73,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -35,
+      0
+     ],
+     "repeat": 36,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.298,
+      "span": 0.153,
+      "chord": 0.06,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.59,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -35,
+      0
+     ],
+     "repeat": 38,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.291,
+      "span": 0.148,
+      "chord": 0.06,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.45,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -35,
+      0
+     ],
+     "repeat": 40,
+     "detail": 0.5
+    }
+   ]
+  },
+  {
+   "id": "mn-cao-stato",
+   "name": "Máy nén áp cao, cánh tĩnh",
+   "note": "6 hàng cánh tĩnh (30, 32, 34, 36, 38 và 40 cánh) gắn vào vỏ lõi, mỗi hàng đứng sau một hàng cánh quay.",
+   "group": "loi",
+   "material": "metal",
+   "color": "#8c96a0",
+   "studioColor": "#6f7983",
+   "explode": [
+    0,
+    -1.05,
+    0
+   ],
+   "shapes": [
+    {
+     "blade": {
+      "root": 0.229,
+      "span": 0.142,
+      "chord": 0.055,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.165,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -35,
+      0
+     ],
+     "repeat": 30,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.238,
+      "span": 0.122,
+      "chord": 0.051,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      -0.055,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -35,
+      0
+     ],
+     "repeat": 32,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.246,
+      "span": 0.102,
+      "chord": 0.047,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      0.055,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -35,
+      0
+     ],
+     "repeat": 34,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.255,
+      "span": 0.082,
+      "chord": 0.043,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      0.165,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -35,
+      0
+     ],
+     "repeat": 36,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.264,
+      "span": 0.062,
+      "chord": 0.039,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      0.275,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -35,
+      0
+     ],
+     "repeat": 38,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.273,
+      "span": 0.044,
+      "chord": 0.035,
+      "twist": 0,
+      "thickness": 0.08,
+      "camber": 0.05
+     },
+     "at": [
+      0.385,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      -35,
+      0
+     ],
+     "repeat": 40,
+     "detail": 0.5
+    }
+   ]
+  },
+  {
+   "id": "buong-dot",
+   "name": "Buồng đốt",
+   "note": "buồng hình vành khăn bao quanh trục. Nhiên liệu phun vào cháy trong không khí đã nén, làm khí nóng lên rất mạnh; đẩy cần ga lên thì nhiên liệu phun vào nhiều hơn.",
+   "group": "loi",
+   "material": "metal",
+   "surface": {
+    "kind": "cast",
+    "strength": 0.4
+   },
+   "color": "#c9a27a",
+   "studioColor": "#a88a6a",
+   "glow": "#ff6a2a",
+   "explode": [
+    0,
+    -1.05,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       0.5,
+       0.345
+      ],
+      [
+       0.56,
+       0.375
+      ],
+      [
+       0.8,
+       0.36
+      ],
+      [
+       0.8,
+       0.35
+      ],
+      [
+       0.56,
+       0.365
+      ],
+      [
+       0.505,
+       0.338
+      ]
+     ],
+     "closed": true
+    },
+    {
+     "lathe": [
+      [
+       0.5,
+       0.265
+      ],
+      [
+       0.56,
+       0.24
+      ],
+      [
+       0.8,
+       0.26
+      ],
+      [
+       0.8,
+       0.27
+      ],
+      [
+       0.56,
+       0.25
+      ],
+      [
+       0.505,
+       0.272
+      ]
+     ],
+     "closed": true
+    },
+    {
+     "lathe": [
+      [
+       0.48,
+       0.262
+      ],
+      [
+       0.48,
+       0.348
+      ],
+      [
+       0.5,
+       0.348
+      ],
+      [
+       0.5,
+       0.262
+      ]
+     ],
+     "closed": true
+    }
+   ]
+  },
+  {
+   "id": "ngon-lua",
+   "name": "Khí cháy",
+   "note": "khí rất nóng trong buồng đốt; hình sáng hơn khi đẩy cần ga lên.",
+   "group": "loi",
+   "material": "gas",
+   "color": "#ffb36a",
+   "studioColor": "#ff9a4a",
+   "opacity": 0.55,
+   "glow": "#ff7a2a",
+   "label": false,
+   "explode": [
+    0,
+    -1.05,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       0.51,
+       0.3
+      ],
+      [
+       0.56,
+       0.272
+      ],
+      [
+       0.7,
+       0.268
+      ],
+      [
+       0.79,
+       0.275
+      ],
+      [
+       0.79,
+       0.345
+      ],
+      [
+       0.7,
+       0.352
+      ],
+      [
+       0.56,
+       0.35
+      ],
+      [
+       0.51,
+       0.315
+      ]
+     ],
+     "closed": true
+    }
+   ]
+  },
+  {
+   "id": "voi-phun",
+   "name": "Vòi phun nhiên liệu",
+   "note": "20 vòi phun nối với một ống vòng quanh buồng đốt, phun nhiên liệu thành tia nhỏ vào đầu buồng đốt.",
+   "group": "loi",
+   "material": "copper",
+   "color": "#d0a060",
+   "studioColor": "#b8864a",
+   "explode": [
+    0,
+    -1.05,
+    0
+   ],
+   "shapes": [
+    {
+     "torus": [
+      0.47,
+      0.011
+     ],
+     "at": [
+      0.43,
+      0,
+      0
+     ]
+    },
+    {
+     "tube": [
+      [
+       0.43,
+       0.47,
+       0
+      ],
+      [
+       0.44,
+       0.42,
+       0
+      ],
+      [
+       0.46,
+       0.35,
+       0
+      ],
+      [
+       0.475,
+       0.315,
+       0
+      ],
+      [
+       0.485,
+       0.305,
+       0
+      ]
+     ],
+     "r": 0.007,
+     "repeat": 20
+    }
+   ]
+  },
+  {
+   "id": "tb-stato",
+   "name": "Cánh tĩnh tua-bin",
+   "note": "1 hàng 24 cánh dẫn trước tua-bin áp cao và 4 hàng cánh tĩnh (32, 34, 36 và 38 cánh) trong tua-bin áp thấp: chúng hướng dòng khí nóng vào các cánh quay.",
+   "group": "loi",
+   "material": "metal",
+   "color": "#a87e5c",
+   "studioColor": "#8a6448",
+   "explode": [
+    0,
+    -1.05,
+    0
+   ],
+   "shapes": [
+    {
+     "blade": {
+      "root": 0.258,
+      "span": 0.114,
+      "chord": 0.055,
+      "twist": 0,
+      "thickness": 0.2,
+      "camber": 0.1
+     },
+     "at": [
+      0.835,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      50,
+      0
+     ],
+     "repeat": 24,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.251,
+      "span": 0.125,
+      "chord": 0.05,
+      "twist": 0,
+      "thickness": 0.14,
+      "camber": 0.08
+     },
+     "at": [
+      0.98,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      45,
+      0
+     ],
+     "repeat": 32,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.248,
+      "span": 0.158,
+      "chord": 0.053,
+      "twist": 0,
+      "thickness": 0.14,
+      "camber": 0.08
+     },
+     "at": [
+      1.1,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      45,
+      0
+     ],
+     "repeat": 34,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.246,
+      "span": 0.182,
+      "chord": 0.056,
+      "twist": 0,
+      "thickness": 0.14,
+      "camber": 0.08
+     },
+     "at": [
+      1.22,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      45,
+      0
+     ],
+     "repeat": 36,
+     "detail": 0.5
+    },
+    {
+     "blade": {
+      "root": 0.243,
+      "span": 0.205,
+      "chord": 0.059,
+      "twist": 0,
+      "thickness": 0.14,
+      "camber": 0.08
+     },
+     "at": [
+      1.34,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      45,
+      0
+     ],
+     "repeat": 38,
+     "detail": 0.5
+    }
+   ]
+  },
+  {
+   "id": "ong-xa",
+   "name": "Ống xả",
+   "note": "ống thu hẹp dần ở phía sau tua-bin; khí nóng của lõi phụt ra khỏi đây với tốc độ lớn.",
+   "group": "xa",
+   "material": "metal",
+   "surface": {
+    "kind": "ribs",
+    "scale": 120,
+    "strength": 0.25
+   },
+   "color": "#8e949b",
+   "studioColor": "#6f757c",
+   "explode": [
+    0.75,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       1.44,
+       0.478
+      ],
+      [
+       1.92,
+       0.385
+      ],
+      [
+       1.92,
+       0.368
+      ],
+      [
+       1.44,
+       0.46
+      ]
+     ],
+     "closed": true
+    }
+   ]
+  },
+  {
+   "id": "non-xa",
+   "name": "Nón xả",
+   "note": "khối hình nón giữa ống xả, giúp dòng khí nóng ra khỏi động cơ êm hơn.",
+   "group": "xa",
+   "material": "metal",
+   "color": "#a2a8ae",
+   "studioColor": "#80868c",
+   "explode": [
+    0.75,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       1.47,
+       0
+      ],
+      [
+       1.47,
+       0.226
+      ],
+      [
+       1.62,
+       0.21
+      ],
+      [
+       1.8,
+       0.15
+      ],
+      [
+       1.98,
+       0.065
+      ],
+      [
+       2.06,
+       0
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

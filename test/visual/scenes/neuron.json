@@ -1,0 +1,836 @@
+{
+ "w": 16,
+ "h": 8,
+ "narrow": "1 / 0.5",
+ "title": "Nơron và sợi trục có bao myelin",
+ "alt": "Mô hình 3D của một nơron: thân tế bào gồ ghề có nhân, nhiều sợi nhánh phân nhánh tỏa ra mọi phía, một sợi trục dài được bọc bởi tám đoạn bao myelin, giữa các đoạn là eo Ranvier, cuối sợi trục phân thành nhiều nhánh tận cùng bằng các cúc xináp nằm sát một tế bào nhận tin. Một xung thần kinh sáng chạy dọc sợi trục.",
+ "style": "ink",
+ "view": {
+  "yaw": -12,
+  "pitch": 16,
+  "dist": 4.7,
+  "target": [
+   1.45,
+   -0.03,
+   0
+  ],
+  "explodeZoom": 0.3
+ },
+ "section": {
+  "normal": [
+   0,
+   0,
+   1
+  ],
+  "offset": 0
+ },
+ "scale": {
+  "note": "Không theo tỉ lệ: sợi trục thật có thể dài gấp hàng nghìn lần thân tế bào."
+ },
+ "parts": [
+  {
+   "id": "than",
+   "name": "Thân tế bào",
+   "note": "chứa nhân và phần lớn chất tế bào; nhận xung thần kinh từ các sợi nhánh rồi chuyển sang sợi trục.",
+   "group": "than",
+   "material": "tissue",
+   "surface": {
+    "kind": "skin",
+    "scale": 20,
+    "strength": 0.5
+   },
+   "color": "#c9a3d6",
+   "studioColor": "#b98ccb",
+   "glow": "#ffd25a",
+   "xray": true,
+   "label": [
+    -0.05,
+    0.27,
+    0.05
+   ],
+   "shapes": [
+    {
+     "blob": {
+      "r": 0.3,
+      "amp": 0.16,
+      "freq": 1.8,
+      "seed": 4,
+      "stretch": [
+       1.12,
+       0.92,
+       0.95
+      ]
+     }
+    },
+    {
+     "cylinder": {
+      "r": 0.085,
+      "r1": 0.04,
+      "x0": 0.24,
+      "x1": 0.44
+     }
+    }
+   ]
+  },
+  {
+   "id": "nhan",
+   "name": "Nhân",
+   "note": "nằm trong thân tế bào, chứa vật chất di truyền và điều khiển hoạt động của tế bào.",
+   "group": "than",
+   "material": "tissue",
+   "color": "#7d5aa6",
+   "studioColor": "#6a4892",
+   "explode": [
+    0,
+    0.42,
+    0
+   ],
+   "shapes": [
+    {
+     "blob": {
+      "r": 0.105,
+      "amp": 0.06,
+      "freq": 1.4,
+      "seed": 9
+     },
+     "at": [
+      -0.04,
+      0.02,
+      0
+     ]
+    },
+    {
+     "sphere": 0.035,
+     "at": [
+      -0.02,
+      0.05,
+      0.05
+     ],
+     "color": "#4a3170"
+    }
+   ]
+  },
+  {
+   "id": "soi-nhanh",
+   "name": "Sợi nhánh",
+   "note": "nhiều sợi ngắn, phân nhánh, tỏa ra từ thân tế bào; nhận thông tin từ các nơron khác và dẫn xung thần kinh về thân tế bào.",
+   "group": "than",
+   "material": "tissue",
+   "color": "#c9a3d6",
+   "studioColor": "#b98ccb",
+   "glow": "#ffd25a",
+   "label": [
+    -0.62,
+    0.42,
+    0.1
+   ],
+   "shapes": [
+    {
+     "tree": {
+      "at": [
+       -0.215,
+       0.043,
+       0
+      ],
+      "dir": [
+       -1,
+       0.25,
+       0
+      ],
+      "length": 0.42,
+      "r": 0.05,
+      "levels": 4,
+      "branches": 2,
+      "spread": 38,
+      "shrink": 0.7,
+      "taper": 0.55,
+      "bend": 0.3,
+      "seed": 11
+     }
+    },
+    {
+     "tree": {
+      "at": [
+       -0.112,
+       0.162,
+       0.051
+      ],
+      "dir": [
+       -0.6,
+       1,
+       0.25
+      ],
+      "length": 0.4,
+      "r": 0.048,
+      "levels": 4,
+      "branches": 2,
+      "spread": 40,
+      "shrink": 0.7,
+      "taper": 0.55,
+      "bend": 0.3,
+      "seed": 23
+     }
+    },
+    {
+     "tree": {
+      "at": [
+       0.04,
+       0.179,
+       -0.06
+      ],
+      "dir": [
+       0.15,
+       1,
+       -0.45
+      ],
+      "length": 0.36,
+      "r": 0.045,
+      "levels": 3,
+      "branches": 2,
+      "spread": 40,
+      "shrink": 0.72,
+      "taper": 0.55,
+      "bend": 0.3,
+      "seed": 37
+     }
+    },
+    {
+     "tree": {
+      "at": [
+       -0.096,
+       -0.181,
+       0.064
+      ],
+      "dir": [
+       -0.5,
+       -1,
+       0.35
+      ],
+      "length": 0.4,
+      "r": 0.048,
+      "levels": 4,
+      "branches": 2,
+      "spread": 40,
+      "shrink": 0.7,
+      "taper": 0.55,
+      "bend": 0.3,
+      "seed": 41
+     }
+    },
+    {
+     "tree": {
+      "at": [
+       0.052,
+       -0.186,
+       -0.052
+      ],
+      "dir": [
+       0.25,
+       -1,
+       -0.4
+      ],
+      "length": 0.36,
+      "r": 0.045,
+      "levels": 3,
+      "branches": 2,
+      "spread": 40,
+      "shrink": 0.72,
+      "taper": 0.55,
+      "bend": 0.3,
+      "seed": 53
+     }
+    },
+    {
+     "tree": {
+      "at": [
+       -0.112,
+       0.018,
+       -0.19
+      ],
+      "dir": [
+       -0.55,
+       0.1,
+       -1
+      ],
+      "length": 0.38,
+      "r": 0.045,
+      "levels": 3,
+      "branches": 2,
+      "spread": 40,
+      "shrink": 0.72,
+      "taper": 0.55,
+      "bend": 0.3,
+      "seed": 67
+     }
+    },
+    {
+     "tree": {
+      "at": [
+       -0.095,
+       -0.021,
+       0.186
+      ],
+      "dir": [
+       -0.5,
+       -0.1,
+       1
+      ],
+      "length": 0.38,
+      "r": 0.045,
+      "levels": 3,
+      "branches": 2,
+      "spread": 40,
+      "shrink": 0.72,
+      "taper": 0.55,
+      "bend": 0.3,
+      "seed": 71
+     }
+    }
+   ]
+  },
+  {
+   "id": "soi-truc",
+   "name": "Sợi trục",
+   "note": "một sợi dài dẫn xung thần kinh đi khỏi thân tế bào, tới các cúc xináp ở tận cùng.",
+   "group": "truc",
+   "material": "tissue",
+   "color": "#d8b3e0",
+   "studioColor": "#c79bd2",
+   "label": [
+    2.97,
+    0.03,
+    0
+   ],
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.034,
+      "x0": 0.4,
+      "x1": 3.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "bao-myelin",
+   "name": "Bao myelin",
+   "note": "gồm nhiều đoạn bọc quanh sợi trục, có tính cách điện; nhờ nó xung thần kinh truyền nhanh hơn nhiều.",
+   "group": "myelin",
+   "material": "membrane",
+   "surface": {
+    "kind": "skin",
+    "scale": 40,
+    "strength": 0.35
+   },
+   "color": "#f3ead2",
+   "studioColor": "#efe3c3",
+   "explode": [
+    0,
+    0.3,
+    0
+   ],
+   "label": [
+    1.27,
+    0.07,
+    0
+   ],
+   "shapes": [
+    {
+     "capsule": {
+      "r": 0.072,
+      "x0": 0.622,
+      "x1": 0.728
+     }
+    },
+    {
+     "capsule": {
+      "r": 0.072,
+      "x0": 0.922,
+      "x1": 1.028
+     }
+    },
+    {
+     "capsule": {
+      "r": 0.072,
+      "x0": 1.222,
+      "x1": 1.328
+     }
+    },
+    {
+     "capsule": {
+      "r": 0.072,
+      "x0": 1.522,
+      "x1": 1.628
+     }
+    },
+    {
+     "capsule": {
+      "r": 0.072,
+      "x0": 1.822,
+      "x1": 1.928
+     }
+    },
+    {
+     "capsule": {
+      "r": 0.072,
+      "x0": 2.122,
+      "x1": 2.228
+     }
+    },
+    {
+     "capsule": {
+      "r": 0.072,
+      "x0": 2.422,
+      "x1": 2.528
+     }
+    },
+    {
+     "capsule": {
+      "r": 0.072,
+      "x0": 2.722,
+      "x1": 2.828
+     }
+    }
+   ]
+  },
+  {
+   "id": "eo-1",
+   "name": "Eo Ranvier",
+   "note": "đoạn sợi trục không có bao myelin, nằm giữa hai đoạn myelin; xung thần kinh nhảy từ eo này sang eo khác.",
+   "group": "eo",
+   "material": "tissue",
+   "color": "#a77bc0",
+   "glow": "#ffd25a",
+   "label": false,
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.04,
+      "x0": 0.805,
+      "x1": 0.845
+     }
+    }
+   ]
+  },
+  {
+   "id": "eo-2",
+   "name": "Eo Ranvier",
+   "note": "đoạn sợi trục không có bao myelin, nằm giữa hai đoạn myelin; xung thần kinh nhảy từ eo này sang eo khác.",
+   "group": "eo",
+   "material": "tissue",
+   "color": "#a77bc0",
+   "glow": "#ffd25a",
+   "label": false,
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.04,
+      "x0": 1.105,
+      "x1": 1.145
+     }
+    }
+   ]
+  },
+  {
+   "id": "eo-3",
+   "name": "Eo Ranvier",
+   "note": "đoạn sợi trục không có bao myelin, nằm giữa hai đoạn myelin; xung thần kinh nhảy từ eo này sang eo khác.",
+   "group": "eo",
+   "material": "tissue",
+   "color": "#a77bc0",
+   "glow": "#ffd25a",
+   "label": [
+    1.425,
+    0.04,
+    0
+   ],
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.04,
+      "x0": 1.405,
+      "x1": 1.445
+     }
+    }
+   ]
+  },
+  {
+   "id": "eo-4",
+   "name": "Eo Ranvier",
+   "note": "đoạn sợi trục không có bao myelin, nằm giữa hai đoạn myelin; xung thần kinh nhảy từ eo này sang eo khác.",
+   "group": "eo",
+   "material": "tissue",
+   "color": "#a77bc0",
+   "glow": "#ffd25a",
+   "label": false,
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.04,
+      "x0": 1.705,
+      "x1": 1.745
+     }
+    }
+   ]
+  },
+  {
+   "id": "eo-5",
+   "name": "Eo Ranvier",
+   "note": "đoạn sợi trục không có bao myelin, nằm giữa hai đoạn myelin; xung thần kinh nhảy từ eo này sang eo khác.",
+   "group": "eo",
+   "material": "tissue",
+   "color": "#a77bc0",
+   "glow": "#ffd25a",
+   "label": false,
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.04,
+      "x0": 2.005,
+      "x1": 2.045
+     }
+    }
+   ]
+  },
+  {
+   "id": "eo-6",
+   "name": "Eo Ranvier",
+   "note": "đoạn sợi trục không có bao myelin, nằm giữa hai đoạn myelin; xung thần kinh nhảy từ eo này sang eo khác.",
+   "group": "eo",
+   "material": "tissue",
+   "color": "#a77bc0",
+   "glow": "#ffd25a",
+   "label": false,
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.04,
+      "x0": 2.305,
+      "x1": 2.345
+     }
+    }
+   ]
+  },
+  {
+   "id": "eo-7",
+   "name": "Eo Ranvier",
+   "note": "đoạn sợi trục không có bao myelin, nằm giữa hai đoạn myelin; xung thần kinh nhảy từ eo này sang eo khác.",
+   "group": "eo",
+   "material": "tissue",
+   "color": "#a77bc0",
+   "glow": "#ffd25a",
+   "label": false,
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.04,
+      "x0": 2.605,
+      "x1": 2.645
+     }
+    }
+   ]
+  },
+  {
+   "id": "nhanh-tan-cung",
+   "name": "Nhánh tận cùng",
+   "note": "cuối sợi trục chia thành nhiều nhánh nhỏ, đưa xung thần kinh tới nhiều cúc xináp.",
+   "group": "tan-cung",
+   "material": "tissue",
+   "color": "#d8b3e0",
+   "studioColor": "#c79bd2",
+   "glow": "#ffd25a",
+   "explode": [
+    0.12,
+    0,
+    0
+   ],
+   "label": [
+    3.2,
+    0.13,
+    0.03
+   ],
+   "shapes": [
+    {
+     "tube": [
+      [
+       2.99,
+       0,
+       0
+      ],
+      [
+       3.15,
+       0.1,
+       0.02
+      ],
+      [
+       3.28,
+       0.2,
+       0.05
+      ]
+     ],
+     "r": 0.022
+    },
+    {
+     "tube": [
+      [
+       3.28,
+       0.2,
+       0.05
+      ],
+      [
+       3.36,
+       0.27,
+       0.05
+      ],
+      [
+       3.43,
+       0.33,
+       0.04
+      ]
+     ],
+     "r": 0.015
+    },
+    {
+     "tube": [
+      [
+       3.28,
+       0.2,
+       0.05
+      ],
+      [
+       3.36,
+       0.2,
+       0.09
+      ],
+      [
+       3.44,
+       0.18,
+       0.13
+      ]
+     ],
+     "r": 0.015
+    },
+    {
+     "tube": [
+      [
+       2.99,
+       0,
+       0
+      ],
+      [
+       3.16,
+       0,
+       -0.05
+      ],
+      [
+       3.3,
+       -0.02,
+       -0.09
+      ]
+     ],
+     "r": 0.022
+    },
+    {
+     "tube": [
+      [
+       3.3,
+       -0.02,
+       -0.09
+      ],
+      [
+       3.39,
+       0.02,
+       -0.12
+      ],
+      [
+       3.47,
+       0.05,
+       -0.15
+      ]
+     ],
+     "r": 0.015
+    },
+    {
+     "tube": [
+      [
+       3.3,
+       -0.02,
+       -0.09
+      ],
+      [
+       3.39,
+       -0.06,
+       -0.06
+      ],
+      [
+       3.47,
+       -0.09,
+       -0.03
+      ]
+     ],
+     "r": 0.015
+    },
+    {
+     "tube": [
+      [
+       2.99,
+       0,
+       0
+      ],
+      [
+       3.14,
+       -0.11,
+       0.05
+      ],
+      [
+       3.26,
+       -0.21,
+       0.08
+      ]
+     ],
+     "r": 0.022
+    },
+    {
+     "tube": [
+      [
+       3.26,
+       -0.21,
+       0.08
+      ],
+      [
+       3.34,
+       -0.29,
+       0.06
+      ],
+      [
+       3.42,
+       -0.35,
+       0.03
+      ]
+     ],
+     "r": 0.015
+    },
+    {
+     "tube": [
+      [
+       3.26,
+       -0.21,
+       0.08
+      ],
+      [
+       3.35,
+       -0.25,
+       0.14
+      ],
+      [
+       3.43,
+       -0.27,
+       0.19
+      ]
+     ],
+     "r": 0.015
+    }
+   ]
+  },
+  {
+   "id": "cuc-xinap",
+   "name": "Cúc xináp",
+   "note": "chỗ phình ở tận cùng mỗi nhánh; tại đây xung thần kinh được truyền sang tế bào khác qua xináp.",
+   "group": "tan-cung",
+   "material": "tissue",
+   "color": "#e7a64a",
+   "studioColor": "#d9922f",
+   "glow": "#ffd25a",
+   "explode": [
+    0.12,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.042,
+     "at": [
+      3.43,
+      0.33,
+      0.04
+     ]
+    },
+    {
+     "sphere": 0.042,
+     "at": [
+      3.44,
+      0.18,
+      0.13
+     ]
+    },
+    {
+     "sphere": 0.042,
+     "at": [
+      3.47,
+      0.05,
+      -0.15
+     ]
+    },
+    {
+     "sphere": 0.042,
+     "at": [
+      3.47,
+      -0.09,
+      -0.03
+     ]
+    },
+    {
+     "sphere": 0.042,
+     "at": [
+      3.42,
+      -0.35,
+      0.03
+     ]
+    },
+    {
+     "sphere": 0.042,
+     "at": [
+      3.43,
+      -0.27,
+      0.19
+     ]
+    }
+   ]
+  },
+  {
+   "id": "te-bao-nhan",
+   "name": "Tế bào nhận tin",
+   "note": "một tế bào khác (một nơron khác, hay một tế bào cơ) nằm sát các cúc xináp; nó nhận xung thần kinh qua xináp.",
+   "group": "te-bao-nhan",
+   "material": "tissue",
+   "color": "#e8b9a4",
+   "studioColor": "#dca48c",
+   "glow": "#ffd25a",
+   "explode": [
+    0.45,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "blob": {
+      "r": 0.5,
+      "amp": 0.08,
+      "freq": 1.2,
+      "seed": 5,
+      "stretch": [
+       0.22,
+       1,
+       0.9
+      ]
+     },
+     "at": [
+      3.66,
+      0,
+      0.02
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,709 @@
+{
+ "w": 16,
+ "h": 10,
+ "title": "Máy phát điện xoay chiều",
+ "alt": "Mô hình 3D của một máy phát điện xoay chiều: vỏ, lõi thép và cuộn dây stato, rôto nam châm trên trục, hai nắp, hộp đấu dây và một bóng đèn.",
+ "style": "ink",
+ "view": {
+  "yaw": -38,
+  "pitch": 20,
+  "explodeZoom": 0.95,
+  "explodeShift": [
+   0.95,
+   0,
+   0
+  ]
+ },
+ "section": {
+  "normal": [
+   0,
+   0,
+   1
+  ],
+  "offset": 0
+ },
+ "parts": [
+  {
+   "id": "vo",
+   "name": "Vỏ máy",
+   "note": "giữ và bảo vệ các bộ phận bên trong; các gân bên ngoài giúp tỏa nhiệt.",
+   "group": "stato",
+   "material": "metal",
+   "surface": {
+    "kind": "cast",
+    "strength": 0.35
+   },
+   "color": "#c3cbd2",
+   "studioColor": "#9aa3ad",
+   "xray": true,
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.56,
+      "ri": 0.5,
+      "x0": -0.55,
+      "x1": 0.55
+     }
+    },
+    {
+     "box": [
+      1.02,
+      0.045,
+      0.016
+     ],
+     "at": [
+      0,
+      0.585,
+      0
+     ],
+     "repeat": 28
+    },
+    {
+     "box": [
+      0.16,
+      0.13,
+      0.9
+     ],
+     "at": [
+      -0.33,
+      -0.6,
+      0
+     ]
+    },
+    {
+     "box": [
+      0.16,
+      0.13,
+      0.9
+     ],
+     "at": [
+      0.33,
+      -0.6,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "loi-stato",
+   "name": "Lõi thép stato",
+   "note": "gồm các lá thép ghép lại, có các răng hướng vào trong để quấn cuộn dây.",
+   "group": "stato",
+   "material": "steel",
+   "color": "#8d949c",
+   "studioColor": "#5d646c",
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.5,
+      "ri": 0.4,
+      "x0": -0.45,
+      "x1": 0.45
+     }
+    },
+    {
+     "box": [
+      0.9,
+      0.075,
+      0.07
+     ],
+     "at": [
+      0,
+      0.365,
+      0
+     ],
+     "repeat": 12
+    }
+   ]
+  },
+  {
+   "id": "cuon-day",
+   "name": "Cuộn dây stato",
+   "note": "đứng yên; khi nam châm quay, từ thông qua các cuộn dây biến thiên nên trong chúng xuất hiện dòng điện cảm ứng.",
+   "group": "stato",
+   "material": "copper",
+   "color": "#d98a45",
+   "studioColor": "#c8743a",
+   "shapes": [
+    {
+     "loop": {
+      "a": 0.98,
+      "b": 0.12,
+      "R": 0.352,
+      "wire": 0.017,
+      "corner": 0.04,
+      "turns": 3,
+      "gap": 0.03
+     },
+     "repeat": 12
+    }
+   ]
+  },
+  {
+   "id": "loi-roto",
+   "name": "Lõi rôto",
+   "note": "khối thép gắn chặt trên trục, mang các nam châm. Kéo rôto vòng quanh trục để tự tay quay máy.",
+   "group": "roto",
+   "material": "steel",
+   "color": "#9aa0a8",
+   "studioColor": "#6c737b",
+   "handle": {
+    "turn": {
+     "axis": [
+      1,
+      0,
+      0
+     ]
+    },
+    "label": "Rôto",
+    "moves": [
+     "roto"
+    ]
+   },
+   "explode": [
+    1.3,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.27,
+      "ri": 0.065,
+      "x0": -0.44,
+      "x1": 0.44
+     }
+    }
+   ]
+  },
+  {
+   "id": "nam-cham-n",
+   "name": "Nam châm, cực Bắc (N)",
+   "note": "quay cùng rôto. Hai cực Bắc và hai cực Nam xen kẽ nhau, tức là hai cặp cực.",
+   "group": "roto",
+   "material": "magnet",
+   "color": "#e0604f",
+   "studioColor": "#c9402f",
+   "explode": [
+    1.3,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -0.44,
+       0.272
+      ],
+      [
+       0.44,
+       0.272
+      ],
+      [
+       0.44,
+       0.318
+      ],
+      [
+       -0.44,
+       0.318
+      ]
+     ],
+     "from": -36,
+     "to": 36,
+     "repeat": {
+      "n": 2,
+      "step": 180
+     }
+    }
+   ]
+  },
+  {
+   "id": "nam-cham-s",
+   "name": "Nam châm, cực Nam (S)",
+   "note": "quay cùng rôto, xen kẽ với các cực Bắc.",
+   "group": "roto",
+   "material": "magnet",
+   "color": "#5b86c9",
+   "studioColor": "#3a64ad",
+   "explode": [
+    1.3,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -0.44,
+       0.272
+      ],
+      [
+       0.44,
+       0.272
+      ],
+      [
+       0.44,
+       0.318
+      ],
+      [
+       -0.44,
+       0.318
+      ]
+     ],
+     "from": -36,
+     "to": 36,
+     "repeat": {
+      "n": 2,
+      "step": 180,
+      "start": 90
+     }
+    }
+   ]
+  },
+  {
+   "id": "truc",
+   "name": "Trục",
+   "note": "được động cơ, tua-bin nước hay tua-bin hơi làm quay, kéo rôto quay theo.",
+   "group": "roto",
+   "material": "steel",
+   "surface": {
+    "kind": "brushed",
+    "scale": 60,
+    "strength": 0.3
+   },
+   "color": "#b6bcc3",
+   "studioColor": "#c0c6cc",
+   "explode": [
+    1.3,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -1.25,
+       0
+      ],
+      [
+       -1.25,
+       0.05
+      ],
+      [
+       -1.0,
+       0.05
+      ],
+      [
+       -1.0,
+       0.065
+      ],
+      [
+       1.0,
+       0.065
+      ],
+      [
+       1.0,
+       0.05
+      ],
+      [
+       1.15,
+       0.05
+      ],
+      [
+       1.15,
+       0
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "nap-truoc",
+   "name": "Nắp trước",
+   "note": "đậy một đầu máy và giữ ổ bi đỡ trục.",
+   "group": "vo",
+   "material": "metal",
+   "surface": {
+    "kind": "cast",
+    "strength": 0.35
+   },
+   "color": "#b3bcc5",
+   "studioColor": "#8d969f",
+   "explode": [
+    -0.9,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -0.55,
+       0.56
+      ],
+      [
+       -0.6,
+       0.55
+      ],
+      [
+       -0.67,
+       0.45
+      ],
+      [
+       -0.71,
+       0.25
+      ],
+      [
+       -0.71,
+       0.075
+      ],
+      [
+       -0.63,
+       0.075
+      ],
+      [
+       -0.63,
+       0.24
+      ],
+      [
+       -0.6,
+       0.42
+      ],
+      [
+       -0.55,
+       0.5
+      ]
+     ],
+     "closed": true
+    },
+    {
+     "torus": [
+      0.085,
+      0.022
+     ],
+     "at": [
+      -0.67,
+      0,
+      0
+     ]
+    },
+    {
+     "cylinder": {
+      "r": 0.026,
+      "x0": -0.61,
+      "x1": -0.53
+     },
+     "at": [
+      0,
+      0.53,
+      0
+     ],
+     "repeat": {
+      "n": 4,
+      "start": 45
+     }
+    }
+   ]
+  },
+  {
+   "id": "nap-sau",
+   "name": "Nắp sau",
+   "note": "đậy đầu kia của máy, giữ ổ bi thứ hai.",
+   "group": "vo",
+   "material": "metal",
+   "surface": {
+    "kind": "cast",
+    "strength": 0.35
+   },
+   "color": "#b3bcc5",
+   "studioColor": "#8d969f",
+   "explode": [
+    2.6,
+    0,
+    0
+   ],
+   "shapes": [
+    {
+     "lathe": [
+      [
+       -0.55,
+       0.56
+      ],
+      [
+       -0.6,
+       0.55
+      ],
+      [
+       -0.67,
+       0.45
+      ],
+      [
+       -0.71,
+       0.25
+      ],
+      [
+       -0.71,
+       0.075
+      ],
+      [
+       -0.63,
+       0.075
+      ],
+      [
+       -0.63,
+       0.24
+      ],
+      [
+       -0.6,
+       0.42
+      ],
+      [
+       -0.55,
+       0.5
+      ]
+     ],
+     "closed": true,
+     "mirror": true
+    },
+    {
+     "torus": [
+      0.085,
+      0.022
+     ],
+     "at": [
+      0.67,
+      0,
+      0
+     ]
+    },
+    {
+     "cylinder": {
+      "r": 0.026,
+      "x0": 0.53,
+      "x1": 0.61
+     },
+     "at": [
+      0,
+      0.53,
+      0
+     ],
+     "repeat": {
+      "n": 4,
+      "start": 45
+     }
+    }
+   ]
+  },
+  {
+   "id": "hop-dau-day",
+   "name": "Hộp đấu dây",
+   "note": "nơi các đầu cuộn dây stato được nối ra ngoài.",
+   "group": "stato",
+   "material": "paint",
+   "color": "#6f8f6a",
+   "studioColor": "#3d4a44",
+   "explode": [
+    0,
+    0.45,
+    0
+   ],
+   "shapes": [
+    {
+     "box": [
+      0.28,
+      0.1,
+      0.24
+     ],
+     "at": [
+      0.1,
+      0.61,
+      0
+     ]
+    },
+    {
+     "cylinder": {
+      "r": 0.03,
+      "x0": -0.05,
+      "x1": 0.05
+     },
+     "rot": [
+      0,
+      0,
+      90
+     ],
+     "at": [
+      0.04,
+      0.7,
+      0
+     ]
+    },
+    {
+     "cylinder": {
+      "r": 0.03,
+      "x0": -0.05,
+      "x1": 0.05
+     },
+     "rot": [
+      0,
+      0,
+      90
+     ],
+     "at": [
+      0.16,
+      0.7,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "day-dan",
+   "name": "Dây dẫn",
+   "note": "đưa dòng điện xoay chiều từ máy đến bóng đèn.",
+   "group": "mach",
+   "material": "rubber",
+   "color": "#3a3a40",
+   "studioColor": "#1e1f22",
+   "explode": [
+    0,
+    0.45,
+    0
+   ],
+   "label": false,
+   "shapes": [
+    {
+     "tube": [
+      [
+       0.04,
+       0.74,
+       0
+      ],
+      [
+       0.04,
+       0.9,
+       0
+      ],
+      [
+       0.07,
+       1.04,
+       0
+      ]
+     ],
+     "r": 0.012
+    },
+    {
+     "tube": [
+      [
+       0.16,
+       0.74,
+       0
+      ],
+      [
+       0.16,
+       0.9,
+       0
+      ],
+      [
+       0.13,
+       1.04,
+       0
+      ]
+     ],
+     "r": 0.012
+    }
+   ]
+  },
+  {
+   "id": "bong-den",
+   "name": "Bóng đèn",
+   "note": "sáng lên khi có dòng điện; quay chậm thì thấy đèn chập chờn theo dòng điện xoay chiều.",
+   "group": "mach",
+   "material": "glass",
+   "refract": 0.6,
+   "color": "#f4efe0",
+   "studioColor": "#e8eef5",
+   "opacity": 0.45,
+   "glow": "#ffcc55",
+   "explode": [
+    0,
+    0.45,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.12,
+     "at": [
+      0.1,
+      1.2,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "de-den",
+   "name": "Đuôi đèn",
+   "group": "mach",
+   "material": "metal",
+   "color": "#c9b27a",
+   "studioColor": "#b59a5a",
+   "explode": [
+    0,
+    0.45,
+    0
+   ],
+   "label": false,
+   "shapes": [
+    {
+     "cylinder": {
+      "r": 0.05,
+      "r1": 0.06,
+      "x0": -0.06,
+      "x1": 0.06
+     },
+     "rot": [
+      0,
+      0,
+      90
+     ],
+     "at": [
+      0.1,
+      1.06,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "day-toc",
+   "name": "Dây tóc",
+   "group": "mach",
+   "material": "metal",
+   "color": "#7a5a3a",
+   "glow": "#ffb030",
+   "explode": [
+    0,
+    0.45,
+    0
+   ],
+   "label": false,
+   "shapes": [
+    {
+     "helix": {
+      "r": 0.014,
+      "x0": -0.04,
+      "x1": 0.04,
+      "turns": 6,
+      "wire": 0.004
+     },
+     "at": [
+      0.1,
+      1.21,
+      0
+     ]
+    }
+   ]
+  }
+ ]
+}

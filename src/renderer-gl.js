@@ -116,8 +116,10 @@ function glRenderer(gl, scene, opts = {}) {
   }
   // a model's texture maps (studio look, WebGL 2): decoded off the main thread, at half size on a phone, and drawn once
   // ready (until then the part's own colour shows)
+  let pending = 0;  // texture maps still decoding
   function maps(T, tex) {
     for (const k of ['base', 'normal', 'mr']) if (tex[k] && typeof createImageBitmap === 'function') {
+      pending++;
       createImageBitmap(new Blob([tex[k].bytes], { type: tex[k].mime }))
         .then((bm) => (opts.small ? createImageBitmap(bm, { resizeWidth: Math.max(1, bm.width >> 1), resizeHeight: Math.max(1, bm.height >> 1), resizeQuality: 'high' }) : bm))
         .then((bm) => {
@@ -126,7 +128,8 @@ function glRenderer(gl, scene, opts = {}) {
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, bm); gl.generateMipmap(gl.TEXTURE_2D);
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.activeTexture(gl.TEXTURE0);
           T[k] = t; if (opts.onTexture) opts.onTexture();
-        }).catch(() => {});  // an image the browser cannot decode: the part keeps its colour
+        }).catch(() => {})  // an image the browser cannot decode: the part keeps its colour
+        .finally(() => pending--);
     }
   }
   for (const part of scene.parts) for (const b of part.batches) upload(b);
@@ -247,7 +250,7 @@ function glRenderer(gl, scene, opts = {}) {
     kind: gl2 ? 'webgl2' : 'webgl1', hifi, shadows: shadowsOn, parallel: !!par,
     // after the first picture: start compiling the studio look in the background, where that does not block
     prewarm() { if (par) { studioProgs(); if (hifi) glowProgs(); } },
-    upload, instances,
+    upload, instances, get pending() { return pending; },
     setAO(b) { if (b.gl && b.ao) { gl.bindBuffer(gl.ARRAY_BUFFER, b.gl.ao); gl.bufferData(gl.ARRAY_BUFFER, b.ao, gl.STATIC_DRAW); } },
     draw(f) {
       const ink = f.style === 'ink', W = gl.canvas.width, H = gl.canvas.height;

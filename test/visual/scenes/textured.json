@@ -1,0 +1,9 @@
+{
+ "w": 16, "h": 9, "style": "studio", "view": {"yaw": -30, "pitch": 15},
+ "models": {"ball": {"file": "assets/ball.glb", "title": "Test ball", "author": "lk3d", "license": "CC0", "source": "artist"}},
+ "parts": [
+  {"id": "ball", "name": "Ball", "color": "#888888", "shapes": [{"model": "ball"}]},
+  {"id": "knurl", "name": "Knurled rod", "material": "metal", "color": "#c0c0c0", "surface": {"kind": "knurl", "scale": 40, "strength": 1}, "shapes": [{"cylinder": {"r": 0.4, "x0": -0.6, "x1": 0.6}, "at": [2.4, 0, 0]}]},
+  {"id": "glass", "name": "Lens", "material": "glass", "opacity": 0.35, "refract": 1, "color": "#cfe3ee", "shapes": [{"lathe": [[-0.15, 0], [-0.1, 0.5], [-0.02, 0.8], [0.02, 0.8], [0.1, 0.5], [0.15, 0]], "closed": true}], "at": [-1.4, 0, 1.2]}
+ ]
+}

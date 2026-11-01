@@ -1,0 +1,413 @@
+{
+ "env": "night",
+ "w": 16,
+ "h": 10,
+ "title": "Hệ Mặt Trời",
+ "alt": "Mô hình 3D: Mặt Trời ở giữa và tám hành tinh chuyển động trên quỹ đạo của chúng. Khoảng cách và hình dạng quỹ đạo đúng tỉ lệ; Mặt Trời và các hành tinh được vẽ to hơn thật rất nhiều.",
+ "style": "ink",
+ "section": false,
+ "ground": false,
+ "view": {
+  "yaw": -20,
+  "pitch": 38
+ },
+ "scale": {
+  "bar": {
+   "length": 1,
+   "label": "1 đvtv"
+  },
+  "note": "Khoảng cách đúng tỉ lệ; hành tinh vẽ to gấp 2 000 lần, Mặt Trời to gấp 40 lần."
+ },
+ "parts": [
+  {
+   "id": "mat-troi",
+   "name": "Mặt Trời",
+   "material": "gas",
+   "color": "#f6c344",
+   "studioColor": "#ffcf5a",
+   "glow": "#ffb52e",
+   "shapes": [
+    {
+     "sphere": 0.186
+    }
+   ]
+  },
+  {
+   "id": "qd-thuy-tinh",
+   "name": "Quỹ đạo của Thủy tinh",
+   "group": "trong",
+   "material": "matte",
+   "color": "#8a8478",
+   "label": false,
+   "rot": [
+    0,
+    77.46,
+    0
+   ],
+   "shapes": [
+    {
+     "orbit": {
+      "a": 0.387,
+      "e": 0.206,
+      "wire": 0.0075
+     }
+    }
+   ]
+  },
+  {
+   "id": "qd-kim-tinh",
+   "name": "Quỹ đạo của Kim tinh",
+   "group": "trong",
+   "material": "matte",
+   "color": "#8a8478",
+   "label": false,
+   "rot": [
+    0,
+    131.6,
+    0
+   ],
+   "shapes": [
+    {
+     "orbit": {
+      "a": 0.723,
+      "e": 0.007,
+      "wire": 0.0089
+     }
+    }
+   ]
+  },
+  {
+   "id": "qd-trai-dat",
+   "name": "Quỹ đạo của Trái Đất",
+   "group": "trong",
+   "material": "matte",
+   "color": "#8a8478",
+   "label": false,
+   "rot": [
+    0,
+    102.94,
+    0
+   ],
+   "shapes": [
+    {
+     "orbit": {
+      "a": 1.0,
+      "e": 0.017,
+      "wire": 0.01
+     }
+    }
+   ]
+  },
+  {
+   "id": "qd-hoa-tinh",
+   "name": "Quỹ đạo của Hỏa tinh",
+   "group": "trong",
+   "material": "matte",
+   "color": "#8a8478",
+   "label": false,
+   "rot": [
+    0,
+    336.06,
+    0
+   ],
+   "shapes": [
+    {
+     "orbit": {
+      "a": 1.524,
+      "e": 0.093,
+      "wire": 0.0121
+     }
+    }
+   ]
+  },
+  {
+   "id": "qd-moc-tinh",
+   "name": "Quỹ đạo của Mộc tinh",
+   "group": "ngoai",
+   "material": "matte",
+   "color": "#8a8478",
+   "label": false,
+   "rot": [
+    0,
+    14.73,
+    0
+   ],
+   "shapes": [
+    {
+     "orbit": {
+      "a": 5.203,
+      "e": 0.048,
+      "wire": 0.0268
+     }
+    }
+   ]
+  },
+  {
+   "id": "qd-tho-tinh",
+   "name": "Quỹ đạo của Thổ tinh",
+   "group": "ngoai",
+   "material": "matte",
+   "color": "#8a8478",
+   "label": false,
+   "rot": [
+    0,
+    92.6,
+    0
+   ],
+   "shapes": [
+    {
+     "orbit": {
+      "a": 9.537,
+      "e": 0.054,
+      "wire": 0.0441
+     }
+    }
+   ]
+  },
+  {
+   "id": "qd-thien-vuong-tinh",
+   "name": "Quỹ đạo của Thiên Vương tinh",
+   "group": "ngoai",
+   "material": "matte",
+   "color": "#8a8478",
+   "label": false,
+   "rot": [
+    0,
+    170.95,
+    0
+   ],
+   "shapes": [
+    {
+     "orbit": {
+      "a": 19.189,
+      "e": 0.047,
+      "wire": 0.0828
+     }
+    }
+   ]
+  },
+  {
+   "id": "qd-hai-vuong-tinh",
+   "name": "Quỹ đạo của Hải Vương tinh",
+   "group": "ngoai",
+   "material": "matte",
+   "color": "#8a8478",
+   "label": false,
+   "rot": [
+    0,
+    44.96,
+    0
+   ],
+   "shapes": [
+    {
+     "orbit": {
+      "a": 30.07,
+      "e": 0.009,
+      "wire": 0.1263
+     }
+    }
+   ]
+  },
+  {
+   "id": "thuy-tinh",
+   "name": "Thủy tinh",
+   "note": "hành tinh thứ nhất tính từ Mặt Trời.",
+   "group": "trong",
+   "material": "rock",
+   "color": "#a39e98",
+   "rot": [
+    0,
+    77.46,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.0326,
+     "at": [
+      0.3073,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "kim-tinh",
+   "name": "Kim tinh",
+   "note": "hành tinh thứ hai tính từ Mặt Trời.",
+   "group": "trong",
+   "material": "rock",
+   "color": "#e6c47e",
+   "rot": [
+    0,
+    131.6,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.0809,
+     "at": [
+      0.7179,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "trai-dat",
+   "name": "Trái Đất",
+   "note": "hành tinh thứ ba tính từ Mặt Trời, nơi chúng ta sống.",
+   "group": "trong",
+   "material": "rock",
+   "color": "#4a86c5",
+   "rot": [
+    0,
+    102.94,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.0852,
+     "at": [
+      0.983,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hoa-tinh",
+   "name": "Hỏa tinh",
+   "note": "hành tinh thứ tư tính từ Mặt Trời.",
+   "group": "trong",
+   "material": "rock",
+   "color": "#c8603a",
+   "rot": [
+    0,
+    336.06,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.0453,
+     "at": [
+      1.3823,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "moc-tinh",
+   "name": "Mộc tinh",
+   "note": "hành tinh thứ năm tính từ Mặt Trời, lớn nhất trong tám hành tinh.",
+   "group": "ngoai",
+   "material": "gas",
+   "color": "#d6a675",
+   "rot": [
+    0,
+    14.73,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.9347,
+     "at": [
+      4.9533,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tho-tinh",
+   "name": "Thổ tinh",
+   "note": "hành tinh thứ sáu tính từ Mặt Trời, có hệ vành đai bao quanh.",
+   "group": "ngoai",
+   "material": "gas",
+   "color": "#e2c88e",
+   "rot": [
+    0,
+    92.6,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.7785,
+     "at": [
+      9.022,
+      0,
+      0
+     ]
+    },
+    {
+     "ring": {
+      "r": 1.8286,
+      "ri": 0.996,
+      "thickness": 0.004
+     },
+     "at": [
+      9.022,
+      0,
+      0
+     ],
+     "rot": [
+      0,
+      0,
+      117
+     ]
+    }
+   ]
+  },
+  {
+   "id": "thien-vuong-tinh",
+   "name": "Thiên Vương tinh",
+   "note": "hành tinh thứ bảy tính từ Mặt Trời.",
+   "group": "ngoai",
+   "material": "gas",
+   "color": "#8fd0d6",
+   "rot": [
+    0,
+    170.95,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.3391,
+     "at": [
+      18.2871,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hai-vuong-tinh",
+   "name": "Hải Vương tinh",
+   "note": "hành tinh thứ tám tính từ Mặt Trời, xa Mặt Trời nhất.",
+   "group": "ngoai",
+   "material": "gas",
+   "color": "#4f73cf",
+   "rot": [
+    0,
+    44.96,
+    0
+   ],
+   "shapes": [
+    {
+     "sphere": 0.3292,
+     "at": [
+      29.7994,
+      0,
+      0
+     ]
+    }
+   ]
+  }
+ ]
+}

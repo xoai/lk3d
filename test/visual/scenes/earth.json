@@ -1,0 +1,162 @@
+{
+ "w": 16,
+ "h": 11,
+ "title": "Cấu tạo bên trong của Trái Đất",
+ "alt": "Mô hình 3D: Trái Đất bị cắt đi một góc tư hướng về phía người xem, để lộ bốn lớp đúng tỉ lệ bán kính: vỏ Trái Đất mỏng ở ngoài cùng, man-ti dày, nhân ngoài lỏng và nhân trong rắn ở giữa.",
+ "style": "ink",
+ "section": false,
+ "ground": false,
+ "view": {
+  "yaw": -28,
+  "pitch": 20
+ },
+ "scale": {
+  "bar": {
+   "length": 1,
+   "label": "1 000 km"
+  },
+  "note": "Đúng tỉ lệ, trừ vỏ: vẽ dày 250 km (thật ra 5–70 km)."
+ },
+ "parts": [
+  {
+   "id": "vo",
+   "name": "Vỏ Trái Đất",
+   "material": "rock",
+   "surface": {
+    "kind": "grain",
+    "scale": 2,
+    "strength": 0.6
+   },
+   "color": "#9c8463",
+   "studioColor": "#7d6a52",
+   "glow": "#fff2c0",
+   "label": [
+    0,
+    5.41,
+    3.125
+   ],
+   "shapes": [
+    {
+     "shell": {
+      "r": 6.371,
+      "ri": 6.121,
+      "from": 90,
+      "to": 360
+     },
+     "rot": [
+      0,
+      0,
+      90
+     ]
+    }
+   ]
+  },
+  {
+   "id": "man-ti",
+   "name": "Man-ti",
+   "material": "rock",
+   "surface": {
+    "kind": "grain",
+    "scale": 1.5,
+    "strength": 0.4
+   },
+   "color": "#d9783f",
+   "studioColor": "#b4532a",
+   "glow": "#fff2c0",
+   "label": [
+    -3.085,
+    3.677,
+    0
+   ],
+   "shapes": [
+    {
+     "shell": {
+      "r": 6.121,
+      "ri": 3.471,
+      "from": 90,
+      "to": 360
+     },
+     "rot": [
+      0,
+      0,
+      90
+     ]
+    }
+   ]
+  },
+  {
+   "id": "nhan-ngoai",
+   "name": "Nhân ngoài",
+   "material": "rock",
+   "color": "#f2a33a",
+   "studioColor": "#e08a20",
+   "glow": "#fff2c0",
+   "label": [
+    0,
+    1.185,
+    2.05
+   ],
+   "shapes": [
+    {
+     "shell": {
+      "r": 3.471,
+      "ri": 1.271,
+      "from": 90,
+      "to": 360
+     },
+     "rot": [
+      0,
+      0,
+      90
+     ]
+    }
+   ]
+  },
+  {
+   "id": "nhan-trong",
+   "name": "Nhân trong",
+   "material": "metal",
+   "color": "#f7d65a",
+   "studioColor": "#e8c040",
+   "glow": "#fff2c0",
+   "label": [
+    -0.55,
+    -0.3,
+    0
+   ],
+   "shapes": [
+    {
+     "shell": {
+      "r": 1.271,
+      "from": 90,
+      "to": 360
+     },
+     "rot": [
+      0,
+      0,
+      90
+     ]
+    }
+   ]
+  },
+  {
+   "id": "diem-do",
+   "name": "Điểm đang xét",
+   "note": "kéo thanh Độ sâu để đưa điểm này từ mặt đất xuống tâm Trái Đất.",
+   "material": "paint",
+   "color": "#2f5fc4",
+   "studioColor": "#2a56b8",
+   "label": false,
+   "shapes": [
+    {
+     "sphere": 0.16,
+     "at": [
+      -6.371,
+      0,
+      0.02
+     ]
+    }
+   ]
+  }
+ ]
+}

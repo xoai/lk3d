@@ -386,4 +386,4 @@ function glRenderer(gl, scene, opts = {}) {
   };
 }
 
-export { glRenderer };
+export { glRenderer, ENVS };

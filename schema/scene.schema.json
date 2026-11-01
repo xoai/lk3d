@@ -1,0 +1,828 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unpkg.com/lk3d/schema/scene.schema.json",
+  "title": "lk3d scene",
+  "description": "A 3D figure as data: parts made of shapes, each with a name and a note, that the reader turns, takes apart, cuts open and moves. Other fields are allowed (a page's own data).",
+  "type": "object",
+  "required": [
+    "parts"
+  ],
+  "properties": {
+    "w": {
+      "description": "The stage's width in proportion to h (16 by default).",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "h": {
+      "description": "The stage's height in proportion to w (10 by default).",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "narrow": {
+      "description": "The stage's proportions on a narrow screen, e.g. \"1 / 0.9\".",
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "description": "What the figure shows; also the canvas's label when alt is not given."
+    },
+    "alt": {
+      "type": "string",
+      "description": "A description of the model for screen readers."
+    },
+    "style": {
+      "enum": [
+        "ink",
+        "studio"
+      ],
+      "description": "The first look: ink (drawn, the default) or studio (realistic)."
+    },
+    "env": {
+      "enum": [
+        "studio",
+        "warm",
+        "night"
+      ],
+      "description": "The studio look's environment."
+    },
+    "view": {
+      "type": "object",
+      "description": "The first camera.",
+      "properties": {
+        "yaw": {
+          "type": "number"
+        },
+        "pitch": {
+          "type": "number"
+        },
+        "dist": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "target": {
+          "$ref": "#/$defs/vec3"
+        },
+        "fov": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "explodeZoom": {
+          "type": "number"
+        },
+        "explodeShift": {
+          "$ref": "#/$defs/vec3"
+        }
+      }
+    },
+    "ground": {
+      "type": "boolean",
+      "description": "A shadow under the model (true by default)."
+    },
+    "section": {
+      "description": "The cut: a plane, or false to offer none.",
+      "anyOf": [
+        {
+          "const": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "normal": {
+              "$ref": "#/$defs/vec3"
+            },
+            "offset": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "scale": {
+      "description": "Honest scale: a bar that keeps its true length as the view zooms, and/or a note saying what is not to scale.",
+      "type": "object",
+      "properties": {
+        "bar": {
+          "type": "object",
+          "required": [
+            "length",
+            "label"
+          ],
+          "properties": {
+            "length": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "x-message": "a scale bar needs its length (scene units) and label (\"5 cm\")"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "bar"
+          ]
+        },
+        {
+          "required": [
+            "note"
+          ]
+        }
+      ],
+      "x-message": "scale is a bar ({bar: {length, label}}) and/or a note ({note: \"not to scale\"})"
+    },
+    "models": {
+      "type": "object",
+      "description": "glTF 2.0 models (.glb) by name, for {model: name} shapes.",
+      "additionalProperties": {
+        "$ref": "#/$defs/model"
+      }
+    },
+    "parts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/part"
+      },
+      "x-message": "a scene needs parts"
+    }
+  },
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "minItems": 3,
+      "maxItems": 3,
+      "x-message": "three numbers [x, y, z]"
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
+      "x-message": "a colour \"#rrggbb\""
+    },
+    "model": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "string",
+          "description": "The .glb as base64 (a build tool may fill it in from a file)."
+        },
+        "title": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "scan",
+            "dataset",
+            "artist",
+            "ai"
+          ],
+          "description": "Where it comes from: a scan of a real specimen, a scientific dataset, an artist's model, or made by AI (then called an illustration under the figure)."
+        }
+      }
+    },
+    "handle": {
+      "type": "object",
+      "description": "The reader moves the part with the pointer or the keys, held to one rule.",
+      "properties": {
+        "turn": {
+          "type": "object",
+          "required": [
+            "axis"
+          ],
+          "properties": {
+            "axis": {
+              "$ref": "#/$defs/vec3"
+            },
+            "center": {
+              "$ref": "#/$defs/vec3"
+            }
+          },
+          "description": "Degrees about an axis through center; without min and max it goes round and round."
+        },
+        "slide": {
+          "type": "object",
+          "required": [
+            "axis"
+          ],
+          "properties": {
+            "axis": {
+              "$ref": "#/$defs/vec3"
+            }
+          },
+          "description": "A distance along an axis from where the part is drawn."
+        },
+        "along": {
+          "type": "object",
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "$ref": "#/$defs/vec3"
+              },
+              "x-message": "an along handle needs a path of at least two points"
+            },
+            "closed": {
+              "type": "boolean"
+            }
+          },
+          "description": "A place on a path, 0 at its start to 1 at its end."
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "snap": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "value": {
+          "type": "number"
+        },
+        "label": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "moves": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Other parts or groups carried with it."
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "turn"
+          ]
+        },
+        {
+          "required": [
+            "slide",
+            "min",
+            "max"
+          ]
+        },
+        {
+          "required": [
+            "along"
+          ]
+        }
+      ],
+      "x-message": "a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}"
+    },
+    "part": {
+      "type": "object",
+      "required": [
+        "id",
+        "shapes"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique in the scene."
+        },
+        "name": {
+          "type": "string",
+          "description": "Its label."
+        },
+        "note": {
+          "type": "string",
+          "description": "Shown when the part is pointed at (may hold simple HTML)."
+        },
+        "group": {
+          "type": "string"
+        },
+        "material": {
+          "enum": [
+            "metal",
+            "steel",
+            "copper",
+            "gold",
+            "plastic",
+            "rubber",
+            "paint",
+            "glass",
+            "magnet",
+            "matte",
+            "wood",
+            "tissue",
+            "membrane",
+            "skin",
+            "bone",
+            "rock",
+            "soil",
+            "ice",
+            "water",
+            "gas"
+          ]
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "studioColor": {
+          "$ref": "#/$defs/color"
+        },
+        "glow": {
+          "$ref": "#/$defs/color"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "xray": {
+          "type": "boolean"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "explode": {
+          "$ref": "#/$defs/vec3"
+        },
+        "at": {
+          "$ref": "#/$defs/vec3"
+        },
+        "rot": {
+          "$ref": "#/$defs/vec3"
+        },
+        "scale": {
+          "$ref": "#/$defs/vec3"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "const": false
+            },
+            {
+              "$ref": "#/$defs/vec3"
+            }
+          ],
+          "description": "Where its leader line points, or false for no label."
+        },
+        "spin": {
+          "type": "object",
+          "properties": {
+            "axis": {
+              "enum": [
+                "x",
+                "y",
+                "z"
+              ]
+            },
+            "ratio": {
+              "type": "number"
+            },
+            "center": {
+              "$ref": "#/$defs/vec3"
+            }
+          }
+        },
+        "handle": {
+          "$ref": "#/$defs/handle"
+        },
+        "surface": {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "brushed",
+                "knurl",
+                "ribs",
+                "grain",
+                "skin",
+                "cast"
+              ]
+            },
+            "scale": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "strength": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "x-message": "surface is {kind: brushed|knurl|ribs|grain|skin|cast, scale, strength} (positive numbers)"
+        },
+        "refract": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 2,
+          "description": "Glass that bends what is behind it (studio look, WebGL 2): 1 for a lens."
+        },
+        "shapes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shape"
+          },
+          "minItems": 1,
+          "x-message": "a part needs its shapes (a list of one or more)"
+        }
+      },
+      "dependentSchemas": {
+        "refract": {
+          "required": [
+            "material"
+          ],
+          "properties": {
+            "material": {
+              "const": "glass"
+            }
+          },
+          "x-message": "refract is for a glass part (material: glass)"
+        }
+      }
+    },
+    "shape": {
+      "type": "object",
+      "properties": {
+        "lathe": {
+          "description": "A body of revolution around the x axis: a profile of [position along x, radius] points.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "cylinder": {
+          "description": "A cylinder along x from x0 to x1; ri makes it hollow, r1 a cone.",
+          "type": "object",
+          "required": [
+            "r"
+          ],
+          "properties": {
+            "r": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "ri": {
+              "type": "number",
+              "minimum": 0
+            },
+            "r1": {
+              "type": "number",
+              "minimum": 0
+            },
+            "x0": {
+              "type": "number"
+            },
+            "x1": {
+              "type": "number"
+            }
+          }
+        },
+        "box": {
+          "description": "A box [sx, sy, sz], centred.",
+          "$ref": "#/$defs/vec3"
+        },
+        "sphere": {
+          "description": "A sphere of this radius (seg: 32 by default).",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "torus": {
+          "description": "A ring [R, r] around the x axis.",
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "tube": {
+          "description": "A round wire along a path of [x, y, z] points (r: its radius; closed: a loop).",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/vec3"
+          }
+        },
+        "helix": {
+          "description": "A coil along x: {r, x0, x1, turns, wire}.",
+          "type": "object"
+        },
+        "loop": {
+          "description": "A rounded rectangular winding: {a, b, R, wire, corner, turns, gap}.",
+          "type": "object"
+        },
+        "ellipsoid": {
+          "description": "An egg shape with semi-axes [a, b, c].",
+          "$ref": "#/$defs/vec3"
+        },
+        "capsule": {
+          "description": "A rod with round ends along x: {r, x0, x1}.",
+          "type": "object"
+        },
+        "blob": {
+          "description": "An irregular round body: {r, amp, freq, seed, stretch}.",
+          "type": "object"
+        },
+        "shell": {
+          "description": "A sphere, hollow inside ri, with the wedge outside from..to (degrees) cut away: {r, ri, from, to}.",
+          "type": "object"
+        },
+        "tree": {
+          "description": "Branching, tapering tubes: {at, dir, length, r, levels, branches, spread, shrink, taper, bend, seed}.",
+          "type": "object"
+        },
+        "molecule": {
+          "description": "Atoms (CPK colours) and bonds: {atoms: [{el, at}], bonds: [[i, j, order]], scale, style}.",
+          "type": "object",
+          "required": [
+            "atoms"
+          ]
+        },
+        "dna": {
+          "description": "A double helix with base pairs: {pairs, seq, scale}.",
+          "type": "object"
+        },
+        "extrude": {
+          "description": "A flat outline made solid: {outline, depth}.",
+          "type": "object"
+        },
+        "terrain": {
+          "description": "A block of ground with rock layers: {size, res, base, height, layers, top, tilt}.",
+          "type": "object"
+        },
+        "ring": {
+          "description": "A flat ring: {r, ri, thickness}.",
+          "type": "object"
+        },
+        "orbit": {
+          "description": "An ellipse with the Sun at a focus: {a, e, wire}.",
+          "type": "object",
+          "required": [
+            "a"
+          ]
+        },
+        "blade": {
+          "description": "A twisted airfoil blade along y: {root, span, chord, tip, twist, thickness, camber, sweep}.",
+          "type": "object"
+        },
+        "scatter": {
+          "description": "Copies of a shape at random places: {shape, n, within, avoid, size, seed}.",
+          "type": "object",
+          "required": [
+            "shape"
+          ],
+          "properties": {
+            "shape": {
+              "$ref": "#/$defs/shape"
+            },
+            "n": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "model": {
+          "description": "A model listed under the scene's models (node: one node of it).",
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/vec3"
+        },
+        "rot": {
+          "$ref": "#/$defs/vec3"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/vec3"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "detail": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "repeat": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "object",
+              "required": [
+                "n"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "step": {
+                  "type": "number"
+                },
+                "start": {
+                  "type": "number"
+                },
+                "axis": {
+                  "enum": [
+                    "x",
+                    "y",
+                    "z"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "node": {
+          "type": "string"
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "mirror": {
+          "type": "boolean"
+        },
+        "seg": {
+          "type": "integer",
+          "minimum": 3
+        },
+        "r": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "lathe"
+          ]
+        },
+        {
+          "required": [
+            "cylinder"
+          ]
+        },
+        {
+          "required": [
+            "box"
+          ]
+        },
+        {
+          "required": [
+            "sphere"
+          ]
+        },
+        {
+          "required": [
+            "torus"
+          ]
+        },
+        {
+          "required": [
+            "tube"
+          ]
+        },
+        {
+          "required": [
+            "helix"
+          ]
+        },
+        {
+          "required": [
+            "loop"
+          ]
+        },
+        {
+          "required": [
+            "ellipsoid"
+          ]
+        },
+        {
+          "required": [
+            "capsule"
+          ]
+        },
+        {
+          "required": [
+            "blob"
+          ]
+        },
+        {
+          "required": [
+            "shell"
+          ]
+        },
+        {
+          "required": [
+            "tree"
+          ]
+        },
+        {
+          "required": [
+            "molecule"
+          ]
+        },
+        {
+          "required": [
+            "dna"
+          ]
+        },
+        {
+          "required": [
+            "extrude"
+          ]
+        },
+        {
+          "required": [
+            "terrain"
+          ]
+        },
+        {
+          "required": [
+            "ring"
+          ]
+        },
+        {
+          "required": [
+            "orbit"
+          ]
+        },
+        {
+          "required": [
+            "blade"
+          ]
+        },
+        {
+          "required": [
+            "scatter"
+          ]
+        },
+        {
+          "required": [
+            "model"
+          ]
+        }
+      ],
+      "x-message": "a shape is exactly one of: lathe, cylinder, box, sphere, torus, tube, helix, loop, ellipsoid, capsule, blob, shell, tree, molecule, dna, extrude, terrain, ring, orbit, blade, scatter, model"
+    }
+  }
+}

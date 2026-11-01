@@ -298,3 +298,42 @@ test('locales: English by default and Vietnamese bundled, with the same words an
   assert.equal(LK3D.defaults.locale, 'en', 'a page that says nothing gets English');
   assert.deepEqual(LK3D.defaults.strings, {}); assert.equal(LK3D.defaults.buttonClass, '');
 });
+
+test('the scene schema names exactly what the engine draws: shapes, materials, surfaces, environments', () => {
+  const { schema } = require('../src/validate.js'), G = require('../src/geometry.js'), { ENVS } = require('../src/renderer-gl.js');
+  const d = schema.$defs, kinds = d.shape.oneOf.map((o) => o.required[0]);
+  assert.deepEqual(kinds.sort(), [...Object.keys(G.SHAPES), 'scatter', 'model'].sort());
+  assert.deepEqual(d.part.properties.material.enum.slice().sort(), Object.keys(G.MATERIALS).sort());
+  assert.deepEqual(d.part.properties.surface.properties.kind.enum.slice().sort(), Object.keys(G.SURFACES).sort());
+  assert.deepEqual(schema.properties.env.enum.slice().sort(), Object.keys(ENVS).sort());
+});
+
+test('the validator finds each planted mistake where it is, and passes a right scene', () => {
+  const { validate } = require('../src/validate.js');
+  const part = (o = {}) => ({ id: 'a', shapes: [{ sphere: 1 }], ...o });
+  const good = { parts: [part({ group: 'g', handle: { slide: { axis: [1, 0, 0] }, min: 0, max: 1, moves: ['b', 'g'] } }), part({ id: 'b', material: 'glass', refract: 1, surface: { kind: 'knurl', scale: 40 } })],
+    scale: { bar: { length: 1, label: '1 cm' }, note: 'not to scale' }, env: 'night', models: { m: { data: '', source: 'scan' } }, style: 'studio', extra: 'a page\'s own field' };
+  assert.deepEqual(validate(good), []);
+  const at = (scene) => validate(scene).map((e) => e.path);
+  const cases = [
+    [{ parts: [] }, 'parts'],                                                                                     // no parts
+    [{ parts: [{ id: 'a' }] }, 'parts[0]'],                                                                       // no shapes
+    [{ parts: [part(), part()] }, 'parts[1].id'],                                                                 // two parts, one id
+    [{ parts: [part({ shapes: [{ sphere: 1, box: [1, 1, 1] }] })] }, 'parts[0].shapes[0]'],                       // two kinds in one shape
+    [{ parts: [part({ shapes: [{ cube: 1 }] })] }, 'parts[0].shapes[0]'],                                         // an unknown kind
+    [{ parts: [part({ shapes: [{ box: [1, 1] }] })] }, 'parts[0].shapes[0].box'],                                 // a box of two sizes
+    [{ parts: [part({ shapes: [{ model: 'heart' }] })] }, 'parts[0].shapes[0]'],                                  // a model not listed
+    [{ parts: [part({ handle: { turn: { axis: [1, 0, 0] }, slide: { axis: [0, 1, 0] }, min: 0, max: 1 } })] }, 'parts[0].handle'],   // two rules
+    [{ parts: [part({ handle: { slide: { axis: [1, 0, 0] }, max: 1 } })] }, 'parts[0].handle'],                   // a slide without its range
+    [{ parts: [part({ handle: { along: { path: [[0, 0, 0]] } } })] }, 'parts[0].handle.along.path'],              // a path of one point
+    [{ parts: [part({ handle: { turn: { axis: [1, 0, 0] }, moves: ['nope'] } })] }, 'parts[0].handle.moves'],     // moves nothing that exists
+    [{ parts: [part({ surface: { kind: 'velvet' } })] }, 'parts[0].surface.kind'],
+    [{ parts: [part({ surface: { kind: 'grain', scale: -2 } })] }, 'parts[0].surface.scale'],
+    [{ parts: [part({ refract: 1 })] }, 'parts[0]'],                                                              // glass only
+    [{ parts: [part({ material: 'glass', refract: 5 })] }, 'parts[0].refract'],
+    [{ parts: [part({ color: 'red' })] }, 'parts[0].color'],
+    [{ parts: [part()], scale: {} }, 'scale'], [{ parts: [part()], scale: { bar: { length: 1 } } }, 'scale.bar'], [{ parts: [part()], scale: 'log' }, 'scale'],
+    [{ parts: [part()], env: 'sunset' }, 'env'], [{ parts: [part()], models: { m: { source: 'web' } } }, 'models.m.source'],
+  ];
+  for (const [scene, path] of cases) assert.ok(at(scene).includes(path), `${JSON.stringify(scene).slice(0, 90)} → ${JSON.stringify(validate(scene))}`);
+});

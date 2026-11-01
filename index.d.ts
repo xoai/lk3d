@@ -14,8 +14,10 @@ export interface Scene {
   title?: string;
   /** a description of the model for screen readers */
   alt?: string;
-  /** the first look: drawn (default) or realistic */
-  style?: 'ink' | 'studio';
+  /** the first look: drawn (default), realistic, or near-white with thin lines */
+  style?: Look;
+  /** the colours of the page behind the model, its lines and words (auto: as the reader's system is set) */
+  theme?: ThemeName | 'auto';
   /** the studio look's environment */
   env?: 'studio' | 'warm' | 'night';
   view?: {
@@ -37,6 +39,26 @@ export interface Scene {
   models?: Record<string, Model>;
   /** a page's own data may ride along */
   [extra: string]: unknown;
+}
+
+export type Look = 'ink' | 'studio' | 'pen';
+export type ThemeName = 'light' | 'dark' | 'blueprint' | 'sepia';
+/** a theme's colours ("#rrggbb"): add one to LK3D.themes to use it by name */
+export interface Theme {
+  /** the page behind the model; the words (and text lines); the lines (outlines, leader lines, label borders) */
+  bg: Color;
+  ink: Color;
+  line: Color;
+  /** label backgrounds; hints and credits; the "not to scale" note; a chosen label */
+  paper: Color;
+  muted: Color;
+  warn: Color;
+  highlight: Color;
+  /** the pen look's solids and its ground shadow */
+  solid: Color;
+  shadow: Color;
+  /** light is added (not inked) on a dark page */
+  dark: boolean;
 }
 
 export interface Model {
@@ -83,6 +105,8 @@ export interface Part {
   color?: Color;
   studioColor?: Color;
   glow?: Color;
+  /** keeps its full colour in the pen look */
+  accent?: boolean;
   opacity?: number;
   xray?: boolean;
   hidden?: boolean;
@@ -174,6 +198,7 @@ export interface Strings {
   labelsTitle: string;
   studio: string;
   ink: string;
+  pen: string;
   styleTitle: string;
   front: string;
   side: string;
@@ -189,7 +214,8 @@ export interface MountOptions {
   infoIdle?: string;
   /** false: no built-in buttons */
   controls?: boolean;
-  style?: 'ink' | 'studio';
+  style?: Look;
+  theme?: string;
   labels?: 'auto' | 'all' | 'none';
   onPick?: (part: BuiltPart | null) => void;
   /** a handle moved by the reader (not by the page's own set()) */
@@ -238,6 +264,38 @@ export interface Balls {
   resize(n: number): void;
   remove(): void;
 }
+/** streaks along paths; setting speed, amount or visible draws again */
+export interface Flow {
+  /** scene units a second */
+  speed: number;
+  /** the share of the streaks drawn, 0 to 1 */
+  amount: number;
+  visible: boolean;
+  set(o: Partial<FlowOptions> & { speed?: number; amount?: number; visible?: boolean }): void;
+  remove(): void;
+}
+export interface FlowOptions {
+  /** one path, or several (the streaks are shared out among them) */
+  path?: Vec3[];
+  paths?: Vec3[][];
+  closed?: boolean;
+  /** streaks (300; at most 8000) */
+  count?: number;
+  speed?: number;
+  amount?: number;
+  /** a streak's length, as a share of its path (0.12) */
+  length?: number;
+  /** its width in CSS pixels (1.6; at least 1.25) */
+  width?: number;
+  /** how far streaks wander from the path, in scene units (0) */
+  spread?: number;
+  opacity?: number;
+  /** colours along the path: 'cool', 'heat', one colour, or up to four */
+  ramp?: 'cool' | 'heat' | Color | Color[];
+  /** a part whose movement the streaks follow */
+  part?: string;
+}
+
 export interface Lines {
   set(k: number, a: Vec3 | null, b?: Vec3): void;
   clear(): void;
@@ -259,7 +317,10 @@ export interface Figure {
     cut?: boolean;
     xray?: boolean;
     labels?: 'auto' | 'all' | 'none';
-    style?: 'ink' | 'studio';
+    style?: Look;
+    theme?: string | null;
+    /** how fast particles and flows move (1; 0.2 for slow motion) */
+    timeScale?: number;
     glow?: Record<string, number>;
     hide?: string[];
     move?: Record<string, Vec3>;
@@ -272,7 +333,9 @@ export interface Figure {
   /** choose a part (or null) without calling onPick */
   select(id: string | null): void;
   readonly labels: 'auto' | 'all' | 'none';
-  readonly style: 'ink' | 'studio';
+  readonly style: Look;
+  readonly theme: string | null;
+  readonly timeScale: number;
   particles(o: {
     path: Vec3[];
     count?: number;
@@ -282,6 +345,7 @@ export interface Figure {
     closed?: boolean;
   }): Particles;
   particles(o: { count: number; radius: number; colors?: [Color, Color, Color] }): Balls;
+  flow(o: FlowOptions): Flow;
   lines(o?: { count?: number; radius?: number; color?: Color; studioColor?: Color; glow?: Color }): Lines;
   /** a handle's value, read or set by the page (setting it does not call onHandle) */
   handle(id: string): { readonly value: number; set(v: number): void } | undefined;
@@ -304,6 +368,7 @@ export function mount(el: HTMLElement, scene: Scene, opts?: MountOptions): Figur
 /** the geometry a scene makes, without a page (for tests and tools) */
 export function build(scene: Scene, quality?: number): { parts: BuiltPart[] };
 export const locales: Record<string, Strings>;
+export const themes: Record<string, Theme>;
 export const defaults: Defaults;
 export const reduce: boolean;
 export const version: number;
@@ -312,6 +377,7 @@ declare const LK3D: {
   mount: typeof mount;
   build: typeof build;
   locales: typeof locales;
+  themes: typeof themes;
   defaults: Defaults;
   reduce: boolean;
   version: number;

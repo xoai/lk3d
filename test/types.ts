@@ -59,6 +59,33 @@ const bad1: Scene = { parts: [{ id: 'a', shapes: [{ sphere: 1 }], handle: { slid
 const bad2: Scene = { parts: [{ id: 'a', shapes: [{ sphere: 1 }], material: 'velvet' }] };
 // @ts-expect-error a box is three numbers
 const bad3: Scene = { parts: [{ id: 'a', shapes: [{ box: [1, 1] }] }] };
-// @ts-expect-error looks are ink or studio
+// @ts-expect-error looks are ink, studio or pen
 fig.set({ style: 'photo' });
-void [problems, bad1, bad2, bad3];
+fig.flow({
+  path: [
+    [0, 0, 0],
+    [1, 0, 0],
+  ],
+  // @ts-expect-error a flow's ramp is a preset, a colour or colours
+  ramp: 3,
+});
+const themed: Scene = { parts: [], theme: 'blueprint', style: 'pen' };
+// @ts-expect-error not a theme
+const bad5: Scene = { parts: [], theme: 'neon' };
+// flows, themes and slow motion
+const air = fig.flow({
+  paths: [
+    [
+      [0, 0, 0],
+      [1, 0, 0],
+    ],
+  ],
+  count: 200,
+  ramp: ['#2a66ab', '#e3801f'],
+  spread: 0.05,
+});
+air.speed = 0.4;
+air.set({ amount: 0.5 });
+fig.set({ theme: 'dark', timeScale: 0.2, style: 'pen' });
+LK3D.themes.night = { ...LK3D.themes.dark, bg: '#000000' };
+void [problems, bad1, bad2, bad3, themed, bad5, fig.theme, fig.timeScale];

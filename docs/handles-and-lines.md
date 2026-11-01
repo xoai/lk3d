@@ -1,4 +1,4 @@
-# Handles and lines
+# Handles, lines and flow
 
 ## Handles: parts the reader moves
 
@@ -45,3 +45,42 @@ rays.clear();
 ```
 
 Each set of lines is one draw: a unit cylinder drawn once per segment by instancing, with its matrices updated in place.
+
+## Flow
+
+Streaks that run along paths: air through an engine, blood along a vessel, water round a bend. Each is a thin ribbon
+that fades from its head to its tail, wanders a little round its path (`spread`), and takes its colour from a ramp
+along the path, so air can come in cool and leave hot.
+
+![Air through a ducted fan in the pen look: cool streaks round the core, warming streaks through it](flow.png)
+
+```js
+// paths round the axis: a profile of [x, radius] turned to eight angles
+const around = (profile, n) =>
+  Array.from({ length: n }, (_, k) => {
+    const a = ((k + 0.5) / n) * 2 * Math.PI;
+    return profile.map(([x, r]) => [x, r * Math.cos(a), r * Math.sin(a)]);
+  });
+const air = fig.flow({ paths: around(BYPASS, 8), count: 500, ramp: 'cool', spread: 0.06, length: 0.1 });
+const core = fig.flow({ paths: around(CORE, 6), count: 360, ramp: ['#3a83c6', '#3a83c6', '#e3801f', '#c8461c'] });
+throttle.oninput = () => air.set({ amount: 0.15 + 0.85 * t, speed: 0.6 + 3.4 * t }); // more streaks, faster
+fig.set({ timeScale: 0.2 }); // slow motion, for flows and particles alike
+```
+
+| Option              | Default  | Meaning                                                                                               |
+| ------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `path` or `paths`   |          | one polyline, or several (the streaks are shared out among them in turn)                              |
+| `count`             | 300      | streaks (at most 8000)                                                                                |
+| `speed`             | 0        | scene units a second; each streak runs a little faster or slower than that, so they drift apart       |
+| `amount`            | 1        | the share of the streaks drawn: tie it to a throttle, a pressure, a heart rate                        |
+| `length`            | 0.12     | a streak's length, as a share of its path                                                             |
+| `width`             | 1.6      | in CSS pixels, never under 1.25 (thinner streaks flicker as they move)                                |
+| `spread`, `opacity` | 0, 0.85  | how far streaks wander from the path (scene units); how strong they are                               |
+| `ramp`              | `'cool'` | `'cool'`, `'heat'` (dull red, orange, yellow), one colour, or up to four from the path's start to end |
+| `part`, `closed`    |          | a part whose movement the streaks follow; a path that joins up                                        |
+
+How they are drawn follows the page. On a light page the streaks are ink: blended over the picture, never added
+(added light washes out into white paper), and the presets end in a strong colour there; on a dark page (a theme
+with `dark`, or the studio look) their light is added, and the presets end near white. They fade in and out at an
+open path's ends, are hidden by solid parts but seen through glass, and stand still for a reader who asked for less
+motion. Every streak's place comes from a fixed seed, so the same flow draws the same picture.

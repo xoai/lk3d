@@ -42,12 +42,15 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
   not overlap; a note for each part.
 - **Move parts by hand**: handles that turn (a focus ring, a rotor), slide (a piston, an object on a bench) or follow a
   path (a planet on its orbit), each also a range input for the keyboard and screen readers. Rays, field lines and
-  forces as lines; particles flowing along paths; solid balls a simulation places.
+  forces as lines; streaks of air or blood flowing along paths, coloured cool to hot, as many and as fast as a page
+  value says ([flow](docs/handles-and-lines.md#flow)); particles along paths; solid balls a simulation places.
 - **Shapes from a few numbers**: lathes, cylinders, tubes, coils, windings, blades for machines; cells, membranes,
   branching trees, molecules in CPK colours, DNA, rock layers, orbits for the sciences ([catalogue](docs/shapes.md)).
   glTF models for what generated shapes cannot draw, textured scans included ([models](docs/models.md)).
-- **Two looks**: a drawn look (coloured pencil, hatching, ink outlines) and a realistic studio look (physically based
-  materials, a generated environment, soft shadows, surface detail, glass that bends light) ([looks](docs/looks-and-materials.md)).
+- **Three looks, four themes**: a drawn look (coloured pencil, hatching, ink outlines), a realistic studio look
+  (physically based materials, a generated environment, soft shadows, surface detail, glass that bends light) and a
+  pen look (near-white solids, thin lines, colour only for accents); light, dark, blueprint and sepia themes, or the
+  reader's own setting ([looks](docs/looks-and-materials.md)).
 - **Honest scale**: a scale bar that keeps its true length as the view zooms, or a note saying what is not to scale.
 - **Accessible**: the figure has a text description, every control works by keyboard, handles are read out, motion
   respects reduced-motion settings, English and Vietnamese words built in (add your own), themed by CSS variables.
@@ -58,7 +61,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 95 KB    | 38 KB   |
+| lk3d                                                                                                                              | 104 KB   | 42 KB   |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
@@ -99,7 +102,7 @@ fig.set({ explode: 1 });
 npm install
 npm test               # geometry, models, handles, the validator, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # the bundle stays within 40 KB gzipped
+npm run size           # the bundle stays within 42 KB gzipped
 npm run test:visual    # reference scenes compared with stored pictures, in Chromium, Firefox and WebKit
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again

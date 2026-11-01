@@ -3,6 +3,7 @@
 // ({kind, hifi, draw(frame), setAO(batch), dispose()}), so another backend (WebGPU) can be added beside it.
 import * as S from './shaders.js';
 import { M, sub, len, mulv, add, norm } from './math.js';
+import { flowIndices, STRIDE, MAX } from './flow.js';
 
 const PVS = `attribute vec4 aPos; uniform mat4 uVP; uniform float uSize; uniform vec3 uEye;
 void main() { gl_Position = uVP * vec4(aPos.xyz, 1.0); gl_PointSize = uSize / max(0.2, length(aPos.xyz - uEye)); }`;
@@ -10,7 +11,7 @@ const PFS = `uniform vec3 uColor; uniform float uAlpha;
 void main() { vec2 d = gl_PointCoord - 0.5; float r = length(d); if (r > 0.5) discard; gl_FragColor = vec4(uColor, uAlpha * (1.0 - smoothstep(0.15, 0.5, r))); }`;
 
 // balls (the molecules of a gas): a point sprite shaded as a sphere, in one of three colours by aPos.w (below 1/3, up
-// to 2/3, above: bands read better than a blend, whose middle is a muddy grey); in the hand-drawn look, an ink rim
+// to 2/3, above: bands read better than a blend, whose middle is a muddy grey); in the drawn and pen looks, a rim
 const DVS = `attribute vec4 aPos; uniform mat4 uVP; uniform float uSize; uniform vec3 uEye; varying float vW;
 void main() { gl_Position = uVP * vec4(aPos.xyz, 1.0); gl_PointSize = max(2.0, uSize / max(0.05, length(aPos.xyz - uEye))); vW = aPos.w; }`;
 const DFS = `uniform vec3 uC0, uC1, uC2, uInk; uniform float uStudio; varying float vW;
@@ -19,7 +20,7 @@ void main() {
   vec3 c = vW < 0.35 ? uC0 : vW < 0.65 ? uC1 : uC2;
   vec3 n = vec3(d.x, -d.y, sqrt(1.0 - r2));
   float l = max(dot(n, normalize(vec3(-0.45, 0.6, 0.66))), 0.0);
-  vec3 col = uStudio > 0.5 ? c * (0.28 + 0.8 * l) + vec3(0.5) * pow(l, 24.0) : (r2 > 0.72 ? uInk : c * (l > 0.35 ? 1.0 : 0.85));
+  vec3 col = uStudio > 1.5 ? (r2 > 0.84 ? uInk : c * (l > 0.35 ? 1.0 : 0.93)) : uStudio > 0.5 ? c * (0.28 + 0.8 * l) + vec3(0.5) * pow(l, 24.0) : (r2 > 0.72 ? uInk : c * (l > 0.35 ? 1.0 : 0.85));
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -137,7 +138,12 @@ function glRenderer(gl, scene, opts = {}) {
   };
   if (shadowsOn) P.depth = program(S.PART_VS, S.DEPTH_FS);
   // particles along paths and solid balls: compiled only for a figure that has them
-  const lazy = (name) => P[name] || (P[name] = name === 'pts' ? program(PVS, PFS) : program(DVS, DFS));
+  const lazy = (name) =>
+    P[name] ||
+    (P[name] =
+      name === 'pts' ? program(PVS, PFS) : name === 'flow' ? program(S.FLOW_VS, S.FLOW_FS) : program(DVS, DFS));
+  // the pen look: compiled when first needed (no shadows: its light turns with the camera, and its ground is a halo)
+  const penProg = () => P.pen || (P.pen = program(S.PART_VS, S.PART_FS, ['PEN']));
   // the studio look, its environment and the glow: compiled when first needed, or ahead of time in the background once
   // the first picture is up (only where that does not block)
   const studioProgs = () => {
@@ -253,6 +259,8 @@ function glRenderer(gl, scene, opts = {}) {
   const quad = buf(new Float32Array([-1, -1, 0, 1, 1, -1, 0, 1, 1, 1, 0, 1, -1, -1, 0, 1, 1, 1, 0, 1, -1, 1, 0, 1]));
   const pbuf = gl.createBuffer(),
     uploads = new WeakMap(); // a ball set's buffer, and the version of its positions in it
+  let fidx = null; // the flows' triangles, made once for as many streaks as a flow may have
+  const fbufs = new WeakMap(); // each flow's vertex buffer, made once at its full size and refilled in place
 
   function bindBatch(prog, b) {
     const A = prog.a,
@@ -477,6 +485,7 @@ function glRenderer(gl, scene, opts = {}) {
     prewarm() {
       if (par) {
         studioProgs();
+        penProg();
         if (hifi) glowProgs();
       }
     },
@@ -492,12 +501,15 @@ function glRenderer(gl, scene, opts = {}) {
       }
     },
     draw(f) {
-      const ink = f.style === 'ink',
+      const kind = f.look.kind, // 0 ink, 1 studio, 2 pen
+        ink = kind === 0,
+        pen = kind === 2,
         W = gl.canvas.width,
         H = gl.canvas.height;
       // the programs this picture needs; if one is still compiling, draw nothing yet (the last picture stays up)
-      if (!ink) studioProgs();
-      const prog = ink ? P.ink : P.studio;
+      if (kind === 1) studioProgs();
+      const prog = ink ? P.ink : pen ? penProg() : P.studio,
+        flows = f.flows || [];
       const solid = f.particles.filter((h) => h.solid && h.visible && h.count),
         flow = f.particles.filter((h) => !h.solid && h.visible);
       const needs = [
@@ -506,8 +518,9 @@ function glRenderer(gl, scene, opts = {}) {
         ...(shadowsOn ? [P.depth] : []),
         ...(flow.length ? [lazy('pts')] : []),
         ...(solid.length ? [lazy('dots')] : []),
+        ...(flows.length ? [lazy('flow')] : []),
       ];
-      if (!ink && hifi && !env) needs.push(P.envGen, P.envPre);
+      if (kind === 1 && hifi && !env) needs.push(P.envGen, P.envPre);
       let waiting = false;
       for (const q of needs) if (!ready(q)) waiting = true;
       if (waiting) return false;
@@ -527,7 +540,7 @@ function glRenderer(gl, scene, opts = {}) {
       // 1. the shadow map, from the key light, around what is on screen now. Kept while nothing that casts a shadow
       // moves (turning the camera does not change it): compared on the parts' matrices and the light's frame
       let lightVP = null;
-      const key = shadowsOn && f.shadows ? shadowKey(opaque, f) : null;
+      const key = shadowsOn && f.shadows && !pen ? shadowKey(opaque, f) : null;
       if (key && shadowKeep && sameKey(key, shadowKeep.key)) lightVP = shadowKeep.vp;
       else if (key) {
         const c = f.bounds.center,
@@ -551,7 +564,10 @@ function glRenderer(gl, scene, opts = {}) {
         shadowKeep = { key, vp: lightVP };
       }
       gl.viewport(0, 0, W, H);
-      gl.clearColor(0, 0, 0, 0);
+      // a theme's page is a plain colour: drawn here, opaque, so whatever is blended later blends over it exactly
+      const fill = f.look.fill;
+      if (fill) gl.clearColor(fill[0], fill[1], fill[2], 1);
+      else gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       const u = prog.u;
       common(prog, f);
@@ -559,7 +575,9 @@ function glRenderer(gl, scene, opts = {}) {
       gl.uniform3fv(u.uCap, f.look.cap);
       gl.uniform1f(u.uDpr, f.dpr);
       gl.uniform1f(u.uAOk, f.ao ? 1 : 0);
-      if (hifi && !ink) {
+      if (u.uPaper) gl.uniform3fv(u.uPaper, f.look.paper);
+      if (u.uSolid) gl.uniform3fv(u.uSolid, f.look.solid);
+      if (hifi && kind === 1) {
         if (!env) {
           makeEnv();
           gl.viewport(0, 0, W, H);
@@ -583,14 +601,14 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniform1f(u.uShadowTexel, 1 / SHADOW);
         gl.uniformMatrix4fv(u.uLightVP, false, lightVP || NOSHADOW);
       }
-      // 2. the ink outline: back faces pushed out along the averaged normals, drawn flat in ink
-      if (ink) {
+      // 2. the outline (ink, and thinner in pen): back faces pushed out along the averaged normals, drawn flat
+      if (ink || pen) {
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.FRONT);
         gl.uniform1f(u.uFlat, 1);
         gl.uniform3fv(u.uColor, f.look.ink);
         gl.uniform1f(u.uAlpha, 1);
-        gl.uniform1f(u.uOutline, 0.0028);
+        gl.uniform1f(u.uOutline, pen ? 0.0016 : 0.0028);
         gl.uniform3fv(u.uEmit, [0, 0, 0]);
         each(prog, opaque);
       }
@@ -603,7 +621,8 @@ function glRenderer(gl, scene, opts = {}) {
         gl.cullFace(gl.BACK);
       }
       const look = (p) => {
-        gl.uniform3fv(u.uColor, ink ? p.color : p.studioColor);
+        gl.uniform3fv(u.uColor, kind === 1 ? p.studioColor : p.color);
+        if (u.uTint) gl.uniform1f(u.uTint, p.tint);
         gl.uniform3fv(u.uMat, p.mat);
         gl.uniform1f(u.uAlpha, p.drawAlpha);
         if (u.uSurf) {
@@ -626,7 +645,8 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniform3fv(G.u.uCenter, f.ground.center);
         gl.uniform1f(G.u.uRadius, f.ground.radius);
         gl.uniform1f(G.u.uY, f.ground.y);
-        gl.uniform1f(G.u.uStyle, ink ? 0 : 1);
+        gl.uniform1f(G.u.uStyle, kind);
+        gl.uniform3fv(G.u.uShade, f.look.shade);
         gl.uniform1f(G.u.uDpr, f.dpr);
         gl.uniform1f(G.u.uContact, f.ground.contact);
         if (G.u.uShadow) {
@@ -645,7 +665,7 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniformMatrix4fv(Q.u.uVP, false, f.VP);
         gl.uniform3fv(Q.u.uEye, f.eye);
         gl.uniform3fv(Q.u.uInk, f.look.ink);
-        gl.uniform1f(Q.u.uStudio, ink ? 0 : 1);
+        gl.uniform1f(Q.u.uStudio, kind);
         for (const h of solid) {
           h.update();
           let up = uploads.get(h);
@@ -720,6 +740,39 @@ function glRenderer(gl, scene, opts = {}) {
         gl.depthMask(true);
         gl.disable(gl.BLEND);
       }
+      // 6b. flow streaks: hidden by solid parts, not hiding anything themselves; ink over a light page (never added,
+      // which would wash out into the paper), light added on a dark one
+      if (flows.length) {
+        const Q = lazy('flow'),
+          A = Q.a;
+        gl.useProgram(Q.p);
+        gl.uniformMatrix4fv(Q.u.uVP, false, f.VP);
+        gl.uniform2f(Q.u.uView, W / 2, H / 2);
+        gl.enable(gl.BLEND);
+        if (f.look.dark) gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        else gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        gl.depthMask(false);
+        gl.disable(gl.CULL_FACE);
+        if (!fidx) fidx = buf(flowIndices(MAX), gl.ELEMENT_ARRAY_BUFFER);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, fidx);
+        only([A.aPos, A.aDir, A.aA]);
+        for (const F of flows) {
+          let fb = fbufs.get(F);
+          if (!fb) fbufs.set(F, (fb = buf(F.verts, gl.ARRAY_BUFFER, gl.DYNAMIC_DRAW)));
+          gl.bindBuffer(gl.ARRAY_BUFFER, fb);
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, F.verts.subarray(0, F.n * 8 * STRIDE));
+          gl.vertexAttribPointer(A.aPos, 4, gl.FLOAT, false, STRIDE * 4, 0);
+          gl.vertexAttribPointer(A.aDir, 4, gl.FLOAT, false, STRIDE * 4, 16);
+          gl.vertexAttribPointer(A.aA, 1, gl.FLOAT, false, STRIDE * 4, 32);
+          if (inst) for (const l of [A.aPos, A.aDir, A.aA]) inst.div(l, 0);
+          F.colors.forEach((c, i) => gl.uniform3fv(Q.u['uC' + i], c));
+          gl.uniform1f(Q.u.uAlpha, F.opacity);
+          gl.uniform1f(Q.u.uWidth, (Math.max(1.25, F.width) / 2 + 0.5) * f.dpr);
+          gl.drawElements(gl.TRIANGLES, F.n * 18, gl.UNSIGNED_SHORT, 0);
+        }
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
+      }
       // 7. glow around glowing parts (WebGL 2)
       const glowing = hifi && f.parts.some((p) => p.drawAlpha > 0.01 && p.emit[0] + p.emit[1] + p.emit[2] > 0.01);
       if (glowing) {
@@ -772,7 +825,7 @@ function glRenderer(gl, scene, opts = {}) {
         gl.useProgram(A2.p);
         gl.uniform1i(A2.u.uTex, 0);
         gl.bindTexture(gl.TEXTURE_2D, T.c);
-        gl.uniform1f(A2.u.uGain, ink ? 0.9 : 1.4);
+        gl.uniform1f(A2.u.uGain, ink ? 0.9 : pen && !f.look.dark ? 0.5 : 1.4);
         gl.enable(gl.BLEND);
         gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE);
         fullscreen(A2);

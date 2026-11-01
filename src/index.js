@@ -7,6 +7,7 @@
 //   const gas = s.particles({ count, radius, colors }); write gas.pos4 (x, y, z, colour 0..1) and call s.redraw()
 //   a part with a handle (turn, slide, along) is moved by the reader's pointer or keys: opts.onHandle(id, value);
 //   s.handle(id).set(v);  const rays = s.lines({ count, radius, color, glow }); rays.set(k, [x, y, z], [x, y, z])
+//   const air = s.flow({ paths, count, ramp: 'cool', spread }); air.set({ speed, amount })   streaks along paths
 //
 // Backends, best first: WebGL 2 (physically based materials lit by a generated studio environment, soft shadows,
 // creases shaded by ambient occlusion, glow), WebGL 1 (the same scene, simpler light), Canvas 2D (flat shading).
@@ -21,27 +22,97 @@ import { css } from './style.js';
 import textWidth from './text.js';
 import * as HD from './handles.js';
 import { controls } from './controls.js';
+import { pathOf, makeFlow, ramp } from './flow.js';
 import en from './locales/en.js';
 import vi from './locales/vi.js';
 const mod360 = (v) => ((v % 360) + 360) % 360;
 
+// The looks: ink (drawn: coloured pencil, hatching, ink outlines), studio (realistic) and pen (near-white solids in a few
+// close tones, thin grey lines, colour only for accents). kind is what the renderers branch on.
 const LOOKS = {
   ink: {
+    kind: 0,
     bg: 'transparent',
     ink: [0.114, 0.102, 0.118],
     cap: [0.95, 0.86, 0.62],
     light: [0.45, 0.8, 0.55],
+    paper: [0.97, 0.96, 0.93], // (the grain's paper, the hatched shadow's pencil)
+    shade: [0.11, 0.1, 0.12],
     label: 'ink',
   },
   studio: {
+    kind: 1,
     bg: 'radial-gradient(ellipse at 50% 35%, #2a3240 0%, #12161d 70%, #0b0e13 100%)',
     ink: [0, 0, 0],
     cap: [0.93, 0.55, 0.25],
     light: [0.4, 0.75, 0.6],
+    shade: [0, 0, 0],
+    dark: true,
     label: 'studio',
   },
+  pen: {
+    kind: 2,
+    bg: '#fbfbfa',
+    ink: [0.5, 0.52, 0.55],
+    cap: [0.95, 0.62, 0.42],
+    light: [0, 1, 0], // (turns with the camera: from the viewer's upper left)
+    label: 'pen',
+  },
 };
-for (const l of Object.values(LOOKS)) {
+// Colour themes (LK3D.themes; a page may add its own). A theme sets the page behind the model, the lines, the words
+// on the stage (as the figure's --lk3d-* variables) and the pen look's solids and ground. With none, the drawn and
+// studio looks keep their own colours; the pen look takes light.
+const THEMES = {
+  light: {
+    bg: '#fbfbfa',
+    line: '#80858c',
+    ink: '#2b2e33',
+    paper: '#ffffff',
+    muted: '#7d828a',
+    warn: '#c0392b',
+    highlight: '#ffd9a8',
+    solid: '#f3f2ef',
+    shadow: '#4a4f57',
+    dark: false,
+  },
+  dark: {
+    bg: '#16181c',
+    line: '#8d939b',
+    ink: '#e8eaed',
+    paper: '#22252b',
+    muted: '#9aa0a8',
+    warn: '#ff9b7a',
+    highlight: '#7a4b1c',
+    solid: '#cfd2d6',
+    shadow: '#000000',
+    dark: true,
+  },
+  blueprint: {
+    bg: '#1c3d6b',
+    line: '#c9dcf2',
+    ink: '#eef5ff',
+    paper: '#24497c',
+    muted: '#a9c2e2',
+    warn: '#ffd08a',
+    highlight: '#3d6aa6',
+    solid: '#4b74a8',
+    shadow: '#0b1f3d',
+    dark: true,
+  },
+  sepia: {
+    bg: '#f2e8d5',
+    line: '#8a6c4d',
+    ink: '#3d2c1c',
+    paper: '#f8f0e1',
+    muted: '#8a7560',
+    warn: '#a8402a',
+    highlight: '#e8c991',
+    solid: '#efe4cf',
+    shadow: '#4d3520',
+    dark: false,
+  },
+};
+for (const l of [LOOKS.ink, LOOKS.studio]) {
   const n = Math.hypot(...l.light);
   l.light = l.light.map((v) => v / n);
 }
@@ -100,6 +171,8 @@ function mount(el, spec, opts = {}) {
     stats = { setupMs: 0, firstFrameMs: null, treesMs: null, aoMs: null, refreshMs: null };
   const st = {
     style: opts.style || spec.style || 'ink',
+    theme: opts.theme || spec.theme || null,
+    timeScale: 1,
     explode: 0,
     spin: 0,
     cut: false,
@@ -351,6 +424,60 @@ function mount(el, spec, opts = {}) {
     watchDpr();
     resize();
   };
+  // ---- the look and the theme in use: resolved when either changes (the stage's background and variables with them);
+  // the pen look's light is fixed to the camera, so it is worked out every frame
+  let look = null,
+    lookKey = '';
+  const darkQuery = typeof matchMedia !== 'undefined' ? matchMedia('(prefers-color-scheme: dark)') : null;
+  const onScheme = () => {
+    if (st.theme === 'auto') kick();
+  };
+  if (darkQuery) darkQuery.addEventListener('change', onScheme);
+  function lookNow() {
+    const style = LOOKS[st.style] ? st.style : 'ink',
+      base = LOOKS[style],
+      name =
+        st.theme === 'auto'
+          ? darkQuery && darkQuery.matches
+            ? 'dark'
+            : 'light'
+          : LK3D.themes[st.theme]
+            ? st.theme
+            : base.kind === 2
+              ? 'light'
+              : null,
+      key = style + '|' + name;
+    if (key !== lookKey) {
+      const Th = name && LK3D.themes[name];
+      look = {
+        ...base,
+        light: base.light.slice(),
+        ...(Th && {
+          ink: rgb(Th.line),
+          paper: rgb(Th.bg),
+          fill: rgb(Th.bg),
+          solid: rgb(Th.solid),
+          shade: rgb(Th.shadow),
+          dark: Th.dark,
+        }),
+      };
+      lookKey = key;
+      stage.style.background = Th ? Th.bg : (style === 'studio' && BGS[spec.env]) || base.bg;
+      stage.dataset.look = style;
+      if (Th) stage.dataset.theme = name;
+      else delete stage.dataset.theme;
+      for (const k of ['ink', 'line', 'paper', 'muted', 'warn', 'highlight'])
+        if (Th) stage.style.setProperty('--lk3d-' + k, Th[k]);
+        else stage.style.removeProperty('--lk3d-' + k);
+    }
+    if (look.kind === 2) {
+      const fwd = norm(sub(add(st.target, shift()), eye)),
+        right = norm(cross(fwd, [0, 1, 0])),
+        up = cross(right, fwd);
+      look.light = norm(add(add(mulv(right, -0.45), mulv(up, 0.7)), mulv(fwd, -0.55)));
+    }
+    return look;
+  }
   const anim = new Set();
   let pNow = 0;
   function frame(now) {
@@ -362,11 +489,17 @@ function mount(el, spec, opts = {}) {
       else anim.delete(a);
     } // a tick runs while it returns true
     // particles along paths run at the speed the page gave them
-    const pdt = pNow ? Math.min(0.05, (now - pNow) / 1000) : 0;
+    const pdt = pNow ? Math.min(0.05, (now - pNow) / 1000) * st.timeScale : 0;
     let flowing = false;
     for (const h of particles)
       if (h.step && h.speed && h.visible) {
         h.step(pdt);
+        flowing = true;
+      }
+    // (streaks stand still for a reader who asked for less motion)
+    for (const F of flows)
+      if (F.speed && F.visible && !LK3D.reduce) {
+        F.step(pdt);
         flowing = true;
       }
     pNow = flowing ? now : 0;
@@ -408,14 +541,20 @@ function mount(el, spec, opts = {}) {
         }, 350);
       }
       camera();
-      const look = LOOKS[st.style];
-      if (stage.dataset.look !== st.style) {
-        stage.style.background = (st.style === 'studio' && BGS[spec.env]) || look.bg;
-        stage.dataset.look = st.style;
-      }
+      const look = lookNow();
       for (const p of S.parts) {
         p.m = model(p);
         p.drawAlpha = p.hidden ? 0 : st.xray && p.xray ? 0.18 : p.alpha;
+        // the pen look's colour: all of it for an accent part, a glowing one or the one chosen, a hint otherwise
+        p.tint = p.accent || p.id === st.selected || p.emit[0] + p.emit[1] + p.emit[2] > 0.01 ? 1 : 0.15;
+      }
+      const fl = flows.filter((F) => F.visible && F.amount > 0);
+      for (const F of fl) {
+        F.update(F.owner ? F.owner.m : null);
+        if (!F.colors || F.dark !== look.dark) {
+          F.colors = ramp(F.ramp, look.dark);
+          F.dark = look.dark;
+        }
       }
       for (const L of lines)
         if (L.dirty) {
@@ -434,6 +573,7 @@ function mount(el, spec, opts = {}) {
           look,
           style: st.style,
           parts: shown,
+          flows: fl,
           cut: st.cut,
           plane: plane(),
           hover: st.hover,
@@ -499,19 +639,19 @@ function mount(el, spec, opts = {}) {
   // layout (they differ on a phone); never a layout read while drawing
   let tagBox = {};
   function tagWidth(i) {
-    const k = st.style + i.p.id;
+    const k = lookKey + i.p.id;
     if (widths[k] == null) {
-      if (!tagBox[st.style] || !widths.__box) {
+      if (!tagBox[lookKey] || !widths.__box) {
         const cs = getComputedStyle(i.t),
           px = (v) => parseFloat(v) || 0;
-        tagBox[st.style] = {
+        tagBox[lookKey] = {
           font: `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`,
           pad: px(cs.paddingLeft) + px(cs.paddingRight) + px(cs.borderLeftWidth) + px(cs.borderRightWidth) + 1,
           ls: px(cs.letterSpacing),
         };
         widths.__box = true;
       }
-      const t = tagBox[st.style];
+      const t = tagBox[lookKey];
       widths[k] = textWidth(i.p.name, t.font) + t.ls * i.p.name.length + t.pad;
     }
     return widths[k];
@@ -972,16 +1112,8 @@ function mount(el, spec, opts = {}) {
       kick();
       return h;
     }
-    const segs = [],
-      P = path.length > 1 ? path : [path[0], path[0]];
-    let total = 0;
-    for (let k = 0; k + 1 < P.length + (closed ? 1 : 0); k++) {
-      const a = P[k],
-        b = P[(k + 1) % P.length],
-        l = len(sub(b, a));
-      segs.push([a, b, l, total]);
-      total += l;
-    }
+    const line = pathOf(path, closed),
+      total = line.total;
     const h = {
       color: rgb(color),
       size,
@@ -1001,12 +1133,7 @@ function mount(el, spec, opts = {}) {
     h.update = () => {
       const m = owner ? owner.m : null;
       for (let i = 0; i < h.count; i++) {
-        const s = ((((i / h.count + h.offset) % 1) + 1) % 1) * total;
-        let k = 0;
-        while (k < segs.length - 1 && s > segs[k][3] + segs[k][2]) k++;
-        const [a, b, l, s0] = segs[k],
-          t = l ? (s - s0) / l : 0,
-          p = add(a, mulv(sub(b, a), Math.max(0, Math.min(1, t)))),
+        const p = line.at(((((i / h.count + h.offset) % 1) + 1) % 1) * total),
           w = m ? M.pt(m, p) : p;
         h.pos4[4 * i] = w[0];
         h.pos4[4 * i + 1] = w[1];
@@ -1018,6 +1145,37 @@ function mount(el, spec, opts = {}) {
       if (total) h.offset += (h.speed * dt) / total;
     };
     particles.push(h);
+    kick();
+    return h;
+  }
+
+  // ---- flows: streaks along paths (flow.js), moved on in the frame loop; the page sets how fast and how many
+  const flows = [];
+  function addFlow(o) {
+    const F = makeFlow(o);
+    F.owner = o.part ? S.parts.find((x) => x.id === o.part) : null;
+    const h = {
+      set(o) {
+        for (const k of ['speed', 'amount', 'length', 'width', 'spread', 'opacity', 'visible', 'ramp'])
+          if (k in o) F[k] = o[k];
+        F.colors = null; // (the ramp's colours, worked out again for the look in use)
+        kick();
+      },
+      remove() {
+        const k = flows.indexOf(F);
+        if (k >= 0) flows.splice(k, 1);
+        kick();
+      },
+    };
+    // speed, amount and visible also as properties: setting one draws again
+    for (const k of ['speed', 'amount', 'visible'])
+      Object.defineProperty(h, k, {
+        get: () => F[k],
+        set(v) {
+          h.set({ [k]: v });
+        },
+      });
+    flows.push(F);
     kick();
     return h;
   }
@@ -1189,9 +1347,6 @@ function mount(el, spec, opts = {}) {
     get renderer() {
       return R.kind;
     },
-    get backend() {
-      return R.kind;
-    },
     get hifi() {
       return R.hifi;
     },
@@ -1216,13 +1371,21 @@ function mount(el, spec, opts = {}) {
     get style() {
       return st.style;
     },
+    get theme() {
+      return st.theme;
+    },
+    get timeScale() {
+      return st.timeScale;
+    },
     _state: st, // the engine's own state: not an API, it may change
     set(o) {
       if ('explode' in o) {
         st.explode = Math.max(0, Math.min(1, o.explode));
         hooks.explode && hooks.explode(st.explode);
       }
-      for (const k of ['spin', 'cut', 'labels', 'xray', 'style']) if (k in o) st[k] = o[k];
+      for (const k of ['spin', 'cut', 'labels', 'xray', 'style', 'theme']) if (k in o) st[k] = o[k];
+      if ('timeScale' in o) st.timeScale = Math.max(0, +o.timeScale || 0);
+      if ('style' in o && hooks.style) hooks.style();
       if (o.move)
         for (const [id, v] of Object.entries(o.move)) {
           const p = S.parts.find((x) => x.id === id);
@@ -1237,6 +1400,7 @@ function mount(el, spec, opts = {}) {
       kick();
     },
     particles: addParticles,
+    flow: addFlow,
     lines: addLines,
     tick(fn) {
       anim.add(fn);
@@ -1311,6 +1475,7 @@ function mount(el, spec, opts = {}) {
       document.removeEventListener('pointerdown', outside);
       document.removeEventListener('visibilitychange', onVis);
       if (dprQuery) dprQuery.removeEventListener('change', onDpr);
+      if (darkQuery) darkQuery.removeEventListener('change', onScheme);
       if (R) R.dispose();
       el.innerHTML = '';
     },
@@ -1394,6 +1559,7 @@ function mount(el, spec, opts = {}) {
 const LK3D = {
   mount,
   locales: { en, vi },
+  themes: THEMES,
   // settings for every figure on the page (a site sets them once): locale, strings, buttonClass
   defaults: { locale: 'en', strings: {}, buttonClass: '' },
   reduce: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -1414,5 +1580,5 @@ const LK3D = {
 };
 if (typeof window !== 'undefined') window.LK3D = LK3D;
 export default LK3D;
-export const { build, reduce, version, locales, defaults } = LK3D; // (the same objects: setting defaults here sets them for LK3D)
+export const { build, reduce, version, locales, defaults, themes } = LK3D; // (the same objects: setting defaults here sets them for LK3D)
 export { mount, M, refreshFrom };

@@ -1,6 +1,6 @@
 <!doctype html>
-<!-- The image tests' page: ?scene=NAME&look=ink|studio|2d draws scenes/NAME.json with the built engine
-     (dist/lk3d.min.js) at a fixed size and resolution, waits until everything has arrived (the trees for picking, the
+<!-- The image tests' page: ?scene=NAME&look=ink|studio|pen|2d|pen2d[&theme=NAME] draws scenes/NAME.json with the
+     built engine (dist/lk3d.min.js) at a fixed size and resolution, with the streaks of its "test:flow" if it has them, waits until everything has arrived (the trees for picking, the
      crease shading, texture maps), then sets window.__ready to what it drew. -->
 <html lang="en">
   <meta charset="utf-8" /><title>lk3d image test</title>
@@ -25,6 +25,7 @@
   <script type="module">
     const q = new URLSearchParams(location.search),
       look = q.get('look') || 'ink',
+      flat = /2d$/.test(look),
       errors = [];
     if (q.get('w')) document.getElementById('g').style.width = q.get('w') + 'px'; // (smaller pictures, for the docs)
     window.addEventListener('error', (e) => errors.push(String(e.message)));
@@ -44,9 +45,11 @@
       maxDpr: 1,
       locale: 'en',
       labels: 'none',
-      style: look === '2d' ? 'ink' : look,
-      force2d: look === '2d',
+      style: flat ? look.slice(0, -2) || 'ink' : look,
+      theme: q.get('theme') || undefined,
+      force2d: flat,
     });
+    for (const f of scene['test:flow'] || []) fig.flow(f);
     const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
     for (let k = 0; k < 600; k++) {
       // at most about ten seconds

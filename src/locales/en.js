@@ -19,6 +19,7 @@ export default {
   labelsTitle: 'Show all labels',
   studio: 'Realistic look',
   ink: 'Drawn look',
+  pen: 'Pen look',
   styleTitle: 'Change the look',
   front: 'Front',
   side: 'Side',

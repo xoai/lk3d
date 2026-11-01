@@ -658,6 +658,7 @@ function buildScene(spec, q = 1) {
       refract: p.refract || 0,
       alpha: p.opacity ?? 1,
       xray: !!p.xray,
+      accent: !!p.accent,
       explode: p.explode || [0, 0, 0],
       offset: [0, 0, 0],
       batches,

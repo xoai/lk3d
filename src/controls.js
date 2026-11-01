@@ -1,5 +1,5 @@
 // The built-in controls under a figure: take apart (a slider and a button), cut open, see through, show all labels,
-// switch the look, and the four views. They act through the figure's own API (fig.set, fig.view), so a page that
+// go round the looks, and the four views. They act through the figure's own API (fig.set, fig.view), so a page that
 // passes `controls: false` and builds its own buttons gets exactly the same behaviour.
 export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeThrough, tweenExplode }) {
   const bar = document.createElement('div');
@@ -53,10 +53,10 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
     () => fig.set({ labels: st.labels === 'all' ? 'auto' : 'all' }),
     () => st.labels === 'all',
   );
-  const look = button(st.style === 'ink' ? T.studio : T.ink, T.styleTitle, () => {
-    fig.set({ style: st.style === 'ink' ? 'studio' : 'ink' });
-    look.textContent = st.style === 'ink' ? T.studio : T.ink;
-  });
+  // the look: one button that goes round the three, naming the one it goes to next
+  const LOOKS = ['ink', 'studio', 'pen'],
+    next = () => LOOKS[(LOOKS.indexOf(st.style) + 1) % LOOKS.length];
+  const look = button(T[next()], T.styleTitle, () => fig.set({ style: next() }));
 
   // the views
   const views = document.createElement('span');
@@ -65,11 +65,14 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
   bar.append(views);
   el.append(bar);
 
-  // kept in step when the page takes the model apart itself
+  // kept in step when the page takes the model apart or changes the look itself
   return {
     explode(v) {
       exIn.value = v;
       if (apart) apart.textContent = v > 0.5 ? T.putTogether : T.takeApart;
+    },
+    style() {
+      look.textContent = T[next()];
     },
   };
 }

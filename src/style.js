@@ -1,7 +1,8 @@
 // The figure's stylesheet, added to the page once. A page themes it with CSS variables (set on :root or any ancestor):
 //   --lk3d-ink (lines, text, borders) · --lk3d-paper (label and button backgrounds) · --lk3d-muted (hints, credits)
 //   --lk3d-accent (focus ring) · --lk3d-warn (the "not to scale" note) · --lk3d-highlight (pressed buttons)
-//   --lk3d-font (labels in the drawn look)
+//   --lk3d-font (labels in the drawn look) · --lk3d-line (leader lines and label borders under a theme)
+// A theme (LK3D.themes) sets these on the stage itself, so the words on a themed figure follow its theme.
 function css() {
   if (document.getElementById('lk3d-css')) return;
   const s = document.createElement('style');
@@ -30,6 +31,11 @@ function css() {
 .lk3d-bar-line{display:block; width:100px; height:6px; border:1.5px solid currentColor; border-top:0; transform-origin:right center}
 .lk3d-note{background:rgba(247,245,239,.88); padding:1px 7px; border-radius:4px; color:var(--lk3d-warn, #b8352b)}
 .lk3d-stage[data-look="studio"] .lk3d-scale{color:#eef2f7} .lk3d-stage[data-look="studio"] .lk3d-note{background:rgba(10,12,16,.7); color:#ffb38a}
+.lk3d-stage[data-theme] .lk3d-tag{background:var(--lk3d-paper); color:var(--lk3d-ink); border:1px solid var(--lk3d-line); font-family:system-ui, sans-serif; font-size:12.5px}
+.lk3d-stage[data-theme] .lk3d-tag.on{background:var(--lk3d-highlight); color:var(--lk3d-ink)}
+.lk3d-stage[data-theme] .lk3d-lines line{stroke:var(--lk3d-line); stroke-width:.8} .lk3d-stage[data-theme] .lk3d-lines circle{fill:var(--lk3d-line)}
+.lk3d-stage[data-theme] .lk3d-hint{color:var(--lk3d-muted); background:var(--lk3d-paper)}
+.lk3d-stage[data-theme] .lk3d-scale{color:var(--lk3d-ink)} .lk3d-stage[data-theme] .lk3d-note{background:var(--lk3d-paper); color:var(--lk3d-warn)}
 .lk3d-sr{position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 .lk3d-stage.lk3d-kbd{box-shadow:0 0 0 2px var(--lk3d-accent, #2f5fb3)}
 .lk3d-credit{font-size:13px; color:var(--lk3d-muted, #6b6670); margin:6px 0 0}

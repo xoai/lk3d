@@ -12,12 +12,16 @@ The first release as its own package, after it grew as the 3D engine of lessonki
 - **Exploring**: turn, zoom and pan by mouse, touch, pen and keyboard; preset views; taking apart; cutting open with
   filled, hatched cut faces; see-through casings; labels with leader lines; a note for each part.
 - **Moving parts by hand**: handles that turn, slide or follow a path, each also a range input for the keyboard and
-  screen readers; lines for rays and field lines; particles along paths; solid balls for simulations.
+  screen readers; lines for rays and field lines; flow streaks along paths, coloured by a ramp (cool to hot), as many
+  and as fast as a page value says, with slow motion (`timeScale`); particles along paths; solid balls for
+  simulations.
 - **Shapes**: 21 kinds, for machines (lathe, cylinder, box, sphere, torus, tube, helix, loop, blade) and for the
   sciences (ellipsoid, capsule, blob, shell, tree, molecule, dna, extrude, terrain, ring, orbit, scatter); glTF 2.0
   models, textured ones included (base colour, normal and metallic-roughness maps).
-- **Looks**: a drawn look and a physically based studio look with generated environments (studio, warm, night),
-  surface detail and glass that bends light; WebGL 2, WebGL 1 and a Canvas 2D fallback.
+- **Looks**: a drawn look, a physically based studio look with generated environments (studio, warm, night),
+  surface detail and glass that bends light, and a pen look (near-white solids, thin lines, colour for accents); four
+  colour themes (light, dark, blueprint, sepia, or the reader's setting) and themes of your own; WebGL 2, WebGL 1 and
+  a Canvas 2D fallback.
 - **Accessible and international**: text descriptions, keyboard control, read-out handles, reduced motion; English and
   Vietnamese words; themes through CSS variables.
 - **Small and fast**: 38 KB gzipped; draws only on change, pauses off screen, adapts its resolution.

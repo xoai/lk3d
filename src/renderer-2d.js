@@ -1,6 +1,7 @@
 // The fallback where there is no WebGL: Canvas 2D, flat shading in the same bands, triangles sorted far to near.
 // Same interface as the WebGL renderer; it draws the coarser geometry the scene was built with for it.
 import { M, sub, cross, dot, norm } from './math.js';
+import { rampAt, PTS, STRIDE } from './flow.js';
 
 function canvasRenderer(cv, scene) {
   const g = cv.getContext('2d');
@@ -26,6 +27,27 @@ function canvasRenderer(cv, scene) {
       g.fill();
     });
   }
+  // flow streaks: each one stroke from head to tail, in the ramp's colour at its head
+  const css = (c) => `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`;
+  function streaks(F, f, VP, W, H) {
+    const V = F.verts;
+    g.lineWidth = Math.max(1.25, F.width) * f.dpr;
+    g.lineCap = 'round';
+    g.globalCompositeOperation = f.look.dark ? 'lighter' : 'source-over';
+    for (let i = 0; i < F.n; i++) {
+      const o = i * PTS * 2 * STRIDE;
+      g.globalAlpha = F.opacity * V[o + 8] * 0.6;
+      g.strokeStyle = css(rampAt(F.colors, V[o + 7]));
+      g.beginPath();
+      for (let k = 0; k < PTS; k++) {
+        const s = M.project(VP, [V[o + 2 * k * STRIDE], V[o + 2 * k * STRIDE + 1], V[o + 2 * k * STRIDE + 2]], W, H);
+        if (s) g.lineTo(s[0], s[1]);
+      }
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
+  }
   return {
     kind: '2d',
     hifi: false,
@@ -34,15 +56,25 @@ function canvasRenderer(cv, scene) {
     draw(f) {
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.clearRect(0, 0, cv.width, cv.height);
+      if (f.look.fill) {
+        g.fillStyle = css(f.look.fill);
+        g.fillRect(0, 0, cv.width, cv.height);
+      }
       const tris = [],
-        ink = f.style === 'ink',
+        kind = f.look.kind,
         L = f.look.light,
         VP = f.VP,
         W = cv.width,
         H = cv.height;
       for (const p of f.parts) {
         if (p.drawAlpha < 0.05) continue;
-        const base = ink ? p.color : p.studioColor,
+        // pen: the part's colour mixed into the near-white solid (all of it for an accent part)
+        const base =
+            kind === 1
+              ? p.studioColor
+              : kind === 2
+                ? f.look.solid.map((v, i) => v + (p.color[i] - v) * p.tint)
+                : p.color,
           hi = p.id === f.hover || p.id === f.selected;
         for (const b of p.batches)
           for (const im of b.mats) {
@@ -81,9 +113,27 @@ function canvasRenderer(cv, scene) {
                   ),
                 ),
                 d = dot(nrm, L);
-              const lit = ink ? (d > 0.55 ? 1 : d > 0.05 ? 0.82 : 0.64) : 0.35 + 0.65 * Math.max(0, d);
+              // the shaders' bands: ink's three; pen's four, twice as far apart as on the GPU (here no outline shows
+              // the shape); studio's smooth light
+              const lit =
+                kind === 1
+                  ? 0.35 + 0.65 * Math.max(0, d)
+                  : d > 0.55
+                    ? 1
+                    : kind
+                      ? d > 0.2
+                        ? 0.93
+                        : d > -0.15
+                          ? 0.86
+                          : 0.79
+                      : d > 0.05
+                        ? 0.82
+                        : 0.64;
               const C = b.geo.c,
-                al = C ? (C[4 * a + 3] + C[4 * b2 + 3] + C[4 * c + 3]) / 765 : 0; // vertex colours, averaged
+                // vertex colours, averaged (in pen, at most half of theirs unless the part is coloured in full)
+                al = C
+                  ? ((C[4 * a + 3] + C[4 * b2 + 3] + C[4 * c + 3]) / 765) * (kind === 2 ? Math.max(p.tint, 0.55) : 1)
+                  : 0;
               const own = al
                 ? base.map((v, i) => v * (1 - al) + ((C[4 * a + i] + C[4 * b2 + i] + C[4 * c + i]) / 765) * al)
                 : base;
@@ -125,7 +175,7 @@ function canvasRenderer(cv, scene) {
           balls(h, f, VP, W, H);
           continue;
         }
-        g.fillStyle = `rgb(${h.color.map((v) => Math.round(v * 255)).join(',')})`;
+        g.fillStyle = css(h.color);
         for (let i = 0; i < h.count; i++) {
           const s = M.project(VP, [h.pos4[4 * i], h.pos4[4 * i + 1], h.pos4[4 * i + 2]], W, H);
           if (s) {
@@ -135,6 +185,7 @@ function canvasRenderer(cv, scene) {
           }
         }
       }
+      for (const F of f.flows || []) streaks(F, f, VP, W, H);
     },
     dispose() {},
   };

@@ -1,0 +1,94 @@
+{
+  "title": "A ducted fan with air flowing through it",
+  "w": 16,
+  "h": 9,
+  "view": {
+    "yaw": -30,
+    "pitch": 14,
+    "dist": 4.4,
+    "target": [0.2, 0, 0]
+  },
+  "scale": {
+    "note": "not to scale"
+  },
+  "parts": [
+    {
+      "id": "casing",
+      "name": "Casing",
+      "material": "metal",
+      "color": "#9aa7b4",
+      "xray": true,
+      "opacity": 0.35,
+      "shapes": [
+        {
+          "lathe": [
+            [-1.3, 0.78],
+            [-1.2, 0.82],
+            [0.2, 0.8],
+            [1.1, 0.7],
+            [1.1, 0.66],
+            [0.2, 0.74],
+            [-1.2, 0.74],
+            [-1.3, 0.78]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core",
+      "name": "Core",
+      "material": "metal",
+      "color": "#b9a68f",
+      "shapes": [
+        {
+          "lathe": [
+            [-0.7, 0],
+            [-0.7, 0.2],
+            [0.9, 0.22],
+            [1.5, 0.12],
+            [1.5, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "spinner",
+      "name": "Spinner",
+      "material": "metal",
+      "color": "#c9ced4",
+      "accent": true,
+      "shapes": [
+        {
+          "lathe": [
+            [-1.25, 0],
+            [-1.1, 0.1],
+            [-0.85, 0.19],
+            [-0.7, 0.2],
+            [-0.7, 0]
+          ]
+        }
+      ],
+      "spin": {
+        "axis": "x"
+      }
+    },
+    {
+      "id": "fan",
+      "name": "Fan",
+      "material": "metal",
+      "color": "#7f8c99",
+      "shapes": [
+        {
+          "box": [0.03, 0.5, 0.14],
+          "at": [-0.95, 0.47, 0],
+          "rot": [0, 30, 0],
+          "repeat": 14
+        }
+      ],
+      "spin": {
+        "axis": "x"
+      }
+    }
+  ],
+  "alt": "A ducted fan seen from the side: a see-through casing round a spinning fan, a central core behind it, and air streaming through."
+}

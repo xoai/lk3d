@@ -18,6 +18,7 @@ export default {
   labelsTitle: 'Hiện tất cả nhãn',
   studio: 'Kiểu ảnh thật',
   ink: 'Kiểu vẽ tay',
+  pen: 'Kiểu nét bút',
   styleTitle: 'Đổi kiểu vẽ',
   front: 'Trước',
   side: 'Bên',

@@ -1,25 +1,43 @@
 <!doctype html>
 <html lang="en">
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>lk3d · two looks</title>
+  <title>lk3d · three looks</title>
   <link rel="stylesheet" href="style.css" />
   <main>
     <nav><a href="index.html">← examples</a></nav>
-    <h1>Two looks</h1>
+    <h1>Three looks, and themes</h1>
     <p>
-      The same scene in the drawn look (<code>style: 'ink'</code>: coloured-pencil bands, hatching, ink outlines) and
-      the studio look (<code>'studio'</code>: physically based materials, a generated environment, soft shadows).
-      Readers switch with the built-in button; a page sets the first.
+      The same scene in the drawn look (<code>style: 'ink'</code>: coloured-pencil bands, hatching, ink outlines), the
+      studio look (<code>'studio'</code>: physically based materials, a generated environment, soft shadows) and the pen
+      look (<code>'pen'</code>: near-white solids in a few close tones, thin lines, colour only for accents). Readers go
+      round them with the built-in button; a page sets the first.
+    </p>
+    <p>
+      A theme (<code>theme: 'light' | 'dark' | 'blueprint' | 'sepia' | 'auto'</code>) sets the page behind the model,
+      its lines and its words, in any look:
+      <select id="theme" aria-label="Theme">
+        <option value="">none (each look's own)</option>
+        <option>light</option>
+        <option>dark</option>
+        <option>blueprint</option>
+        <option>sepia</option>
+        <option>auto</option>
+      </select>
     </p>
     <div class="pair">
       <div id="ink"></div>
       <div id="studio"></div>
+      <div id="pen"></div>
     </div>
   </main>
   <script src="../dist/lk3d.min.js"></script>
   <script type="module">
     import { scene } from './load.js';
-    LK3D.mount(document.getElementById('ink'), await scene('generator'), { style: 'ink', controls: false });
-    LK3D.mount(document.getElementById('studio'), await scene('generator'), { style: 'studio', controls: false });
+    const figs = [];
+    for (const style of ['ink', 'studio', 'pen'])
+      figs.push(LK3D.mount(document.getElementById(style), await scene('generator'), { style, controls: false }));
+    document.getElementById('theme').addEventListener('change', (e) => {
+      for (const f of figs) f.set({ theme: e.target.value || null });
+    });
   </script>
 </html>

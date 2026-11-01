@@ -10,6 +10,7 @@ lk3d is about 5 000 lines of plain JavaScript (ES modules, no dependencies). Thi
 | `src/geometry.js`                                                | `Geo` (positions, normals, indices, optional vertex colours and texture coordinates), the shapes for machines (lathe, cylinder, box, sphere, torus, tube, helix, loop), placement and repeats, `buildScene` (parts → batches), materials                                                                    |
 | `src/science.js`                                                 | the shapes for the sciences: ellipsoid, capsule, blob, shell, tree, molecule, dna, extrude, terrain, ring, orbit, blade, and a seeded random generator                                                                                                                                                      |
 | `src/gltf.js`                                                    | reading `.glb` models (synchronously, from base64): nodes, quantized attributes, colours, texture coordinates and maps                                                                                                                                                                                      |
+| `src/flow.js`                                                    | streaks along paths: their geometry each frame (seeded, so pictures repeat), the colour ramps, and the path measure particles share                                                                                                                                                                         |
 | `src/renderer-gl.js`, `src/shaders.js`                           | the WebGL 2 and WebGL 1 renderer and its shaders (written once, compiled as GLSL ES 1.00 or 3.00)                                                                                                                                                                                                           |
 | `src/renderer-2d.js`                                             | the Canvas 2D fallback                                                                                                                                                                                                                                                                                      |
 | `src/bvh.js`                                                     | bounding-volume trees: picking and ambient occlusion by rays on the CPU                                                                                                                                                                                                                                     |
@@ -40,8 +41,9 @@ renderer = { kind: 'webgl2' | 'webgl1' | '2d', hifi, shadows, parallel,
 
 A frame (WebGL 2, studio look): the shadow map (drawn again only when something that casts a shadow moves, not when
 the camera turns); the solid parts; the ground's shadow; solid particles; see-through parts far to near (glass that
-refracts samples a copy of the picture made just before); path particles; the glow (emission at half resolution,
-blurred at a quarter, added). The environment is drawn once into a cube map and prefiltered per roughness on the GPU.
+refracts samples a copy of the picture made just before); path particles; flow streaks (ribbons widened on screen in
+the vertex shader, inked over a light page or added to a dark one); the glow (emission at half resolution, blurred at
+a quarter, added). The pen look draws no shadow map: its light turns with the camera. The environment is drawn once into a cube map and prefiltered per roughness on the GPU.
 If WebGL fails on a device (a shader that does not link, a mesh it cannot index), the figure draws in 2D instead.
 
 ## Drawing only when something changes
@@ -77,7 +79,7 @@ environments the engine draws.
 
 `npm test`: geometry (every shape a closed solid facing outwards, volumes matching their formulas, placement and
 instancing, picking against brute force), glTF reading, handle maths, the validator against planted mistakes, the
-locales. `npm run typecheck`: the types. `npm run size`: the 40 KB budget. `npm run test:visual`: 12 reference scenes
+locales. `npm run typecheck`: the types. `npm run size`: the 42 KB budget. `npm run test:visual`: 12 reference scenes
 in each look and the 2D fallback, in Chromium, Firefox and WebKit, compared with stored pictures (`test/visual/`).
 
 ## Limits

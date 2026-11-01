@@ -1,5 +1,5 @@
 // The shaders, written once in GLSL ES 1.00 style and compiled as GLSL ES 3.00 on WebGL 2 (a few #defines translate),
-// so WebGL 1 and WebGL 2 draw the same thing. The part shader is compiled twice, once per look (INK, or the studio
+// so WebGL 1 and WebGL 2 draw the same thing. The part shader is compiled once per look (INK, PEN, or the studio
 // look), so a page that only shows the hand-drawn look never compiles the heavier studio lighting. On WebGL 2 the HIFI path adds physically based shading (the lighting
 // model of Google's Filament), light from a generated studio environment, shadows and tone mapping.
 
@@ -45,9 +45,10 @@ void main() {
 }`;
 
 const PART_FS = `
-uniform vec3 uColor; uniform float uAlpha; uniform float uStyle; uniform float uFlat; uniform vec3 uMat;
+uniform vec3 uColor; uniform float uAlpha; uniform float uFlat; uniform vec3 uMat;
 uniform vec3 uLight; uniform vec3 uEye; uniform vec4 uPlane; uniform float uCut; uniform vec3 uCap;
 uniform float uHi; uniform vec3 uEmit; uniform float uDpr; uniform float uAOk;
+uniform vec3 uPaper; uniform vec3 uSolid; uniform float uTint;
 varying vec3 vW; varying vec3 vN; varying float vAO; varying vec4 vCol; varying vec3 vO;
 #ifdef HIFI
 uniform samplerCube uEnv; uniform float uEnvMax; uniform float uExposure;
@@ -121,6 +122,8 @@ void main() {
     float h = step(0.55, fract((fc.x + fc.y) / 7.0));
 #ifdef INK
     vec3 cap = mix(C, uCap, 0.35);
+#elif defined(PEN)
+    vec3 cap = mix(uSolid, uCap, 0.3);
 #else
     vec3 cap = mix(C, uCap, 0.25) * 1.15;
 #endif
@@ -139,7 +142,15 @@ void main() {
     if (d <= 0.05 || sh < 0.5) col *= 1.0 - 0.10 * hatch;
     if (ao < 0.55) col *= 1.0 - 0.08 * cross2;
     col *= 0.96 + 0.06 * hash(floor(fc));
-    col = mix(col, vec3(0.97, 0.96, 0.93), 0.08);
+    col = mix(col, uPaper, 0.08);
+  }
+#elif defined(PEN)
+  {  // pen: near-white solids in four close tones, lit from the viewer's upper left, faces turned up a step lighter;
+     // colour only where it means something (uTint 1: an accent part, a glowing one, the one chosen; a vertex's own
+     // colour, an atom's say, keeps half of its)
+    float t = d > 0.55 ? 1.0 : d > 0.2 ? 0.965 : d > -0.15 ? 0.93 : 0.895;
+    t = min(1.0, t + 0.035 * step(0.7, N.y));
+    col = mix(uSolid, C, max(uTint, 0.55 * vCol.a)) * t * mix(0.88, 1.0, smoothstep(0.35, 0.85, ao));
   }
 #else
   {
@@ -223,7 +234,7 @@ void main() { vec3 w = vec3(uCenter.x + aPos.x * uRadius, uY, uCenter.z + aPos.y
   vSh = uLightVP * vec4(w, 1.0);
 #endif
   gl_Position = uVP * vec4(w, 1.0); }`;
-const GROUND_FS = `uniform float uStyle; uniform float uDpr; uniform float uContact; varying vec2 vUV;
+const GROUND_FS = `uniform float uStyle; uniform float uDpr; uniform float uContact; uniform vec3 uShade; varying vec2 vUV;
 #ifdef SHADOWS
 uniform sampler2DShadow uShadow; uniform float uShadowTexel; varying vec4 vSh;
 float shadow() { vec3 p = vSh.xyz / vSh.w * 0.5 + 0.5; if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) return 1.0;
@@ -236,12 +247,36 @@ void main() {
   float r = length(vUV), fade = 1.0 - smoothstep(0.55, 1.0, r);   // (smoothstep needs edge0 < edge1)
   float contact = uContact * (1.0 - smoothstep(0.0, 0.62, r)) * 0.55;
   float dark = max((1.0 - shadow()) * 0.55, contact) * fade;
-  if (dark < 0.004) discard;
+  if (dark < 0.004 && (uStyle < 1.5 || r > 0.7)) discard;
   if (uStyle < 0.5) {  // ink: the shadow is pencil hatching on the paper
     vec2 fc = gl_FragCoord.xy / uDpr;
     float h = step(0.5, fract((fc.x - fc.y) / 4.0));
-    gl_FragColor = vec4(vec3(0.11, 0.10, 0.12), dark * (0.35 + 0.65 * h));
-  } else gl_FragColor = vec4(0.0, 0.0, 0.0, dark * 1.2);
+    gl_FragColor = vec4(uShade, dark * (0.35 + 0.65 * h));
+  } else if (uStyle > 1.5) gl_FragColor = vec4(uShade, dark * 0.3 + 0.04 * fade * (1.0 - smoothstep(0.0, 0.7, r)));  // pen: a soft halo
+  else gl_FragColor = vec4(uShade, dark * 1.2);
+}`;
+
+// ---- flow streaks (flow.js): each vertex pushed sideways across the streak's direction on screen, by half its width
+// in pixels; alpha fades from head to tail and across the width, with a little dither against banding, and the
+// colour comes from a ramp of four stops along the path. Written premultiplied: over the picture on a light page,
+// added to it on a dark one (the blending decides).
+const FLOW_VS = `attribute vec4 aPos; attribute vec4 aDir; attribute float aA;
+uniform mat4 uVP; uniform vec2 uView; uniform float uWidth; varying float vA; varying float vSide; varying float vT;
+void main() {
+  vec4 a = uVP * vec4(aPos.xyz, 1.0), b = uVP * vec4(aPos.xyz + aDir.xyz, 1.0);
+  vec2 d = (b.xy / b.w - a.xy / a.w) * uView;
+  d = normalize(d + vec2(1e-6, 0.0));  // (a streak squeezed to a point: any side will do)
+  a.xy += vec2(-d.y, d.x) * aPos.w * uWidth / uView * a.w;
+  gl_Position = a; vA = aA; vSide = aPos.w; vT = aDir.w;
+}`;
+const FLOW_FS = `uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform float uAlpha;
+varying float vA; varying float vSide; varying float vT;
+void main() {
+  float x = clamp(vT, 0.0, 1.0) * 3.0;
+  vec3 c = x < 1.0 ? mix(uC0, uC1, x) : x < 2.0 ? mix(uC1, uC2, x - 1.0) : mix(uC2, uC3, x - 2.0);
+  float a = uAlpha * vA * (1.0 - smoothstep(0.3, 1.0, abs(vSide)));
+  a = clamp(a + (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0, 0.0, 1.0);
+  gl_FragColor = vec4(c * a, a);
 }`;
 
 // ---- full-screen passes: blur and add the glow; draw the studio environment into a cube map, and prefilter it
@@ -306,6 +341,8 @@ export {
   QUAD_VS,
   BLUR_FS,
   ADD_FS,
+  FLOW_VS,
+  FLOW_FS,
   ENV_FS,
   PREFILTER_FS,
 };

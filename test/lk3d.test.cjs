@@ -778,6 +778,131 @@ test('the scene schema names exactly what the engine draws: shapes, materials, s
   assert.deepEqual(d.part.properties.material.enum.slice().sort(), Object.keys(G.MATERIALS).sort());
   assert.deepEqual(d.part.properties.surface.properties.kind.enum.slice().sort(), Object.keys(G.SURFACES).sort());
   assert.deepEqual(schema.properties.env.enum.slice().sort(), Object.keys(ENVS).sort());
+  assert.deepEqual(schema.properties.theme.enum.slice().sort(), [...Object.keys(LK3D.themes), 'auto'].sort());
+});
+
+test('every theme has every colour, and says whether it is dark', () => {
+  const keys = Object.keys(LK3D.themes.light).sort();
+  assert.deepEqual(Object.keys(LK3D.themes).sort(), ['blueprint', 'dark', 'light', 'sepia']);
+  for (const [name, t] of Object.entries(LK3D.themes)) {
+    assert.deepEqual(Object.keys(t).sort(), keys, `${name}: the same tokens as light`);
+    for (const k of keys)
+      if (k === 'dark') assert.equal(typeof t.dark, 'boolean', name);
+      else assert.match(t[k], /^#[0-9a-f]{6}$/, `${name}.${k}`);
+  }
+  // the words on the stage stand out from the page behind them (WCAG contrast at least 4.5 : 1)
+  const lum = (h) =>
+    [1, 3, 5]
+      .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+      .reduce((a, c, i) => a + c * [0.2126, 0.7152, 0.0722][i], 0);
+  const contrast = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  for (const [name, t] of Object.entries(LK3D.themes)) {
+    assert.ok(contrast(t.ink, t.paper) >= 4.5, `${name}: words on labels`);
+    assert.ok(contrast(t.warn, t.bg) >= 4.5, `${name}: the note on the page`);
+    assert.equal(t.dark, lum(t.bg) < 0.2, `${name}: dark says how the page is`);
+  }
+});
+
+test('flow streaks: along their paths, as many as the amount says, coloured by the ramp, the same every time', () => {
+  const F = require('../src/flow.js');
+  const line = F.pathOf([
+    [0, 0, 0],
+    [2, 0, 0],
+    [2, 1, 0],
+  ]);
+  assert.equal(line.total, 3);
+  assert.deepEqual(line.at(1), [1, 0, 0]);
+  assert.deepEqual(line.at(2.5), [2, 0.5, 0]);
+  const pt = (f, i, k) =>
+    Array.from(f.verts.subarray((i * F.PTS + k) * 2 * F.STRIDE, (i * F.PTS + k) * 2 * F.STRIDE + 9));
+  const f = F.makeFlow({
+    path: [
+      [0, 0, 0],
+      [10, 0, 0],
+    ],
+    count: 50,
+    length: 0.1,
+  });
+  f.update(null);
+  assert.equal(f.n, 50);
+  for (let i = 0; i < f.n; i++) {
+    const head = pt(f, i, 0),
+      tail = pt(f, i, F.PTS - 1);
+    assert.ok(head[1] === 0 && head[2] === 0 && head[0] >= 0 && head[0] <= 10, 'on the path (no spread)');
+    assert.ok(head[0] - tail[0] <= 1 + 1e-6 && head[0] >= tail[0], 'the tail a tenth of the path behind the head');
+    assert.ok(Math.abs(head[7] - head[0] / 10) < 1e-6, 'ramp position: how far along the path');
+    assert.ok(head[8] >= tail[8] && tail[8] === 0, 'fading towards the tail');
+    assert.equal(head[3], -1);
+    assert.equal(pt(f, i, 0)[3] + Array.from(f.verts.subarray((i * F.PTS * 2 + 1) * F.STRIDE))[3], 0, 'two sides');
+  }
+  f.amount = 0.3;
+  f.update(null);
+  assert.equal(f.n, 15, 'amount: the share of streaks drawn');
+  const g = F.makeFlow({
+    path: [
+      [0, 0, 0],
+      [10, 0, 0],
+    ],
+    count: 50,
+    length: 0.1,
+  });
+  g.amount = 0.3;
+  g.update(null);
+  const drawn = (x) => Array.from(x.verts.subarray(0, x.n * F.PTS * 2 * F.STRIDE));
+  assert.deepEqual(drawn(g), drawn(f), 'the same streaks every time');
+  const x0 = pt(f, 3, 0)[0];
+  f.speed = 2;
+  f.step(0.25);
+  f.update(null);
+  const moved = pt(f, 3, 0)[0] - x0;
+  assert.ok(
+    (moved > 0.39 && moved < 0.61) || moved < -8,
+    `moved on by about speed × time (or round to the start): ${moved}`,
+  );
+  // spread: off the path, but no further than spread × 1.5
+  const s = F.makeFlow({
+    path: [
+      [0, 0, 0],
+      [10, 0, 0],
+    ],
+    count: 40,
+    spread: 0.2,
+  });
+  s.update(null);
+  let off = 0;
+  for (let i = 0; i < 40; i++) off = Math.max(off, Math.hypot(pt(s, i, 0)[1], pt(s, i, 0)[2]));
+  assert.ok(off > 0.05 && off <= 0.3 + 1e-9, `spread ${off}`);
+  // several paths: shared out in turn
+  const two = F.makeFlow({
+    paths: [
+      [
+        [0, 0, 0],
+        [1, 0, 0],
+      ],
+      [
+        [0, 5, 0],
+        [1, 5, 0],
+      ],
+    ],
+    count: 10,
+  });
+  two.update(null);
+  assert.equal(pt(two, 0, 0)[1], 0);
+  assert.equal(pt(two, 1, 0)[1], 5);
+  // ramps: presets for a light and a dark page, a list resampled to four stops
+  const r = F.ramp(['#000000', '#ffffff'], false);
+  assert.equal(r.length, 4);
+  assert.deepEqual(F.rampAt(r, 0), [0, 0, 0]);
+  assert.deepEqual(F.rampAt(r, 1), [1, 1, 1]);
+  near(F.rampAt(r, 0.5)[0], 0.5, 1e-9, 'halfway');
+  assert.deepEqual(F.ramp('#336699', true)[3], F.ramp('#336699', true)[0], 'one colour all along');
+  const lightHeat = F.ramp('heat', false)[3],
+    darkHeat = F.ramp('heat', true)[3];
+  assert.ok(Math.min(...lightHeat) < 0.3, 'on paper heat ends in a strong colour, not white');
+  assert.ok(Math.min(...darkHeat) > 0.7, 'on a dark page it ends near white');
+  assert.throws(() => F.makeFlow({}), /path/);
+  assert.equal(F.flowIndices(2).length, 2 * (F.PTS - 1) * 6);
 });
 
 test('the validator finds each planted mistake where it is, and passes a right scene', () => {
@@ -791,7 +916,8 @@ test('the validator finds each planted mistake where it is, and passes a right s
     scale: { bar: { length: 1, label: '1 cm' }, note: 'not to scale' },
     env: 'night',
     models: { m: { data: '', source: 'scan' } },
-    style: 'studio',
+    style: 'pen',
+    theme: 'blueprint',
     extra: "a page's own field",
   };
   assert.deepEqual(validate(good), []);
@@ -820,6 +946,9 @@ test('the validator finds each planted mistake where it is, and passes a right s
     [{ parts: [part()], scale: { bar: { length: 1 } } }, 'scale.bar'],
     [{ parts: [part()], scale: 'log' }, 'scale'],
     [{ parts: [part()], env: 'sunset' }, 'env'],
+    [{ parts: [part()], style: 'photo' }, 'style'],
+    [{ parts: [part()], theme: 'neon' }, 'theme'],
+    [{ parts: [part({ accent: 'yes' })] }, 'parts[0].accent'],
     [{ parts: [part()], models: { m: { source: 'web' } } }, 'models.m.source'],
   ];
   for (const [scene, path] of cases)

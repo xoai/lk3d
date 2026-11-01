@@ -206,10 +206,11 @@ function buildShape(s, q, ctx = {}) {
 }
 // scatter: {shape: {…a shape…}, n, within: {sphere: r} | {shell: [ri, r]} | {box: [x, y, z]}, avoid: [{sphere: r, at}],
 // size: [min, max], seed}. Each copy turned at random and scaled evenly, so all are drawn by instancing.
-// model: a model the scene lists under `models` (embedded by the build), or one node of it: {model: heart, node: …}
+// model: a model the scene lists under `models` (models: {heart: {data: the .glb as base64}}), or one node of it:
+// {model: heart, node: …}
 function modelShape(s, ctx) {
   const m = (ctx.models || {})[s.model];
-  if (!m || !m.data) throw new Error(`lk3d: no model "${s.model}" in the scene's models (or it was not embedded by the build)`);
+  if (!m || !m.data) throw new Error(`lk3d: no model "${s.model}" in the scene's models (each needs its .glb as base64 in data)`);
   const geo = loadModel(Geo, m.data, s.node);
   if (s.color) geo.paint(s.color);
   return { geo, mats: [M.trs(s.at, s.rot, s.scale)] };

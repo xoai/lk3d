@@ -1,5 +1,5 @@
-// lk3d v2: a small 3D engine for lesson figures (global LK3D). A scene is data (spec.yaml figures:, figure: scene3d):
-// parts made of shapes, each with a name and a note, a group, a material, how it moves apart, whether it spins.
+// lk3d: a small engine for explorable 3D diagrams (global LK3D, or import it). A scene is data (JSON, or YAML in a
+// lessonkit spec): parts made of shapes, each with a name and a note, a group, a material, how it moves apart, whether it spins.
 //
 //   const s = LK3D.mount(el, FIG.generator, { info: $('#info') });
 //   s.set({ spin: angle, glow: { lamp: 0.8 }, move: { piston: [0, -0.2, 0] } });  s.particles({ path, count, color }).speed = v;
@@ -19,6 +19,8 @@ import { canvasRenderer } from './renderer-2d.js';
 import { css } from './style.js';
 import textWidth from './text.js';
 import * as HD from './handles.js';
+import en from './locales/en.js';
+import vi from './locales/vi.js';
 const mod360 = (v) => ((v % 360) + 360) % 360;
 
 const LOOKS = {
@@ -51,6 +53,10 @@ function context(cv, opts) {
 
 function mount(el, spec, opts = {}) {
   css();
+  // the words on the page (opts.locale, else LK3D.defaults.locale, else English; opts.strings change single ones), and
+  // the class of the built-in buttons (opts.buttonClass, e.g. a page's own button style; else lk3d's plain one)
+  const D = LK3D.defaults, T = { ...(LK3D.locales[opts.locale || D.locale] || en), ...D.strings, ...opts.strings };
+  const own = opts.buttonClass ?? D.buttonClass, btnClass = 'lk3d-btn ' + (own || 'lk3d-plain');
   const t0 = performance.now(), stats = { setupMs: 0, firstFrameMs: null, treesMs: null, aoMs: null, refreshMs: null };
   const st = {
     style: opts.style || spec.style || 'ink', explode: 0, spin: 0, cut: false, labels: opts.labels || 'auto', xray: false,
@@ -78,11 +84,11 @@ function mount(el, spec, opts = {}) {
   el.classList.add('lk3d'); el.innerHTML = '';
   const stage = document.createElement('div'); stage.className = 'lk3d-stage';
   cv.className = 'lk3d-canvas'; cv.tabIndex = 0;
-  cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', spec.alt || spec.title || 'Mô hình 3D');
+  cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', spec.alt || spec.title || T.model);
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'lk3d-lines');
   const tags = document.createElement('div'); tags.className = 'lk3d-tags';
   const hint = document.createElement('div'); hint.className = 'lk3d-hint';
-  hint.textContent = (matchMedia('(pointer: coarse)').matches ? 'Kéo để xoay · chụm hai ngón để phóng to' : 'Kéo để xoay · Shift + kéo để dời · Ctrl + cuộn để phóng to');
+  hint.textContent = matchMedia('(pointer: coarse)').matches ? T.hintTouch : T.hintMouse;
   // the scale, honestly: a bar that keeps its true length as the view zooms, and/or a note ("not to scale")
   const scaleEl = spec.scale ? document.createElement('div') : null;
   if (scaleEl) {
@@ -92,14 +98,14 @@ function mount(el, spec, opts = {}) {
     if (spec.scale.note) scaleEl.querySelector('.lk3d-note').textContent = spec.scale.note;
   }
   stage.append(cv, svg, tags, hint, ...(scaleEl ? [scaleEl] : [])); el.append(stage);
-  // models made by others: their authors and licences, under the figure (CC BY asks for it; the build requires them)
+  // models made by others: their authors and licences, under the figure (CC BY asks for it)
   const credits = Object.entries(spec.models || {});
   if (credits.length) {
-    const c = document.createElement('p'); c.className = 'lk3d-credit'; c.append('Mô hình 3D: ');
+    const c = document.createElement('p'); c.className = 'lk3d-credit'; c.append(T.credit);
     credits.forEach(([name, m], k) => {
       if (k) c.append('; ');
       const a = document.createElement(m.url ? 'a' : 'span'); a.textContent = m.title || name; if (m.url) { a.href = m.url; a.target = '_blank'; a.rel = 'noopener'; }
-      c.append(a, `, ${m.author}, ${m.license}` + (m.source === 'ai' ? ' (hình minh họa do AI tạo, không phải mẫu thật)' : ''));
+      c.append(a, `, ${m.author}, ${m.license}` + (m.source === 'ai' ? T.ai : ''));
     });
     el.append(c);
   }
@@ -397,7 +403,7 @@ function mount(el, spec, opts = {}) {
     if (byReader && opts.onHandle) opts.onHandle(hd.p.id, v);
   }
   // what a screen reader says for a handle: the page's words (opts.handleText(id, value), e.g. "d = 45 cm"), or the value
-  const valueText = (hd) => (opts.handleText && opts.handleText(hd.p.id, hd.v)) || `${+(hd.round ? mod360(hd.v) : hd.v).toFixed(hd.dp)}${hd.h.unit || (hd.h.turn ? '°' : '')}`.replace('.', ',');
+  const valueText = (hd) => (opts.handleText && opts.handleText(hd.p.id, hd.v)) || `${+(hd.round ? mod360(hd.v) : hd.v).toFixed(hd.dp)}${hd.h.unit || (hd.h.turn ? '°' : '')}`.replace('.', T.decimal);
   cv.addEventListener('pointerdown', (e) => {
     if (glideFn) { anim.delete(glideFn); glideFn = null; }  // a grab stops the model
     if (!pts.size) {
@@ -472,10 +478,10 @@ function mount(el, spec, opts = {}) {
     const zoom = { '+': 0.9, '=': 0.9, '-': 1.1 }[e.key];
     if (zoom) { st.dist = Math.max(baseDist * 0.3, Math.min(baseDist * 3, st.dist * zoom)); kick(); }
   });
-  function info() {
+  function info(byReader = true) {  // (a page's own select() does not call its onPick back)
     const id = st.selected || st.hover, p = S.parts.find((x) => x.id === id);
     if (opts.info) opts.info.innerHTML = p ? `<b>${p.name}</b>${p.note ? ' ' + p.note : ''}` : (opts.infoIdle || '');
-    if (opts.onPick) opts.onPick(p || null);
+    if (byReader && opts.onPick) opts.onPick(p || null);
   }
 
   // ---- particles: points moving along paths (air, current, blood), whose speed the page sets; or, without a path,
@@ -567,28 +573,34 @@ function mount(el, spec, opts = {}) {
   const hooks = {};
   if (opts.controls !== false) {
     const bar = document.createElement('div'); bar.className = 'lk3d-bar';
-    const btn = (label, title, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm'; b.textContent = label; b.title = title; b.addEventListener('click', fn); bar.append(b); return b; };
+    const btn = (label, title, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = btnClass; b.textContent = label; b.title = title; b.addEventListener('click', fn); bar.append(b); return b; };
     const parts = S.parts.some((p) => p.explode.some((v) => v !== 0));
     const ex = document.createElement('label'); ex.className = 'lk3d-range';
-    ex.innerHTML = '<span>Tách rời</span><input type="range" min="0" max="1" step="0.01" value="0" aria-label="Tách rời các bộ phận">';
+    ex.innerHTML = '<span></span><input type="range" min="0" max="1" step="0.01" value="0">';
+    ex.firstChild.textContent = T.apart; ex.lastChild.setAttribute('aria-label', T.apartLabel);
     const exIn = ex.querySelector('input'); exIn.addEventListener('input', () => api.set({ explode: +exIn.value }));
     if (parts) bar.append(ex);
-    const asm = parts ? btn('Tách ra', 'Tách rời / lắp lại', () => tweenExplode(st.explode > 0.5 ? 0 : 1)) : null;
-    if (spec.section !== false && R && R.kind !== '2d') { const c = btn('Cắt dọc', 'Cắt đôi mô hình để xem bên trong', () => { api.set({ cut: !st.cut }); c.classList.toggle('on', st.cut); }); }
-    if (S.parts.some((p) => p.xray)) { const x = btn('Nhìn xuyên', 'Làm vỏ trong suốt', () => { api.set({ xray: !st.xray }); x.classList.toggle('on', st.xray); }); }
-    const lb = btn('Nhãn', 'Hiện tất cả nhãn', () => { api.set({ labels: st.labels === 'all' ? 'auto' : 'all' }); lb.classList.toggle('on', st.labels === 'all'); });
-    const sty = btn(st.style === 'ink' ? 'Kiểu ảnh thật' : 'Kiểu vẽ tay', 'Đổi kiểu vẽ', () => { api.set({ style: st.style === 'ink' ? 'studio' : 'ink' }); sty.textContent = st.style === 'ink' ? 'Kiểu ảnh thật' : 'Kiểu vẽ tay'; });
+    const asm = parts ? btn(T.takeApart, T.takeApartTitle, () => tweenExplode(st.explode > 0.5 ? 0 : 1)) : null;
+    if (spec.section !== false && R && R.kind !== '2d') { const c = btn(T.cut, T.cutTitle, () => { api.set({ cut: !st.cut }); c.classList.toggle('on', st.cut); }); }
+    if (S.parts.some((p) => p.xray)) { const x = btn(T.xray, T.xrayTitle, () => { api.set({ xray: !st.xray }); x.classList.toggle('on', st.xray); }); }
+    const lb = btn(T.labels, T.labelsTitle, () => { api.set({ labels: st.labels === 'all' ? 'auto' : 'all' }); lb.classList.toggle('on', st.labels === 'all'); });
+    const sty = btn(st.style === 'ink' ? T.studio : T.ink, T.styleTitle, () => { api.set({ style: st.style === 'ink' ? 'studio' : 'ink' }); sty.textContent = st.style === 'ink' ? T.studio : T.ink; });
     const views = document.createElement('span'); views.className = 'lk3d-views';
-    for (const [n, l] of [['front', 'Trước'], ['side', 'Bên'], ['top', 'Trên'], ['home', 'Ban đầu']]) {
-      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm'; b.textContent = l; b.addEventListener('click', () => view(n)); views.append(b);
+    for (const n of ['front', 'side', 'top', 'home']) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = btnClass; b.textContent = T[n]; b.addEventListener('click', () => view(n)); views.append(b);
     }
     bar.append(views); el.append(bar);
-    hooks.explode = (v) => { exIn.value = v; if (asm) asm.textContent = v > 0.5 ? 'Lắp lại' : 'Tách ra'; };
+    hooks.explode = (v) => { exIn.value = v; if (asm) asm.textContent = v > 0.5 ? T.putTogether : T.takeApart; };
   }
 
   // ---- the page's handle
   const api = {
-    get renderer() { return R.kind; }, get backend() { return R.kind; }, get hifi() { return R.hifi; }, parts: S.parts, state: st, view, explode: tweenExplode,
+    get renderer() { return R.kind; }, get backend() { return R.kind; }, get hifi() { return R.hifi; }, parts: S.parts, view, explode: tweenExplode,
+    // where the camera is (degrees and scene units), the part chosen, the labels and look in use
+    camera() { return { yaw: st.yaw / D2R, pitch: st.pitch / D2R, dist: st.dist, target: st.target.slice() }; },
+    get selected() { return st.selected; }, select(id) { st.selected = id ?? null; info(false); kick(); },
+    get labels() { return st.labels; }, get style() { return st.style; },
+    _state: st,  // the engine's own state: not an API, it may change
     set(o) {
       if ('explode' in o) { st.explode = Math.max(0, Math.min(1, o.explode)); hooks.explode && hooks.explode(st.explode); }
       for (const k of ['spin', 'cut', 'labels', 'xray', 'style']) if (k in o) st[k] = o[k];
@@ -649,6 +661,9 @@ function mount(el, spec, opts = {}) {
 
 const LK3D = {
   mount,
+  locales: { en, vi },
+  // settings for every figure on the page (a site sets them once): locale, strings, buttonClass
+  defaults: { locale: 'en', strings: {}, buttonClass: '' },
   reduce: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
   // for tests and tools: the geometry a scene makes, without a page (each part also as one plain geometry, g)
   build(spec, q = 1) { const S = buildScene(spec, q); for (const p of S.parts) Object.defineProperty(p, 'g', { get() { return this._g || (this._g = flatten(this)); } }); return S; },
@@ -656,5 +671,5 @@ const LK3D = {
 };
 if (typeof window !== 'undefined') window.LK3D = LK3D;
 export default LK3D;
-export const { build, reduce, version } = LK3D;
+export const { build, reduce, version, locales, defaults } = LK3D;  // (the same objects: setting defaults here sets them for LK3D)
 export { mount, M, refreshFrom };

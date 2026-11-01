@@ -289,3 +289,12 @@ test('handles: the pointer ray gives the angle of a turn, the distance of a slid
   // a part keeps its handle through the scene builder
   assert.deepEqual(LK3D.build({ parts: [{ id: 'p', handle: ring, shapes: [{ box: [1, 1, 1] }] }] }).parts[0].handle, ring);
 });
+
+test('locales: English by default and Vietnamese bundled, with the same words and their own decimal mark', () => {
+  const { en, vi } = LK3D.locales;
+  assert.deepEqual(Object.keys(vi).sort(), Object.keys(en).sort(), 'every word in both');
+  for (const L of [en, vi]) for (const [k, v] of Object.entries(L)) assert.ok(typeof v === 'string' && v.length, `${k} written`);
+  assert.equal(en.decimal, '.'); assert.equal(vi.decimal, ',');
+  assert.equal(LK3D.defaults.locale, 'en', 'a page that says nothing gets English');
+  assert.deepEqual(LK3D.defaults.strings, {}); assert.equal(LK3D.defaults.buttonClass, '');
+});

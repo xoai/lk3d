@@ -1,6 +1,6 @@
 // Reading a 3D model made elsewhere (glTF 2.0 binary, .glb): a heart, a skull, a scanned fossil — forms that generated
-// shapes cannot draw faithfully. `./lk model add` prepares the file (simplified, quantized with gltfpack) and the build
-// embeds it in the page, so here it is read synchronously from base64: no network, no decoder to wait for.
+// shapes cannot draw faithfully. Prepare the file beforehand (simplified and quantized, e.g. with gltfpack; lessonkit's
+// ./lk model add does it) and give it to the scene as base64, so it is read synchronously: no network, no decoder.
 // Supported: triangle meshes, node transforms (TRS or matrix), positions/normals in any component type (quantized,
 // normalized or float: KHR_mesh_quantization), indices, COLOR_0, materials' base colours, and the textures of one
 // material: TEXCOORD_0 (KHR_texture_transform applied), base colour, normal and metallic-roughness maps, as embedded
@@ -27,7 +27,7 @@ function parseGLB(u8) {
     off += 8 + len;
   }
   for (const ext of json.extensionsRequired || []) {
-    if (!['KHR_mesh_quantization', 'KHR_materials_unlit', 'KHR_texture_transform', 'EXT_texture_webp'].includes(ext)) throw new Error(`lk3d model: ${ext} is not supported (prepare the file with ./lk model add, which writes it without compression)`);
+    if (!['KHR_mesh_quantization', 'KHR_materials_unlit', 'KHR_texture_transform', 'EXT_texture_webp'].includes(ext)) throw new Error(`lk3d model: ${ext} is not supported (write it without: gltfpack does by default, and glTF-Transform can decompress Draco meshes first)`);
   }
   return { json, bin };
 }
@@ -111,12 +111,15 @@ function load(Geo, b64, only) {
   const image = (info) => {
     const t = info && json.textures[info.index], src = t && (t.extensions?.EXT_texture_webp?.source ?? t.source), im = src != null && json.images[src];
     if (!im) return null;
-    if (im.bufferView == null) throw new Error('lk3d model: its images must be inside the .glb (./lk model add puts them there)');
+    if (im.bufferView == null) throw new Error('lk3d model: its images must be inside the .glb (a .gltf with separate files can be packed into one, e.g. with gltfpack)');
     const v = json.bufferViews[im.bufferView];
     return { bytes: bin.subarray(v.byteOffset || 0, (v.byteOffset || 0) + v.byteLength), mime: im.mimeType };
   };
   for (const i of scene.nodes || []) visit(i, M.id(), false);
-  if (!found) throw new Error(`lk3d model: no node or mesh called "${only}" (./lk model add lists them)`);
+  if (!found) {
+    const all = [...(json.nodes || []), ...(json.meshes || [])].map((x) => x.name).filter(Boolean);
+    throw new Error(`lk3d model: no node or mesh called "${only}"` + (all.length ? ` (it has: ${[...new Set(all)].slice(0, 20).join(', ')})` : ' (its nodes have no names)'));
+  }
   return g;
 }
 

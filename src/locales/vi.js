@@ -1,0 +1,16 @@
+// The words lk3d puts on the page, in Vietnamese (decimal comma).
+export default {
+  model: 'Mô hình 3D',
+  hintTouch: 'Kéo để xoay · chụm hai ngón để phóng to',
+  hintMouse: 'Kéo để xoay · Shift + kéo để dời · Ctrl + cuộn để phóng to',
+  credit: 'Mô hình 3D: ',
+  ai: ' (hình minh họa do AI tạo, không phải mẫu thật)',
+  apart: 'Tách rời', apartLabel: 'Tách rời các bộ phận',
+  takeApart: 'Tách ra', putTogether: 'Lắp lại', takeApartTitle: 'Tách rời / lắp lại',
+  cut: 'Cắt dọc', cutTitle: 'Cắt đôi mô hình để xem bên trong',
+  xray: 'Nhìn xuyên', xrayTitle: 'Làm vỏ trong suốt',
+  labels: 'Nhãn', labelsTitle: 'Hiện tất cả nhãn',
+  studio: 'Kiểu ảnh thật', ink: 'Kiểu vẽ tay', styleTitle: 'Đổi kiểu vẽ',
+  front: 'Trước', side: 'Bên', top: 'Trên', home: 'Ban đầu',
+  decimal: ',',
+};

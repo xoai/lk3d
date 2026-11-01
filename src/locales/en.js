@@ -1,0 +1,17 @@
+// The words lk3d puts on the page, in English (the default). A page picks a language with the `locale` mount option
+// or LK3D.defaults.locale, and changes single entries with `strings`.
+export default {
+  model: '3D model',
+  hintTouch: 'Drag to turn · pinch to zoom',
+  hintMouse: 'Drag to turn · Shift + drag to move · Ctrl + scroll to zoom',
+  credit: '3D model: ',
+  ai: ' (an illustration made by AI, not a real specimen)',
+  apart: 'Apart', apartLabel: 'Take the parts apart',
+  takeApart: 'Take apart', putTogether: 'Put together', takeApartTitle: 'Take apart / put together',
+  cut: 'Cut open', cutTitle: 'Cut the model in half to see inside',
+  xray: 'See through', xrayTitle: 'Make the casing transparent',
+  labels: 'Labels', labelsTitle: 'Show all labels',
+  studio: 'Realistic look', ink: 'Drawn look', styleTitle: 'Change the look',
+  front: 'Front', side: 'Side', top: 'Top', home: 'Reset',
+  decimal: '.',
+};

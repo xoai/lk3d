@@ -1,0 +1,39 @@
+// Builds lk3d: dist/lk3d.min.js (one script that sets the global LK3D) and dist/lk3d.mjs (an ES module). esbuild
+// minifies the JavaScript; the shaders' GLSL, which it leaves as written, is squeezed here: comments, indentation and
+// the spaces around operators go (the GLSL compilers need none of them), and every line break stays, so the
+// preprocessor's lines (#ifdef …) keep theirs.
+//   node build.mjs            write dist/
+//   node build.mjs --size     and report the sizes (minified, gzipped)
+//   import { bundle } from 'lk3d/build.mjs'; const js = await bundle()     the global script, in memory
+import * as esbuild from 'esbuild';
+import fs from 'node:fs';
+import path from 'node:path';
+import zlib from 'node:zlib';
+import { fileURLToPath } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url)), ENTRY = path.join(HERE, 'src/index.js');
+
+export const squeeze = (glsl) => glsl.replace(/\/\/[^\n]*/g, '').replace(/[ \t]+/g, ' ').replace(/ ?([=+\-*/<>,;(){}?:&|!]) ?/g, '$1').replace(/\n\s*/g, '\n');
+const glsl = {
+  name: 'glsl',
+  setup(b) {
+    // the shaders' template literals (not one with ${…}: the header's is code that writes #defines)
+    b.onLoad({ filter: /lk3d[\\/]src[\\/]shaders\.js$/ }, (a) => ({
+      contents: fs.readFileSync(a.path, 'utf8').replace(/`((?:[^`\\]|\\.)*)`/g, (m, g) => (g.includes('${') ? m : '`' + squeeze(g) + '`')), loader: 'js' }));
+  },
+};
+const options = (format) => ({ entryPoints: [ENTRY], bundle: true, write: false, format, minify: true, target: 'es2018', plugins: [glsl] });
+
+export async function bundle(format = 'iife') {
+  return (await esbuild.build(options(format))).outputFiles[0].text;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const dist = path.join(HERE, 'dist');
+  fs.mkdirSync(dist, { recursive: true });
+  const iife = await bundle('iife'), esm = await bundle('esm');
+  fs.writeFileSync(path.join(dist, 'lk3d.min.js'), iife);
+  fs.writeFileSync(path.join(dist, 'lk3d.mjs'), esm);
+  const kb = (s) => (Buffer.byteLength(s) / 1024).toFixed(1), gz = (s) => (zlib.gzipSync(s, { level: 9 }).length / 1024).toFixed(1);
+  console.log(`dist/lk3d.min.js ${kb(iife)} KB (${gz(iife)} KB gzipped), dist/lk3d.mjs ${kb(esm)} KB`);
+}

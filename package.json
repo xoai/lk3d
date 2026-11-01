@@ -1,0 +1,21 @@
+{
+  "name": "lk3d",
+  "version": "0.1.0",
+  "description": "A small engine for explorable, accessible 3D diagrams built from data: take apart, cut open, label, move parts by hand",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./bundle": "./dist/lk3d.min.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.cjs",
+    "size": "node build.mjs --size"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.0"
+  }
+}

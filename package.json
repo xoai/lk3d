@@ -2,9 +2,22 @@
   "name": "lk3d",
   "version": "0.1.0",
   "description": "A small engine for explorable, accessible 3D diagrams built from data: take apart, cut open, label, move parts by hand",
+  "keywords": [
+    "3d",
+    "webgl",
+    "diagram",
+    "education",
+    "explainer",
+    "accessibility",
+    "gltf",
+    "visualization",
+    "science"
+  ],
   "license": "MIT",
+  "author": "xoai",
   "type": "module",
   "main": "./src/index.js",
+  "types": "./index.d.ts",
   "exports": {
     ".": {
       "types": "./index.d.ts",
@@ -18,6 +31,25 @@
     "./bundle": "./dist/lk3d.min.js",
     "./package.json": "./package.json"
   },
+  "files": [
+    "dist/",
+    "src/",
+    "schema/",
+    "index.d.ts",
+    "validate.d.ts",
+    "docs/*.md",
+    "docs/generator.png",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "./src/index.js",
+    "./dist/*"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test test/*.test.cjs",
@@ -27,7 +59,9 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "examples": "node build.mjs && node test/visual/serve.mjs",
-    "docs": "node docs/scene-format.mjs && node docs/shapes/render.mjs"
+    "docs": "node docs/scene-format.mjs && node docs/shapes/render.mjs",
+    "prepublishOnly": "npm run lint && npm test && npm run typecheck && npm run size",
+    "prepack": "node build.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -37,6 +71,5 @@
     "globals": "17.14.0",
     "prettier": "3.9.10",
     "typescript": "7.0.2"
-  },
-  "types": "./index.d.ts"
+  }
 }

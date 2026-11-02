@@ -468,7 +468,7 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1,
-          "description": "Always see-through: 1 is solid (glass about 0.35)."
+          "description": "Always see-through: 1 is solid (glass about 0.35; a part made only of a model's glass, KHR_materials_transmission, is 0.35 and glass unless it says otherwise)."
         },
         "xray": {
           "type": "boolean",
@@ -1326,7 +1326,7 @@
         },
         "color": {
           "$ref": "#/$defs/color",
-          "description": "Its own colour (vertex colours), over the part's."
+          "description": "Its own colour (vertex colours), over the part's; on a textured model, in place of its base colour map (its relief kept)."
         },
         "detail": {
           "type": "number",

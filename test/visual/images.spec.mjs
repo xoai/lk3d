@@ -54,6 +54,49 @@ for (const [scene, look, theme, proj] of runs) {
   });
 }
 
+// A textured model, chosen, keeps its own colours (a rim of light and a faint wash), where a plain part takes the full
+// wash: how much the pixels that change at all change, on choosing the ball and on choosing the plain rod beside it.
+test('a chosen textured model keeps its colours', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'the same shader everywhere');
+  await page.goto('/test/visual/index.html?scene=textured&look=studio');
+  await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 });
+  const canvas = page.locator('.lk3d-stage canvas').first();
+  const shot = async (id) => {
+    await page.evaluate(async (id) => {
+      window.__fig.select(id);
+      for (let k = 0; k < 3; k++) await new Promise((r) => requestAnimationFrame(r));
+    }, id);
+    return (await canvas.screenshot()).toString('base64');
+  };
+  const [none, ball, rod] = [await shot(null), await shot('ball'), await shot('knurl')];
+  const change = await page.evaluate(
+    async ([a, b, c]) => {
+      const px = async (s) => {
+        const im = await createImageBitmap(await (await fetch('data:image/png;base64,' + s)).blob()),
+          cv = new OffscreenCanvas(im.width, im.height),
+          x = cv.getContext('2d');
+        x.drawImage(im, 0, 0);
+        return x.getImageData(0, 0, im.width, im.height).data;
+      };
+      const [A, B, C] = await Promise.all([a, b, c].map(px));
+      const mean = (P) => {
+        let sum = 0,
+          n = 0;
+        for (let i = 0; i < A.length; i += 4) {
+          const d = (Math.abs(P[i] - A[i]) + Math.abs(P[i + 1] - A[i + 1]) + Math.abs(P[i + 2] - A[i + 2])) / 3;
+          if (d > 3) ((sum += d), n++);
+        }
+        return { mean: sum / Math.max(n, 1), n };
+      };
+      return { ball: mean(B), rod: mean(C) };
+    },
+    [none, ball, rod],
+  );
+  expect(change.ball.n, 'choosing the ball shows').toBeGreaterThan(200);
+  expect(change.rod.n, 'choosing the rod shows').toBeGreaterThan(200);
+  expect(change.ball.mean, 'the ball much less washed than the rod').toBeLessThan(0.6 * change.rod.mean);
+});
+
 // a look the engine does not know is drawn in the default look, pen, without an error
 test('an unknown look', async ({ page }) => {
   await page.goto('/test/visual/index.html?scene=generator&look=photo');

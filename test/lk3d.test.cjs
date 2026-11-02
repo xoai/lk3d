@@ -513,8 +513,8 @@ test('a glTF model is read with its node transforms, quantized positions and col
 
 // a textured .glb written here: a square with quantized texture coordinates (uint16, normalized), a material with a
 // base colour map moved by KHR_texture_transform and a normal map (stand-in image bytes: node does not decode them),
-// and an untextured triangle beside it
-function texturedGlb({ second = false, required = [] } = {}) {
+// and an untextured triangle beside it; mat: more of the textured material (alphaMode, doubleSided, extensions)
+function texturedGlb({ second = false, required = [], mat = {} } = {}) {
   const P = [
       [0, 0, 0],
       [1, 0, 0],
@@ -566,6 +566,7 @@ function texturedGlb({ second = false, required = [] } = {}) {
       {
         pbrMetallicRoughness: { baseColorTexture: { index: 0, extensions: tt } },
         normalTexture: { index: 1, extensions: tt },
+        ...mat,
       },
       { pbrMetallicRoughness: { baseColorFactor: [0.2, 0.4, 0.8, 1] } },
       { pbrMetallicRoughness: { baseColorTexture: { index: 1 } } },
@@ -649,6 +650,81 @@ test('a textured glTF model: its texture coordinates (transformed) and maps, in 
       }),
     /KHR_texture_basisu is not supported/,
   );
+});
+
+test('a glTF cut-out keeps its alpha cutoff, and a double-sided surface shows from behind', () => {
+  const square = (mat) =>
+    LK3D.build({
+      models: { m: { data: texturedGlb({ mat }) } },
+      parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Square' }] }],
+    }).parts[0].batches[0].geo;
+  assert.equal(square({}).tex.cut, 0, 'opaque by default');
+  assert.equal(square({ alphaMode: 'MASK' }).tex.cut, 0.5, "MASK's default cutoff");
+  assert.equal(square({ alphaMode: 'MASK', alphaCutoff: 0.3 }).tex.cut, 0.3);
+  assert.equal(square({ alphaMode: 'BLEND' }).tex.cut, 0.5, 'BLEND drawn as a cut-out at half');
+  const one = square({}),
+    two = square({ doubleSided: true });
+  assert.equal(two.count, 2 * one.count, 'each vertex twice');
+  assert.equal(two.i.length, 2 * one.i.length, 'each triangle twice');
+  assert.deepEqual(two.uv.slice(8), one.uv, 'the copy keeps its texture coordinates');
+  assert.deepEqual(
+    two.n.slice(3 * one.count).map((v) => +v.toFixed(6)),
+    one.n.map((v) => +(-v).toFixed(6)),
+    'the copy faces the other way',
+  );
+  assert.ok(windingAgrees(two), 'and its triangles turn with it');
+});
+
+test("a glTF model's glass is see-through glass in its tint, and a shape's colour replaces a texture", () => {
+  const glass = {
+    extensions: {
+      KHR_materials_transmission: { transmissionFactor: 1 },
+      KHR_materials_volume: { attenuationColor: [1, 0.5, 0] },
+    },
+  };
+  const build = (part) =>
+    LK3D.build({
+      models: { m: { data: texturedGlb({ mat: glass }) } },
+      parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Square' }], ...part }],
+    }).parts[0];
+  const p = build({}),
+    g = p.batches[0].geo;
+  assert.equal(g.tex.base, null, "no base colour map: a scan's glass is a white film");
+  assert.ok(g.tex.normal, 'its relief kept');
+  // painted the tint (linear 1, 0.5, 0 as sRGB), as its own colour
+  assert.deepEqual(g.c.slice(0, 4), [255, Math.round(Math.pow(0.5, 1 / 2.2) * 255), 0, 255]);
+  assert.equal(p.material, 'glass');
+  assert.equal(p.alpha, 0.35, 'see-through');
+  assert.equal(build({ opacity: 0.6, material: 'ice' }).alpha, 0.6, 'unless the part says otherwise');
+  assert.equal(build({ opacity: 0.6, material: 'ice' }).material, 'ice');
+  // a part with anything else in it stays solid
+  const mixed = LK3D.build({
+    models: { m: { data: texturedGlb({ mat: glass }) } },
+    parts: [
+      {
+        id: 'p',
+        shapes: [
+          { model: 'm', node: 'Square' },
+          { sphere: 0.2, at: [5, 0, 0] },
+        ],
+      },
+    ],
+  }).parts[0];
+  assert.equal(mixed.alpha, 1);
+  assert.equal(mixed.material, 'paint');
+  // an opaque textured model painted by its shape: the colour in place of the base colour map, the normal map kept
+  const painted = LK3D.build({
+    models: { m: { data: texturedGlb() } },
+    parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Square', color: '#c8641c' }] }],
+  }).parts[0].batches[0].geo;
+  assert.equal(painted.tex.base, null);
+  assert.ok(painted.tex.normal);
+  assert.deepEqual(painted.c.slice(0, 4), [0xc8, 0x64, 0x1c, 255]);
+  const plain = LK3D.build({
+    models: { m: { data: texturedGlb() } },
+    parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Square' }] }],
+  }).parts[0].batches[0].geo;
+  assert.ok(plain.tex.base, 'the same model unpainted keeps its map (the paint did not reach the cached one)');
 });
 
 test('every shape for the sciences follows the quality setting (coarser on phones and in 2D)', () => {

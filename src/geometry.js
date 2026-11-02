@@ -453,7 +453,8 @@ function buildShape(s, q, ctx = {}) {
 // scatter: {shape: {…a shape…}, n, within: {sphere: r} | {shell: [ri, r]} | {box: [x, y, z]}, avoid: [{sphere: r, at}],
 // size: [min, max], seed}. Each copy turned at random and scaled evenly, so all are drawn by instancing.
 // model: a model the scene lists under `models` (models: {heart: {data: the .glb as base64}}), or one node of it:
-// {model: heart, node: …}
+// {model: heart, node: …}; color: its own colour in place of its base colour map (a glass eye's white film, a stain
+// that misleads)
 function modelShape(s, ctx) {
   const m = (ctx.models || {})[s.model];
   if (!m || !m.data)
@@ -466,7 +467,10 @@ function modelShape(s, ctx) {
   if (!geo) {
     if (!files.has(s.model)) files.set(s.model, parseGLB(bytes(m.data)));
     geo = loadModel(Geo, files.get(s.model), s.node);
-    if (s.color) geo.paint(s.color);
+    if (s.color) {
+      geo.paint(s.color);
+      if (geo.tex) geo.tex = { ...geo.tex, base: null }; // (its colour in place of the base colour map; relief kept)
+    }
     if (ctx.cache) ctx.cache.set(key, geo);
   }
   return { geo, mats: [M.trs(s.at, s.rot, s.scale)] };
@@ -725,10 +729,12 @@ function buildScene(spec, q = 1) {
       merged = shared ? shared.geo : new Geo(),
       soft = shared ? shared.soft : [],
       batches = [];
+    let clear = !!(p.shapes || []).length; // (made only of a model's glass: see-through glass unless it says otherwise)
     for (const s of p.shapes || []) {
       const b = buildShape(s, q, ctx),
         mats = b.mats.map((m) => M.mul(place, m)),
         edgy = p.edges ?? !SOFT.some((n) => n in s);
+      clear = clear && !!b.geo.clear;
       if (b.geo.tex) {
         const g = new Geo();
         for (const m of mats) g.add(b.geo, m);
@@ -790,11 +796,11 @@ function buildScene(spec, q = 1) {
       handle: p.handle || null,
       color: rgb(p.color),
       studioColor: rgb(p.studioColor || p.color),
-      mat: [...(MATERIALS[p.material] || MATERIALS.paint), 0].slice(0, 3),
-      material: p.material || 'paint',
+      mat: [...(MATERIALS[p.material || (clear ? 'glass' : 'paint')] || MATERIALS.paint), 0].slice(0, 3),
+      material: p.material || (clear ? 'glass' : 'paint'),
       surf: surface(p.surface),
       refract: p.refract || 0,
-      alpha: p.opacity ?? 1,
+      alpha: p.opacity ?? (clear ? 0.35 : 1),
       xray: !!p.xray,
       accent: !!p.accent,
       cut: p.cut !== false, // (false: whole when the model is cut open: a stand, a frame)

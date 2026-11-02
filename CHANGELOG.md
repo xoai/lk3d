@@ -21,7 +21,9 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
   simulations.
 - **Shapes**: 21 kinds, for machines (lathe, cylinder, box, sphere, torus, tube, helix, loop, blade) and for the
   sciences (ellipsoid, capsule, blob, shell, tree, molecule, dna, extrude, terrain, ring, orbit, scatter); glTF 2.0
-  models, textured ones included (base colour, normal and metallic-roughness maps).
+  models, textured ones included (base colour, normal and metallic-roughness maps; cut-outs by `alphaMode`, in every
+  look and in the shadow; double-sided surfaces; glass by `KHR_materials_transmission`, see-through in its tint; a
+  shape's `color` in place of a map), lit gently when pointed at so a scan's own colours still read.
 - **Looks**: a drawn look, a physically based studio look with generated environments (studio, warm, night),
   surface detail and glass that bends light, and a pen look (near-white solids, smooth on curves and one tone on each
   flat face, thin outlines and edges where faces meet, colour for accents); an orthographic camera for technical

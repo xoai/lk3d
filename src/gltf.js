@@ -4,7 +4,8 @@
 // Supported: triangle meshes, node transforms (TRS or matrix), positions/normals in any component type (quantized,
 // normalized or float: KHR_mesh_quantization), indices, COLOR_0, materials' base colours, and the textures of one
 // material: TEXCOORD_0 (KHR_texture_transform applied), base colour, normal and metallic-roughness maps, as embedded
-// WebP, PNG or JPEG images (the renderer decodes them). Not: skins, morph targets, sparse accessors, KTX2/Basis
+// WebP, PNG or JPEG images (the renderer decodes them); cut-outs (alphaMode), double-sided surfaces, and glass
+// (KHR_materials_transmission, tinted by KHR_materials_volume). Not: skins, morph targets, sparse accessors, KTX2/Basis
 // textures, meshopt or Draco compression (refused with a message).
 import { M, sub, cross, norm, add } from './math.js';
 
@@ -93,6 +94,22 @@ const trsMatrix = (node) => {
   return M.mul(M.trans(node.translation || [0, 0, 0]), M.mul(R, M.scale(node.scale || [1, 1, 1])));
 };
 
+// A double-sided surface (a card of feathers, a leaf, a membrane open at its edge): a copy of each vertex facing the
+// other way, and its triangles turned round, so it shows from behind as well (the renderer drops faces turned away)
+function twoSided(g) {
+  const n = g.count,
+    P = g.p,
+    N = g.n,
+    I = g.i.length;
+  for (let k = 0; k < 3 * n; k++) {
+    P.push(P[k]);
+    N.push(-N[k]);
+  }
+  if (g.uv) for (let k = 0; k < 2 * n; k++) g.uv.push(g.uv[k]);
+  if (g.c) for (let k = 0; k < 4 * n; k++) g.c.push(g.c[k]);
+  for (let t = 0; t < I; t += 3) g.i.push(n + g.i[t], n + g.i[t + 2], n + g.i[t + 1]);
+}
+
 // The model's names (nodes and meshes), to map to the parts of a scene
 function names(b64) {
   const { json } = parseGLB(bytes(b64));
@@ -142,9 +159,13 @@ function load(Geo, b64, only) {
     for (let k = 0; k < n; k++) local.v(pos(k), normals[k]);
     for (let t = 0; t < idx.length; t += 3) local.tri(idx[t], idx[t + 1], idx[t + 2]);
     const col = prim.attributes.COLOR_0 != null ? accessor(json, bin, prim.attributes.COLOR_0) : null;
-    const mat = prim.material != null ? json.materials[prim.material] : null,
-      bc = mat?.pbrMetallicRoughness?.baseColorFactor;
-    const tx = mat?.pbrMetallicRoughness?.baseColorTexture || mat?.normalTexture;
+    const mat = prim.material != null ? json.materials[prim.material] : null;
+    // glass (KHR_materials_transmission): no base colour map (a scan's is a white film), painted its tint instead
+    // (KHR_materials_volume's, else its own colour), and marked so its part is see-through glass
+    const clear = mat?.extensions?.KHR_materials_transmission?.transmissionFactor > 0,
+      bc =
+        (clear && mat.extensions.KHR_materials_volume?.attenuationColor) || mat?.pbrMetallicRoughness?.baseColorFactor;
+    const tx = (!clear && mat?.pbrMetallicRoughness?.baseColorTexture) || mat?.normalTexture;
     if (tx && prim.attributes.TEXCOORD_0 != null) {
       // texture coordinates, moved by KHR_texture_transform once here
       const T = accessor(json, bin, prim.attributes.TEXCOORD_0),
@@ -159,11 +180,15 @@ function load(Geo, b64, only) {
           v = T.data[2 * k + 1] * sy;
         local.uv.push(c * u + s * v + ox, -s * u + c * v + oy);
       }
+      // cut-outs (feathers, leaves, hair as cards): MASK drops what is below its cutoff; BLEND is drawn the same way at
+      // half (sorting every card of a model for true blending is not worth its cost)
+      const mode = mat.alphaMode;
       const maps = {
-        base: image(mat.pbrMetallicRoughness?.baseColorTexture),
+        base: clear ? null : image(mat.pbrMetallicRoughness?.baseColorTexture),
         normal: image(mat.normalTexture),
         mr: image(mat.pbrMetallicRoughness?.metallicRoughnessTexture),
         mat: prim.material,
+        cut: mode === 'MASK' ? (mat.alphaCutoff ?? 0.5) : mode === 'BLEND' ? 0.5 : 0,
       };
       if (g.tex && g.tex.mat !== maps.mat)
         throw new Error(
@@ -184,7 +209,9 @@ function load(Geo, b64, only) {
           .padStart(2, '0');
       local.paint('#' + s(bc[0]) + s(bc[1]) + s(bc[2]));
     }
+    if (mat?.doubleSided) twoSided(local);
     g.add(local, m);
+    g.clear = clear && g.clear !== false; // (all of it glass)
   };
   // an embedded image (a texture's source, or its WebP one), as bytes and their type
   const image = (info) => {

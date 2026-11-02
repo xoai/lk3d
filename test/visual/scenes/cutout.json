@@ -1,0 +1,10 @@
+{
+ "w": 16, "h": 9, "style": "studio", "view": {"yaw": 160, "pitch": 15},
+ "check": {"float": ["vane", "bead"]},
+ "models": {"card": {"file": "assets/card.glb", "title": "Test feather and bead", "author": "lk3d", "license": "CC0", "source": "artist"}},
+ "parts": [
+  {"id": "vane", "name": "Vane", "color": "#7a5232", "shapes": [{"model": "card", "node": "Card", "at": [0, 0.3, 0]}]},
+  {"id": "bead", "name": "Bead", "color": "#e8a060", "shapes": [{"model": "card", "node": "Bead", "at": [0, 0.3, 0]}]},
+  {"id": "post", "name": "Post", "material": "plastic", "color": "#2f6fb0", "shapes": [{"cylinder": {"r": 0.12, "x0": -0.5, "x1": 1.1}, "rot": [0, 0, 90], "at": [-0.3, 0, 0.6]}]}
+ ]
+}

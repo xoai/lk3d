@@ -165,17 +165,18 @@ function glRenderer(gl, scene, opts = {}) {
     Object.assign(prog, { u, a, ok: true });
     return true;
   };
+  const cuts = hifi ? ['CUTS'] : []; // (where models' maps are loaded: the drawn looks and the shadow cut cut-outs too)
   const studioDefs = [
     ...(hifi ? ['HIFI'] : []),
     ...(shadowsOn ? ['SHADOWS'] : []),
     ...(hifi && !envHalf ? ['RGBM'] : []),
   ];
   const P = {
-    ink: program(S.PART_VS, S.PART_FS, ['INK', ...(shadowsOn ? ['SHADOWS'] : [])]),
+    ink: program(S.PART_VS, S.PART_FS, ['INK', ...cuts, ...(shadowsOn ? ['SHADOWS'] : [])]),
 
     ground: program(S.GROUND_VS, S.GROUND_FS, shadowsOn ? ['SHADOWS'] : []),
   };
-  if (shadowsOn) P.depth = program(S.PART_VS, S.DEPTH_FS);
+  if (shadowsOn) P.depth = program(S.PART_VS, S.DEPTH_FS, cuts);
   // particles along paths and solid balls: compiled only for a figure that has them
   const lazy = (name) =>
     P[name] ||
@@ -194,7 +195,7 @@ function glRenderer(gl, scene, opts = {}) {
       { optional: true },
     ));
   // the pen look: compiled when first needed (its parts take no shadow: only the ground does)
-  const penProg = () => P.pen || (P.pen = program(S.PART_VS, S.PART_FS, ['PEN']));
+  const penProg = () => P.pen || (P.pen = program(S.PART_VS, S.PART_FS, ['PEN', ...cuts]));
   // the studio look, its environment and the glow: compiled when first needed, or ahead of time in the background once
   // the first picture is up (only where that does not block)
   const studioProgs = () => {
@@ -274,13 +275,15 @@ function glRenderer(gl, scene, opts = {}) {
       count: b.mats.length,
       uv: g.tex && hifi ? buf(new Float32Array(g.uv)) : null,
       tex: {},
+      cut: (g.tex && g.tex.cut) || 0,
     };
     if (g.tex && hifi) maps(b.gl.tex, g.tex);
     if (!b.dynamic) byGeo.set(g, b.gl);
   }
   // a model's texture maps (studio look, WebGL 2): decoded off the main thread, at half size on a phone, and drawn once
   // ready (until then the part's own colour shows)
-  let pending = 0; // texture maps still decoding
+  let pending = 0, // texture maps still decoding
+    loaded = 0; // and those drawn so far
   function maps(T, tex) {
     for (const k of ['base', 'normal', 'mr'])
       if (tex[k] && typeof createImageBitmap === 'function') {
@@ -311,6 +314,7 @@ function glRenderer(gl, scene, opts = {}) {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
             gl.activeTexture(gl.TEXTURE0);
             T[k] = t;
+            loaded++; // (the shadow and depth drawn again: a cut-out's map changes what casts a shadow)
             if (opts.onTexture) opts.onTexture();
           })
           .catch(() => {}) // an image the browser cannot decode: the part keeps its colour
@@ -410,9 +414,9 @@ function glRenderer(gl, scene, opts = {}) {
     vx.bind(G.vao || (G.vao = vao(G, G.inst, 64)));
     bound = true;
     if (u.uTex) {
-      // which maps this batch has, on units 4, 5, 6
+      // which maps this batch has, on units 4, 5, 6, and a cut-out's alpha cutoff
       const t = [G.tex.base, G.tex.normal, G.tex.mr];
-      gl.uniform3f(u.uTex, t[0] ? 1 : 0, t[1] ? 1 : 0, t[2] ? 1 : 0);
+      gl.uniform4f(u.uTex, t[0] ? 1 : 0, t[1] ? 1 : 0, t[2] ? 1 : 0, G.cut);
       t.forEach((x, i) => {
         if (x) {
           gl.activeTexture(gl.TEXTURE4 + i);
@@ -596,7 +600,7 @@ function glRenderer(gl, scene, opts = {}) {
       k[19 * i + 18] = p.batches.reduce((a, b) => a + (b.ver || 0), 0);
     });
     k.set(f.plane || [0, 0, 0, 0], parts.length * 19);
-    k.set([f.bounds.radius, f.cut ? 1 : 0, 0, 0], parts.length * 19 + 4);
+    k.set([f.bounds.radius, f.cut ? 1 : 0, loaded, 0], parts.length * 19 + 4);
     k.set(extra, parts.length * 19 + 8);
     return k;
   }
@@ -671,6 +675,7 @@ function glRenderer(gl, scene, opts = {}) {
     if (u.uCut) gl.uniform1f(u.uCut, f.cut ? 1 : 0);
     if (u.uOutline) gl.uniform1f(u.uOutline, 0);
     if (u.uViewD) gl.uniform1f(u.uViewD, f.viewD || 0);
+    if (u.uBase) gl.uniform1i(u.uBase, 4); // (a model's base colour map, on its own unit)
   }
 
   return {

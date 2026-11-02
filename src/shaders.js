@@ -18,7 +18,7 @@ function header(gl2, stage, defs) {
 // ---- the parts: positions and normals arrive compressed (16 and 8 bit), each instance brings its own matrix
 const PART_VS = `
 attribute vec4 aPos; attribute vec4 aNrm; attribute vec4 aOut; attribute float aAO; attribute vec4 aCol;
-#ifdef HIFI
+#if defined(HIFI) || defined(CUTS)
 attribute vec2 aUV; varying vec2 vUV;
 #endif
 attribute vec4 aI0; attribute vec4 aI1; attribute vec4 aI2; attribute vec4 aI3;
@@ -35,7 +35,7 @@ void main() {
   mat4 m = uModel * mat4(aI0, aI1, aI2, aI3);
   vCol = aCol; vIC = aIC; vIE = aIE;
   vO = aPos.xyz * uQs + uQo;
-#ifdef HIFI
+#if defined(HIFI) || defined(CUTS)
   vUV = aUV;
 #endif
   vec4 w = m * vec4(vO, 1.0);
@@ -56,7 +56,10 @@ varying vec3 vW; varying vec3 vN; varying float vAO; varying vec4 vCol; varying 
 #ifdef HIFI
 uniform samplerCube uEnv; uniform float uEnvMax; uniform float uExposure;
 uniform vec3 uSurf; uniform float uRefr; uniform sampler2D uBack; uniform vec2 uView; uniform mat4 uVP;
-uniform sampler2D uBase; uniform sampler2D uNorm; uniform sampler2D uMR; uniform vec3 uTex; varying vec2 vUV;
+uniform sampler2D uBase; uniform sampler2D uNorm; uniform sampler2D uMR; uniform vec4 uTex; varying vec2 vUV;
+#endif
+#ifdef CUTS
+uniform sampler2D uBase; uniform vec4 uTex; varying vec2 vUV;  // (the drawn looks: only a cut-out's shape from its map)
 #endif
 #ifdef SHADOWS
 uniform sampler2DShadow uShadow; uniform float uShadowTexel; varying vec4 vSh;
@@ -119,6 +122,9 @@ vec2 envBRDF(float NoV, float r) {  // the split-sum environment term, as Karis 
 void main() {
   float cut = step(1.5, vIE.w), hi = step(0.5, vIE.w - 2.0 * cut);
   if (cut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
+#ifdef CUTS
+  if (uTex.x > 0.5 && texture2D(uBase, vUV).a < uTex.w) discard;  // a cut-out's clear texels
+#endif
   if (uFlat > 0.5) { gl_FragColor = vec4(uColor, uAlpha); return; }
   vec3 C = mix(vIC.rgb, vCol.rgb, vCol.a);  // a vertex's own colour (atoms, bands, layers) where it has one
   vec2 fc = gl_FragCoord.xy / uDpr;
@@ -164,7 +170,11 @@ void main() {
     // physically based: GGX distribution, correlated Smith visibility, Schlick Fresnel; light from the studio
     // environment (prefiltered by roughness) and one key light that casts shadows
     float rough = uMat.y, metal = uMat.x;
-    if (uTex.x > 0.5) C = texture2D(uBase, vUV).rgb;  // a model's own maps: base colour, metal-roughness, normals
+    if (uTex.x > 0.5) {  // a model's own maps: base colour (a cut-out's clear texels dropped), metal-roughness, normals
+      vec4 bc = texture2D(uBase, vUV);
+      if (bc.a < uTex.w) discard;
+      C = bc.rgb;
+    }
     if (uTex.z > 0.5) { vec4 mr = texture2D(uMR, vUV); rough *= mr.g; metal *= mr.b; }
     if (uTex.y > 0.5) {  // in a tangent frame from the screen derivatives of position and UV (as Khronos's viewer does)
       vec3 ux = dFdx(vec3(vUV, 0.0)), uy = dFdy(vec3(vUV, 0.0));
@@ -217,13 +227,27 @@ void main() {
   }
 #endif
   col += vIE.rgb;
-  col = mix(col, vec3(1.0, 0.82, 0.35), hi * 0.35);
+  float wash = 0.35;
+#ifdef HIFI
+  // a textured model lit by its rim and a faint wash, so its own colours (a scan's feathers) still read
+  if (uTex.x > 0.5) wash = 0.08 + 0.45 * pow(1.0 - max(dot(N, V), 0.0), 2.0);
+#endif
+  col = mix(col, vec3(1.0, 0.82, 0.35), hi * wash);
   gl_FragColor = vec4(col, al);
 }`;
 
-// ---- depth only, for the shadow map
+// ---- depth only, for the shadow map (and a cut-out's clear texels casting none)
 const DEPTH_FS = `uniform vec4 uPlane; varying vec3 vW; varying vec4 vIE;
-void main() { if (vIE.w > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard; gl_FragColor = vec4(1.0); }`;
+#ifdef CUTS
+uniform sampler2D uBase; uniform vec4 uTex; varying vec2 vUV;
+#endif
+void main() {
+  if (vIE.w > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
+#ifdef CUTS
+  if (uTex.x > 0.5 && texture2D(uBase, vUV).a < uTex.w) discard;
+#endif
+  gl_FragColor = vec4(1.0);
+}`;
 
 // ---- emission only, for the glow
 const GLOW_FS = `uniform vec4 uPlane; varying vec3 vW; varying vec4 vIE;

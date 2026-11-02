@@ -53,7 +53,9 @@ gltfpack -i scan.glb -o model.glb -si 0.3 -kn -km -tw     # 30 % of the triangle
 ```
 
 A Draco-compressed file (scans often are) is first decompressed, e.g. with
-[glTF-Transform](https://gltf-transform.dev/). lessonkit's `./lk model add` does both.
+[glTF-Transform](https://gltf-transform.dev/). A rigged model (an artist's animal or body usually is) is first posed:
+each skinned vertex moved by its joints and the skin dropped, since lk3d draws a skinned mesh in its bind pose, often at
+the wrong size or turned away. lessonkit's `./lk model add` does all three.
 
 ## Where a model comes from
 

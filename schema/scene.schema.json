@@ -70,6 +70,11 @@
           "exclusiveMinimum": 0,
           "description": "Field of view, degrees (35)."
         },
+        "minZoom": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "How close the reader may zoom, as a share of the distance that fits the whole model (0.02: 50 times closer)."
+        },
         "projection": {
           "enum": ["perspective", "ortho"],
           "description": "perspective (the default) or ortho: parallel lines stay parallel, as in a technical illustration."

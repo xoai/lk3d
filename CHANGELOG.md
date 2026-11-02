@@ -38,6 +38,16 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
 - **Tools and a skill for AI agents**: `lk3d check` (form, geometry, size) and `lk3d render` (a PNG per look and pose,
   drawn by the engine in a headless browser), and an Agent Skill (`skill/lk3d`) with a worked example, a turbofan on a
   test stand.
+- **Streams** (`fig.stream()`): air or gas as a moving volume along a path, drawn per pixel by the GPU: filaments
+  moving downstream, turbulence, swirl at the edge, a colour ramp; for jets, intakes and plumes. The air moves by
+  its travel time: faster where the stream narrows (continuity) or as `speeds` says, never backwards, and its
+  turbulence changes with the flow, not the clock. Any number of radius stops; `fade`; the march lengthens for rays
+  slanting along the stream.
+- **Deep zoom** towards the pointer (wheel, pinch, `fig.zoom`), down to 2% of the whole-model distance by default
+  (`view.minZoom`); the orthographic camera keeps its eye outside the model however close it zooms.
+- **Pen is the default look** (then studio, then ink): a soft wash of each part's colour, wider tones, a one-pixel
+  outline, edges lit or faint by the way they face, and a soft shadow of the object on the ground. Labels on a model
+  of many parts are placed largest part first and never overlap.
 - **Cutting open**: a part can stay whole (`cut: false`: a stand, a frame); flow streaks are cut with the parts; a
   lathe sector of a concave profile (half a cowl) is closed correctly.
-- **Small and fast**: 44 KB gzipped; draws only on change, pauses off screen, adapts its resolution.
+- **Small and fast**: 48 KB gzipped; draws only on change, pauses off screen, adapts its resolution.

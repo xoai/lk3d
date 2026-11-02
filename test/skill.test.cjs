@@ -52,14 +52,13 @@ test('the worked example is what the skill asks for', () => {
   assert.deepEqual(validate(scene), []);
   const r = lint(scene);
   assert.deepEqual(r.problems, []);
-  assert.ok(r.summary.parts >= 30, `${r.summary.parts} parts`);
+  assert.ok(r.summary.parts >= 60, `${r.summary.parts} parts: a machine's figure, each stage and section its own part`);
   assert.ok(r.summary.accents >= 1 && r.summary.accents <= 2, `${r.summary.accents} accents`);
   for (const p of scene.parts) assert.ok(p.name && p.note && /[.!?]$/.test(p.note), `${p.id}: a name and a whole note`);
   assert.equal(scene.lk3d, 1);
   assert.equal(scene.style, 'pen');
   assert.equal(scene.view.projection, 'ortho');
-  const stand = scene.parts.filter((p) => p.group === 'be-thu');
-  assert.ok(stand.length >= 4 && stand.every((p) => p.cut === false), 'a stand that stays whole when cut open');
-  // what the stand carries: nothing of the engine is left hanging (lint's float check passed with no excuses)
+  // the object as it is: no invented stand or base kept whole while the rest is cut open, nothing excused
+  assert.ok(!scene.parts.some((p) => p.cut === false), 'no invented stand');
   assert.equal(scene.check, undefined);
 });

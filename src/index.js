@@ -13,7 +13,7 @@
 // creases shaded by ambient occlusion, glow), WebGL 1 (the same scene, simpler light), Canvas 2D (flat shading).
 // It draws only when something changes, pauses off screen, lowers its resolution while frames are slow and moving,
 // and never reads from the page layout or the GPU while drawing: labels are measured once, picking casts rays on the CPU.
-import { D2R, M, sub, add, mulv, len, norm, cross, rgb } from './math.js';
+import { D2R, M, sub, add, mulv, len, norm, cross, dot, rgb } from './math.js';
 import { buildScene, flatten, buildShape, outlineNormals, edgesOf } from './geometry.js';
 import { buildBVH, intersect, aoJob } from './bvh.js';
 import { glRenderer } from './renderer-gl.js';
@@ -23,6 +23,7 @@ import textWidth from './text.js';
 import * as HD from './handles.js';
 import { controls } from './controls.js';
 import { pathOf, makeFlow, ramp } from './flow.js';
+import { makeStream } from './stream.js';
 import en from './locales/en.js';
 import vi from './locales/vi.js';
 const mod360 = (v) => ((v % 360) + 360) % 360;
@@ -213,7 +214,7 @@ function mount(el, spec, opts = {}) {
   const t0 = performance.now(),
     stats = { setupMs: 0, firstFrameMs: null, treesMs: null, aoMs: null, refreshMs: null };
   const st = {
-    style: opts.style || spec.style || 'ink',
+    style: opts.style || spec.style || 'pen',
     theme: opts.theme || spec.theme || null,
     timeScale: 1,
     projection: spec.view?.projection || 'perspective',
@@ -271,6 +272,16 @@ function mount(el, spec, opts = {}) {
       handles.push(hd);
       for (const q of parts) q.handleOf = hd;
     }
+  // the order parts are drawn in: parts that share a geometry one after another (the GPU then binds it once for them)
+  const geoId = new Map(),
+    drawOrder = S.parts
+      .map((p, k) => [
+        p,
+        geoId.get(p.batches[0]?.geo) ?? geoId.set(p.batches[0]?.geo, geoId.size).get(p.batches[0]?.geo),
+        k,
+      ])
+      .sort((a, b) => a[1] - b[1] || a[2] - b[2])
+      .map(([p]) => p);
   const baseDist = spec.view?.dist ?? S.radius * 2.6;
   st.dist = baseDist;
   st.target = spec.view?.target || S.center.slice();
@@ -369,6 +380,7 @@ function mount(el, spec, opts = {}) {
 
   // ---- camera
   let VP = M.id(),
+    view3 = { d: 1, h: 1, ortho: false }, // (the camera's distance and half-height, for the shaders)
     eye = [0, 0, 1],
     W = 1,
     H = 1,
@@ -381,13 +393,17 @@ function mount(el, spec, opts = {}) {
     const cp = Math.cos(st.pitch),
       d = st.dist * fitW * (1 + (spec.view?.explodeZoom ?? 0.5) * st.explode),
       tgt = add(st.target, shift());
-    eye = add(tgt, [d * cp * Math.sin(st.yaw), d * Math.sin(st.pitch), d * cp * Math.cos(st.yaw)]);
-    // orthographic: parallel lines stay parallel; framed as the perspective camera frames the point looked at
+    // orthographic: parallel lines stay parallel; framed as the perspective camera frames the point looked at. Its depth
+    // range always holds the whole model, however close the reader zooms (only the frustum shrinks)
     const fov = (spec.view?.fov ?? 35) * D2R,
-      h = d * Math.tan(fov / 2);
+      h = d * Math.tan(fov / 2),
+      ortho = st.projection === 'ortho',
+      R = S.radius * (2 + st.explode * 2);
+    eye = add(tgt, [d * cp * Math.sin(st.yaw), d * Math.sin(st.pitch), d * cp * Math.cos(st.yaw)]);
+    view3 = { d, h, ortho };
     VP = M.mul(
-      st.projection === 'ortho'
-        ? M.ortho((-h * W) / H, (h * W) / H, -h, h, -d * 4, d * 10)
+      ortho
+        ? M.ortho((-h * W) / H, (h * W) / H, -h, h, Math.min(-d * 4, d - R * 3), Math.max(d * 10, d + R * 3))
         : M.persp(fov, W / H, Math.max(0.01, d / 50), d * 10),
       M.look(eye, tgt, [0, 1, 0]),
     );
@@ -459,7 +475,7 @@ function mount(el, spec, opts = {}) {
     const narrow = el.clientWidth < 560,
       ar = narrow ? spec.narrow || '1 / 0.9' : `${spec.w || 16} / ${spec.h || 10}`;
     if (stage.style.aspectRatio !== ar) stage.style.aspectRatio = ar;
-    dpr = Math.min(opts.maxDpr || 2, window.devicePixelRatio || 1);
+    dpr = Math.min(opts.maxDpr || 3, window.devicePixelRatio || 1);
     const r = stage.getBoundingClientRect();
     W = Math.max(1, r.width);
     H = Math.max(1, r.height);
@@ -505,7 +521,7 @@ function mount(el, spec, opts = {}) {
   };
   if (darkQuery) darkQuery.addEventListener('change', onScheme);
   function lookNow() {
-    const style = LOOKS[st.style] ? st.style : 'ink',
+    const style = LOOKS[st.style] ? st.style : 'pen',
       base = LOOKS[style],
       name =
         st.theme === 'auto'
@@ -568,8 +584,8 @@ function mount(el, spec, opts = {}) {
         h.step(pdt);
         flowing = true;
       }
-    // (streaks stand still for a reader who asked for less motion)
-    for (const F of flows)
+    // (streaks and streams stand still for a reader who asked for less motion)
+    for (const F of flows.concat(streams))
       if (F.speed && F.visible && !LK3D.reduce) {
         F.step(pdt);
         flowing = true;
@@ -617,12 +633,13 @@ function mount(el, spec, opts = {}) {
       for (const p of S.parts) {
         p.m = model(p);
         p.drawAlpha = p.hidden ? 0 : st.xray && p.xray ? 0.18 : p.alpha;
-        // the pen look's colour: all of it for an accent part, a glowing one or the one chosen, a hint otherwise
-        p.tint = p.accent || p.id === st.selected || p.emit[0] + p.emit[1] + p.emit[2] > 0.01 ? 1 : 0.15;
+        // the pen look's colour: all of it for an accent part, a glowing one or the one chosen, a soft wash otherwise
+        // (grey machine parts stay nearly white; coloured ones, an organelle or a layer, still read as their colour)
+        p.tint = p.accent || p.id === st.selected || p.emit[0] + p.emit[1] + p.emit[2] > 0.01 ? 1 : 0.4;
       }
       const fl = flows.filter((F) => F.visible && F.amount > 0);
-      for (const F of fl) {
-        F.update(F.owner ? F.owner.m : null);
+      for (const F of fl.concat(streams)) {
+        if (F.update) F.update(F.owner ? F.owner.m : null);
         if (!F.colors || F.dark !== look.dark) {
           F.colors = ramp(F.ramp, look.dark);
           F.dark = look.dark;
@@ -634,8 +651,8 @@ function mount(el, spec, opts = {}) {
           L.dirty = false;
         }
       const shown = lines.length
-        ? S.parts.concat(lines.filter((L) => L.visible && L.part.batches[0].mats.length).map((L) => L.part))
-        : S.parts;
+        ? drawOrder.concat(lines.filter((L) => L.visible && L.part.batches[0].mats.length).map((L) => L.part))
+        : drawOrder;
       const b = nowBounds();
       let drawn;
       try {
@@ -646,13 +663,18 @@ function mount(el, spec, opts = {}) {
           style: st.style,
           parts: shown,
           flows: fl,
+          streams,
+          fwd: norm(sub(add(st.target, shift()), eye)),
           edges: !!edgeTodo && edgesWanted(),
           cut: st.cut,
           plane: plane(),
           hover: st.hover,
           selected: st.selected,
           dpr: dpr * scale,
-          pxPerUnit: cv.height / (2 * Math.tan(((spec.view?.fov ?? 35) * D2R) / 2)),
+          // pixels per unit at unit distance from the eye (shaders divide by it); in ortho the size is the same everywhere
+          pxPerUnit: (cv.height * view3.d) / (2 * view3.h),
+          viewD: view3.ortho ? view3.d : 0,
+          tanHalf: view3.h / view3.d,
           particles,
           ao: aoDone,
           shadows: true,
@@ -693,17 +715,21 @@ function mount(el, spec, opts = {}) {
 
   // ---- labels: HTML, so they are crisp, in the page's lettering and readable by screen readers; measured once
   // (no layout reads while drawing), moved with transforms only when they actually move
+  // (a label's element is made the first time it is shown: a model of thousands of parts shows few at a time)
   const tagEls = [];
-  for (const p of S.parts) {
-    if (!p.name || p.label === false) continue;
-    const t = document.createElement('div');
-    t.className = 'lk3d-tag';
-    t.textContent = p.name;
-    t.dataset.id = p.id;
-    t.style.display = 'none';
-    tags.append(t);
-    tagEls.push({ p, t, x: -1, y: -1, shown: false, on: false }); // shown once placed
-  }
+  for (const p of S.parts)
+    if (p.name && p.label !== false) tagEls.push({ p, t: null, x: -1, y: -1, shown: false, on: false });
+  const tagOf = (i) => {
+    if (!i.t) {
+      const t = (i.t = document.createElement('div'));
+      t.className = 'lk3d-tag';
+      t.textContent = i.p.name;
+      t.dataset.id = i.p.id;
+      t.style.display = 'none';
+      tags.append(t);
+    }
+    return i.t;
+  };
   let widths = {};
   const unhook = textWidth.onFontsChanged(() => {
     widths = {};
@@ -717,7 +743,7 @@ function mount(el, spec, opts = {}) {
     const k = lookKey + i.p.id;
     if (widths[k] == null) {
       if (!tagBox[lookKey] || !widths.__box) {
-        const cs = getComputedStyle(i.t),
+        const cs = getComputedStyle(tagOf(i)),
           px = (v) => parseFloat(v) || 0;
         tagBox[lookKey] = {
           font: `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`,
@@ -741,6 +767,12 @@ function mount(el, spec, opts = {}) {
     const px = a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : 0;
     scaleEl.firstChild.style.transform = `scaleX(${(px / 100).toFixed(3)})`;
   }
+  const show = (i, on) => {
+    if (on !== i.shown) {
+      tagOf(i).style.display = on ? '' : 'none';
+      i.shown = on;
+    }
+  };
   function labels() {
     scaleBar();
     const vis = (p) =>
@@ -764,32 +796,50 @@ function mount(el, spec, opts = {}) {
         );
         if (!a) on = false;
       } // a spinning part's label stays put
-      if (on !== i.shown) {
-        i.t.style.display = on ? '' : 'none';
-        i.shown = on;
+      if (!on) {
+        show(i, false);
+        continue;
       }
-      if (!on) continue;
       let d = [a[0] - c[0], a[1] - c[1]];
       const l = Math.hypot(d[0], d[1]);
       d = l < 4 ? [0, -1] : [d[0] / l, d[1] / l];
-      items.push({ i, a, x: a[0] + d[0] * 46, y: a[1] + d[1] * 34 - 8, right: d[0] >= 0 });
+      items.push({
+        i,
+        a,
+        x: a[0] + d[0] * 46,
+        y: a[1] + d[1] * 34 - 8,
+        right: d[0] >= 0,
+        first: i.p.id === st.hover || i.p.id === st.selected,
+        size: len(sub(i.p.hi, i.p.lo)),
+      });
     }
-    for (const side of [true, false]) {
-      // keep labels from overlapping: on each side, push them apart vertically
-      const col = items.filter((it) => it.right === side).sort((u, v) => u.y - v.y);
-      for (let k = 1; k < col.length; k++) if (col[k].y - col[k - 1].y < 22) col[k].y = col[k - 1].y + 22;
-    }
+    // labels placed one by one: the part pointed at or chosen first, then the largest parts; a label that would overlap
+    // one already placed tries a line or two up and down, and otherwise waits until the reader points at its part (a
+    // model of a hundred parts would bury itself in labels)
+    items.sort((u, v) => v.first - u.first || v.size - u.size);
+    const placed = [];
     let lines = '';
     for (const it of items) {
       const w = tagWidth(it.i),
-        x = Math.round(Math.max(2, Math.min(W - w - 2, it.right ? it.x : it.x - w))),
-        y = Math.round(Math.max(2, Math.min(H - 22, it.y)));
+        x = Math.round(Math.max(2, Math.min(W - w - 2, it.right ? it.x : it.x - w)));
+      let y = null;
+      for (const dy of [0, 22, -22, 44, -44]) {
+        const yy = Math.round(Math.max(2, Math.min(H - 22, it.y + dy)));
+        if (!placed.some((r) => x < r.x + r.w + 4 && r.x < x + w + 4 && yy < r.y + 22 && r.y < yy + 22)) {
+          y = yy;
+          break;
+        }
+      }
+      if (y == null && it.first) y = Math.round(Math.max(2, Math.min(H - 22, it.y)));
+      show(it.i, y != null);
+      if (y == null) continue;
+      placed.push({ x, y, w });
       if (x !== it.i.x || y !== it.i.y) {
         it.i.t.style.transform = `translate(${x}px, ${y}px)`;
         it.i.x = x;
         it.i.y = y;
       }
-      const on = it.i.p.id === st.hover || it.i.p.id === st.selected;
+      const on = it.first;
       if (on !== it.i.on) {
         it.i.t.classList.toggle('on', on);
         it.i.on = on;
@@ -824,8 +874,9 @@ function mount(el, spec, opts = {}) {
       dir = sub(B, A);
     return { A, D: mulv(dir, 1 / len(dir)) };
   }
-  function pickAt(px, py, see = 0.3) {
-    // parts fainter than `see` let the ray through
+  const pickAt = (px, py, see) => pickHit(px, py, see).id;
+  function pickHit(px, py, see = 0.3) {
+    // parts fainter than `see` let the ray through; the part hit, and where along the ray (A + D t)
     const { A, D } = rayAt(px, py),
       pl = plane();
     let best = Infinity,
@@ -852,7 +903,24 @@ function mount(el, spec, opts = {}) {
           }
         }
     }
-    return id;
+    return { id, t: best, A, D };
+  }
+
+  // ---- zooming: by k (more than 1: closer), towards a point of the stage when given, so that what is under the
+  // pointer stays under it (the part hit there, else the point on the plane through the target facing the camera)
+  const minZoom = spec.view?.minZoom ?? 0.02;
+  function zoom(k, x, y) {
+    const to = Math.max(baseDist * minZoom, Math.min(baseDist * 3, st.dist / k)),
+      f = to / st.dist;
+    if (x != null && f !== 1) {
+      const { t, A, D } = pickHit(x, y, 0.3),
+        tgt = add(st.target, shift()),
+        n = norm(sub(tgt, eye)),
+        P = add(A, mulv(D, Number.isFinite(t) ? t : dot(sub(tgt, A), n) / (dot(D, n) || 1)));
+      st.target = sub(add(P, mulv(sub(tgt, P), f)), shift());
+    }
+    st.dist = to;
+    kick();
   }
 
   // ---- ambient occlusion: creases and the insides of hollow parts darkened, computed a slice at a time after the
@@ -876,7 +944,8 @@ function mount(el, spec, opts = {}) {
     setTimeout(build, 30);
   }
   if (R.kind !== '2d' && opts.ao !== false) {
-    const queue = batchesAll.slice();
+    const queue = batchesAll.slice(),
+      aoOf = new Map();
     let cur = null;
     const work = () => {
       if (dead) return;
@@ -884,6 +953,12 @@ function mount(el, spec, opts = {}) {
       while (performance.now() < end) {
         if (!cur) {
           const b = queue.shift();
+          if (b && aoOf.has(b.geo)) {
+            // (a geometry shared by parts alike: its crease shading is the same, made once)
+            b.ao = aoOf.get(b.geo);
+            R.setAO(b);
+            continue;
+          }
           if (!b) {
             aoDone = true;
             stats.aoMs = performance.now() - t0;
@@ -904,6 +979,7 @@ function mount(el, spec, opts = {}) {
         }
         if (cur.job.step(Math.max(1, end - performance.now()))) {
           cur.b.ao = cur.job.out;
+          aoOf.set(cur.b.geo, cur.job.out);
           R.setAO(cur.b);
           cur = null;
         }
@@ -917,6 +993,7 @@ function mount(el, spec, opts = {}) {
   // idle slices once a look needs them (a figure that never shows them never pays for them), drawn as they arrive
   const edgesWanted = () => !!R.edges && !!look && (look.kind === 2 ? spec.edges !== false : spec.edges === true);
   let edgeTodo = null;
+  const linesOf = new Map(); // (a geometry's edges, for every batch that shares it)
   function findEdges() {
     if (edgeTodo) return;
     edgeTodo = batchesAll.filter((b) => b.edgy);
@@ -925,7 +1002,8 @@ function mount(el, spec, opts = {}) {
       const end = performance.now() + 6;
       while (edgeTodo.length && performance.now() < end) {
         const b = edgeTodo.shift();
-        b.lines = edgesOf(b.geo, 40, b.soft);
+        b.lines = linesOf.get(b.geo) || edgesOf(b.geo, 40, b.soft);
+        linesOf.set(b.geo, b.lines);
         if (b.gl) R.edges(b);
       }
       kick();
@@ -1054,7 +1132,10 @@ function mount(el, spec, opts = {}) {
       if (pts.size === 2) {
         const [p1, p2] = [...pts.values()],
           now = Math.hypot(p1[0] - p2[0], p1[1] - p2[1]);
-        if (pinch > 0 && now > 0) st.dist = Math.max(baseDist * 0.3, Math.min(baseDist * 3, (st.dist * pinch) / now));
+        if (pinch > 0 && now > 0) {
+          const r = cv.getBoundingClientRect();
+          zoom(now / pinch, (p1[0] + p2[0]) / 2 - r.left, (p1[1] + p2[1]) / 2 - r.top); // towards the fingers' middle
+        }
         pinch = now;
       } else if (drag && drag.pan) {
         const k = (st.dist / H) * 1.2,
@@ -1145,8 +1226,8 @@ function mount(el, spec, opts = {}) {
     (e) => {
       if (!(e.ctrlKey || active)) return; // never hijack the page's scrolling
       e.preventDefault();
-      st.dist = Math.max(baseDist * 0.3, Math.min(baseDist * 3, st.dist * Math.exp(e.deltaY * 0.0015)));
-      kick();
+      const [x, y] = local(e);
+      zoom(Math.exp(-e.deltaY * 0.0015), x, y);
     },
     { passive: false },
   );
@@ -1162,11 +1243,8 @@ function mount(el, spec, opts = {}) {
       kick();
       e.preventDefault();
     }
-    const zoom = { '+': 0.9, '=': 0.9, '-': 1.1 }[e.key];
-    if (zoom) {
-      st.dist = Math.max(baseDist * 0.3, Math.min(baseDist * 3, st.dist * zoom));
-      kick();
-    }
+    const z = { '+': 1.15, '=': 1.15, '-': 1 / 1.15 }[e.key];
+    if (z) zoom(z);
   });
   function info(byReader = true) {
     // (a page's own select() does not call its onPick back)
@@ -1284,6 +1362,37 @@ function mount(el, spec, opts = {}) {
     return h;
   }
 
+  // ---- streams: air or gas as a volume moving along a path (stream.js; drawn by the GPU). Where there is no WebGL,
+  // streaks along the same path stand in for it
+  const streams = [];
+  function addStream(o) {
+    if (R.kind === '2d')
+      return addFlow({ ...o, paths: [o.path], count: 120, spread: typeof o.radius === 'number' ? o.radius : 0.1 });
+    const T = makeStream(o);
+    const h = {
+      set(o) {
+        for (const k of ['speed', 'density', 'turbulence', 'swirl', 'visible', 'ramp']) if (k in o) T[k] = o[k];
+        T.colors = null;
+        kick();
+      },
+      remove() {
+        const k = streams.indexOf(T);
+        if (k >= 0) streams.splice(k, 1);
+        kick();
+      },
+    };
+    for (const k of ['speed', 'density', 'visible'])
+      Object.defineProperty(h, k, {
+        get: () => T[k],
+        set(v) {
+          h.set({ [k]: v });
+        },
+      });
+    streams.push(T);
+    kick();
+    return h;
+  }
+
   // ---- lines: rods between points the page sets (rays of light, field lines, forces), drawn by instancing one
   // cylinder, so a hundred rays cost one draw; they are shaded, outlined and can glow like any part
   const lines = [];
@@ -1397,7 +1506,7 @@ function mount(el, spec, opts = {}) {
     const to = {
       yaw: V[0] * D2R,
       pitch: V[1] * D2R,
-      dist: obj ? (name.dist ?? st.dist) : name === 'home' ? home.dist : st.dist,
+      dist: obj ? (name.zoom ? baseDist / name.zoom : (name.dist ?? st.dist)) : name === 'home' ? home.dist : st.dist,
       target: obj ? name.target || st.target : name === 'home' ? home.target : st.target,
     };
     while (to.yaw - from.yaw > Math.PI) to.yaw -= 2 * Math.PI;
@@ -1459,6 +1568,11 @@ function mount(el, spec, opts = {}) {
     // resolves once the figure is complete: the first picture, the crease shading, every texture and model
     ready,
     view,
+    // zoom by a factor (2: twice as close), towards a point of the stage (x, y in CSS pixels) if given
+    zoom,
+    get zoomLevel() {
+      return baseDist / st.dist;
+    },
     explode: tweenExplode,
     // where the camera is (degrees and scene units), the part chosen, the labels and look in use
     camera() {
@@ -1508,6 +1622,7 @@ function mount(el, spec, opts = {}) {
     },
     particles: addParticles,
     flow: addFlow,
+    stream: addStream,
     lines: addLines,
     tick(fn) {
       anim.add(fn);

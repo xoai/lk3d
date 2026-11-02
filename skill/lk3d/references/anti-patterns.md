@@ -2,10 +2,17 @@
 
 Each of these is a mistake made while building real lk3d figures, and how it is avoided now.
 
-- **A lone object in empty space.** The first jet engine was a nacelle floating in the middle of the stage, with
-  19 parts and its inside hidden until the reader cut it open. It read as a toy. Put the object where it works (a
-  stand, a base plate, a bench), show the inside by default when the inside is the idea (`section`, a cut-away), and
-  build it from enough parts to be believed (30–60).
+- **An invented stand.** One rebuild hung the jet engine in a test frame on a base plate, to give it a setting. It
+  hid the engine behind posts and beams, made the scene twice as large (so the reader could zoom in less) and showed
+  something no textbook engine has. Show the object as it is; its shadow is the ground.
+- **The inside hidden.** The first engine kept its stages behind the casing until the reader found the cut button.
+  When the inside is the idea, start cut open (`set({cut: true})`).
+- **Modules as parts.** The first engine was 19 parts: all six high-pressure compressor stages were one part, the
+  nacelle one shell. Pointing at a stage named the whole compressor. Make each stage, section, liner and accessory its
+  own part (92 for the same engine).
+- **Labels for everything at once.** Taken apart, a 92-part engine tried to label every part and buried itself. The
+  engine now places labels largest part first and leaves out any that would overlap; the reader points at a part to
+  read its name.
 - **One big plain body.** A casing drawn as a single smooth shell with nothing on it. Break large surfaces with
   structure: flanges, seams, bolt circles, ribs, access panels, a label plate.
 - **A casing that leaves through what is inside it.** The jet engine's casings lifted straight up when taken apart,

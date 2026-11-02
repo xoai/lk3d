@@ -28,6 +28,8 @@ export interface Scene {
     dist?: number;
     target?: Vec3;
     fov?: number;
+    /** how close the reader may zoom, as a share of the distance that fits the model (0.02: 50 times closer) */
+    minZoom?: number;
     /** perspective (the default), or ortho: parallel lines stay parallel, as in a technical illustration */
     projection?: 'perspective' | 'ortho';
     explodeZoom?: number;
@@ -309,6 +311,34 @@ export interface FlowOptions {
   part?: string;
 }
 
+export interface Stream {
+  /** how fast it moves, scene units a second */
+  speed: number;
+  /** how thick it is, 0 to 1 and beyond */
+  density: number;
+  visible: boolean;
+  set(o: Partial<StreamOptions> & { speed?: number; density?: number; visible?: boolean }): void;
+  remove(): void;
+}
+export interface StreamOptions {
+  /** the path along its middle (2 to 16 points) */
+  path: Vec3[];
+  /** its radius: one number, or stops along the path [f, rOut] or [f, rIn, rOut] (f from 0 to 1) */
+  radius?: number | ([number, number] | [number, number, number])[];
+  /** scene units a second, where its relative speed is 1 (by continuity: at its start) */
+  speed?: number;
+  /** its speed along the path as stops [f, fraction of speed]; without them, from continuity (faster where narrower) */
+  speeds?: [number, number][];
+  /** where along the path (0 to 1) it starts to fade out (0.7) */
+  fade?: number;
+  density?: number;
+  /** how much the filaments are stirred (0.5), and how much more towards the edge as it goes (0.5) */
+  turbulence?: number;
+  swirl?: number;
+  /** colours along the path: 'cool', 'heat', one colour, or up to four */
+  ramp?: 'cool' | 'heat' | Color | Color[];
+}
+
 export interface Lines {
   set(k: number, a: Vec3 | null, b?: Vec3): void;
   clear(): void;
@@ -343,7 +373,13 @@ export interface Figure {
     hide?: string[];
     move?: Record<string, Vec3>;
   }): void;
-  view(v: ViewName | [number, number] | { yaw?: number; pitch?: number; dist?: number; target?: Vec3 }): void;
+  view(
+    v: ViewName | [number, number] | { yaw?: number; pitch?: number; dist?: number; zoom?: number; target?: Vec3 },
+  ): void;
+  /** zoom by a factor (2: twice as close), towards a point of the stage (CSS pixels) if given */
+  zoom(factor: number, x?: number, y?: number): void;
+  /** how close the view is: 1 fits the whole model */
+  readonly zoomLevel: number;
   explode(v: number): void;
   focus(ids: string[], o?: { yaw?: number; pitch?: number }): void;
   camera(): { yaw: number; pitch: number; dist: number; target: Vec3 };
@@ -364,6 +400,8 @@ export interface Figure {
   }): Particles;
   particles(o: { count: number; radius: number; colors?: [Color, Color, Color] }): Balls;
   flow(o: FlowOptions): Flow;
+  /** air, gas or liquid as a moving volume along a path: a jet, an intake, a plume (WebGL; streaks in 2D) */
+  stream(o: StreamOptions): Stream;
   lines(o?: { count?: number; radius?: number; color?: Color; studioColor?: Color; glow?: Color }): Lines;
   /** a handle's value, read or set by the page (setting it does not call onHandle) */
   handle(id: string): { readonly value: number; set(v: number): void } | undefined;

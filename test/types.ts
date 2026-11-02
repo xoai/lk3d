@@ -94,6 +94,22 @@ const versioned: Scene = { lk3d: 1, parts: [], view: { projection: 'ortho' } };
 const bad6: Scene = { lk3d: 2, parts: [] };
 void fig.ready.then((f) => f.select('lens'));
 fig.set({ projection: 'ortho' });
+const jet = fig.stream({
+  path: [
+    [0, 0, 0],
+    [2, 0, 0],
+  ],
+  radius: [
+    [0, 0.3],
+    [1, 0.1, 0.6],
+  ],
+  ramp: 'heat',
+  speed: 2,
+});
+jet.density = 0.5;
+jet.set({ speed: 3, turbulence: 0.8 });
+fig.zoom(4, 120, 80);
+fig.view({ zoom: fig.zoomLevel * 2 });
 const edged: Scene = { edges: true, parts: [{ id: 'a', shapes: [{ sphere: 1 }], edges: false }] };
 void edged;
 LK3D.clock.speed = 0;

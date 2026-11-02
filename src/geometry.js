@@ -422,11 +422,18 @@ function buildShape(s, q, ctx = {}) {
     throw new Error(
       'lk3d: a shape needs one of ' + Object.keys(SHAPES).join(', ') + ', scatter: ' + JSON.stringify(s).slice(0, 80),
     );
-  const geo = SHAPES[kind](s[kind], s, { q }),
-    place = M.trs(s.at, s.rot, s.scale);
-  if (s.color) geo.paint(s.color);
-  const rep = s.repeat ? (typeof s.repeat === 'number' ? { n: s.repeat } : s.repeat) : { n: 1 };
-  const axis = rep.axis || 'x',
+  // the geometry depends only on the shape's own numbers: made once for every shape alike in a scene (bolts, blades,
+  // the same part a thousand times), placed by its matrices
+  const key = ctx.cache && JSON.stringify({ ...s, at: 0, rot: 0, scale: 0, repeat: 0, q });
+  let geo = key && ctx.cache.get(key);
+  if (!geo) {
+    geo = SHAPES[kind](s[kind], s, { q });
+    if (s.color) geo.paint(s.color);
+    if (key) ctx.cache.set(key, geo);
+  }
+  const place = M.trs(s.at, s.rot, s.scale),
+    rep = s.repeat ? (typeof s.repeat === 'number' ? { n: s.repeat } : s.repeat) : { n: 1 },
+    axis = rep.axis || 'x',
     rot = axis === 'x' ? M.rotX : axis === 'y' ? M.rotY : M.rotZ,
     mats = [];
   for (let k = 0; k < rep.n; k++)
@@ -529,7 +536,8 @@ function outlineNormals(g) {
   return out;
 }
 
-// The edges the pen look draws on a shape, as segments (x0, y0, z0, x1, y1, z1, …): where two faces meet at more than
+// The edges the pen look draws on a shape, as segments (x0, y0, z0, x1, y1, z1, and the mean normal of the faces that
+// meet there nx, ny, nz, so an edge facing the light can be drawn lighter, …): where two faces meet at more than
 // `deg` degrees (a box's corners, a step in a lathe's profile, a blade's rim) and where a surface ends (an open tube's
 // rim). A curved surface is many faces at small angles, so it has none; a sphere has none at all. Triangles in the
 // index ranges `soft` are left out.
@@ -557,10 +565,11 @@ function edgesOf(g, deg = 40, soft = []) {
         key = a < b ? a * 4294967296 + b : b * 4294967296 + a,
         e = seen.get(key),
         u = mulv(n, 1 / l);
-      if (!e) seen.set(key, [u, 1, false]);
+      if (!e) seen.set(key, [u, 1, false, u]);
       else {
         e[1]++;
         if (dot(e[0], u) < lim) e[2] = true;
+        e[3] = add(e[3], u);
       }
     }
   }
@@ -568,7 +577,7 @@ function edgesOf(g, deg = 40, soft = []) {
     if (e[1] !== 2 || e[2]) {
       const a = Math.floor(key / 4294967296),
         b = key - a * 4294967296;
-      out.push(P[3 * a], P[3 * a + 1], P[3 * a + 2], P[3 * b], P[3 * b + 1], P[3 * b + 2]);
+      out.push(P[3 * a], P[3 * a + 1], P[3 * a + 2], P[3 * b], P[3 * b + 1], P[3 * b + 2], ...norm(e[3]));
     }
   return new Float32Array(out);
 }
@@ -651,13 +660,22 @@ const SOFT = ['model', 'blob', 'tree', 'terrain', 'scatter', 'molecule', 'dna'];
 // of a batch's triangles get edges in the pen look: `edgy` (none if false), less the ranges in `soft` (the part's
 // `edges`, else every shape but the soft ones).
 function buildScene(spec, q = 1) {
+  // shapes alike are made once; parts alike (the same shapes, placed elsewhere) share one merged geometry, in the
+  // part's own frame and placed by its matrix, so their outlines, crease shading, edges and GPU buffers are made once
+  const ctx = { models: spec.models, cache: new Map() },
+    parts0 = new Map(),
+    outs = new WeakMap();
   const parts = (spec.parts || []).map((p, k) => {
     const place = M.trs(p.at, p.rot, p.scale),
-      merged = new Geo(),
-      soft = [],
+      own = rigid(place), // (a stretched or mirrored part is baked, as its shapes are)
+      local = own ? M.id() : place,
+      key = own && JSON.stringify([p.shapes, p.edges]),
+      shared = key && parts0.get(key),
+      merged = shared ? shared.geo : new Geo(),
+      soft = shared ? shared.soft : [],
       batches = [];
     for (const s of p.shapes || []) {
-      const b = buildShape(s, q, { models: spec.models }),
+      const b = buildShape(s, q, ctx),
         mats = b.mats.map((m) => M.mul(place, m)),
         edgy = p.edges ?? !SOFT.some((n) => n in s);
       if (b.geo.tex) {
@@ -669,19 +687,22 @@ function buildScene(spec, q = 1) {
       // copies are drawn by the GPU only when each is a rotation and a uniform scale (its shader turns normals by the
       // matrix itself); a mirrored or stretched copy is baked into the part's own geometry instead
       if (mats.length === 1 || !mats.every(rigid)) {
+        if (shared) continue;
         const from = merged.i.length;
-        for (const m of mats) merged.add(b.geo, m);
+        for (const m of b.mats) merged.add(b.geo, M.mul(local, m));
         if (!edgy) soft.push([from, merged.i.length]);
       } else batches.push({ geo: b.geo, mats, edgy });
     }
-    if (merged.count) batches.unshift({ geo: merged, mats: [M.id()], edgy: true, soft });
+    if (key && !shared) parts0.set(key, { geo: merged, soft });
+    if (merged.count) batches.unshift({ geo: merged, mats: [own ? place : M.id()], edgy: true, soft });
     let lo = [1e9, 1e9, 1e9],
       hi = [-1e9, -1e9, -1e9],
       tris = 0,
       anchor = null,
       best = -1e9;
     for (const b of batches) {
-      b.out = outlineNormals(b.geo);
+      if (!outs.has(b.geo)) outs.set(b.geo, outlineNormals(b.geo));
+      b.out = outs.get(b.geo);
       tris += (b.geo.i.length / 3) * b.mats.length;
       for (const m of b.mats) {
         const bb = bounds(b.geo, m);

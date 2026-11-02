@@ -47,7 +47,8 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 - **Shapes from a few numbers**: lathes, cylinders, tubes, coils, windings, blades for machines; cells, membranes,
   branching trees, molecules in CPK colours, DNA, rock layers, orbits for the sciences ([catalogue](docs/shapes.md)).
   glTF models for what generated shapes cannot draw, textured scans included ([models](docs/models.md)).
-- **Three looks, four themes**: a drawn look (coloured pencil, hatching, ink outlines), a realistic studio look
+- **Three looks, four themes**: a clean pen look by default (light solids, thin outlines and edges, a soft shadow,
+  colour where it matters), a realistic studio look
   (physically based materials, a generated environment, soft shadows, surface detail, glass that bends light) and a
   pen look (near-white solids, thin outlines and edges, colour only for accents), with an orthographic camera for a
   technical illustration; light, dark, blueprint and sepia themes, or the reader's own setting
@@ -66,7 +67,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 109 KB   | 44 KB   |
+| lk3d                                                                                                                              | 121 KB   | 48 KB   |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
@@ -109,7 +110,7 @@ scene.json --looks pen,ink --poses rest,apart,cut` (pictures drawn by the engine
 npm install
 npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # the bundle stays within 45 KB gzipped
+npm run size           # the bundle stays within 48 KB gzipped
 npm run test:visual    # reference scenes compared with stored pictures, in Chromium, Firefox and WebKit
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again

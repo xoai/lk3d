@@ -58,7 +58,7 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
     () => st.labels === 'all',
   );
   // the look: one button that goes round the three, naming the one it goes to next
-  const LOOKS = ['ink', 'studio', 'pen'],
+  const LOOKS = ['pen', 'studio', 'ink'],
     next = () => LOOKS[(LOOKS.indexOf(st.style) + 1) % LOOKS.length];
   const look = button(T[next()], T.styleTitle, () => fig.set({ style: next() }));
 

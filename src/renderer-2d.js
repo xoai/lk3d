@@ -113,14 +113,14 @@ function canvasRenderer(cv, scene) {
                   ),
                 ),
                 d = dot(nrm, L);
-              // the shaders' light: ink's three bands; pen's smooth ramp, twice as deep as on the GPU (here no outline
+              // the shaders' light: ink's three bands; pen's smooth ramp, deeper than on the GPU (here no outline
               // or edge shows the shape); studio's smooth light
               const x = Math.max(0, Math.min(1, (d + 0.3) / 1)),
                 lit =
                   kind === 1
                     ? 0.35 + 0.65 * Math.max(0, d)
                     : kind
-                      ? 0.79 + 0.21 * x * x * (3 - 2 * x)
+                      ? 0.7 + 0.3 * x * x * (3 - 2 * x)
                       : d > 0.55
                         ? 1
                         : d > 0.05
@@ -129,7 +129,7 @@ function canvasRenderer(cv, scene) {
               const C = b.geo.c,
                 // vertex colours, averaged (in pen, at most half of theirs unless the part is coloured in full)
                 al = C
-                  ? ((C[4 * a + 3] + C[4 * b2 + 3] + C[4 * c + 3]) / 765) * (kind === 2 ? Math.max(p.tint, 0.55) : 1)
+                  ? ((C[4 * a + 3] + C[4 * b2 + 3] + C[4 * c + 3]) / 765) * (kind === 2 ? Math.max(p.tint, 0.7) : 1)
                   : 0;
               const own = al
                 ? base.map((v, i) => v * (1 - al) + ((C[4 * a + i] + C[4 * b2 + i] + C[4 * c + i]) / 765) * al)

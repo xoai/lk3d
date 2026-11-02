@@ -1000,7 +1000,7 @@ test('edges: where faces meet at an angle and where a surface ends, never across
   const { edgesOf } = require('../src/geometry.js');
   const one = (shape, o = {}) => {
     const b = LK3D.build({ parts: [{ id: 'p', shapes: [shape], ...o }] }, 1).parts[0].batches[0];
-    return b.edgy ? edgesOf(b.geo, 40, b.soft).length / 6 : 0;
+    return b.edgy ? edgesOf(b.geo, 40, b.soft).length / 9 : 0;
   };
   assert.equal(one({ box: [1, 2, 3] }), 12); // a box: its twelve edges
   assert.equal(one({ sphere: 1 }), 0); // a sphere: none
@@ -1021,10 +1021,19 @@ test('edges: where faces meet at an angle and where a surface ends, never across
   );
   // every edge of the box lies on the box's edges: two of its coordinates at a corner value
   const b = LK3D.build({ parts: [{ id: 'p', shapes: [{ box: [1, 2, 3] }] }] }, 1).parts[0].batches[0];
-  const E = edgesOf(b.geo);
-  for (let k = 0; k < E.length; k += 3) {
-    const atCorner = [0.5, 1, 1.5].filter((h, a) => Math.abs(Math.abs(E[k + a]) - h) < 1e-6).length;
-    assert.ok(atCorner >= 2, `${[...E.slice(k, k + 3)]} is on an edge`);
+  const E = edgesOf(b.geo); // (each segment: two ends, then the mean normal of its two faces)
+  for (let k = 0; k < E.length; k += 9) {
+    for (const o of [k, k + 3]) {
+      const atCorner = [0.5, 1, 1.5].filter((h, a) => Math.abs(Math.abs(E[o + a]) - h) < 1e-6).length;
+      assert.ok(atCorner >= 2, `${[...E.slice(o, o + 3)]} is on an edge`);
+    }
+    // the normal points out between the two faces: along the two axes the edge is not on, 45° to each
+    const n = [...E.slice(k + 6, k + 9)];
+    assert.ok(
+      Math.abs(Math.hypot(...n) - 1) < 1e-6 &&
+        n.filter((v) => Math.abs(Math.abs(v) - Math.SQRT1_2) < 1e-6).length === 2,
+      `${n}`,
+    );
   }
   // soft shapes have none, unless the part asks; a part may also refuse them
   assert.equal(one({ molecule: { atoms: [['O', [0, 0, 0]]] } }), 0);
@@ -1032,7 +1041,7 @@ test('edges: where faces meet at an angle and where a surface ends, never across
   // a soft shape merged with a hard one: only the hard one's edges
   const m = LK3D.build({ parts: [{ id: 'p', shapes: [{ box: [1, 1, 1] }, { blob: { r: 0.4 }, at: [2, 0, 0] }] }] }, 1)
     .parts[0].batches[0];
-  assert.equal(edgesOf(m.geo, 40, m.soft).length / 6, 12);
+  assert.equal(edgesOf(m.geo, 40, m.soft).length / 9, 12);
 });
 
 test('a sector of a lathe with a concave profile (half a cowl) is a closed solid, half the whole', () => {
@@ -1055,4 +1064,134 @@ test('a sector of a lathe with a concave profile (half a cowl) is a closed solid
   assert.ok(Math.abs(volume(half.g) - whole / 2) < whole * 0.01, `half: ${volume(half.g)} of ${whole}`);
   const { edgesOf } = require('../src/geometry.js');
   assert.equal(edgesOf(half.g, 180).length, 0, 'closed: no surface ends anywhere');
+});
+
+test('streams: the radius profile along the path, and a hull that encloses the stream', () => {
+  const { makeStream, radiusAt } = require('../src/stream.js');
+  // (a gentle bend, as a jet or a duct has: a tube wider than its bend must fold on the inside)
+  const T = makeStream({
+    path: [
+      [0, 0, 0],
+      [1, 0, 0],
+      [2, 0.25, 0],
+    ],
+    radius: [
+      [0, 0.1, 0.25],
+      [1, 0.15, 0.45],
+    ],
+  });
+  // the distance along the path at each point, for the shader; the total
+  assert.equal(T.n, 3);
+  assert.ok(
+    Math.abs(T.pts[7] - 1) < 1e-6 &&
+      Math.abs(T.pts[11] - (1 + Math.hypot(1, 0.25))) < 1e-6 &&
+      Math.abs(T.total - (1 + Math.hypot(1, 0.25))) < 1e-6,
+  );
+  // the radius: inner and outer, interpolated between the stops
+  assert.deepEqual(radiusAt(T.rad, 0), [0.1, 0.25]);
+  assert.deepEqual(
+    radiusAt(T.rad, 0.5).map((v) => +v.toFixed(6)),
+    [0.125, 0.35],
+  );
+  assert.deepEqual(radiusAt(T.rad, 1), [0.15, 0.45]);
+  // the hull: every vertex at least the outer radius from the path (a quarter more), its faces pointing out
+  const P = T.hull.p,
+    I = T.hull.i;
+  const toPath = (q) => {
+    let best = Infinity;
+    for (let k = 0; k + 1 < T.n; k++) {
+      const a = [T.pts[4 * k], T.pts[4 * k + 1], T.pts[4 * k + 2]],
+        b = [T.pts[4 * k + 4], T.pts[4 * k + 5], T.pts[4 * k + 6]],
+        ab = b.map((v, i) => v - a[i]),
+        t = Math.max(
+          0,
+          Math.min(1, ab.reduce((s, v, i) => s + v * (q[i] - a[i]), 0) / ab.reduce((s, v) => s + v * v, 0)),
+        );
+      best = Math.min(best, Math.hypot(...q.map((v, i) => v - a[i] - ab[i] * t)));
+    }
+    return best;
+  };
+  let outward = 0;
+  for (let t = 0; t < I.length; t += 3) {
+    const v = [0, 1, 2].map((j) => [P[3 * I[t + j]], P[3 * I[t + j] + 1], P[3 * I[t + j] + 2]]),
+      c = [0, 1, 2].map((i) => (v[0][i] + v[1][i] + v[2][i]) / 3),
+      u = v[1].map((x, i) => x - v[0][i]),
+      w = v[2].map((x, i) => x - v[0][i]),
+      n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]],
+      // outward: the normal points away from the nearest point of the path (the end caps: along it)
+      probe = c.map((x, i) => x + n[i] * 1e-3);
+    if (toPath(probe) >= toPath(c) - 1e-9) outward++;
+  }
+  assert.equal(outward, I.length / 3, `${outward} of ${I.length / 3} faces point out`);
+  for (let k = 0; k < P.length; k += 3) {
+    const d = toPath([P[k], P[k + 1], P[k + 2]]);
+    assert.ok(d < 1e-6 || d >= 0.25 * 1.25 - 1e-3, `a hull vertex ${d.toFixed(3)} from the path`);
+  }
+  assert.throws(() => makeStream({ path: [[0, 0, 0]] }), /two points/);
+});
+
+test('streams: the air moves by travel time, faster where the stream narrows, never backwards', () => {
+  const { makeStream, NT } = require('../src/stream.js');
+  const tau = (T) => Array.from({ length: NT }, (_, k) => T.tab[3 * k + 2]),
+    rate = (t, k) => (t[k + 1] - t[k]) / (1 / (NT - 1)); // the travel time per unit of f: the length / the speed there
+  // an intake narrowing to half its radius: a quarter of the area, so by continuity four times as fast at its end
+  const T = makeStream({
+    path: [
+      [0, 0, 0],
+      [2, 0, 0],
+    ],
+    radius: [
+      [0, 0.2],
+      [1, 0.1],
+    ],
+  });
+  const t = tau(T);
+  assert.equal(t[0], 0);
+  for (let k = 0; k + 1 < NT; k++)
+    assert.ok(t[k + 1] > t[k], 'travel time grows along the path: the air never runs back');
+  assert.ok(
+    Math.abs(rate(t, 0) / rate(t, NT - 2) - 4) < 0.3,
+    `speed ratio ${(rate(t, 0) / rate(t, NT - 2)).toFixed(2)}`,
+  );
+  // the table carries the radii too, and any number of stops
+  const M = makeStream({
+    path: [
+      [0, 0, 0],
+      [5, 0, 0],
+    ],
+    radius: [
+      [0, 0.1, 0.4],
+      [0.2, 0.1, 0.3],
+      [0.4, 0.2, 0.3],
+      [0.6, 0.2, 0.5],
+      [0.8, 0.1, 0.5],
+      [1, 0.1, 0.6],
+    ],
+  });
+  const mid = Math.round(0.4 * (NT - 1));
+  assert.ok(
+    Math.abs(M.tab[3 * mid] - 0.2) < 0.02 && Math.abs(M.tab[3 * mid + 1] - 0.3) < 0.02,
+    'the fourth stop of six',
+  );
+  // a stream that says its own speeds (gas heated in a combustor, a jet slowing as it mixes): they win over continuity
+  const S = makeStream({
+    path: [
+      [0, 0, 0],
+      [2, 0, 0],
+    ],
+    radius: [
+      [0, 0.2],
+      [1, 0.1],
+    ],
+    speeds: [
+      [0, 1],
+      [1, 2],
+    ],
+  });
+  const s = tau(S);
+  assert.ok(Math.abs(rate(s, 0) / rate(s, NT - 2) - 2) < 0.15);
+  // the pattern's position is tau - phase: as phase grows, every point of the pattern moves downstream
+  S.speed = 1;
+  S.step(0.5);
+  assert.ok(Math.abs(S.phase - 0.5) < 1e-9);
 });

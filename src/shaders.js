@@ -23,6 +23,7 @@ attribute vec2 aUV; varying vec2 vUV;
 #endif
 attribute vec4 aI0; attribute vec4 aI1; attribute vec4 aI2; attribute vec4 aI3;
 uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uEye; uniform float uOutline; uniform vec3 uQs; uniform vec3 uQo;
+uniform float uViewD;  // the camera's distance in ortho (0 in perspective): what an outline's width scales with
 #ifdef SHADOWS
 uniform mat4 uLightVP; varying vec4 vSh;
 #endif
@@ -36,7 +37,7 @@ void main() {
 #endif
   vec4 w = m * vec4(vO, 1.0);
   vec3 nm = mat3(m) * aNrm.xyz;
-  if (uOutline > 0.0) w.xyz += normalize(mat3(m) * aOut.xyz) * uOutline * length(w.xyz - uEye);
+  if (uOutline > 0.0) w.xyz += normalize(mat3(m) * aOut.xyz) * uOutline * (uViewD > 0.0 ? uViewD : length(w.xyz - uEye));
   vW = w.xyz; vN = nm; vAO = aAO;
 #ifdef SHADOWS
   vSh = uLightVP * w;
@@ -145,14 +146,14 @@ void main() {
     col = mix(col, uPaper, 0.08);
   }
 #elif defined(PEN)
-  {  // pen: near-white solids in four close tones, lit from the viewer's upper left, faces turned up a step lighter;
-     // colour only where it means something (uTint 1: an accent part, a glowing one, the one chosen; a vertex's own
-     // colour, an atom's say, keeps half of its)
+  {  // pen: light solids lit from the viewer's upper left (a fifth darker facing away), faces turned up a step
+     // lighter; full colour where it means something (uTint 1: an accent part, a glowing one, the one chosen), a soft
+     // wash of it elsewhere (uTint 0.4), a vertex's own colour (an atom's) keeping most of its
     // (a smooth ramp, not steps: a flat face has one normal, so one tone, and neighbouring faces still differ; a curved
     // one shades evenly instead of in stripes)
-    float t = mix(0.895, 1.0, smoothstep(-0.3, 0.7, d));
-    t = min(1.0, t + 0.035 * smoothstep(0.55, 0.85, N.y));
-    col = mix(uSolid, C, max(uTint, 0.55 * vCol.a)) * t * mix(0.88, 1.0, smoothstep(0.35, 0.85, ao));
+    float t = mix(0.8, 1.0, smoothstep(-0.3, 0.7, d));
+    t = min(1.0, t + 0.05 * smoothstep(0.55, 0.85, N.y));
+    col = mix(uSolid, C, max(uTint, 0.7 * vCol.a)) * t * mix(0.86, 1.0, smoothstep(0.35, 0.85, ao));
   }
 #else
   {
@@ -237,10 +238,11 @@ void main() { vec3 w = vec3(uCenter.x + aPos.x * uRadius, uY, uCenter.z + aPos.y
 #endif
   gl_Position = uVP * vec4(w, 1.0); }`;
 const GROUND_FS = `uniform float uStyle; uniform float uDpr; uniform float uContact; uniform vec3 uShade; varying vec2 vUV;
+uniform float uBlur; uniform float uShadowK;
 #ifdef SHADOWS
 uniform sampler2DShadow uShadow; uniform float uShadowTexel; varying vec4 vSh;
 float shadow() { vec3 p = vSh.xyz / vSh.w * 0.5 + 0.5; if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) return 1.0;
-  float s = 0.0; for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) s += texture(uShadow, vec3(p.xy + vec2(float(i), float(j)) * uShadowTexel * 2.0, p.z - 0.002));
+  float s = 0.0; for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) s += texture(uShadow, vec3(p.xy + vec2(float(i), float(j)) * uShadowTexel * uBlur, p.z - 0.002));
   return s / 25.0; }
 #else
 float shadow() { return 1.0; }
@@ -254,7 +256,7 @@ void main() {
     vec2 fc = gl_FragCoord.xy / uDpr;
     float h = step(0.5, fract((fc.x - fc.y) / 4.0));
     gl_FragColor = vec4(uShade, dark * (0.35 + 0.65 * h));
-  } else if (uStyle > 1.5) gl_FragColor = vec4(uShade, dark * 0.3 + 0.04 * fade * (1.0 - smoothstep(0.0, 0.7, r)));  // pen: a soft halo
+  } else if (uStyle > 1.5) gl_FragColor = vec4(uShade, dark * uShadowK / 0.55 + 0.04 * fade * (1.0 - smoothstep(0.0, 0.7, r)));  // pen: the object's soft shadow and a halo
   else gl_FragColor = vec4(uShade, dark * 1.2);
 }`;
 
@@ -286,25 +288,98 @@ void main() {
 // ---- edges: where a part's faces meet at an angle (geometry.js edgesOf), thin lines of a constant width on screen,
 // each instance of a batch placed by its matrix; nudged towards the eye so the faces they lie on do not hide them, while
 // faces in front still do
-const EDGE_VS = `attribute vec4 aPos; attribute vec4 aDir;
+const EDGE_VS = `attribute vec4 aPos; attribute vec4 aDir; attribute vec3 aFace;
 attribute vec4 aI0; attribute vec4 aI1; attribute vec4 aI2; attribute vec4 aI3;
-uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uEye; uniform vec2 uView; uniform float uWidth;
-varying float vSide; varying vec3 vW;
+uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uEye; uniform vec2 uView; uniform float uWidth; uniform float uViewD;
+uniform vec3 uLight; varying float vSide; varying vec3 vW; varying float vLit;
 void main() {
   mat4 m = uModel * mat4(aI0, aI1, aI2, aI3);
   vec4 w = m * vec4(aPos.xyz, 1.0);
-  w.xyz += normalize(uEye - w.xyz) * 0.004 * length(uEye - w.xyz);
+  w.xyz += normalize(uEye - w.xyz) * 0.004 * (uViewD > 0.0 ? uViewD : length(uEye - w.xyz));
   vec4 a = uVP * w, b = uVP * (w + vec4(mat3(m) * aDir.xyz, 0.0));
   vec2 d = normalize((b.xy / b.w - a.xy / a.w) * uView + vec2(1e-6, 0.0));
   a.xy += vec2(-d.y, d.x) * aPos.w * uWidth / uView * a.w;
-  gl_Position = a; vSide = aPos.w; vW = w.xyz;
+  gl_Position = a; vSide = aPos.w; vW = w.xyz; vLit = dot(normalize(mat3(m) * aFace), uLight);
 }`;
 const EDGE_FS = `uniform vec3 uColor; uniform float uAlpha; uniform vec4 uPlane; uniform float uCut;
-varying float vSide; varying vec3 vW;
+varying float vSide; varying vec3 vW; varying float vLit;
 void main() {
   if (uCut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
-  gl_FragColor = vec4(uColor, uAlpha * (1.0 - smoothstep(0.45, 1.0, abs(vSide))));
+  // an edge whose faces turn to the light is drawn lighter, one turned away darker (a bevel catching the light)
+  gl_FragColor = vec4(min(uColor * mix(0.8, 1.2, smoothstep(-0.2, 0.7, vLit)), 1.0), uAlpha * (1.0 - smoothstep(0.45, 1.0, abs(vSide))));
 }`;
+
+// ---- streams (stream.js): drawn on the back faces of a hull round the path, into a half-size picture of their own.
+// Each fragment marches from the hull's far side towards the eye, skipping what lies behind a solid part (the scene's
+// depth) or on the cut side; at each sample it finds where it is along the path and how far from it, and builds a
+// density there: filaments along the flow (ridges of noise stretched downstream), broken into runs, moving with the
+// phase, their coordinates warped by slow noise, more so towards the edge and further downstream; a little haze; faded
+// in and out at the ends. The colour comes from the ramp at that point of the path; nearer samples go over farther.
+const STREAM_VS = `attribute vec4 aPos; uniform mat4 uVP; varying vec3 vW;
+void main() { vW = aPos.xyz; gl_Position = uVP * vec4(aPos.xyz, 1.0); }`;
+const STREAM_FS = `uniform vec4 uPts[16]; uniform vec3 uTab[24]; uniform int uN;
+uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3;
+uniform vec3 uEye; uniform vec3 uFwd; uniform float uOrtho; uniform mat4 uVP;
+uniform sampler2D uDepth; uniform float uHasDepth; uniform vec2 uView;
+uniform vec4 uF; uniform vec3 uG; uniform float uDen; uniform vec4 uPlane; uniform float uCut;
+varying vec3 vW;  // uF: how far the air has travelled, the field's scale along the path, reach (how far a ray crosses),
+// turbulence; uG: swirl, the path's length, where it fades; uTab: inner and outer radius and travel time along the path
+float h3(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
+float vn(vec3 p) {
+  vec3 i = floor(p), f = fract(p), e = vec3(1.0, 0.0, 0.0); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h3(i), h3(i + e), f.x), mix(h3(i + e.yxy), h3(i + e.xxy), f.x), f.y),
+    mix(mix(h3(i + e.yyx), h3(i + e.xyx), f.x), mix(h3(i + e.yxx), h3(i + e.xxx), f.x), f.y), f.z);
+}
+// the nearest point of the path: the direction there (returned), the offset from it (d) and the distance along it (s)
+vec3 near(vec3 p, out vec3 d, out float s) {
+  float best = 1e9; vec3 T = vec3(1.0, 0.0, 0.0); s = 0.0; d = vec3(0.0);
+  for (int k = 0; k < 15; k++) {
+    if (k + 1 >= uN) break;
+    vec3 a = uPts[k].xyz, ab = uPts[k + 1].xyz - a;
+    float t = clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0);
+    vec3 q = p - a - ab * t; float dd = dot(q, q);
+    if (dd < best) { best = dd; d = q; T = normalize(ab); s = mix(uPts[k].w, uPts[k + 1].w, t); }
+  }
+  return T;
+}
+float dens(vec3 p, out float f) {
+  vec3 d; float s; vec3 T = near(p, d, s);
+  f = s / uG.y;
+  float r = length(d), x = clamp(f, 0.0, 1.0) * 23.0; vec3 R = uTab[0];
+  for (int k = 0; k < 23; k++) R += clamp(x - float(k), 0.0, 1.0) * (uTab[k + 1] - uTab[k]);
+  float w = R.y - R.x, edge = clamp((R.y - r) / (0.3 * w + 1e-4), 0.0, 1.0) * (R.x > 0.0 ? clamp((r - R.x) / (0.3 * w), 0.0, 1.0) : 1.0);
+  if (edge <= 0.0) return 0.0;
+  vec3 N = normalize(abs(T.y) < 0.9 ? cross(T, vec3(0.0, 1.0, 0.0)) : cross(T, vec3(1.0, 0.0, 0.0)));
+  // across: scaled by the local radius (filaments draw together where the stream narrows); along: by travel time
+  vec3 q = vec3((R.z - uF.x) * uF.y, vec2(dot(d, N), dot(d, cross(T, N))) * 11.0 / max(R.y, 0.05));
+  vec3 o = vec3(0.0, 0.0, uF.x * uF.y * 0.05), wv = vec3(vn(q * 0.3 + o), vn(q * 0.3 + o + vec3(5.2, 1.3, 0.0)), vn(q * 0.3 + 7.7)) - 0.5;
+  q += wv * uF.w * 2.5 * (1.0 + uG.x * f * (1.0 - edge) * 4.0);
+  // filaments: thin ridges of noise across the flow, stretched along it; broken into runs
+  float fil = pow(1.0 - abs(2.0 * vn(vec3(q.x * 0.06, q.yz)) - 1.0), 6.0) * smoothstep(0.25, 0.7, vn(vec3(q.x * 0.18, q.yz * 0.25 + 9.0)));
+  return edge * (0.05 * vn(q * 0.5) + fil) * smoothstep(0.0, 0.06, f) * (1.0 - smoothstep(uG.z, 1.0, f));
+}
+void main() {
+  vec3 dir = uOrtho > 0.5 ? uFwd : normalize(vW - uEye);
+  float zs = uHasDepth > 0.5 ? texture2D(uDepth, gl_FragCoord.xy / uView).r : 2.0, f;
+  vec3 d0; float s0;
+  // a ray slanting along the stream crosses more of it than its width: the march is longer (up to about three times)
+  float st = uF.z / max(length(cross(dir, near(vW, d0, s0))), 0.3) / 32.0, j = fract(52.9829 * fract(dot(gl_FragCoord.xy, vec2(0.06711, 0.00584))));  // (a smooth dither)
+  vec4 acc = vec4(0.0);
+  for (int i = 0; i < 32; i++) {
+    vec3 p = vW - dir * st * (float(i) + j);
+    if (uCut > 0.5 && dot(uPlane.xyz, p) + uPlane.w > 0.0) continue;
+    vec4 cp = uVP * vec4(p, 1.0);
+    if (cp.z / cp.w * 0.5 + 0.5 > zs) continue;
+    float a = min(1.0, dens(p, f) * st * 2.0 * uDen);
+    if (a <= 0.0) continue;
+    float x = clamp(f, 0.0, 1.0) * 3.0;
+    vec3 c = x < 1.0 ? mix(uC0, uC1, x) : x < 2.0 ? mix(uC1, uC2, x - 1.0) : mix(uC2, uC3, x - 2.0);
+    acc = vec4(c * a, a) + acc * (1.0 - a);
+  }
+  gl_FragColor = acc;
+}`;
+// the streams' picture, put on the page (premultiplied: the blending decides over or added)
+const COPY_FS = `uniform sampler2D uTex; varying vec2 vUV; void main() { gl_FragColor = texture2D(uTex, vUV); }`;
 
 // ---- full-screen passes: blur and add the glow; draw the studio environment into a cube map, and prefilter it
 const QUAD_VS = `attribute vec4 aPos; varying vec2 vUV; void main() { vUV = aPos.xy * 0.5 + 0.5; gl_Position = vec4(aPos.xy, 0.0, 1.0); }`;
@@ -372,6 +447,9 @@ export {
   FLOW_FS,
   EDGE_VS,
   EDGE_FS,
+  STREAM_VS,
+  STREAM_FS,
+  COPY_FS,
   ENV_FS,
   PREFILTER_FS,
 };

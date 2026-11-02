@@ -2,11 +2,13 @@
 
 A figure that explains at a glance shares five qualities.
 
-1. **A real object.** The reader names it at once: a pump, a test stand, a microscope, a cell. It is built for the
-   idea it explains, in true proportions, and stands somewhere: on a base, a stand, a bench.
-2. **Many small, precise parts.** 30–60 for a figure, more for a hero. Every part rests on another part, lines up with
-   its neighbours and has a job. Detail comes from structure: feet, flanges, bolt circles, collars, seams, ribs,
-   brackets, a ruler strip, a label plate. Never from noise or texture.
+1. **A real object, as it is.** The reader names it at once: a pump, an engine, a microscope, a cell. It is built for
+   the idea it explains, in true proportions, with nothing invented around it: no base plate or stand it does not
+   have. The soft shadow under it is its ground.
+2. **Many small, precise parts.** 60–120 for a machine; each is the smallest thing a reader would name (a stage, a
+   casing section, a pump, a mount), never a module. Every part rests on another part, lines up with its neighbours and
+   has a job. Detail comes from structure: flanges, bolt circles, collars, seams, ribs, brackets, pipes. Never from
+   noise or texture.
 3. **Volume.** Parts have real thickness. A plate is a box, not a flat face. A casing is a `lathe` with an inside and an
    outside (`closed: true`), so a cut shows its wall. Rims, steps and chamfers catch the light and, in the pen look,
    get edge lines.
@@ -27,26 +29,6 @@ Coordinates are the part's own; `at`, `rot` (degrees) and `scale` place each sha
 start, axis}`) copies a shape round an axis through the part's origin, after placing it: so a bolt at `[x, R, 0]` with
 `repeat: 12` makes a bolt circle of radius R round x.
 
-**A base plate on feet**: a slab, four feet, a groove to break the top.
-
-```json
-{
-  "id": "base",
-  "name": "Base plate",
-  "note": "carries the whole stand; bolted to the floor at its four feet.",
-  "material": "metal",
-  "color": "#d9dcdf",
-  "shapes": [
-    { "box": [3.2, 0.12, 1.6], "at": [0, 0.14, 0] },
-    { "box": [3.0, 0.02, 0.04], "at": [0, 0.205, 0.55] },
-    { "box": [0.28, 0.08, 0.28], "at": [-1.4, 0.04, -0.62] },
-    { "box": [0.28, 0.08, 0.28], "at": [1.4, 0.04, -0.62] },
-    { "box": [0.28, 0.08, 0.28], "at": [-1.4, 0.04, 0.62] },
-    { "box": [0.28, 0.08, 0.28], "at": [1.4, 0.04, 0.62] }
-  ]
-}
-```
-
 **A flange with a bolt circle** on a body along x:
 
 ```json
@@ -64,8 +46,13 @@ separate parts (different colours, different spin), so the eye reads the stages.
 **Ribs and seams** on a casing: `torus: [R, r]` rings at the seam positions, or thin `box` ribs repeated round the
 axis. A seam runs all the way round; ribs end on a seam or a flange, never in mid-air.
 
-**Posts, rails and a carriage**: boxes and cylinders. Posts stand on the base (their bottom at the base's top), rails
-run between posts, a carriage sits on the rails. The check says when a part touches nothing.
+**A casing in sections**: cut a long casing where the real one is bolted together (an inlet, a fan case, a compressor
+case, a combustor case, a turbine case), each section its own part with a flange at the joint. Where rotor and stator
+rows alternate inside, split each section and each stator row into two halves (lathe `from`/`to`, a row repeated over
+half a turn) that move apart sideways, as split casings do.
+
+**Accessories outside**: a gearbox, pumps, a tank, pipes and a harness on the casing's outside, each resting on it;
+pipes end on what they connect. The check says when a part touches nothing.
 
 **Pipes and cables**: `tube: [[x, y, z], …]` with `r`, from one connection to another, each end on a part. Route
 around other parts, not through them.
@@ -95,4 +82,6 @@ ended.
 The page drives motion: `set({spin})` (degrees) turns parts with `spin`, `glow` lights a part, `flow` runs streaks
 of air or blood along paths (`amount` and `speed` follow the page's numbers), handles let the reader turn or slide a
 part. Motion follows the true model (a fan's speed from the throttle, a current from the generator's angle), and stops
-for a reader who asks for less motion.
+for a reader who asks for less motion. Air or gas outside a machine (the jet leaving a nozzle, the air drawn into an intake, a
+plume) is a `stream`: a volume with a radius along its path (an annulus for a bypass duct), filaments that move with
+its speed, as thick as `density` says; streaks (`flow`) stay for what runs inside, through a cut.

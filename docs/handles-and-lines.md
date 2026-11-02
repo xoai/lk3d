@@ -84,3 +84,58 @@ How they are drawn follows the page. On a light page the streaks are ink: blende
 with `dark`, or the studio look) their light is added, and the presets end near white. They fade in and out at an
 open path's ends, are hidden by solid parts but seen through glass, and stand still for a reader who asked for less
 motion. Every streak's place comes from a fixed seed, so the same flow draws the same picture.
+
+## Streams
+
+Air, gas or liquid as a moving volume: a jet leaving a nozzle, air drawn into an intake, a plume. Where flow streaks
+are lines along paths, a stream is a field the GPU draws inside a tube round its path. In the stream's own coordinates
+(along the path, distance from it, which way round) it builds filaments that move downstream, broken into runs,
+stirred by turbulence and rolled up more towards the edge as the stream goes on.
+
+The air is carried by its travel time: it speeds up where the stream narrows and slows where it widens (by
+continuity, speed × area stays the same), stretching as it speeds up and never running backwards. Where continuity is
+not the whole story (gas squeezed denser in a compressor, heated in a combustor, a jet slowing as it mixes with still
+air), `speeds` gives the speed along the path. The turbulence changes as the air travels, so a stream that stops,
+stops changing. It is kinematics, not a fluid simulation: the speeds come from the page. Its colour comes from a ramp along
+the path, and it fades in and out at its ends. It stops behind solid parts and is cut with them.
+
+```js
+// the hot core jet, widening as it leaves the nozzle; the bypass air as an annulus round it
+const core = fig.stream({
+  path: [
+    [1.9, 0, 0],
+    [3, 0, 0],
+    [4, 0, 0],
+  ],
+  radius: [
+    [0, 0.37],
+    [1, 0.7],
+  ],
+  ramp: 'heat',
+});
+const bypass = fig.stream({
+  path: [
+    [0.6, 0, 0],
+    [2.4, 0, 0],
+  ],
+  radius: [
+    [0, 0.5, 0.78],
+    [1, 0.4, 0.95],
+  ],
+  ramp: 'cool',
+});
+throttle.oninput = () => core.set({ density: 0.3 + 0.7 * t, speed: 1 + 4 * t });
+```
+
+| Option                | Default  | Meaning                                                                                           |
+| --------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `path`                |          | the polyline along its middle, 2 to 16 points                                                     |
+| `radius`              | 0.1      | one number, or stops `[f, rOut]` or `[f, rIn, rOut]` (f from 0 at the start to 1 at the end)      |
+| `speed`, `density`    | 0, 1     | scene units a second where its relative speed is 1 (by continuity: at the start); how thick it is |
+| `speeds`              |          | its speed along the path, stops `[f, fraction of speed]`; without them, from continuity           |
+| `fade`                | 0.7      | where along the path it starts to fade out                                                        |
+| `turbulence`, `swirl` | 0.5, 0.5 | how much the filaments are stirred; how much more towards the edge, growing downstream            |
+| `ramp`                | `'cool'` | as for flows                                                                                      |
+
+Streams are drawn at half resolution with 32 samples a pixel, so a page with several large streams costs the GPU more
+than streaks do. Without WebGL a stream is drawn as streaks along its path.

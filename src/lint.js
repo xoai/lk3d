@@ -16,9 +16,14 @@ const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -
 
 // a part as one geometry in scene coordinates (moved apart by `apart`, 0 at rest), its bounds, a tree for rays, and
 // whether it is closed (a solid that has an inside: no surface ends anywhere)
+const closedOf = new WeakMap(); // (per geometry: parts alike share theirs)
 function solid(p) {
-  const g = flatten(p);
-  return { p, g, bvh: buildBVH(g), closed: g.count > 0 && edgesOf(g, 180).length === 0 };
+  const g = flatten(p),
+    closed = p.batches.every((b) => {
+      if (!closedOf.has(b.geo)) closedOf.set(b.geo, b.geo.count > 0 && edgesOf(b.geo, 180).length === 0);
+      return closedOf.get(b.geo);
+    });
+  return { p, g, bvh: buildBVH(g), closed };
 }
 const at = (s, apart) => mulv(s.p.explode, apart);
 
@@ -72,6 +77,8 @@ function through(a, b, apart, eps) {
   for (const q of pts) if (depthIn(b, add(q, shift)) > eps) hits++;
   return pts.length ? hits / pts.length : 0;
 }
+// is the point within the part's bounds at rest? (a cheap test before casting rays)
+const inBox = (s, q) => [0, 1, 2].every((k) => q[k] >= s.p.lo[k] && q[k] <= s.p.hi[k]);
 // do the bounds of a and b (moved apart by `apart`) overlap, give or take eps?
 function near(a, b, apart, eps) {
   const oa = at(a, apart),
@@ -79,6 +86,43 @@ function near(a, b, apart, eps) {
   for (let k = 0; k < 3; k++)
     if (a.p.lo[k] + oa[k] > b.p.hi[k] + ob[k] + eps || b.p.lo[k] + ob[k] > a.p.hi[k] + oa[k] + eps) return false;
   return true;
+}
+
+// the pairs of parts worth testing: those whose boxes, swept along their way apart and grown by eps, share a cell of
+// a grid (a part that spans a great many cells, a casing, is paired with every part): a model of thousands of parts
+// is not tested pair by pair
+function candidates(parts, eps) {
+  const n = parts.length,
+    boxes = parts.map(({ p }) => {
+      const lo = p.lo.slice(),
+        hi = p.hi.slice();
+      for (let a = 0; a < 3; a++) {
+        lo[a] += Math.min(0, p.explode[a]) - eps;
+        hi[a] += Math.max(0, p.explode[a]) + eps;
+      }
+      return [lo, hi];
+    }),
+    sizes = boxes.map(([lo, hi]) => Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2])).sort((a, b) => a - b),
+    cell = Math.max(1e-6, (sizes[n >> 1] || 1) * 2),
+    grid = new Map(),
+    big = [],
+    out = new Set();
+  boxes.forEach(([lo, hi], i) => {
+    const c0 = lo.map((v) => Math.floor(v / cell)),
+      c1 = hi.map((v) => Math.floor(v / cell));
+    if ((c1[0] - c0[0] + 1) * (c1[1] - c0[1] + 1) * (c1[2] - c0[2] + 1) > 512) return big.push(i);
+    for (let x = c0[0]; x <= c1[0]; x++)
+      for (let y = c0[1]; y <= c1[1]; y++)
+        for (let z = c0[2]; z <= c1[2]; z++) {
+          const k = x + ',' + y + ',' + z,
+            list = grid.get(k) || [];
+          for (const j of list) out.add(j * n + i);
+          list.push(i);
+          grid.set(k, list);
+        }
+  });
+  for (const i of big) for (let j = 0; j < n; j++) if (j !== i) out.add(Math.min(i, j) * n + Math.max(i, j));
+  return [...out].map((k) => [Math.floor(k / n), k % n]);
 }
 
 export function lint(scene, o = {}) {
@@ -93,11 +137,14 @@ export function lint(scene, o = {}) {
     parts = S.parts.filter((p) => p.tris > 0).map(solid);
   // parts that run into each other on the way apart (a quarter, half, three quarters or all the way): more of one
   // inside the other than at rest
-  for (let i = 0; i < parts.length; i++)
-    for (let j = i + 1; j < parts.length; j++) {
-      const a = parts[i],
-        b = parts[j];
-      if (pair(a.p.id, b.p.id) || (!a.closed && !b.closed)) continue;
+  const near0 = parts.map(() => false), // (whether each part touches another at rest: for the check below)
+    pairs = candidates(parts, eps);
+  for (const [i, j] of pairs) {
+    const a = parts[i],
+      b = parts[j];
+    if (near(a, b, 0, eps)) near0[i] = near0[j] = true;
+    if (pair(a.p.id, b.p.id) || (!a.closed && !b.closed)) continue;
+    {
       const share = (apart) =>
         near(a, b, apart, -eps)
           ? Math.max(b.closed ? through(a, b, apart, eps) : 0, a.closed ? through(b, a, apart, eps) : 0)
@@ -110,11 +157,12 @@ export function lint(scene, o = {}) {
           message: `${a.p.id} and ${b.p.id} run into each other when taken apart (${Math.round(worst * 100)} % of one inside the other, ${Math.round(rest * 100)} % at rest): move them apart along other paths`,
         });
     }
+  }
   // parts that rest on nothing: touching no other part and above the ground
   if (check.float !== true)
-    for (const a of parts) {
+    for (const [i, a] of parts.entries()) {
       if (named(a.p, check.float) || a.p.lo[1] <= S.lo[1] + eps) continue;
-      if (!parts.some((b) => b !== a && near(a, b, 0, eps)))
+      if (!near0[i])
         problems.push({
           path: path(a.p),
           message: `${a.p.id} touches no other part and hangs in the air: rest it on another part, or list it under check.float`,
@@ -131,6 +179,7 @@ export function lint(scene, o = {}) {
           !b.p.xray &&
           b.p.alpha >= 0.99 &&
           !pair(a.p.id, b.p.id) &&
+          inBox(b, sub(q, at(b, 1))) &&
           depthIn(b, sub(q, at(b, 1))) > eps,
       );
     if (hid)

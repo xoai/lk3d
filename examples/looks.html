@@ -7,10 +7,11 @@
     <nav><a href="index.html">← examples</a></nav>
     <h1>Three looks, and themes</h1>
     <p>
-      The same scene in the drawn look (<code>style: 'ink'</code>: coloured-pencil bands, hatching, ink outlines), the
-      studio look (<code>'studio'</code>: physically based materials, a generated environment, soft shadows) and the pen
-      look (<code>'pen'</code>: near-white solids in a few close tones, thin lines, colour only for accents). Readers go
-      round them with the built-in button; a page sets the first.
+      The same scene in the pen look (<code>style: 'pen'</code>, the default: light solids, thin outlines and edges, a
+      soft shadow, full colour for accents and a soft wash of it elsewhere), the studio look (<code>'studio'</code>:
+      physically based materials, a generated environment, soft shadows) and the drawn look (<code>'ink'</code>:
+      coloured-pencil bands, hatching, ink outlines). Readers go round them with the built-in button; a page sets the
+      first.
     </p>
     <p>
       A theme (<code>theme: 'light' | 'dark' | 'blueprint' | 'sepia' | 'auto'</code>) sets the page behind the model,
@@ -25,16 +26,16 @@
       </select>
     </p>
     <div class="pair">
-      <div id="ink"></div>
-      <div id="studio"></div>
       <div id="pen"></div>
+      <div id="studio"></div>
+      <div id="ink"></div>
     </div>
   </main>
   <script src="../dist/lk3d.min.js"></script>
   <script type="module">
     import { scene } from './load.js';
     const figs = [];
-    for (const style of ['ink', 'studio', 'pen'])
+    for (const style of ['pen', 'studio', 'ink'])
       figs.push(LK3D.mount(document.getElementById(style), await scene('generator'), { style, controls: false }));
     document.getElementById('theme').addEventListener('change', (e) => {
       for (const f of figs) f.set({ theme: e.target.value || null });

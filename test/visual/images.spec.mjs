@@ -28,6 +28,9 @@ const runs = [
     [s, 'ink', 'sepia'],
   ]),
   ['flow', 'studio', 'dark'],
+  // streams of air: the exhaust jet and the intake, in pen, pen on a dark page, and studio
+  ['stream', 'pen', 'dark'],
+  ['stream', 'studio', 'dark'],
   // the orthographic camera, with the pen look's edges: machines drawn as a technical illustration
   ['engine', 'pen', null, 'ortho'],
   ['generator', 'pen', null, 'ortho'],
@@ -49,12 +52,12 @@ for (const [scene, look, theme, proj] of runs) {
   });
 }
 
-// a look the engine does not know is drawn as the drawn look, without an error
+// a look the engine does not know is drawn in the default look, pen, without an error
 test('an unknown look', async ({ page }) => {
   await page.goto('/test/visual/index.html?scene=generator&look=photo');
   const done = await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 }).then((h) => h.jsonValue());
   expect(done.errors).toEqual([]);
-  await expect(page.locator('.lk3d-stage')).toHaveAttribute('data-look', 'ink');
+  await expect(page.locator('.lk3d-stage')).toHaveAttribute('data-look', 'pen');
 });
 
 // Taking apart never jumps. With the clock stopped, the take-apart is stepped through in 20 frames; how much each picture
@@ -95,3 +98,31 @@ test('taking apart never jumps', async ({ page }) => {
   test.info().annotations.push({ type: 'jumpiness', description: real.map((v) => v.toFixed(2)).join(' ') });
   expect(Math.max(...real)).toBeLessThan(JUMP);
 });
+
+// Zooming deep into a detail: towards the pointer, the part under it stays under it all the way in (here the
+// generator's terminal box, about 50 times closer), in both projections; the close-up is compared as a picture.
+for (const proj of ['perspective', 'ortho'])
+  test(`zooming into a detail, ${proj}`, async ({ page }) => {
+    await page.goto(`/test/visual/index.html?scene=generator&look=pen&proj=${proj}`);
+    await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 });
+    const r = await page.evaluate(async () => {
+      const fig = window.__fig,
+        frame = () => new Promise((f) => requestAnimationFrame(() => f()));
+      let at = null;
+      for (let y = 20; y < 400 && !at; y += 6)
+        for (let x = 20; x < 460 && !at; x += 6) if (fig.pick(x, y) === 'hop-dau-day') at = [x, y];
+      const seen = [];
+      for (let k = 0; k < 12; k++) {
+        fig.zoom(1.5, ...at);
+        await frame();
+        seen.push(fig.pick(...at));
+      }
+      await frame();
+      await frame();
+      return { at, seen, zoom: fig.zoomLevel };
+    });
+    expect(r.at, 'the terminal box is on screen').not.toBeNull();
+    expect(new Set(r.seen)).toEqual(new Set(['hop-dau-day']));
+    expect(r.zoom).toBeGreaterThan(45); // as far as the scene allows (50 by default), not 3.3 as before
+    await expect(page.locator('.lk3d-stage')).toHaveScreenshot(`zoom-${proj}.png`);
+  });

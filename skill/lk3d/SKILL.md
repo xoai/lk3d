@@ -7,9 +7,10 @@ description: Write lk3d scenes, explorable 3D figures as JSON data (parts made o
 
 An lk3d scene is data: `parts`, each a list of `shapes` (lathe, box, cylinder, tube, blade, sphere, the shapes for the
 sciences, glTF models), with a `name`, a `note`, a material, a colour and a path it takes when the model is taken apart.
-The engine draws it in three looks (`ink` drawn, `studio` realistic, `pen` a clean technical illustration), lets the
+The engine draws it in three looks (`pen` a clean technical illustration, the default; `studio` realistic; `ink`
+drawn), lets the
 reader turn, zoom, take apart, cut open and see through, labels the parts, and runs what the page drives (spin, glow,
-flow streaks, handles). Your job: **a real object, built of many small precise parts, that explains the idea at a
+flow streaks, streams of air or gas, handles). Your job: **a real object, built of many small precise parts, that explains the idea at a
 glance, and is right**: every part where it belongs, every number true, nothing that passes through anything.
 
 The references hold the detail: [craft](references/craft.md) (what detailed and clean means, and recipes for parts),
@@ -37,24 +38,29 @@ chromium`). **Open every picture and look at it.** If you cannot render, say pla
 
 Count the parts before you write anything:
 
-| Kind          | Parts  | When                                                                                              |
-| ------------- | ------ | ------------------------------------------------------------------------------------------------- |
-| Inline figure | 30–60  | a machine or apparatus in a lesson or an article (the default)                                    |
-| Hero figure   | 60–150 | the subject of a page; **stop and ask** before starting one                                       |
-| Small figure  | 8–30   | a structure that really has few parts (molecules side by side, Earth's layers, a lens on a bench) |
+| Kind         | Parts   | When                                                                                              |
+| ------------ | ------- | ------------------------------------------------------------------------------------------------- |
+| Machine      | 60–120  | a machine or apparatus in a lesson or an article (the usual case)                                 |
+| Hero figure  | 120–250 | the subject of a page; **stop and ask** before starting one                                       |
+| Small figure | 8–40    | a structure that really has few parts (molecules side by side, Earth's layers, a lens on a bench) |
 
-A machine drawn with a dozen parts reads as a toy. Density comes from **structure**, not texture: feet, rails, bolts,
-flanges, brackets, collars, seams, ribs, a base plate, a stand. Every part rests on another and has a job.
+**A part is the smallest thing a reader would name and point at**: each stage of a compressor, each section of a
+casing, each liner, pump, pipe and mount; never a whole module. The jet engine went from 34 parts (each module one
+part) to 92 (each stage, section and accessory its own) without one invented piece. Density comes from **structure**,
+not texture: flanges, bolt circles, seams, ribs, collars, brackets, pipes. Every part rests on another and has a job.
 
-## 2. Choose the object, and where it stands
+## 2. Choose the object, as it really is
 
-Explain with **a real object you could build**: a turbofan on a ground-run stand, a generator bolted to a base, a
-microscope on a bench. Invent it for the idea (never trace a branded product), and give it a setting that explains it:
-a stand, a base plate, a frame, a cut-away quarter that shows the inside without a click. A machine floating alone in
-empty space is the weakest picture there is.
+Explain with **a real object, shown as it is**: the engine itself, cut open; the generator on its own feet; the cell.
+Invent it for the idea (never trace a branded product), but **never invent surroundings**: no base plate, test stand
+or hanger frame that the object does not have. They hide the object, make the scene larger (so the reader can zoom in
+less) and show something no textbook does. The ground under it is the soft shadow the engine draws. Add surroundings
+only when they are real **and** part of the explanation: the tyre a pump fills, the slide under a microscope.
+
+Show the inside without a click when the inside is the idea: a `section` and `set({cut: true})` at the start.
 
 Map the idea to the object: which part does the work (the **accent**, `accent: true`, one or two at most), what moves
-(spin, handles, flow), what is inside (cut open with `section`, see-through casings with `xray`), what comes apart and
+(spin, handles, flow streaks inside it, streams of air or gas around it), what is inside (cut open with `section`, see-through casings with `xray`), what comes apart and
 in which direction (`explode`).
 
 ## 3. Write the parts list before any geometry
@@ -65,8 +71,8 @@ later prove what this list promises: nothing floats, nothing collides.
 
 ## 4. Build in stages, checking each
 
-1. The setting first: base, stand, frame. `check`.
-2. The main body, its big shapes in their true proportions. `check`, `render` the rest pose.
+1. The main body, its big shapes in their true proportions. `check`, `render` the rest pose.
+2. Its sections and the structure that holds it together: flanges, seams, mounts. `check`.
 3. The parts inside and their details, a group at a time. `check` after each group.
 4. Taking apart: give each part an `explode` path **out of** whatever surrounds it (a casing lifts off upwards only
    if nothing inside is in its way: send it along the axis instead). `check` catches collisions on the way out;
@@ -79,10 +85,12 @@ every number in scene units with one scale for the whole object, and say what is
 
 ## 5. Choose the look and the camera
 
-- **Machines and apparatus: `pen` with `view: {projection: 'ortho'}`**, a yaw of about −35 to −55° and a pitch of
-  25–35°, so the face that carries the mechanism points at the reader. Edges are drawn where faces meet; mark one or
-  two parts `accent: true`. `ink` for a drawn, warmer page; `studio` for materials (metal, glass, tissue) that matter.
-- **Living and grown forms** (cells, neurons, organs): `ink` or `studio`, perspective. Soft shapes get no edge lines.
+- **`pen`, the default, for almost everything.** For machines and apparatus add `view: {projection: 'ortho'}`, a yaw of
+  about −35 to −55° and a pitch of 20–35°, so the face that carries the mechanism points at the reader. Edges are drawn
+  where faces meet; mark one or two parts `accent: true` (full colour; the rest keep a soft wash of theirs, so a
+  colour-coded cell or a model of atoms still reads).
+- **Living and grown forms** (cells, neurons, organs): pen or studio, perspective. Soft shapes get no edge lines.
+- `studio` when materials (metal, glass, tissue, a textured scan) are the point; `ink` for a drawn, warmer page.
 - A `theme` (`light`, `dark`, `blueprint`, `sepia`) only if the page around it asks for one.
 - The object fills about 55–65% of the stage, with air around it.
 
@@ -90,7 +98,8 @@ every number in scene units with one scale for the whole object, and say what is
 
 Render rest, apart and cut in at least two looks, and at a narrow width (`--width 390`). For each picture ask:
 does it read at a glance? Is every part where it should be, resting on something? Does anything pass through
-anything? Is every label on its part, none stuck in a corner? Is the accent the thing the idea is about? Then go
+anything? Is every label on its part, none stuck in a corner? Is the accent the thing the idea is about? Zoom into a
+detail (the wheel zooms to the pointer, up to 50 times): does it hold up close? Then go
 through [anti-patterns](references/anti-patterns.md) once more.
 
 Hand over only when `check` says **no problems** and you have looked at every picture. Say what you checked, what you

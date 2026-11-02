@@ -53,6 +53,7 @@
       force2d: flat,
     });
     for (const f of scene['test:flow'] || []) fig.flow(f);
+    for (const f of scene['test:stream'] || []) fig.stream(f);
     const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
     await Promise.race([fig.ready, new Promise((r) => setTimeout(r, 30000))]); // at most 30 s (the crease shading of the cell takes about 8 s in Firefox)
     await frame();

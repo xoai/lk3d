@@ -1,0 +1,73 @@
+// lk3d on the command line (bin/lk3d.mjs): every bundled example scene checks clean; a broken scene, a scene that is not
+// one, a look that does not exist are each said plainly, with the exit code a script can act on.          npm test
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+const ROOT = path.join(__dirname, '..'),
+  run = (...args) => spawnSync(process.execPath, [path.join(ROOT, 'bin/lk3d.mjs'), ...args], { encoding: 'utf8' }),
+  tmp = (name, text) => {
+    const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lk3d-')), name);
+    fs.writeFileSync(f, text);
+    return f;
+  };
+
+test("every example scene, and the skill's worked example, checks clean", () => {
+  const files = [
+    ...fs.readdirSync(path.join(ROOT, 'examples/scenes')).map((f) => path.join(ROOT, 'examples/scenes', f)),
+    ...fs
+      .readdirSync(path.join(ROOT, 'skill/lk3d/references/example'))
+      .map((f) => path.join(ROOT, 'skill/lk3d/references/example', f)),
+  ].filter((f) => f.endsWith('.json'));
+  assert.ok(files.length >= 8);
+  for (const f of files) {
+    const r = run('check', f);
+    assert.equal(r.status, 0, `${path.basename(f)}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stdout, /no problems/);
+  }
+});
+
+test('problems and failures: exit codes, stderr, JSON when asked, flags anywhere', () => {
+  const broken = tmp(
+    'broken.json',
+    JSON.stringify({
+      parts: [
+        { id: 'a', shapes: [{ box: [1, 1, 1] }] },
+        {
+          id: 'b',
+          shapes: [
+            {
+              lathe: [
+                [0, 0],
+                [0, 0],
+              ],
+            },
+          ],
+          at: [0, 1, 0],
+        },
+      ],
+      check: { float: true },
+    }),
+  );
+  let r = run('check', broken);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /makes no triangles/);
+  r = run('check', '--json', broken); // (the flag before the file)
+  assert.equal(r.status, 1);
+  assert.ok(JSON.parse(r.stdout).problems.length >= 1);
+  const notScene = tmp('null.json', 'null');
+  r = run('check', notScene);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /a scene is a JSON object/);
+  r = run('check', notScene, '--json');
+  assert.equal(r.status, 2);
+  assert.equal(JSON.parse(r.stdout).problems[0].message, 'a scene is a JSON object');
+  r = run('render', path.join(ROOT, 'examples/scenes/lens.json'), '--looks', 'photo');
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /no look or pose photo/);
+  assert.equal(run('--help').status, 0);
+  assert.equal(run('nonsense').status, 2);
+});

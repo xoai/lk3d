@@ -194,7 +194,7 @@ void main() {
     if (uRefr > 0.0) {  // glass that bends what is behind it: the picture so far, sampled where the normal sends it
       vec4 b = texture2D(uBack, gl_FragCoord.xy / uView - (uVP * vec4(N, 0.0)).xy * 0.05 * uRefr);
       al = uAlpha + (1.0 - uAlpha) * b.a;
-      col = (col * uAlpha + b.rgb * mix(vec3(1.0), C, 0.2 + 0.5 * (1.0 - NoV)) * (1.0 - uAlpha) * b.a) / al;
+      col = (col * uAlpha + b.rgb * mix(vec3(1.0), C, 0.2 + 0.5 * (1.0 - NoV)) * (1.0 - uAlpha)) / al;  // (b: premultiplied)
     }
 #else
     // WebGL 1: the same look, approximated (a sky gradient and two softboxes in place of the environment map)
@@ -344,6 +344,7 @@ vec3 near(vec3 p, out vec3 d, out float s) {
 }
 float dens(vec3 p, out float f) {
   vec3 d; float s; vec3 T = near(p, d, s);
+  if (dot(d, d) * 6.76 > uF.z * uF.z) return 0.0;  // (beyond the widest it gets: reach is 2.6 times that)
   f = s / uG.y;
   float r = length(d), x = clamp(f, 0.0, 1.0) * 23.0; vec3 R = uTab[0];
   for (int k = 0; k < 23; k++) R += clamp(x - float(k), 0.0, 1.0) * (uTab[k + 1] - uTab[k]);

@@ -11,6 +11,18 @@ const norm = (a) => {
   return [a[0] / l, a[1] / l, a[2] / l];
 };
 
+// v turned by the rotation that takes the direction a to the direction b (both unit length): a frame carried round a
+// bend without twisting (Rodrigues' formula). Going straight on or doubling back, v stays as it is (a turn of 180° is
+// taken about v itself, at right angles to a).
+const carry = (v, a, b) => {
+  const k = cross(a, b),
+    s = len(k),
+    c = dot(a, b);
+  if (s < 1e-9) return v;
+  const u = mulv(k, 1 / s);
+  return add(add(mulv(v, c), mulv(cross(u, v), s)), mulv(u, dot(u, v) * (1 - c)));
+};
+
 const M = {
   id: () => {
     const m = new Float32Array(16);
@@ -184,4 +196,4 @@ function rgb(hex) {
         : h;
   return [parseInt(f.slice(0, 2), 16) / 255, parseInt(f.slice(2, 4), 16) / 255, parseInt(f.slice(4, 6), 16) / 255];
 }
-export { D2R, M, sub, add, mulv, dot, cross, len, norm, rgb };
+export { D2R, M, sub, add, mulv, dot, cross, len, norm, carry, rgb };

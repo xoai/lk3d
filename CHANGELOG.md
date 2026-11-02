@@ -26,8 +26,8 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
   surface detail and glass that bends light, and a pen look (near-white solids, smooth on curves and one tone on each
   flat face, thin outlines and edges where faces meet, colour for accents); an orthographic camera for technical
   illustrations; four
-  colour themes (light, dark, blueprint, sepia, or the reader's setting) and themes of your own; WebGL 2, WebGL 1 and
-  a Canvas 2D fallback.
+  colour themes (light, dark, blueprint, sepia, or the reader's setting) and themes of your own; WebGL 2, WebGL 1 (with
+  instancing and vertex arrays) and a Canvas 2D fallback.
 - **Accessible and international**: text descriptions, keyboard control, read-out handles, reduced motion; English and
   Vietnamese words; themes through CSS variables.
 - **Dependable for tools**: `fig.ready` once a figure is complete; one clock (`LK3D.clock`) that tests can stop and
@@ -36,8 +36,8 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
 - **Checked geometry** (`lk3d/lint`): parts that run into each other while the model is taken apart, parts hanging in
   the air, labels pointing inside other parts; a scene excuses what it means by name (`check: {allow, float}`).
 - **Tools and a skill for AI agents**: `lk3d check` (form, geometry, size) and `lk3d render` (a PNG per look and pose,
-  drawn by the engine in a headless browser), and an Agent Skill (`skill/lk3d`) with a worked example, a turbofan on a
-  test stand.
+  drawn by the engine in a headless browser), and an Agent Skill (`skill/lk3d`) with a worked example, a turbofan of
+  92 parts.
 - **Streams** (`fig.stream()`): air or gas as a moving volume along a path, drawn per pixel by the GPU: filaments
   moving downstream, turbulence, swirl at the edge, a colour ramp; for jets, intakes and plumes. The air moves by
   its travel time: faster where the stream narrows (continuity) or as `speeds` says, never backwards, and its
@@ -50,4 +50,19 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
   of many parts are placed largest part first and never overlap.
 - **Cutting open**: a part can stay whole (`cut: false`: a stand, a frame); flow streaks are cut with the parts; a
   lathe sector of a concave profile (half a cowl) is closed correctly.
-- **Small and fast**: 48 KB gzipped; draws only on change, pauses off screen, adapts its resolution.
+- **Wired as it says** (an independent review, each fix with a test that plants the mistake): `onPick` fires only when
+  the reader chooses a part, `onHover` as the pointer moves onto or off one; setting a property of particles, balls or
+  lines draws again; the page's `set({explode})` and the reader's hands win over a running tween; a hidden handle
+  cannot be grabbed; a handle that goes round turns past 0 both ways by keyboard; labels show a name's simple HTML;
+  mounting again on an element replaces its figure, and `destroy()` leaves it as it was and settles `ready`; removed
+  lines, balls, flows and streams free their GPU memory; an effect whose shader does not link is left out alone.
+- **Right pixels**: the canvas blends premultiplied colour (translucent edges, shadows, glass and glow were too faint
+  over a transparent page); the shadow follows the cut and moving lines; balls keep their size in ortho; model maps
+  are read without colour management.
+- **Sounder geometry and checks**: frames carried round right-angle bends (streams and tubes kept their width),
+  terrain closed underneath, sectors given backwards, atoms on top of each other; the geometry check counts a part of
+  solids meeting edge to edge (a molecule, a two-piece shaft) as solid, tests the way apart wherever two parts meet on
+  it (a pin through a thin plate), and reports parts that make no triangles or NaN; parts alike share one picking
+  tree; a model file is read once a scene. `lk3d check` and `render` take flags anywhere, send failures to stderr (as
+  JSON under `--json`), check a scene before drawing it and refuse unknown looks.
+- **Small and fast**: 49 KB gzipped (a budget of 50); draws only on change, pauses off screen, adapts its resolution.

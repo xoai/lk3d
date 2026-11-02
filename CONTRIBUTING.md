@@ -19,7 +19,7 @@ npx playwright install chromium firefox webkit   # for the image tests
 ```sh
 npm test               # geometry, models, handles, the validator, the locales
 npm run typecheck      # the TypeScript types (update index.d.ts with the API)
-npm run size           # the bundle stays within 40 KB gzipped
+npm run size           # the bundle stays within its budget (BUDGET_KB in build.mjs, gzipped)
 npm run lint           # ESLint and Prettier (npm run format fixes the formatting)
 npm run test:visual    # reference scenes compared with stored pictures
 ```

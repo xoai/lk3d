@@ -36,7 +36,8 @@
     },
     "./schema.json": "./schema/scene.schema.json",
     "./bundle": "./dist/lk3d.min.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./bundle.mjs": "./dist/lk3d.mjs"
   },
   "files": [
     "bin/",
@@ -48,10 +49,12 @@
     "lint.d.ts",
     "validate.d.ts",
     "docs/*.md",
-    "docs/generator.png",
+    "docs/*.png",
+    "docs/shapes/*.png",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "!skill/lk3d/evals"
   ],
   "sideEffects": [
     "./src/index.js",

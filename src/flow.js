@@ -18,8 +18,14 @@ export function pathOf(points, closed = false) {
     total += l;
   }
   const into = (s, out, o) => {
-    let k = 0;
-    while (k < segs.length - 1 && s > segs[k][3] + segs[k][2]) k++;
+    // the segment s falls in: the last that starts at or before s (halving: a field line may have hundreds)
+    let k = 0,
+      hi = segs.length - 1;
+    while (k < hi) {
+      const m = (k + hi + 1) >> 1;
+      if (segs[m][3] <= s) k = m;
+      else hi = m - 1;
+    }
     const [a, b, l, s0] = segs[k],
       t = l ? Math.max(0, Math.min(1, (s - s0) / l)) : 0;
     for (let j = 0; j < 3; j++) out[o + j] = a[j] + (b[j] - a[j]) * t;

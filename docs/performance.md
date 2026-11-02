@@ -7,11 +7,11 @@ it, keep the tab in front, press Run).
 
 ## Size
 
-The global script `dist/lk3d.min.js`, built by `npm run build`; `npm run size` fails past the budget of 48 KB gzipped.
+The global script `dist/lk3d.min.js`, built by `npm run build`; `npm run size` fails past the budget of 50 KB gzipped.
 
 |                                                                                                                                         | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d 0.1.0                                                                                                                              | 120.8 KB | 47.7 KB |
+| lk3d 0.1.0                                                                                                                              | 124.2 KB | 49.2 KB |
 | three.js r187, the smallest page (renderer, camera, box, basic material)                                                                | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, orbit controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 

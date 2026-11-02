@@ -1195,3 +1195,140 @@ test('streams: the air moves by travel time, faster where the stream narrows, ne
   S.step(0.5);
   assert.ok(Math.abs(S.phase - 0.5) < 1e-9);
 });
+
+test('the scene schema describes every kind of shape field by field, and closes each', () => {
+  const { schema } = require('../src/validate.js'),
+    G = require('../src/geometry.js'),
+    d = schema.$defs;
+  assert.equal(d.shape.additionalProperties, false, 'a shape takes only the fields listed');
+  for (const kind of [...Object.keys(G.SHAPES), 'scatter']) {
+    const s = d.shape.properties[kind];
+    assert.ok(s, `${kind} has an entry`);
+    if (s.type !== 'object') continue; // (a list or a number: lathe, box, sphere, torus, tube, ellipsoid)
+    assert.ok(s.properties && Object.keys(s.properties).length, `${kind} lists its fields`);
+    assert.equal(s.additionalProperties, false, `${kind} takes only its own fields`);
+  }
+  assert.equal(d.shape.properties.model.type, 'string');
+});
+
+test('the validator refuses a shape with a field it does not have, or a field of the wrong kind', () => {
+  const { validate } = require('../src/validate.js');
+  const scene = (shape, more = {}) => ({ parts: [{ id: 'a', shapes: [shape] }], ...more });
+  const at = (s) => validate(s).map((e) => e.path);
+  const cases = [
+    [scene({ helix: { r: 'big' } }), 'parts[0].shapes[0].helix.r'],
+    [scene({ capsule: {} }), 'parts[0].shapes[0].capsule'], // no radius
+    [scene({ helix: { r: 0.1, radius: 1 } }), 'parts[0].shapes[0].helix.radius'],
+    [
+      scene({
+        lathe: [
+          [0, 1],
+          [1, 1],
+        ],
+        segments: 24,
+      }),
+      'parts[0].shapes[0].segments',
+    ],
+    [scene({ sphere: 1, colour: '#fff' }), 'parts[0].shapes[0].colour'],
+    [scene({ box: [1, 1, 1], repeat: { n: 3, axes: 'y' } }), 'parts[0].shapes[0].repeat'],
+    [scene({ orbit: { a: 1, e: 1.2 } }), 'parts[0].shapes[0].orbit.e'],
+    [
+      scene({ molecule: { atoms: [{ el: 'C', at: [0, 0, 0] }], bonds: [[0, 0, 4]] } }),
+      'parts[0].shapes[0].molecule.bonds[0][2]',
+    ],
+    [scene({ molecule: { atoms: [{ el: 'carbon', at: [0, 0, 0] }] } }), 'parts[0].shapes[0].molecule.atoms[0].el'],
+    [scene({ dna: { seq: 'ATXG' } }), 'parts[0].shapes[0].dna.seq'],
+    [scene({ scatter: { shape: { sphere: 0.1 }, within: { cube: 1 } } }), 'parts[0].shapes[0].scatter.within'],
+    [scene({ terrain: { layers: [{ color: '#888888' }] } }), 'parts[0].shapes[0].terrain.layers[0]'],
+    [scene({ sphere: 1 }, { models: { m: { title: 'no .glb' } } }), 'models.m'], // neither data nor file
+  ];
+  for (const [s, path] of cases)
+    assert.ok(at(s).includes(path), `${JSON.stringify(s).slice(0, 90)} → ${JSON.stringify(validate(s))}`);
+  // what the engine reads passes: a lathe sector, smooth; a model given as a file; every kind with its fields
+  const lathe = {
+    lathe: [
+      [0, 0.3],
+      [1, 0.3],
+      [1, 0.4],
+      [0, 0.4],
+    ],
+    from: -30,
+    to: 30,
+    smooth: true,
+    closed: true,
+    seg: 24,
+  };
+  assert.deepEqual(validate(scene(lathe)), []);
+  assert.deepEqual(validate(scene({ model: 'm', node: 'n' }, { models: { m: { file: 'm.glb' } } })), []);
+  const all = [
+    { helix: { r: 0.1, x0: 0, x1: 1, turns: 4, wire: 0.01 } },
+    { loop: { a: 0.8, b: 0.1, R: 0.4, wire: 0.02, corner: 0.03, turns: 2, gap: 0.05 } },
+    { capsule: { r: 0.1, x0: -0.2, x1: 0.2 } },
+    { blob: { r: 0.5, amp: 0.2, freq: 2, seed: 3, stretch: [1, 0.8, 1] } },
+    { shell: { r: 1, ri: 0.9, from: 0, to: 270 } },
+    { tree: { at: [0, 0, 0], dir: [0, 1, 0], length: 1, r: 0.05, levels: 2, branches: 3, spread: 30 } },
+    {
+      molecule: {
+        atoms: [
+          { el: 'O', at: [0, 0, 0] },
+          { el: 'H', at: [0.96, 0, 0], r: 0.2, color: '#eeeeee' },
+        ],
+        bonds: [
+          [0, 1],
+          [0, 1, 2],
+        ],
+        scale: 0.5,
+        style: 'ball',
+        bond: 0.1,
+      },
+    },
+    { dna: { pairs: 10, seq: 'ATGC', r: 1, rise: 0.34, twist: 36, groove: 150, wire: 0.1, scale: 0.5 } },
+    {
+      extrude: {
+        outline: [
+          [0, 0],
+          [1, 0],
+          [0, 1],
+        ],
+        depth: 0.1,
+      },
+    },
+    {
+      terrain: {
+        size: [2, 1],
+        res: 12,
+        base: 0.5,
+        height: { amp: 0.1, freq: 2, seed: 4 },
+        layers: [{ thick: 0.2, color: '#9a8466' }, { thick: 0.3 }],
+        top: '#7a9a55',
+        tilt: 5,
+      },
+    },
+    { ring: { r: 1, ri: 0.8, thickness: 0.02 } },
+    { orbit: { a: 1, e: 0.2, wire: 0.01 } },
+    { blade: { root: 0.2, span: 0.5, chord: 0.15, tip: 0.1, twist: 30, thickness: 0.1, camber: 0.04, sweep: 0.1 } },
+    {
+      scatter: {
+        shape: { sphere: 0.02, seg: 8 },
+        n: 20,
+        within: { shell: [0.5, 1] },
+        avoid: [{ sphere: 0.3, at: [0, 0, 0] }],
+        size: [0.5, 1],
+        seed: 2,
+        detail: 0.5,
+      },
+    },
+  ];
+  for (const s of all) assert.deepEqual(validate(scene(s)), [], JSON.stringify(s).slice(0, 60));
+});
+
+test('a bond that joins an atom the molecule lacks is reported where it is, before anything is built', async () => {
+  const { validate } = await import('../src/validate.js');
+  const errs = validate({
+    parts: [{ id: 'm', shapes: [{ molecule: { atoms: [{ el: 'C', at: [0, 0, 0] }], bonds: [[0, 5]] } }] }],
+  });
+  assert.deepEqual(
+    errs.map((e) => e.path),
+    ['parts[0].shapes[0].molecule.bonds[0]'],
+  );
+});

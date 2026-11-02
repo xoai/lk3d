@@ -36,15 +36,23 @@ renderer = { kind: 'webgl2' | 'webgl1' | '2d', hifi, shadows, parallel,
   draw(frame),     // the parts (matrices, alpha, glow), the camera, the look, the cut, hover and selection…;
                    // false while its shaders are still compiling (the engine tries again next frame)
   prewarm(),       // after the first picture: compile what other looks need, in the background
-  setAO(batch), upload(batch), instances(batch), dispose() }
+  setAO(batch), upload(batch), instances(batch), release(thing), dispose() }
 ```
 
-A frame (WebGL 2, studio look): the shadow map (drawn again only when something that casts a shadow moves, not when
-the camera turns); the solid parts; the ground's shadow; solid particles; see-through parts far to near (glass that
-refracts samples a copy of the picture made just before); path particles; flow streaks (ribbons widened on screen in
-the vertex shader, inked over a light page or added to a dark one); the glow (emission at half resolution, blurred at
-a quarter, added). The pen look draws no shadow map: its light turns with the camera. The environment is drawn once into a cube map and prefiltered per roughness on the GPU.
-If WebGL fails on a device (a shader that does not link, a mesh it cannot index), the figure draws in 2D instead.
+A frame (WebGL 2, studio look): the shadow map (drawn again only when something that casts a shadow moves, the cut
+changes or lines move, not when the camera turns); the outline; the solid parts; the ground's shadow; solid
+particles; see-through parts far to near (glass that refracts samples a copy of the picture made just before); the
+pen look's edges; path particles; flow streaks (ribbons widened on screen in the vertex shader, inked over a light page
+or added to a dark one); streams (the solid parts' depth, drawn again only when they or the camera move; each stream,
+far to near, marched once per pixel from its hull's farthest face into a half-size picture, put over the page); the
+glow (emission at half resolution, blurred at a quarter, added). The pen look's shadow map is drawn from a light
+straight above and falls only on the ground; its shading light turns with the camera. The environment is drawn once
+into a cube map and prefiltered per roughness on the GPU. Every pass blends premultiplied colour, and so does the
+canvas: the page shows through anti-aliased edges, shadows, glass and glow as it should.
+
+WebGL is used where it has instancing and vertex arrays (every WebGL 2, nearly every WebGL 1); otherwise, or if a part
+shader does not link or a mesh cannot be indexed, the figure draws in 2D instead. An effect whose shader does not link
+on a device (streaks, streams, edges, particles, the glow) is left out, with a warning, and the rest draws.
 
 ## Drawing only when something changes
 
@@ -79,7 +87,7 @@ environments the engine draws.
 
 `npm test`: geometry (every shape a closed solid facing outwards, volumes matching their formulas, placement and
 instancing, picking against brute force), glTF reading, handle maths, the validator against planted mistakes, the
-locales. `npm run typecheck`: the types. `npm run size`: the 48 KB budget. `npm run test:visual`: 12 reference scenes
+locales. `npm run typecheck`: the types. `npm run size`: the 50 KB budget. `npm run test:visual`: 12 reference scenes
 in each look and the 2D fallback, in Chromium, Firefox and WebKit, compared with stored pictures (`test/visual/`).
 
 ## Limits

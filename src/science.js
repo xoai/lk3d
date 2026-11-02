@@ -288,8 +288,9 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
     if (style !== 'space')
       for (const [i, j, order = 1] of bonds) {
         const A = mulv(atoms[i].at, scale),
-          B = mulv(atoms[j].at, scale),
-          { y } = between(A, B),
+          B = mulv(atoms[j].at, scale);
+        if (len(sub(B, A)) < 1e-9) continue; // (two atoms at one place: no rod between them)
+        const { y } = between(A, B),
           w = bond * scale * (order > 1 ? 0.6 : 1);
         for (let k = 0; k < order; k++) {
           // a double or triple bond: rods side by side
@@ -460,13 +461,18 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
       edge((k) => [-sx / 2, Z(n - k)]),
       [-1, 0, 0],
     );
-    const from = g.count; // the bottom
-    g.quad(
-      g.v([-sx / 2, 0, -sz / 2], [0, -1, 0]),
-      g.v([sx / 2, 0, -sz / 2], [0, -1, 0]),
-      g.v([sx / 2, 0, sz / 2], [0, -1, 0]),
-      g.v([-sx / 2, 0, sz / 2], [0, -1, 0]),
-    );
+    // the bottom: a fan from its middle to every point of the sides' lower edge (one quad would leave the sides'
+    // points along it unjoined, and the block open)
+    const from = g.count,
+      dn = [0, -1, 0],
+      mid = g.v([0, 0, 0], dn),
+      rim = [
+        ...edge((k) => [X(k), -sz / 2]),
+        ...edge((k) => [sx / 2, Z(k)]).slice(1),
+        ...edge((k) => [X(n - k), sz / 2]).slice(1),
+        ...edge((k) => [-sx / 2, Z(n - k)]).slice(1),
+      ].map(([x, z]) => g.v([x, 0, z], dn));
+    for (let k = 0; k + 1 < rim.length; k++) g.tri(mid, rim[k], rim[k + 1]);
     g.paint(colour(layers.length - 1), from);
     return g;
   }

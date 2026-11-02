@@ -73,7 +73,9 @@ export interface Theme {
 }
 
 export interface Model {
+  /** the .glb as base64; or `file`, a path to it that a build or `lk3d check` reads into data */
   data?: string;
+  file?: string;
   title?: string;
   author?: string;
   license?: string;
@@ -166,32 +168,109 @@ interface Placement {
   detail?: number;
   /** copies around an axis */
   repeat?: number | { n: number; step?: number; start?: number; axis?: 'x' | 'y' | 'z' };
-  [option: string]: unknown;
 }
 type One<K extends string, V> = Placement & { [P in K]: V };
 /** exactly one kind per shape (see the shape catalogue for each kind's parameters) */
 export type Shape =
-  | One<'lathe', Array<[number, number]>>
-  | One<'cylinder', { r: number; x0?: number; x1?: number; ri?: number; r1?: number }>
+  | (One<'lathe', Array<[number, number]>> & {
+      seg?: number;
+      /** a sector, in degrees (a closed outline, filled flat at its sides) */
+      from?: number;
+      to?: number;
+      smooth?: boolean;
+      closed?: boolean;
+      mirror?: boolean;
+    })
+  | (One<'cylinder', { r: number; x0?: number; x1?: number; ri?: number; r1?: number }> & { seg?: number })
   | One<'box', Vec3>
-  | One<'sphere', number>
+  | (One<'sphere', number> & { seg?: number })
   | One<'torus', [number, number]>
-  | One<'tube', Vec3[]>
-  | One<'helix', object>
-  | One<'loop', object>
+  | (One<'tube', Vec3[]> & { r?: number; closed?: boolean })
+  | One<'helix', { r: number; x0?: number; x1?: number; turns?: number; wire?: number }>
+  | One<'loop', { a?: number; b?: number; R?: number; wire?: number; corner?: number; turns?: number; gap?: number }>
   | One<'ellipsoid', Vec3>
-  | One<'capsule', object>
-  | One<'blob', object>
-  | One<'shell', object>
-  | One<'tree', object>
-  | One<'molecule', { atoms: Array<{ el: string; at: Vec3 }>; [k: string]: unknown }>
-  | One<'dna', object>
-  | One<'extrude', object>
-  | One<'terrain', object>
-  | One<'ring', object>
-  | One<'orbit', { a: number; [k: string]: unknown }>
-  | One<'blade', object>
-  | One<'scatter', { shape: Shape; n?: number; [k: string]: unknown }>
+  | One<'capsule', { r: number; x0?: number; x1?: number }>
+  | One<'blob', { r?: number; amp?: number; freq?: number; seed?: number; stretch?: Vec3 }>
+  | One<'shell', { r: number; ri?: number; from?: number; to?: number }>
+  | One<
+      'tree',
+      {
+        at?: Vec3;
+        dir?: Vec3;
+        length?: number;
+        r?: number;
+        levels?: number;
+        branches?: number;
+        spread?: number;
+        shrink?: number;
+        taper?: number;
+        bend?: number;
+        seed?: number;
+      }
+    >
+  | One<
+      'molecule',
+      {
+        atoms: Array<{ el: string; at: Vec3; r?: number; color?: Color }>;
+        bonds?: Array<[number, number] | [number, number, 1 | 2 | 3]>;
+        scale?: number;
+        style?: 'ball' | 'space';
+        bond?: number;
+      }
+    >
+  | One<
+      'dna',
+      {
+        pairs?: number;
+        seq?: string;
+        r?: number;
+        rise?: number;
+        twist?: number;
+        groove?: number;
+        wire?: number;
+        scale?: number;
+      }
+    >
+  | One<'extrude', { outline: Array<[number, number]>; depth?: number }>
+  | One<
+      'terrain',
+      {
+        size?: [number, number];
+        res?: number;
+        base?: number;
+        height?: { amp?: number; freq?: number; seed?: number };
+        layers?: Array<{ thick: number; color?: Color }>;
+        top?: Color;
+        tilt?: number;
+      }
+    >
+  | One<'ring', { r: number; ri?: number; thickness?: number }>
+  | One<'orbit', { a: number; e?: number; wire?: number }>
+  | One<
+      'blade',
+      {
+        root?: number;
+        span?: number;
+        chord?: number;
+        tip?: number;
+        twist?: number;
+        thickness?: number;
+        camber?: number;
+        sweep?: number;
+      }
+    >
+  | One<
+      'scatter',
+      {
+        shape: Shape;
+        n?: number;
+        within?: { sphere: number } | { shell: [number, number] } | { box: Vec3 };
+        avoid?: Array<{ sphere: number; at?: Vec3 }>;
+        size?: [number, number];
+        seed?: number;
+        detail?: number;
+      }
+    >
   | (Placement & { model: string; node?: string });
 
 export interface Strings {
@@ -232,7 +311,10 @@ export interface MountOptions {
   style?: Look;
   theme?: string;
   labels?: 'auto' | 'all' | 'none';
+  /** a part chosen by the reader (a tap, a click, a handle reached by Tab), or null when they let it go */
   onPick?: (part: BuiltPart | null) => void;
+  /** the part under the pointer, as it moves onto one or off it (null) */
+  onHover?: (part: BuiltPart | null) => void;
   /** a handle moved by the reader (not by the page's own set()) */
   onHandle?: (id: string, value: number) => void;
   /** what a screen reader says for a handle's value */
@@ -265,16 +347,21 @@ export interface BuiltPart {
   [k: string]: unknown;
 }
 
+/** points along a path; setting speed, offset or visible draws again */
 export interface Particles {
+  /** scene units a second */
   speed: number;
+  /** how far along the path they are, as a share of it */
+  offset: number;
   visible: boolean;
   remove(): void;
 }
+/** balls the page places (x, y, z and a colour band in pos4); add one to version after moving them */
 export interface Balls {
   pos4: Float32Array;
   count: number;
   radius: number;
-  version?: number;
+  version: number;
   visible: boolean;
   resize(n: number): void;
   remove(): void;
@@ -286,7 +373,11 @@ export interface Flow {
   /** the share of the streaks drawn, 0 to 1 */
   amount: number;
   visible: boolean;
-  set(o: Partial<FlowOptions> & { speed?: number; amount?: number; visible?: boolean }): void;
+  set(
+    o: Partial<Pick<FlowOptions, 'speed' | 'amount' | 'length' | 'width' | 'spread' | 'opacity' | 'ramp'>> & {
+      visible?: boolean;
+    },
+  ): void;
   remove(): void;
 }
 export interface FlowOptions {
@@ -317,7 +408,9 @@ export interface Stream {
   /** how thick it is, 0 to 1 and beyond */
   density: number;
   visible: boolean;
-  set(o: Partial<StreamOptions> & { speed?: number; density?: number; visible?: boolean }): void;
+  set(
+    o: Partial<Pick<StreamOptions, 'speed' | 'density' | 'turbulence' | 'swirl' | 'ramp'>> & { visible?: boolean },
+  ): void;
   remove(): void;
 }
 export interface StreamOptions {
@@ -426,8 +519,12 @@ export function build(scene: Scene, quality?: number): { parts: BuiltPart[] };
 export const locales: Record<string, Strings>;
 export const themes: Record<string, Theme>;
 export const defaults: Defaults;
+/** whether the reader asked for less motion (read once, when lk3d loads) */
 export const reduce: boolean;
+/** the page API's version: it goes up when a page's own code must change */
 export const version: number;
+/** the version of the scene format this engine reads (a scene says its own in `lk3d`) */
+export const format: number;
 /** One clock for every figure's animation: slow it, stop it (speed 0) and step it, for tests and tools */
 export interface Clock {
   speed: number;
@@ -449,5 +546,6 @@ declare const LK3D: {
   clock: Clock;
   /** the version of the scene format this engine reads */
   format: number;
+  safeHTML: typeof safeHTML;
 };
 export default LK3D;

@@ -20,7 +20,8 @@ screen readers.
 | `style`                    | scene's, else `'pen'`    | the first look: `'pen'`, `'studio'` or `'ink'`                                                                                                             |
 | `theme`                    | scene's, else none       | the colours: `'light'`, `'dark'`, `'blueprint'`, `'sepia'`, `'auto'`, or a name added to `LK3D.themes`                                                     |
 | `labels`                   | `'auto'`                 | `'auto'` (on hover and when taken apart), `'all'`, `'none'`                                                                                                |
-| `onPick(part)`             |                          | a part (or `null`) chosen by the reader                                                                                                                    |
+| `onPick(part)`             |                          | a part chosen by the reader (a tap, a click, a handle reached by Tab), or `null` when they let it go                                                       |
+| `onHover(part)`            |                          | the part under the pointer as it moves onto one, or `null` as it moves off                                                                                 |
 | `onHandle(id, value)`      |                          | a handle moved by the reader (not by the page's own `handle(id).set`)                                                                                      |
 | `handleText(id, value)`    |                          | what a screen reader says for a handle's value, e.g. `` `d = ${v} cm` ``                                                                                   |
 | `locale`, `strings`        | `'en'`                   | the language of the built-in words (`'en'`, `'vi'`, or any key of `LK3D.locales`); single words changed                                                    |

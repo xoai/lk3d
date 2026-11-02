@@ -2,18 +2,19 @@
 // soft shadows, glow) and WebGL 1 (the same scene, simpler light). Every renderer has the same small interface
 // ({kind, hifi, draw(frame), setAO(batch), dispose()}), so another backend (WebGPU) can be added beside it.
 import * as S from './shaders.js';
-import { M, sub, len, mulv, add, norm } from './math.js';
+import { M, sub, len, mulv, add, norm, dot } from './math.js';
 import { flowIndices, STRIDE, MAX } from './flow.js';
 
-const PVS = `attribute vec4 aPos; uniform mat4 uVP; uniform float uSize; uniform vec3 uEye;
-void main() { gl_Position = uVP * vec4(aPos.xyz, 1.0); gl_PointSize = uSize / max(0.2, length(aPos.xyz - uEye)); }`;
+// (uViewD: in ortho, the distance every point is drawn as from; 0 in perspective, where nearer points are larger)
+const PVS = `attribute vec4 aPos; uniform mat4 uVP; uniform float uSize; uniform vec3 uEye; uniform float uViewD;
+void main() { gl_Position = uVP * vec4(aPos.xyz, 1.0); gl_PointSize = uSize / max(0.2, uViewD > 0.0 ? uViewD : length(aPos.xyz - uEye)); }`;
 const PFS = `uniform vec3 uColor; uniform float uAlpha;
 void main() { vec2 d = gl_PointCoord - 0.5; float r = length(d); if (r > 0.5) discard; gl_FragColor = vec4(uColor, uAlpha * (1.0 - smoothstep(0.15, 0.5, r))); }`;
 
 // balls (the molecules of a gas): a point sprite shaded as a sphere, in one of three colours by aPos.w (below 1/3, up
 // to 2/3, above: bands read better than a blend, whose middle is a muddy grey); in the drawn and pen looks, a rim
-const DVS = `attribute vec4 aPos; uniform mat4 uVP; uniform float uSize; uniform vec3 uEye; varying float vW;
-void main() { gl_Position = uVP * vec4(aPos.xyz, 1.0); gl_PointSize = max(2.0, uSize / max(0.05, length(aPos.xyz - uEye))); vW = aPos.w; }`;
+const DVS = `attribute vec4 aPos; uniform mat4 uVP; uniform float uSize; uniform vec3 uEye; uniform float uViewD; varying float vW;
+void main() { gl_Position = uVP * vec4(aPos.xyz, 1.0); gl_PointSize = max(2.0, uSize / max(0.05, uViewD > 0.0 ? uViewD : length(aPos.xyz - uEye))); vW = aPos.w; }`;
 const DFS = `uniform vec3 uC0, uC1, uC2, uInk; uniform float uStudio; varying float vW;
 void main() {
   vec2 d = gl_PointCoord * 2.0 - 1.0; float r2 = dot(d, d); if (r2 > 1.0) discard;
@@ -88,11 +89,19 @@ function glRenderer(gl, scene, opts = {}) {
     aA: 12,
   };
   const vx = gl2
-    ? { make: () => gl.createVertexArray(), bind: (v) => gl.bindVertexArray(v) }
+    ? { make: () => gl.createVertexArray(), bind: (v) => gl.bindVertexArray(v), del: (v) => gl.deleteVertexArray(v) }
     : (() => {
         const e = gl.getExtension('OES_vertex_array_object');
-        return e && { make: () => e.createVertexArrayOES(), bind: (v) => e.bindVertexArrayOES(v) };
+        return (
+          e && {
+            make: () => e.createVertexArrayOES(),
+            bind: (v) => e.bindVertexArrayOES(v),
+            del: (v) => e.deleteVertexArrayOES(v),
+          }
+        );
       })();
+  // (every WebGL 2, and nearly every WebGL 1, has both; a device that lacks either draws the figure in 2D)
+  if (!inst || !vx) throw new Error('lk3d: this WebGL has no instancing or no vertex arrays');
   const only = (locs) => {
     for (let l = 0; l < MAXA; l++) {
       const want = locs.includes(l);
@@ -125,13 +134,18 @@ function glRenderer(gl, scene, opts = {}) {
     return { p, v, f, ok: false };
   };
   // is it compiled? (wait: true blocks until it is, for work that cannot be put off)
+  // a program ready to use? (its uniforms and attributes looked up once.) One that does not link throws, unless it is
+  // optional (an effect: streaks, streams, edges, particles, glow): that one is left out, and the rest still draws
   const ready = (prog, wait = false) => {
     if (prog.ok) return true;
-    if (gl.isContextLost()) return false;
+    if (prog.failed || gl.isContextLost()) return false;
     if (!wait && par && !gl.getProgramParameter(prog.p, par.COMPLETION_STATUS_KHR)) return false;
     if (!gl.getProgramParameter(prog.p, gl.LINK_STATUS)) {
       const log = gl.getShaderInfoLog(prog.f) || gl.getShaderInfoLog(prog.v) || gl.getProgramInfoLog(prog.p);
-      throw new Error('lk3d shader: ' + log);
+      if (!prog.optional) throw new Error('lk3d shader: ' + log);
+      prog.failed = true;
+      if (typeof console !== 'undefined') console.warn('lk3d: an effect is left out on this device: ' + log);
+      return false;
     }
     const p = prog.p,
       u = {},
@@ -146,11 +160,7 @@ function glRenderer(gl, scene, opts = {}) {
       const i = gl.getActiveAttrib(p, k);
       a[i.name] = gl.getAttribLocation(p, i.name);
     }
-    // the attribute arrays this program reads, worked out once (bindBatch enables exactly these)
-    const locs = Object.entries(a)
-      .filter(([k, l]) => l >= 0 && (inst || !/^aI/.test(k)))
-      .map(([, l]) => l);
-    Object.assign(prog, { u, a, locs, plain: locs.filter((l) => l !== a.aUV), ok: true }); // plain: a batch without texture coordinates
+    Object.assign(prog, { u, a, ok: true });
     return true;
   };
   const studioDefs = [
@@ -167,7 +177,7 @@ function glRenderer(gl, scene, opts = {}) {
   // particles along paths and solid balls: compiled only for a figure that has them
   const lazy = (name) =>
     P[name] ||
-    (P[name] =
+    (P[name] = Object.assign(
       name === 'pts'
         ? program(PVS, PFS)
         : name === 'flow'
@@ -178,7 +188,9 @@ function glRenderer(gl, scene, opts = {}) {
               ? program(S.STREAM_VS, S.STREAM_FS)
               : name === 'copy'
                 ? program(S.QUAD_VS, S.COPY_FS)
-                : program(DVS, DFS));
+                : program(DVS, DFS),
+      { optional: true },
+    ));
   // the pen look: compiled when first needed (no shadows: its light turns with the camera, and its ground is a halo)
   const penProg = () => P.pen || (P.pen = program(S.PART_VS, S.PART_FS, ['PEN']));
   // the studio look, its environment and the glow: compiled when first needed, or ahead of time in the background once
@@ -192,9 +204,9 @@ function glRenderer(gl, scene, opts = {}) {
   };
   const glowProgs = () => {
     if (!P.glow) {
-      P.glow = program(S.PART_VS, S.GLOW_FS);
-      P.blur = program(S.QUAD_VS, S.BLUR_FS);
-      P.add = program(S.QUAD_VS, S.ADD_FS);
+      P.glow = Object.assign(program(S.PART_VS, S.GLOW_FS), { optional: true });
+      P.blur = Object.assign(program(S.QUAD_VS, S.BLUR_FS), { optional: true });
+      P.add = Object.assign(program(S.QUAD_VS, S.ADD_FS), { optional: true });
     }
   };
 
@@ -214,6 +226,8 @@ function glRenderer(gl, scene, opts = {}) {
     if (base) {
       b.gl = {
         ...base,
+        vao: null, // (its own vertex arrays: they hold its own placements)
+        evao: null,
         inst: buf(im0, gl.ARRAY_BUFFER, b.dynamic ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW),
         count: b.mats.length,
       };
@@ -269,13 +283,19 @@ function glRenderer(gl, scene, opts = {}) {
     for (const k of ['base', 'normal', 'mr'])
       if (tex[k] && typeof createImageBitmap === 'function') {
         pending++;
-        createImageBitmap(new Blob([tex[k].bytes], { type: tex[k].mime }))
+        // (the file's own pixels: a normal or metal-roughness map must not be colour-managed, alpha not premultiplied)
+        createImageBitmap(new Blob([tex[k].bytes], { type: tex[k].mime }), {
+          premultiplyAlpha: 'none',
+          colorSpaceConversion: 'none',
+        })
           .then((bm) =>
             opts.small
               ? createImageBitmap(bm, {
                   resizeWidth: Math.max(1, bm.width >> 1),
                   resizeHeight: Math.max(1, bm.height >> 1),
                   resizeQuality: 'high',
+                  premultiplyAlpha: 'none',
+                  colorSpaceConversion: 'none',
                 })
               : bm,
           )
@@ -330,6 +350,7 @@ function glRenderer(gl, scene, opts = {}) {
     gl.bindBuffer(gl.ARRAY_BUFFER, b.gl.inst);
     gl.bufferData(gl.ARRAY_BUFFER, im, gl.DYNAMIC_DRAW);
     b.gl.count = b.mats.length;
+    b.ver = (b.ver || 0) + 1; // (what casts a shadow has moved)
   }
   const quad = buf(new Float32Array([-1, -1, 0, 1, 1, -1, 0, 1, 1, 1, 0, 1, -1, -1, 0, 1, 1, 1, 0, 1, -1, 1, 0, 1]));
   const pbuf = gl.createBuffer(),
@@ -369,56 +390,15 @@ function glRenderer(gl, scene, opts = {}) {
   }
   let bound = false; // (a vertex array is bound: the default one must be put back before anything else draws)
   function bindBatch(prog, b) {
-    const A = prog.a,
-      G = b.gl;
-    if (vx && inst) {
-      if (!G.vao) batchVAO(G);
-      else vx.bind(G.vao);
-      bound = true;
-      if (prog.u.uTex) {
-        const t = [G.tex.base, G.tex.normal, G.tex.mr];
-        gl.uniform3f(prog.u.uTex, t[0] ? 1 : 0, t[1] ? 1 : 0, t[2] ? 1 : 0);
-        t.forEach((x, i) => {
-          if (x) {
-            gl.activeTexture(gl.TEXTURE4 + i);
-            gl.bindTexture(gl.TEXTURE_2D, x);
-          }
-        });
-        gl.activeTexture(gl.TEXTURE0);
-      }
-      if (prog.u.uQs) {
-        gl.uniform3fv(prog.u.uQs, G.qs);
-        gl.uniform3fv(prog.u.uQo, G.qo);
-      }
-      return;
-    }
-    only(G.uv ? prog.locs : prog.plain);
-    const attr = (name, buffer, size, type, norm) => {
-      const l = A[name];
-      if (l == null || l < 0) return;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.vertexAttribPointer(l, size, type, norm, 0, 0);
-      if (inst) inst.div(l, 0);
-    };
-    attr('aPos', G.pos, 4, gl.SHORT, true);
-    attr('aNrm', G.nrm, 4, gl.BYTE, true);
-    attr('aOut', G.out, 4, gl.BYTE, true);
-    attr('aAO', G.ao, 1, gl.UNSIGNED_BYTE, true);
-    attr('aCol', G.col, 4, gl.UNSIGNED_BYTE, true);
-    if (inst) {
-      gl.bindBuffer(gl.ARRAY_BUFFER, G.inst);
-      for (let c = 0; c < 4; c++) {
-        const l = A['aI' + c];
-        if (l == null || l < 0) continue;
-        gl.vertexAttribPointer(l, 4, gl.FLOAT, false, 64, 16 * c);
-        inst.div(l, 1);
-      }
-    }
-    if (G.uv) attr('aUV', G.uv, 2, gl.FLOAT, false);
-    if (prog.u.uTex) {
+    const G = b.gl,
+      u = prog.u;
+    if (!G.vao) batchVAO(G);
+    else vx.bind(G.vao);
+    bound = true;
+    if (u.uTex) {
       // which maps this batch has, on units 4, 5, 6
       const t = [G.tex.base, G.tex.normal, G.tex.mr];
-      gl.uniform3f(prog.u.uTex, t[0] ? 1 : 0, t[1] ? 1 : 0, t[2] ? 1 : 0);
+      gl.uniform3f(u.uTex, t[0] ? 1 : 0, t[1] ? 1 : 0, t[2] ? 1 : 0);
       t.forEach((x, i) => {
         if (x) {
           gl.activeTexture(gl.TEXTURE4 + i);
@@ -427,37 +407,16 @@ function glRenderer(gl, scene, opts = {}) {
       });
       gl.activeTexture(gl.TEXTURE0);
     }
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.idx);
-    if (prog.u.uQs) {
-      gl.uniform3fv(prog.u.uQs, G.qs);
-      gl.uniform3fv(prog.u.uQo, G.qo);
+    if (u.uQs) {
+      // (batches of one shape share these: sent again only when the shape changes)
+      set3(u.uQs, G.qs);
+      set3(u.uQo, G.qo);
     }
   }
-  function drawBatch(prog, b) {
-    const G = b.gl;
-    if (inst) {
-      inst.draw(gl.TRIANGLES, G.n, G.type, 0, G.count);
-      return;
-    }
-    for (const m of b.mats) {
-      // no instancing at all (very old WebGL 1): the matrix as a constant attribute, one draw each
-      for (let c = 0; c < 4; c++) {
-        const l = prog.a['aI' + c];
-        if (l != null && l >= 0) gl.vertexAttrib4f(l, m[4 * c], m[4 * c + 1], m[4 * c + 2], m[4 * c + 3]);
-      }
-      gl.drawElements(gl.TRIANGLES, G.n, G.type, 0);
-    }
-  }
-  function unbindInstances(prog) {
-    if (bound) {
-      vx.bind(null);
-      bound = false;
-      return;
-    }
-    for (let c = 0; c < 4; c++) {
-      const l = prog.a['aI' + c];
-      if (l != null && l >= 0 && inst) inst.div(l, 0);
-    }
+  const drawBatch = (b) => inst.draw(gl.TRIANGLES, b.gl.n, b.gl.type, 0, b.gl.count);
+  function unbind() {
+    if (bound) vx.bind(null);
+    bound = false;
   }
 
   // ---- render targets
@@ -500,8 +459,7 @@ function glRenderer(gl, scene, opts = {}) {
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAX_LEVEL, ENV_LEVELS - 1);
     studioProgs();
-    ready(P.envGen, true);
-    ready(P.envPre, true);
+    if (!ready(P.envGen, true) || !ready(P.envPre, true)) return gl.deleteTexture(t); // (the context is gone)
     const gen = P.envGen,
       pre = P.envPre;
     const f = gl.createFramebuffer();
@@ -532,16 +490,29 @@ function glRenderer(gl, scene, opts = {}) {
   }
   let shadowKeep = null,
     back = null;
-  function shadowKey(parts, f, L) {
-    const k = new Float32Array(parts.length * 17 + 7); // each part: which one it is, and where
+  // what the shadow map depends on: each part (which one, where, whether cut, its placements' version), the section's
+  // plane, the bounds and the light. Written into the one of two arrays not holding the kept key (no garbage a frame)
+  // (slot 0: the shadow map's, kept in shadowKeep; slot 1: the streams' depth, kept in sT)
+  const keys = [
+    [new Float32Array(0), new Float32Array(0)],
+    [new Float32Array(0), new Float32Array(0)],
+  ];
+  function partsKey(slot, parts, f, extra) {
+    const n = parts.length * 19 + 8 + extra.length,
+      kept = slot ? sT?.key : shadowKeep?.key,
+      two = keys[slot],
+      i0 = two[0] === kept ? 1 : 0;
+    if (two[i0].length !== n) two[i0] = new Float32Array(n);
+    const k = two[i0];
     parts.forEach((p, i) => {
-      k[17 * i] = p.index ?? -1; // (which part: its index in the scene, not a search, so thousands of parts cost little)
-      k.set(p.m, 17 * i + 1);
+      k[19 * i] = p.index ?? -1; // (which part: its index in the scene, not a search, so thousands of parts cost little)
+      k.set(p.m, 19 * i + 1);
+      k[19 * i + 17] = f.cut && p.cut ? 1 : 0;
+      k[19 * i + 18] = p.batches.reduce((a, b) => a + (b.ver || 0), 0);
     });
-    k.set(
-      [f.bounds.center[0], f.bounds.center[1], f.bounds.center[2], f.bounds.radius, L[0], L[1], L[2]],
-      parts.length * 17,
-    );
+    k.set(f.plane || [0, 0, 0, 0], parts.length * 19);
+    k.set([f.bounds.radius, f.cut ? 1 : 0, 0, 0], parts.length * 19 + 4);
+    k.set(extra, parts.length * 19 + 8);
     return k;
   }
   const sameKey = (a, b) => {
@@ -584,7 +555,7 @@ function glRenderer(gl, scene, opts = {}) {
     only([0]);
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
-    if (inst) inst.div(0, 0);
+    inst.div(0, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
@@ -667,7 +638,8 @@ function glRenderer(gl, scene, opts = {}) {
       ];
       if (kind === 1 && hifi && !env) needs.push(P.envGen, P.envPre);
       let waiting = false;
-      for (const q of needs) if (!ready(q)) waiting = true;
+      for (const q of needs) if (!ready(q) && !q.failed) waiting = true;
+      const can = (name) => P[name] && P[name].ok; // (an optional effect that compiled)
       if (waiting) return false;
       const opaque = f.parts.filter((p) => p.drawAlpha >= 0.99),
         clear = f.parts.filter((p) => p.drawAlpha > 0.01 && p.drawAlpha < 0.99);
@@ -679,15 +651,15 @@ function glRenderer(gl, scene, opts = {}) {
           if (set) set(p);
           for (const b of p.batches) {
             bindBatch(prog, b);
-            drawBatch(prog, b);
+            drawBatch(b);
           }
         }
-        unbindInstances(prog);
+        unbind();
       };
       // the edges of these parts, over their faces (blended, not written to depth)
       const edgeLines = (list) => {
-        const Q = lazy('edge'),
-          A = Q.a;
+        if (!can('edge')) return;
+        const Q = lazy('edge');
         common(Q, f);
         gl.uniform2f(Q.u.uView, W / 2, H / 2);
         gl.uniform1f(Q.u.uWidth, 0.4 * f.dpr + 0.5);
@@ -699,7 +671,6 @@ function glRenderer(gl, scene, opts = {}) {
         blendOver();
         gl.depthMask(false);
         gl.disable(gl.CULL_FACE);
-        only(Q.locs);
         for (const p of list) {
           gl.uniformMatrix4fv(Q.u.uModel, false, p.m);
           gl.uniform1f(Q.u.uCut, f.cut && p.cut ? 1 : 0);
@@ -709,54 +680,30 @@ function glRenderer(gl, scene, opts = {}) {
           for (const b of p.batches) {
             const G = b.gl;
             if (!G || !G.edge) continue;
-            if (vx && inst) {
-              // (its vertex array: the edges' buffer and the batch's placements, described once)
-              if (!G.evao) {
-                G.evao = vx.make();
-                vx.bind(G.evao);
-                gl.bindBuffer(gl.ARRAY_BUFFER, G.edge);
-                for (const [l, n, o] of [
-                  [0, 4, 0],
-                  [10, 3, 16],
-                  [11, 3, 28],
-                ]) {
-                  gl.enableVertexAttribArray(l);
-                  gl.vertexAttribPointer(l, n, gl.FLOAT, false, 40, o);
-                }
-                gl.bindBuffer(gl.ARRAY_BUFFER, G.inst);
-                for (let c = 0; c < 4; c++) {
-                  gl.enableVertexAttribArray(5 + c);
-                  gl.vertexAttribPointer(5 + c, 4, gl.FLOAT, false, 64, 16 * c);
-                  inst.div(5 + c, 1);
-                }
-              } else vx.bind(G.evao);
-              inst.arrays(gl.TRIANGLES, G.en, G.count);
-              continue;
-            }
-            gl.bindBuffer(gl.ARRAY_BUFFER, G.edge);
-            gl.vertexAttribPointer(A.aPos, 4, gl.FLOAT, false, 40, 0);
-            gl.vertexAttribPointer(A.aDir, 3, gl.FLOAT, false, 40, 16);
-            gl.vertexAttribPointer(A.aFace, 3, gl.FLOAT, false, 40, 28);
-            if (inst) {
-              inst.div(A.aPos, 0);
-              inst.div(A.aDir, 0);
-              inst.div(A.aFace, 0);
+            // (its vertex array: the edges' buffer and the batch's placements, described once)
+            if (!G.evao) {
+              G.evao = vx.make();
+              vx.bind(G.evao);
+              gl.bindBuffer(gl.ARRAY_BUFFER, G.edge);
+              for (const [l, n, o] of [
+                [0, 4, 0],
+                [10, 3, 16],
+                [11, 3, 28],
+              ]) {
+                gl.enableVertexAttribArray(l);
+                gl.vertexAttribPointer(l, n, gl.FLOAT, false, 40, o);
+              }
               gl.bindBuffer(gl.ARRAY_BUFFER, G.inst);
               for (let c = 0; c < 4; c++) {
-                gl.vertexAttribPointer(A['aI' + c], 4, gl.FLOAT, false, 64, 16 * c);
-                inst.div(A['aI' + c], 1);
+                gl.enableVertexAttribArray(5 + c);
+                gl.vertexAttribPointer(5 + c, 4, gl.FLOAT, false, 64, 16 * c);
+                inst.div(5 + c, 1);
               }
-              inst.arrays(gl.TRIANGLES, G.en, G.count);
-            } else
-              for (const m of b.mats) {
-                for (let c = 0; c < 4; c++)
-                  gl.vertexAttrib4f(A['aI' + c], m[4 * c], m[4 * c + 1], m[4 * c + 2], m[4 * c + 3]);
-                gl.drawArrays(gl.TRIANGLES, 0, G.en);
-              }
+            } else vx.bind(G.evao);
+            inst.arrays(gl.TRIANGLES, G.en, G.count);
           }
         }
-        if (vx && inst) vx.bind(null);
-        unbindInstances(Q);
+        vx.bind(null);
         gl.depthMask(true);
         gl.disable(gl.BLEND);
       };
@@ -765,7 +712,7 @@ function glRenderer(gl, scene, opts = {}) {
       let lightVP = null;
       // (pen: the shadow of a light from above, falling only on the ground: a soft shadow shaped like the object)
       const sun = pen ? PEN_SUN : f.look.light,
-        key = shadowsOn && f.shadows ? shadowKey(opaque, f, sun) : null;
+        key = shadowsOn && f.shadows ? partsKey(0, opaque, f, [...f.bounds.center, ...sun]) : null;
       if (key && shadowKeep && sameKey(key, shadowKeep.key)) lightVP = shadowKeep.vp;
       else if (key) {
         const c = f.bounds.center,
@@ -805,6 +752,7 @@ function glRenderer(gl, scene, opts = {}) {
       if (hifi && kind === 1) {
         if (!env) {
           makeEnv();
+          if (!env) return false;
           gl.viewport(0, 0, W, H);
           gl.useProgram(prog.p);
         }
@@ -895,11 +843,9 @@ function glRenderer(gl, scene, opts = {}) {
         gl.disable(gl.BLEND);
       }
       // 4b. balls: solid, so they hide each other by depth (no sorting), and behind glass, which tints them
-      if (solid.length) {
+      if (solid.length && can('dots')) {
         const Q = lazy('dots');
-        gl.useProgram(Q.p);
-        gl.uniformMatrix4fv(Q.u.uVP, false, f.VP);
-        gl.uniform3fv(Q.u.uEye, f.eye);
+        common(Q, f);
         gl.uniform3fv(Q.u.uInk, f.look.ink);
         gl.uniform1f(Q.u.uStudio, kind);
         for (const h of solid) {
@@ -913,7 +859,7 @@ function glRenderer(gl, scene, opts = {}) {
             up.version = h.version;
           }
           gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
-          if (inst) inst.div(0, 0);
+          inst.div(0, 0);
           gl.uniform3fv(Q.u.uC0, h.ramp[0]);
           gl.uniform3fv(Q.u.uC1, h.ramp[1]);
           gl.uniform3fv(Q.u.uC2, h.ramp[2]);
@@ -922,9 +868,14 @@ function glRenderer(gl, scene, opts = {}) {
         }
       }
       // 5. see-through parts, far to near, without writing depth
+      const refracting = clear.length && u.uBack && clear.some((p) => p.refract > 0);
+      if (back && !refracting) {
+        gl.deleteTexture(back.t); // (no glass that bends light on screen: its copy of the picture goes)
+        back = null;
+      }
       if (clear.length) {
         // glass that bends the light (refract, WebGL 2): it samples a copy of the picture behind it, made once
-        if (u.uBack && clear.some((p) => p.refract > 0)) {
+        if (refracting) {
           gl.activeTexture(gl.TEXTURE3); // (made and bound on its own unit: the shadow map stays on unit 2)
           if (!back || back.w !== W || back.h !== H) {
             if (back) gl.deleteTexture(back.t);
@@ -935,9 +886,6 @@ function glRenderer(gl, scene, opts = {}) {
           gl.useProgram(prog.p);
           gl.uniform2f(u.uView, W, H);
           gl.activeTexture(gl.TEXTURE0);
-        } else if (back) {
-          gl.deleteTexture(back.t);
-          back = null;
         }
         gl.useProgram(prog.p);
         gl.enable(gl.BLEND);
@@ -954,11 +902,9 @@ function glRenderer(gl, scene, opts = {}) {
         if (f.edges) edgeLines(sorted);
       }
       // 6. particles
-      if (flow.length) {
+      if (flow.length && can('pts')) {
         const Q = lazy('pts');
-        gl.useProgram(Q.p);
-        gl.uniformMatrix4fv(Q.u.uVP, false, f.VP);
-        gl.uniform3fv(Q.u.uEye, f.eye);
+        common(Q, f);
         gl.enable(gl.BLEND);
         blendOver();
         gl.depthMask(false);
@@ -968,7 +914,7 @@ function glRenderer(gl, scene, opts = {}) {
           gl.bindBuffer(gl.ARRAY_BUFFER, pbuf);
           gl.bufferData(gl.ARRAY_BUFFER, h.pos4, gl.DYNAMIC_DRAW);
           gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
-          if (inst) inst.div(0, 0);
+          inst.div(0, 0);
           gl.uniform3fv(Q.u.uColor, h.color);
           gl.uniform1f(Q.u.uAlpha, 0.95);
           gl.uniform1f(Q.u.uSize, h.size * f.dpr * 4);
@@ -979,7 +925,7 @@ function glRenderer(gl, scene, opts = {}) {
       }
       // 6b. flow streaks: hidden by solid parts, not hiding anything themselves; ink over a light page (never added,
       // which would wash out into the paper), light added on a dark one
-      if (flows.length) {
+      if (flows.length && can('flow')) {
         const Q = lazy('flow'),
           A = Q.a;
         common(Q, f);
@@ -1000,7 +946,7 @@ function glRenderer(gl, scene, opts = {}) {
           gl.vertexAttribPointer(A.aPos, 4, gl.FLOAT, false, STRIDE * 4, 0);
           gl.vertexAttribPointer(A.aDir, 4, gl.FLOAT, false, STRIDE * 4, 16);
           gl.vertexAttribPointer(A.aA, 1, gl.FLOAT, false, STRIDE * 4, 32);
-          if (inst) for (const l of [A.aPos, A.aDir, A.aA]) inst.div(l, 0);
+          for (const l of [A.aPos, A.aDir, A.aA]) inst.div(l, 0);
           F.colors.forEach((c, i) => gl.uniform3fv(Q.u['uC' + i], c));
           gl.uniform1f(Q.u.uAlpha, F.opacity);
           gl.uniform1f(Q.u.uWidth, (Math.max(1.25, F.width) / 2 + 0.5) * f.dpr);
@@ -1012,13 +958,14 @@ function glRenderer(gl, scene, opts = {}) {
       // 6c. streams: the solid parts' depth (WebGL 2: the march stops behind them), the streams marched into a picture of
       // half the size, then that picture put over this one (ink over a light page, light added on a dark one)
       const streams = (f.streams || []).filter((T) => T.visible && T.density > 0);
-      if (streams.length) {
+      if (streams.length && can('stream') && can('copy')) {
         const hw = Math.max(1, W >> 1),
           hh = Math.max(1, H >> 1);
         if (!sT || sT.w !== W || sT.h !== H) {
           if (sT) {
             gl.deleteTexture(sT.c);
             gl.deleteFramebuffer(sT.fc);
+            gl.deleteRenderbuffer(sT.z);
             if (sT.d) {
               gl.deleteTexture(sT.d);
               gl.deleteFramebuffer(sT.fd);
@@ -1029,19 +976,33 @@ function glRenderer(gl, scene, opts = {}) {
             tex2d(hw, hh, gl2 ? gl.RGBA8 : gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE),
             gl.COLOR_ATTACHMENT0,
           );
+          // (its own depth: each hull's farthest face, so a pixel is marched once however the hull folds)
+          sT.z = gl.createRenderbuffer();
+          gl.bindRenderbuffer(gl.RENDERBUFFER, sT.z);
+          gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, hw, hh);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, sT.fc);
+          gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, sT.z);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
           if (P.depth)
             [sT.d, sT.fd] = target(
               tex2d(W, H, gl.DEPTH_COMPONENT24, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, gl.NEAREST),
               gl.DEPTH_ATTACHMENT,
             );
         }
-        if (sT.d) {
+        // the solid parts' depth, drawn again only when they or the camera moved (a stream alone moving keeps it)
+        const dk = sT.d && partsKey(1, opaque, f, f.VP);
+        if (dk && !sameKey(dk, sT.key || [])) {
+          sT.key = dk;
           gl.bindFramebuffer(gl.FRAMEBUFFER, sT.fd);
           gl.viewport(0, 0, W, H);
           gl.clear(gl.DEPTH_BUFFER_BIT);
           gl.colorMask(false, false, false, false);
-          gl.enable(gl.CULL_FACE);
-          gl.cullFace(gl.BACK);
+          if (f.cut)
+            gl.disable(gl.CULL_FACE); // (a cut part's inside shows: it hides what is behind it)
+          else {
+            gl.enable(gl.CULL_FACE);
+            gl.cullFace(gl.BACK);
+          }
           common(P.depth, f);
           each(P.depth, opaque);
           gl.colorMask(true, true, true, true);
@@ -1052,7 +1013,6 @@ function glRenderer(gl, scene, opts = {}) {
         gl.viewport(0, 0, hw, hh);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.disable(gl.DEPTH_TEST);
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.FRONT); // (the far side of each hull: the march goes from there towards the eye)
         gl.enable(gl.BLEND);
@@ -1067,8 +1027,12 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniform1f(u.uOrtho, f.viewD ? 1 : 0);
         gl.uniform3fv(u.uFwd, f.fwd);
         only([Q.a.aPos]);
-        if (inst) inst.div(Q.a.aPos, 0);
-        for (const T of streams) {
+        inst.div(Q.a.aPos, 0);
+        // far to near, each over the ones behind it; each hull's farthest face first (depth only), then marched from there
+        const far = (T) => dot(sub(T.center, f.eye), f.fwd);
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearDepth(0);
+        for (const T of streams.sort((a, b) => far(b) - far(a))) {
           let b = sbufs.get(T);
           if (!b) sbufs.set(T, (b = { p: buf(T.hull.p), i: buf(T.hull.i, gl.ELEMENT_ARRAY_BUFFER) }));
           gl.bindBuffer(gl.ARRAY_BUFFER, b.p);
@@ -1081,8 +1045,19 @@ function glRenderer(gl, scene, opts = {}) {
           gl.uniform4f(u.uF, T.phase, T.scale, T.reach, T.turbulence);
           gl.uniform3f(u.uG, T.swirl, T.total, T.fade ?? 0.7);
           gl.uniform1f(u.uDen, T.density);
+          gl.clear(gl.DEPTH_BUFFER_BIT);
+          gl.depthFunc(gl.GREATER);
+          gl.depthMask(true);
+          gl.colorMask(false, false, false, false);
+          gl.drawElements(gl.TRIANGLES, T.hull.i.length, gl.UNSIGNED_SHORT, 0);
+          gl.depthFunc(gl.EQUAL);
+          gl.depthMask(false);
+          gl.colorMask(true, true, true, true);
           gl.drawElements(gl.TRIANGLES, T.hull.i.length, gl.UNSIGNED_SHORT, 0);
         }
+        gl.clearDepth(1);
+        gl.depthFunc(gl.LESS);
+        gl.depthMask(true);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, W, H);
         const C = lazy('copy');
@@ -1093,15 +1068,14 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniform1i(C.u.uTex, 3);
         if (f.look.dark) gl.blendFunc(gl.ONE, gl.ONE);
         gl.disable(gl.CULL_FACE);
+        gl.disable(gl.DEPTH_TEST);
         fullscreen(C);
         gl.disable(gl.BLEND);
         gl.enable(gl.DEPTH_TEST);
       }
       // 7. glow around glowing parts (WebGL 2)
       const glowing = hifi && f.parts.some((p) => p.drawAlpha > 0.01 && p.emit[0] + p.emit[1] + p.emit[2] > 0.01);
-      if (glowing) {
-        glowProgs();
-        for (const q of [P.glow, P.blur, P.add]) ready(q, true);
+      if (glowing && (glowProgs(), [P.glow, P.blur, P.add].every((q) => ready(q, true)))) {
         const T = glowTargets(W, H),
           Gp = P.glow;
         gl.bindFramebuffer(gl.FRAMEBUFFER, T.fa);
@@ -1157,6 +1131,23 @@ function glRenderer(gl, scene, opts = {}) {
         gl.enable(gl.DEPTH_TEST);
       }
       return true;
+    },
+    // what a removed thing held on the GPU: a ball set's buffer, a stream's hull, a flow's streaks, or a batch of its
+    // own (lines: never shared with another)
+    release(x) {
+      for (const m of [uploads, sbufs, fbufs]) {
+        const b = m.get(x);
+        if (b) for (const v of b.buf ? [b.buf] : b.p ? [b.p, b.i] : [b]) gl.deleteBuffer(v);
+        m.delete(x);
+      }
+      const G = x.gl;
+      if (G && x.dynamic) {
+        for (const k of ['pos', 'nrm', 'out', 'col', 'ao', 'idx', 'inst', 'uv', 'edge'])
+          if (G[k]) gl.deleteBuffer(G[k]);
+        if (G.vao) vx.del(G.vao);
+        if (G.evao) vx.del(G.evao);
+        x.gl = null;
+      }
     },
     dispose() {
       const e = gl.getExtension('WEBGL_lose_context');

@@ -104,7 +104,7 @@ function names(b64) {
 
 // The geometry of a model, or of one of its nodes (with everything under it), as a Geo in the model's units
 function load(Geo, b64, only) {
-  const { json, bin } = parseGLB(bytes(b64)),
+  const { json, bin } = typeof b64 === 'string' ? parseGLB(bytes(b64)) : b64, // (or a file already read: parseGLB's)
     g = new Geo();
   const scene = (json.scenes || [])[json.scene || 0] || { nodes: (json.nodes || []).map((_, i) => i) };
   let found = !only;

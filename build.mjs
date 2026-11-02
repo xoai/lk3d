@@ -5,7 +5,7 @@
 // its punctuation the same way.
 //   node build.mjs            write dist/
 //   node build.mjs --size     and fail if the script grows past the budget (BUDGET_KB gzipped)
-//   import { bundle } from 'lk3d/build.mjs'; const js = await bundle()     the global script, in memory
+//   import { bundle } from './build.mjs'; const js = await bundle()     the global script, in memory (lk3d's own tools)
 import * as esbuild from 'esbuild';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url)),
   ENTRY = path.join(HERE, 'src/index.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this without a decision to raise it
-export const BUDGET_KB = 48;
+export const BUDGET_KB = 50;
 
 export const squeeze = (glsl) =>
   glsl

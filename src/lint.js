@@ -8,7 +8,7 @@
 // may run into each other or hide each other's label (two pictures of one molecule, shown in turn), check: { float:
 // [ids or groups] } for parts that hang in the air (planets, a cell's own nucleus drawn beside it), or float: true for a
 // scene whose parts all float.
-import { buildScene, flatten, edgesOf } from './geometry.js';
+import { buildScene, flatten, isClosed } from './geometry.js';
 import { buildBVH, intersect } from './bvh.js';
 import { add, mulv, sub, cross, dot, len, norm } from './math.js';
 
@@ -20,7 +20,7 @@ const closedOf = new WeakMap(); // (per geometry: parts alike share theirs)
 function solid(p) {
   const g = flatten(p),
     closed = p.batches.every((b) => {
-      if (!closedOf.has(b.geo)) closedOf.set(b.geo, b.geo.count > 0 && edgesOf(b.geo, 180).length === 0);
+      if (!closedOf.has(b.geo)) closedOf.set(b.geo, isClosed(b.geo));
       return closedOf.get(b.geo);
     });
   return { p, g, bvh: buildBVH(g), closed };
@@ -88,6 +88,42 @@ function near(a, b, apart, eps) {
   return true;
 }
 
+// the stretch of the way apart (from 0 to 1) in which a's and b's boxes overlap, give or take eps; null if never. Each
+// box moves along its own explode, so on each axis the overlap holds between two amounts
+function when(a, b, eps) {
+  let t0 = 0,
+    t1 = 1;
+  for (let k = 0; k < 3; k++) {
+    // a.lo + t·ea ≤ b.hi + t·eb + eps and b.lo + t·eb ≤ a.hi + t·ea + eps, as d·t ≤ c twice
+    const d = a.p.explode[k] - b.p.explode[k];
+    for (const [c, s] of [
+      [b.p.hi[k] + eps - a.p.lo[k], d],
+      [a.p.hi[k] + eps - b.p.lo[k], -d],
+    ]) {
+      if (Math.abs(s) < 1e-12) {
+        if (c < 0) return null;
+      } else if (s > 0) t1 = Math.min(t1, c / s);
+      else t0 = Math.max(t0, c / s);
+    }
+  }
+  return t0 <= t1 ? [t0, t1] : null;
+}
+// the amounts apart at which to test a pair: within the stretch they overlap, in steps that move one part against the
+// other by less than half the thinner one (a pin sent through a thin plate is caught), at most 32
+function amounts(a, b, eps) {
+  const w = when(a, b, -eps);
+  if (!w) return [];
+  const rel = len(sub(a.p.explode, b.p.explode)),
+    thin = Math.max(
+      eps,
+      Math.min(...[0, 1, 2].map((k) => a.p.hi[k] - a.p.lo[k]), ...[0, 1, 2].map((k) => b.p.hi[k] - b.p.lo[k])),
+    ),
+    n = Math.min(32, Math.max(4, Math.ceil(((w[1] - w[0]) * rel) / (thin / 2)))),
+    out = [];
+  for (let k = 0; k <= n; k++) if (w[0] + ((w[1] - w[0]) * k) / n > 0) out.push(w[0] + ((w[1] - w[0]) * k) / n);
+  return out;
+}
+
 // the pairs of parts worth testing: those whose boxes, swept along their way apart and grown by eps, share a cell of
 // a grid (a part that spans a great many cells, a casing, is paired with every part): a model of thousands of parts
 // is not tested pair by pair
@@ -135,8 +171,17 @@ export function lint(scene, o = {}) {
     path = (p) => `parts[${index.get(p.id) ?? p.index}]`,
     problems = [],
     parts = S.parts.filter((p) => p.tris > 0).map(solid);
-  // parts that run into each other on the way apart (a quarter, half, three quarters or all the way): more of one
-  // inside the other than at rest
+  // parts that make nothing to draw, or a shape whose numbers are not numbers (NaN): the rest of the check is blind there
+  for (const p of S.parts)
+    if (!p.tris || p.batches.some((b) => !b.geo.p.every(Number.isFinite)))
+      problems.push({
+        path: path(p),
+        message: p.tris
+          ? `${p.id} has a shape whose size or place is not a number: check its fields`
+          : `${p.id} makes no triangles: check its shapes (an empty outline, a radius of 0, a node the model lacks)`,
+      });
+  // parts that run into each other on the way apart (wherever their boxes meet on it): more of one inside the other
+  // than at rest
   const near0 = parts.map(() => false), // (whether each part touches another at rest: for the check below)
     pairs = candidates(parts, eps);
   for (const [i, j] of pairs) {
@@ -150,7 +195,7 @@ export function lint(scene, o = {}) {
           ? Math.max(b.closed ? through(a, b, apart, eps) : 0, a.closed ? through(b, a, apart, eps) : 0)
           : 0;
       const rest = share(0),
-        worst = Math.max(share(0.25), share(0.5), share(0.75), share(1));
+        worst = Math.max(0, ...amounts(a, b, eps).map(share));
       if (worst > rest + 0.03)
         problems.push({
           path: path(a.p),
@@ -198,13 +243,19 @@ export function lint(scene, o = {}) {
       triangles: Math.round(S.parts.reduce((n, p) => n + p.tris, 0)),
       accents: S.parts.filter((p) => p.accent).length,
       named: S.parts.filter((p) => p.name).length,
-      size: S.radius * 2,
+      size: parts.length ? S.radius * 2 : 0,
     },
   };
 }
 
 // from the command line: a scene (JSON) on stdin; its summary, then one problem per line
-if (typeof process !== 'undefined' && /lint\.js$/.test(process.argv[1] || '') && import.meta.url.endsWith('/lint.js')) {
+// (run as `node src/lint.js`, not merely imported by a script of the same name)
+const direct =
+  typeof process !== 'undefined' &&
+  !!process.argv?.[1] &&
+  import.meta.url ===
+    new URL('file://' + (/^\//.test(process.argv[1]) ? '' : '/') + process.argv[1].replace(/\\/g, '/')).href;
+if (direct) {
   let text = '';
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', (d) => (text += d));

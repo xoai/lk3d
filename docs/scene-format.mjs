@@ -38,7 +38,7 @@ const out = `# Scene format
 A scene is plain data (JSON, or anything that becomes it). This page is generated from
 [\`schema/scene.schema.json\`](../schema/scene.schema.json) by \`npm run docs\`; the validator (\`lk3d/validate\`) checks
 exactly these rules, plus unique part ids, handles that move parts that exist, and shapes that name a listed model.
-Fields not listed here are allowed and ignored: a page may keep its own data in a scene.
+A shape takes only the fields listed for it (a misspelt one is an error). A scene and a part may carry fields not listed here, which lk3d ignores: a page may keep its own data in a scene.
 
 ## Scene
 

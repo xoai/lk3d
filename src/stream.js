@@ -10,7 +10,7 @@
 // slows where it widens (by continuity, speed times area stays the same, unless `speeds` says otherwise), stretching
 // as it speeds up, and it never runs backwards. The turbulence changes as the air travels, not as the clock runs: a
 // stream that stops, stops changing.
-import { sub, len, norm, cross, add, mulv } from './math.js';
+import { sub, len, norm, cross, add, mulv, dot, carry } from './math.js';
 
 export const MAXP = 16, // points of a path (uniforms)
   NT = 24; // samples of the table along the path: inner radius, outer radius, travel time (uniforms)
@@ -32,8 +32,9 @@ const profile = (radius) =>
 export const radiusAt = at;
 
 export function makeStream(o = {}) {
-  const P = (o.path || []).slice(0, MAXP);
+  const P = (o.path || []).filter((p, k, a) => k === 0 || len(sub(p, a[k - 1])) > 1e-9); // (repeats left out)
   if (P.length < 2) throw new Error('lk3d: a stream needs a path of two points or more');
+  if (P.length > MAXP) throw new Error(`lk3d: a stream's path has at most ${MAXP} points (this one has ${P.length})`);
   const cum = [0];
   for (let k = 1; k < P.length; k++) cum.push(cum[k - 1] + len(sub(P[k], P[k - 1])));
   const total = cum[cum.length - 1] || 1,
@@ -56,30 +57,27 @@ export function makeStream(o = {}) {
     I = [],
     SEG = 14,
     rings = [];
-  let N = null;
+  let N = null,
+    T0 = null;
   for (let k = 0; k + 1 < P.length; k++) {
     // the frame round the path, carried from one segment to the next (so the rings do not twist at a bend)
     const T = norm(sub(P[k + 1], P[k]));
-    N = N
-      ? norm(sub(N, mulv(T, N[0] * T[0] + N[1] * T[1] + N[2] * T[2])))
-      : norm(Math.abs(T[1]) < 0.9 ? cross(T, [0, 1, 0]) : cross(T, [1, 0, 0]));
+    const C = N && carry(N, T0, T);
+    N = C ? norm(sub(C, mulv(T, dot(C, T)))) : norm(Math.abs(T[1]) < 0.9 ? cross(T, [0, 1, 0]) : cross(T, [1, 0, 0]));
+    T0 = T;
     const B = cross(T, N),
       n = Math.max(1, Math.min(24, Math.ceil((cum[k + 1] - cum[k]) / (radiusAt(rad, cum[k] / total)[1] * 0.6 || 1))));
     for (let j = k ? 1 : 0; j <= n; j++) {
       const c = add(P[k], mulv(sub(P[k + 1], P[k]), j / n)),
         r = radiusAt(rad, (cum[k] + ((cum[k + 1] - cum[k]) * j) / n) / total)[1] * 1.25 + 1e-3;
       // at a bend, the ring lies in the plane halving it (a mitre), so the two segments' tubes meet without overlap
-      const M = j === n && k + 2 < P.length ? norm(add(T, norm(sub(P[k + 2], P[k + 1])))) : T;
+      let M = j === n && k + 2 < P.length ? norm(add(T, norm(sub(P[k + 2], P[k + 1])))) : T;
+      if (dot(T, M) < 0.1) M = T; // (a path doubling back has no plane halving its turn)
       rings.push(V.length / 3);
       for (let a = 0; a < SEG; a++) {
         const t = (a / SEG) * 2 * Math.PI,
           d = add(mulv(N, r * Math.cos(t)), mulv(B, r * Math.sin(t)));
-        V.push(
-          ...add(
-            add(c, d),
-            mulv(T, -(d[0] * M[0] + d[1] * M[1] + d[2] * M[2]) / (T[0] * M[0] + T[1] * M[1] + T[2] * M[2])),
-          ),
-        );
+        V.push(...add(add(c, d), mulv(T, -dot(d, M) / dot(T, M))));
       }
     }
   }
@@ -107,6 +105,7 @@ export function makeStream(o = {}) {
     tab,
     scale: 11 / Math.max(...rad.map((r) => r[2])), // the field's size along the path
     hull: { p: new Float32Array(V), i: new Uint16Array(I) },
+    center: mulv(P.reduce(add, [0, 0, 0]), 1 / P.length), // (streams are drawn far to near by it)
     reach: Math.max(...rad.map((r) => r[2])) * 2.6, // how far a ray may cross it
     speed: o.speed ?? 0,
     density: o.density ?? 1,

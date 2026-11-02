@@ -129,7 +129,7 @@ throttle.oninput = () => core.set({ density: 0.3 + 0.7 * t, speed: 1 + 4 * t });
 
 | Option                | Default  | Meaning                                                                                           |
 | --------------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `path`                |          | the polyline along its middle, 2 to 16 points                                                     |
+| `path`                |          | the polyline along its middle, 2 to 16 points (more is an error)                                  |
 | `radius`              | 0.1      | one number, or stops `[f, rOut]` or `[f, rIn, rOut]` (f from 0 at the start to 1 at the end)      |
 | `speed`, `density`    | 0, 1     | scene units a second where its relative speed is 1 (by continuity: at the start); how thick it is |
 | `speeds`              |          | its speed along the path, stops `[f, fraction of speed]`; without them, from continuity           |

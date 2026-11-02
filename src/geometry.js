@@ -1,8 +1,8 @@
 // Shapes: every part of a scene is built from simple shapes generated here (no model files). A shape repeated around an
 // axis stays one shape drawn many times (instancing), so a ring of 28 fins costs the memory of one fin.
-import { D2R, M, sub, add, mulv, dot, cross, len, norm, rgb } from './math.js';
+import { D2R, M, sub, add, mulv, dot, cross, len, norm, carry, rgb } from './math.js';
 import science, { rng, earcut, signedArea } from './science.js';
-import { load as loadModel } from './gltf.js';
+import { load as loadModel, parseGLB, bytes } from './gltf.js';
 
 // A mesh is positions, normals and triangles; every triangle is turned to face the way its normals point, so shapes
 // can be written without minding winding order. Vertices may also carry a colour (c: r, g, b, a per vertex, 0-255):
@@ -125,10 +125,14 @@ class Geo {
 // between segments stay crisp (machined parts); smooth: true blends them (spheres, tori). from/to (degrees) make a
 // sector, closed with flat sides (the profile must then be a closed outline; it may be concave, a cowl's thin wall).
 function lathe(profile, o = {}) {
+  // (a sector given backwards, from 90 to -90, is the same sector: from the smaller angle round to the larger)
+  let from = o.from ?? 0,
+    to = o.to ?? 360;
+  if (to < from) [from, to] = [to, from];
   const g = new Geo(),
-    seg = Math.max(6, Math.round(((o.seg || 48) * (o.q || 1) * ((o.to ?? 360) - (o.from ?? 0))) / 360));
-  const a0 = (o.from ?? 0) * D2R,
-    a1 = (o.to ?? 360) * D2R,
+    seg = Math.max(6, Math.round(((o.seg || 48) * (o.q || 1) * (to - from)) / 360));
+  const a0 = from * D2R,
+    a1 = to * D2R,
     full = Math.abs(a1 - a0 - 2 * Math.PI) < 1e-6;
   const raw = o.mirror ? profile.map(([x, r]) => [-x, r]).reverse() : profile;
   const closed = o.closed ?? (!full && raw.length > 2);
@@ -317,28 +321,33 @@ function torus([R, r], o) {
 function tube(path, r, o = {}) {
   const g = new Geo(),
     rs = Math.max(5, Math.round(8 * (o.q || 1))),
-    closed = !!o.closed,
-    P = path,
+    closed = !!o.closed;
+  // (a point repeated adds nothing and has no direction: left out, with its radius)
+  const keep = path.map((p, k) => k === 0 || len(sub(p, path[k - 1])) > 1e-9);
+  const P = path.filter((_, k) => keep[k]),
+    R = Array.isArray(r) ? r.filter((_, k) => keep[k]) : null,
     n = P.length;
   if (n < 2) return g;
-  const T = P.map((_, k) =>
-    norm(sub(P[closed ? (k + 1) % n : Math.min(k + 1, n - 1)], P[closed ? (k - 1 + n) % n : Math.max(k - 1, 0)])),
-  );
+  // the direction at each point: across its two neighbours, or along its one segment where those cancel (a hairpin)
+  const T = P.map((_, k) => {
+    const a = P[closed ? (k - 1 + n) % n : Math.max(k - 1, 0)],
+      b = P[closed ? (k + 1) % n : Math.min(k + 1, n - 1)],
+      d = sub(b, a);
+    return norm(len(d) > 1e-9 ? d : sub(b, P[k]));
+  });
   let u = Math.abs(T[0][0]) < 0.9 ? norm(cross(T[0], [1, 0, 0])) : norm(cross(T[0], [0, 1, 0]));
   const rings = [];
   for (let k = 0; k < n; k++) {
     if (k > 0) {
-      const ax = cross(T[k - 1], T[k]);
-      if (len(ax) > 1e-9) {
-        u = norm(sub(u, mulv(T[k], dot(u, T[k]))));
-      }
+      const c = carry(u, T[k - 1], T[k]);
+      u = norm(sub(c, mulv(T[k], dot(c, T[k]))));
     }
     const w = cross(T[k], u),
       ring = [];
     for (let j = 0; j <= rs; j++) {
       const a = (2 * Math.PI * j) / rs,
         d = add(mulv(u, Math.cos(a)), mulv(w, Math.sin(a)));
-      ring.push(g.v(add(P[k], mulv(d, Array.isArray(r) ? r[k] : r)), d));
+      ring.push(g.v(add(P[k], mulv(d, R ? R[k] : r)), d));
     }
     rings.push(ring);
   }
@@ -448,8 +457,17 @@ function modelShape(s, ctx) {
   const m = (ctx.models || {})[s.model];
   if (!m || !m.data)
     throw new Error(`lk3d: no model "${s.model}" in the scene's models (each needs its .glb as base64 in data)`);
-  const geo = loadModel(Geo, m.data, s.node);
-  if (s.color) geo.paint(s.color);
+  // (a model is read once a scene, and each node of it, in each colour, made once: a model split into many parts, or
+  // used many times, costs one decode)
+  const files = (ctx.files ??= new Map()),
+    key = 'model\u0000' + JSON.stringify([s.model, s.node, s.color]);
+  let geo = ctx.cache && ctx.cache.get(key);
+  if (!geo) {
+    if (!files.has(s.model)) files.set(s.model, parseGLB(bytes(m.data)));
+    geo = loadModel(Geo, files.get(s.model), s.node);
+    if (s.color) geo.paint(s.color);
+    if (ctx.cache) ctx.cache.set(key, geo);
+  }
   return { geo, mats: [M.trs(s.at, s.rot, s.scale)] };
 }
 function scatterShape(s, q, ctx) {
@@ -481,16 +499,16 @@ function scatterShape(s, q, ctx) {
 
 // Positions welded: rep[k] is the first vertex at k's place (rounded coordinates, hashed, the match checked exactly),
 // so a shape's own seams (a crease's two normals, a colour's two sides) are one place.
-function weld(g) {
+function weld(g, k = 1e4) {
   const n = g.count,
     P = g.p,
     q = new Int32Array(n * 3),
     rep = new Int32Array(n),
     buckets = new Map();
-  for (let k = 0; k < n; k++) {
-    const x = (q[3 * k] = Math.round(P[3 * k] * 1e4)),
-      y = (q[3 * k + 1] = Math.round(P[3 * k + 1] * 1e4)),
-      z = (q[3 * k + 2] = Math.round(P[3 * k + 2] * 1e4));
+  for (let i = 0; i < n; i++) {
+    const x = (q[3 * i] = Math.round(P[3 * i] * k)),
+      y = (q[3 * i + 1] = Math.round(P[3 * i + 1] * k)),
+      z = (q[3 * i + 2] = Math.round(P[3 * i + 2] * k));
     const h = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) | 0;
     let list = buckets.get(h),
       r = -1;
@@ -501,13 +519,41 @@ function weld(g) {
           break;
         }
     if (r < 0) {
-      r = k;
-      if (list) list.push(k);
-      else buckets.set(h, [k]);
+      r = i;
+      if (list) list.push(i);
+      else buckets.set(h, [i]);
     }
-    rep[k] = r;
+    rep[i] = r;
   }
   return rep;
+}
+
+// Whether a shape is closed, a solid with an inside: every edge of its surface (welded finely, for its size, so a thin
+// blade's two sides stay apart) used as often in one direction as in the other. Two solids meeting along an edge, a
+// molecule's two half-rods at their middle, are closed; a surface that ends anywhere, or faces turned the wrong way, is
+// not.
+function isClosed(g) {
+  if (!g.count) return false;
+  const { lo, hi } = bounds(g),
+    size = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], 1e-9),
+    far = Math.max(...lo.map(Math.abs), ...hi.map(Math.abs), 1e-9),
+    rep = weld(g, Math.min(1e6 / size, 2e9 / far)),
+    I = g.i,
+    n = g.count,
+    use = new Map();
+  for (let t = 0; t < I.length; t += 3) {
+    const v = [rep[I[t]], rep[I[t + 1]], rep[I[t + 2]]];
+    if (v[0] === v[1] || v[1] === v[2] || v[0] === v[2]) continue; // (a sliver: no face)
+    for (let e = 0; e < 3; e++) {
+      const a = v[e],
+        b = v[(e + 1) % 3],
+        key = a < b ? a * n + b : b * n + a;
+      use.set(key, (use.get(key) || 0) + (a < b ? 1 : -1));
+    }
+  }
+  if (!use.size) return false;
+  for (const c of use.values()) if (c !== 0) return false;
+  return true;
 }
 
 // Normals for the outline: the average at each position, so the inked silhouette has no gaps at sharp edges.
@@ -755,6 +801,7 @@ function buildScene(spec, q = 1) {
       tris,
       anchor: Array.isArray(p.label) ? p.label : anchor || mid,
       hidden: !!p.hidden,
+      hidden0: !!p.hidden, // (what the scene itself hides: set({hide}) adds to it)
       emit: [0, 0, 0],
       glowColor: rgb(p.glow || '#ffcf6a'),
       index: k,
@@ -777,4 +824,4 @@ function flatten(part) {
   return g;
 }
 
-export { Geo, SHAPES, buildShape, buildScene, flatten, outlineNormals, edgesOf, bounds, MATERIALS, SURFACES };
+export { Geo, SHAPES, buildShape, buildScene, flatten, outlineNormals, edgesOf, isClosed, bounds, MATERIALS, SURFACES };

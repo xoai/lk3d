@@ -170,14 +170,20 @@ const safeHTML = (s) =>
     .replace(/>/g, '&gt;')
     .replace(/&lt;(\/?)(b|i|em|strong|sub|sup|br) ?\/?&gt;/gi, '<$1$2>');
 
+// the same as plain text (what a label is measured by and a screen reader names)
+const plainText = (s) => {
+  const d = document.createElement('div');
+  d.innerHTML = safeHTML(s);
+  return d.textContent;
+};
+
 const FORMAT = 1; // the version of the scene format this engine reads (a scene's "lk3d" field)
 let warned = false;
 
 function context(cv, opts) {
   const attrs = {
     antialias: true,
-    alpha: true,
-    premultipliedAlpha: false,
+    alpha: true, // (every pass blends premultiplied colour: the page shows through as it should)
     preserveDrawingBuffer: false,
     powerPreference: 'default', // these scenes do not need to wake a laptop's second GPU
   };
@@ -199,8 +205,12 @@ function context(cv, opts) {
 //   against bounding-volume trees, bvh.js) · ambient occlusion (in idle slices) · pointer and handles (handles.js) ·
 //   particles · lines · views and taking apart · the page's handle (the API) · the built-in controls (controls.js) ·
 //   handles as range inputs (keyboard, screen readers) · watching size, visibility and the screen's density.
+// the named views: [yaw, pitch] in degrees (83°: the most a drag reaches)
+const VIEWS = { front: [0, 0], side: [-90, 0], top: [0, 83], iso: [-35, 25] };
+
 function mount(el, spec, opts = {}) {
   css();
+  if (el.lk3d) el.lk3d.destroy(); // (mounting again on the same element replaces the figure there)
   if (spec.lk3d > FORMAT && !warned && typeof console !== 'undefined') {
     warned = true;
     console.warn(`lk3d: this scene is written for format ${spec.lk3d}; this engine reads ${FORMAT}`);
@@ -363,7 +373,13 @@ function mount(el, spec, opts = {}) {
   });
   cv.addEventListener('webglcontextrestored', () => {
     lost = false;
-    R = glRenderer(gl, S, rOpts);
+    if (R && R.kind === '2d') return; // (already drawing on the 2D canvas)
+    try {
+      R = glRenderer(gl, S, rOpts);
+    } catch {
+      fallback2d();
+      return;
+    }
     for (const p of S.parts)
       for (const b of p.batches) {
         if (b.ao) R.setAO(b);
@@ -579,14 +595,14 @@ function mount(el, spec, opts = {}) {
     // particles along paths run at the speed the page gave them
     const pdt = pNow ? Math.min(0.05, (t - pNow) / 1000) * st.timeScale : 0;
     let flowing = false;
+    // (all of it stands still for a reader who asked for less motion; a flow with nothing to show does not move)
     for (const h of particles)
-      if (h.step && h.speed && h.visible) {
+      if (h.step && h.speed && h.visible && !LK3D.reduce) {
         h.step(pdt);
         flowing = true;
       }
-    // (streaks and streams stand still for a reader who asked for less motion)
     for (const F of flows.concat(streams))
-      if (F.speed && F.visible && !LK3D.reduce) {
+      if (F.speed && F.visible && (F.amount ?? F.density) > 0 && !LK3D.reduce) {
         F.step(pdt);
         flowing = true;
       }
@@ -723,7 +739,7 @@ function mount(el, spec, opts = {}) {
     if (!i.t) {
       const t = (i.t = document.createElement('div'));
       t.className = 'lk3d-tag';
-      t.textContent = i.p.name;
+      t.innerHTML = safeHTML(i.p.name); // (H<sub>2</sub>O, as in the info box)
       t.dataset.id = i.p.id;
       t.style.display = 'none';
       tags.append(t);
@@ -753,7 +769,8 @@ function mount(el, spec, opts = {}) {
         widths.__box = true;
       }
       const t = tagBox[lookKey];
-      widths[k] = textWidth(i.p.name, t.font) + t.ls * i.p.name.length + t.pad;
+      const text = (i.plain ??= plainText(i.p.name));
+      widths[k] = textWidth(text, t.font) + t.ls * text.length + t.pad;
     }
     return widths[k];
   }
@@ -856,8 +873,13 @@ function mount(el, spec, opts = {}) {
 
   // ---- picking: a ray from the eye through the pointer, against each part's shapes (bounding-volume trees, built
   // lazily); the nearest hit on a part that is drawn and not cut away
+  const trees = new WeakMap(); // (per geometry: parts alike share one tree)
   function bvhOf(b) {
-    return b.bvh || (b.bvh = buildBVH(b.geo));
+    if (!b.bvh) {
+      if (!trees.has(b.geo)) trees.set(b.geo, buildBVH(b.geo));
+      b.bvh = trees.get(b.geo);
+    }
+    return b.bvh;
   }
   function rayAt(px, py) {
     // the ray from the eye through a point of the stage
@@ -875,6 +897,31 @@ function mount(el, spec, opts = {}) {
     return { A, D: mulv(dir, 1 / len(dir)) };
   }
   const pickAt = (px, py, see) => pickHit(px, py, see).id;
+  // where the ray A + D t enters a part's box as it is now (its box at rest, moved by its matrix), or Infinity
+  function rayBox(A, D, p) {
+    const lo = [Infinity, Infinity, Infinity],
+      hi = [-Infinity, -Infinity, -Infinity];
+    for (let c = 0; c < 8; c++) {
+      const w = M.pt(p.m, [c & 1 ? p.hi[0] : p.lo[0], c & 2 ? p.hi[1] : p.lo[1], c & 4 ? p.hi[2] : p.lo[2]]);
+      for (let a = 0; a < 3; a++) {
+        lo[a] = Math.min(lo[a], w[a]);
+        hi[a] = Math.max(hi[a], w[a]);
+      }
+    }
+    let t0 = 0,
+      t1 = Infinity;
+    for (let a = 0; a < 3; a++) {
+      if (!D[a]) {
+        if (A[a] < lo[a] || A[a] > hi[a]) return Infinity; // (parallel to this side, and outside it)
+        continue;
+      }
+      const u = (lo[a] - A[a]) / D[a],
+        v = (hi[a] - A[a]) / D[a];
+      t0 = Math.max(t0, Math.min(u, v));
+      t1 = Math.min(t1, Math.max(u, v));
+    }
+    return t0 <= t1 ? t0 : Infinity;
+  }
   function pickHit(px, py, see = 0.3) {
     // parts fainter than `see` let the ray through; the part hit, and where along the ray (A + D t)
     const { A, D } = rayAt(px, py),
@@ -882,7 +929,7 @@ function mount(el, spec, opts = {}) {
     let best = Infinity,
       id = null;
     for (const p of S.parts) {
-      if (p.drawAlpha < see) continue;
+      if (p.drawAlpha < see || rayBox(A, D, p) >= best) continue; // (missed by the ray, or behind a nearer hit)
       for (const b of p.batches)
         for (const im of b.mats) {
           const Wm = M.mul(p.m, im),
@@ -910,6 +957,7 @@ function mount(el, spec, opts = {}) {
   // pointer stays under it (the part hit there, else the point on the plane through the target facing the camera)
   const minZoom = spec.view?.minZoom ?? 0.02;
   function zoom(k, x, y) {
+    cancelView();
     const to = Math.max(baseDist * minZoom, Math.min(baseDist * 3, st.dist / k)),
       f = to / st.dist;
     if (x != null && f !== 1) {
@@ -1036,8 +1084,9 @@ function mount(el, spec, opts = {}) {
     let best = null,
       bd = 1e9;
     for (const hd of handles) {
-      const p = hd.p,
-        c = M.pt(p.m, p.center),
+      const p = hd.p;
+      if (p.hidden || p.drawAlpha < 0.05) continue;
+      const c = M.pt(p.m, p.center),
         s = M.project(VP, c, W, H),
         e = M.project(VP, add(c, [len(sub(p.hi, p.lo)) / 2, 0, 0]), W, H);
       if (!s) continue;
@@ -1089,7 +1138,15 @@ function mount(el, spec, opts = {}) {
   const valueText = (hd) =>
     (opts.handleText && opts.handleText(hd.p.id, hd.v)) ||
     `${+(hd.round ? mod360(hd.v) : hd.v).toFixed(hd.dp)}${hd.h.unit || (hd.h.turn ? '°' : '')}`.replace('.', T.decimal);
+  const capture = (id) => {
+    try {
+      cv.setPointerCapture(id);
+    } catch {
+      // (not a pointer the browser tracks: nothing to capture)
+    }
+  };
   cv.addEventListener('pointerdown', (e) => {
+    cancelView(); // the reader takes over from a gliding view
     if (glideFn) {
       anim.delete(glideFn);
       glideFn = null;
@@ -1100,7 +1157,7 @@ function mount(el, spec, opts = {}) {
       if (hd) {
         // the reader takes hold of a handle: it moves, the view does not
         grab = { hd, id: e.pointerId, start: hd.v, acc: 0, last: null, s0: null, moved: 0 };
-        cv.setPointerCapture?.(e.pointerId);
+        capture(e.pointerId);
         cv.style.cursor = 'grabbing';
         hint.classList.add('gone');
         active = true;
@@ -1109,7 +1166,7 @@ function mount(el, spec, opts = {}) {
         return;
       }
     }
-    cv.setPointerCapture?.(e.pointerId);
+    capture(e.pointerId);
     pts.set(e.pointerId, [e.clientX, e.clientY]);
     moved = 0;
     active = true;
@@ -1159,7 +1216,7 @@ function mount(el, spec, opts = {}) {
         st.hover = id;
         cv._onHandle = onHandle;
         cv.style.cursor = onHandle ? 'grab' : id ? 'pointer' : 'grab';
-        info();
+        info('hover');
         kick();
       }
     }
@@ -1169,7 +1226,7 @@ function mount(el, spec, opts = {}) {
       // let go of a handle; a tap without moving selects the part, as elsewhere
       if (grab.moved < 4 && e.type === 'pointerup') {
         st.selected = grab.hd.p.id === st.selected ? null : grab.hd.p.id;
-        info();
+        info('pick');
       }
       grab = null;
       cv.style.cursor = 'grab';
@@ -1183,7 +1240,7 @@ function mount(el, spec, opts = {}) {
       const [x, y] = local(e),
         id = pickAt(x, y);
       st.selected = id && id !== st.selected ? id : null;
-      info();
+      info('pick');
       kick();
     } else if (!pts.size && Math.hypot(vel[0], vel[1]) > 2 && performance.now() - vel[2] < 80 && !LK3D.reduce) {
       // only if still moving when let go
@@ -1216,7 +1273,7 @@ function mount(el, spec, opts = {}) {
   cv.addEventListener('pointerleave', () => {
     if (!pts.size && st.hover) {
       st.hover = null;
-      info();
+      info('hover');
       kick();
     }
   });
@@ -1238,6 +1295,7 @@ function mount(el, spec, opts = {}) {
   cv.addEventListener('keydown', (e) => {
     const k = { ArrowLeft: [0.12, 0], ArrowRight: [-0.12, 0], ArrowUp: [0, 0.1], ArrowDown: [0, -0.1] }[e.key];
     if (k) {
+      cancelView();
       st.yaw += k[0];
       st.pitch = Math.max(-1.45, Math.min(1.45, st.pitch + k[1]));
       kick();
@@ -1246,15 +1304,34 @@ function mount(el, spec, opts = {}) {
     const z = { '+': 1.15, '=': 1.15, '-': 1 / 1.15 }[e.key];
     if (z) zoom(z);
   });
-  function info(byReader = true) {
-    // (a page's own select() does not call its onPick back)
+  // the info box: the part chosen, else the one under the pointer. why: 'pick' (the reader chose a part: onPick),
+  // 'hover' (the pointer moved onto or off a part: onHover), or nothing (a page's own select(), the first picture)
+  function info(why) {
     const id = st.selected || st.hover,
       p = S.parts.find((x) => x.id === id);
     if (opts.info)
       opts.info.innerHTML = p
         ? `<b>${safeHTML(p.name)}</b>${p.note ? ' ' + safeHTML(p.note) : ''}`
         : safeHTML(opts.infoIdle);
-    if (byReader && opts.onPick) opts.onPick(p || null);
+    const cb = why === 'pick' ? opts.onPick : why === 'hover' ? opts.onHover : null;
+    if (cb) cb(why === 'hover' ? S.parts.find((x) => x.id === st.hover) || null : p || null);
+  }
+
+  // properties a page sets by assignment (fig.particles(…).speed = 2): setting one draws again, and runs `then`
+  function live(h, keys, then) {
+    for (const k of keys) {
+      let v = h[k];
+      Object.defineProperty(h, k, {
+        enumerable: true,
+        get: () => v,
+        set(x) {
+          v = x;
+          if (then) then(k);
+          kick();
+        },
+      });
+    }
+    return h;
   }
 
   // ---- particles: points moving along paths (air, current, blood), whose speed the page sets; or, without a path,
@@ -1279,6 +1356,7 @@ function mount(el, spec, opts = {}) {
         count,
         pos4: new Float32Array(count * 4),
         visible: true,
+        version: 0, // (the page adds one after moving the points: they are sent to the GPU again)
         update() {},
         resize(n) {
           if (n * 4 > h.pos4.length) h.pos4 = new Float32Array(n * 4);
@@ -1287,9 +1365,11 @@ function mount(el, spec, opts = {}) {
         remove() {
           const k = particles.indexOf(h);
           if (k >= 0) particles.splice(k, 1);
+          if (R.release) R.release(h);
           kick();
         },
       };
+      live(h, ['visible', 'radius', 'version', 'count']);
       particles.push(h);
       kick();
       return h;
@@ -1326,6 +1406,7 @@ function mount(el, spec, opts = {}) {
     h.step = (dt) => {
       if (total) h.offset += (h.speed * dt) / total;
     };
+    live(h, ['speed', 'visible', 'offset']);
     particles.push(h);
     kick();
     return h;
@@ -1346,6 +1427,7 @@ function mount(el, spec, opts = {}) {
       remove() {
         const k = flows.indexOf(F);
         if (k >= 0) flows.splice(k, 1);
+        if (R.release) R.release(F);
         kick();
       },
     };
@@ -1366,8 +1448,20 @@ function mount(el, spec, opts = {}) {
   // streaks along the same path stand in for it
   const streams = [];
   function addStream(o) {
-    if (R.kind === '2d')
-      return addFlow({ ...o, paths: [o.path], count: 120, spread: typeof o.radius === 'number' ? o.radius : 0.1 });
+    if (R.kind === '2d') {
+      // (without WebGL: streaks along the same path, as many as the stream is dense)
+      const f = addFlow({ ...o, paths: [o.path], count: 120, spread: typeof o.radius === 'number' ? o.radius : 0.1 });
+      const set = f.set;
+      f.set = (q) => set('density' in q ? { ...q, amount: Math.min(1, q.density) } : q);
+      Object.defineProperty(f, 'density', {
+        get: () => f.amount,
+        set(v) {
+          f.set({ density: v });
+        },
+      });
+      if (o.density != null) f.set({ density: o.density });
+      return f;
+    }
     const T = makeStream(o);
     const h = {
       set(o) {
@@ -1378,6 +1472,7 @@ function mount(el, spec, opts = {}) {
       remove() {
         const k = streams.indexOf(T);
         if (k >= 0) streams.splice(k, 1);
+        if (R.release) R.release(T);
         kick();
       },
     };
@@ -1424,6 +1519,7 @@ function mount(el, spec, opts = {}) {
       hidden: false,
       cut: true,
       tris: 0,
+      tint: 1, // (rays and forces keep all their colour in the pen look)
     };
     const segs = new Array(count).fill(null);
     const L = {
@@ -1450,6 +1546,7 @@ function mount(el, spec, opts = {}) {
       remove() {
         const k = lines.indexOf(L);
         if (k >= 0) lines.splice(k, 1);
+        if (R.release) R.release(b);
         kick();
       },
       place() {
@@ -1488,6 +1585,9 @@ function mount(el, spec, opts = {}) {
       },
     };
     if (R.upload) R.upload(b);
+    live(L, ['radius', 'visible'], (k) => {
+      if (k === 'radius') L.dirty = true;
+    });
     lines.push(L);
     kick();
     return L;
@@ -1496,12 +1596,13 @@ function mount(el, spec, opts = {}) {
   // ---- tweening the camera to a view, and taking apart
   // a named view, [yaw, pitch] (degrees), or {yaw, pitch, dist, target}: any of them, the rest kept
   function view(name) {
+    if (typeof name === 'string' && !VIEWS[name] && name !== 'home') return; // (a view this engine does not know)
     const obj = name && typeof name === 'object' && !Array.isArray(name);
     const V = obj
       ? [name.yaw ?? st.yaw / D2R, name.pitch ?? st.pitch / D2R]
-      : { front: [0, 0], side: [-90, 0], top: [0, 83], iso: [-35, 25], home: [home.yaw / D2R, home.pitch / D2R] }[
-          name
-        ] || name; // 83°: the most a drag reaches
+      : name === 'home'
+        ? [home.yaw / D2R, home.pitch / D2R]
+        : VIEWS[name] || name;
     const from = { yaw: st.yaw, pitch: st.pitch, dist: st.dist, target: st.target.slice() };
     const to = {
       yaw: V[0] * D2R,
@@ -1534,6 +1635,14 @@ function mount(el, spec, opts = {}) {
   }
   let viewTw = null,
     explodeTw = null;
+  const cancelView = () => {
+    if (viewTw) anim.delete(viewTw);
+    viewTw = null;
+  };
+  function setExplode(v) {
+    st.explode = Math.max(0, Math.min(1, v));
+    if (hooks.explode) hooks.explode(st.explode);
+  }
   function tweenExplode(to) {
     const from = st.explode,
       t0 = clock.now(),
@@ -1541,9 +1650,11 @@ function mount(el, spec, opts = {}) {
     const tw = (now) => {
       const u = Math.min(1, (now - t0) / T),
         e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
-      api.set({ explode: from + (to - from) * e });
+      setExplode(from + (to - from) * e);
+      dirty = true;
       if (u >= 1) {
         anim.delete(tw);
+        explodeTw = null;
         return false;
       }
       return true;
@@ -1583,7 +1694,7 @@ function mount(el, spec, opts = {}) {
     },
     select(id) {
       st.selected = id ?? null;
-      info(false);
+      info();
       kick();
     },
     get labels() {
@@ -1601,8 +1712,9 @@ function mount(el, spec, opts = {}) {
     _state: st, // the engine's own state: not an API, it may change
     set(o) {
       if ('explode' in o) {
-        st.explode = Math.max(0, Math.min(1, o.explode));
-        hooks.explode && hooks.explode(st.explode);
+        if (explodeTw) anim.delete(explodeTw); // (the page's own value wins over a running tween)
+        explodeTw = null;
+        setExplode(o.explode);
       }
       for (const k of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection']) if (k in o) st[k] = o[k];
       if ('timeScale' in o) st.timeScale = Math.max(0, +o.timeScale || 0);
@@ -1617,7 +1729,13 @@ function mount(el, spec, opts = {}) {
           const p = S.parts.find((x) => x.id === id);
           if (p) p.emit = mulv(p.glowColor, v);
         }
-      if (o.hide) for (const p of S.parts) p.hidden = o.hide.includes(p.id) || o.hide.includes(p.group);
+      if (o.hide) {
+        for (const p of S.parts) p.hidden = p.hidden0 || o.hide.includes(p.id) || o.hide.includes(p.group);
+        if (S.parts.find((p) => p.id === st.selected)?.hidden) {
+          st.selected = null; // (a part out of sight is not the one chosen)
+          info();
+        }
+      }
       kick();
     },
     particles: addParticles,
@@ -1701,8 +1819,15 @@ function mount(el, spec, opts = {}) {
       if (darkQuery) darkQuery.removeEventListener('change', onScheme);
       if (R) R.dispose();
       el.innerHTML = '';
+      el.classList.remove('lk3d');
+      delete el.dataset.renderer;
+      if (el.lk3d === api) delete el.lk3d;
+      if (opts.info) opts.info.innerHTML = '';
+      if (done) done(); // (a page awaiting `ready` goes on)
+      done = null;
     },
   };
+  el.lk3d = api;
   // ---- the built-in controls (controls.js), unless the page makes its own
   if (opts.controls !== false) {
     Object.assign(
@@ -1732,15 +1857,23 @@ function mount(el, spec, opts = {}) {
     r.step = String(step);
     hd.dp = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9)); // the value read out to the step's last digit
     r.value = String(hd.v);
-    r.setAttribute('aria-label', h.label || hd.p.name || hd.p.id);
+    r.setAttribute('aria-label', h.label || plainText(hd.p.name) || hd.p.id);
     r.setAttribute('aria-valuetext', valueText(hd));
     r.addEventListener('input', () =>
       setHandle(hd, HD.hold(h, hd.round ? hd.v + HD.unwrap(+r.value - mod360(hd.v)) : +r.value), true),
     );
+    // (a range input stops at its ends: a handle that goes round and round is turned by its own keys instead)
+    if (hd.round)
+      r.addEventListener('keydown', (e) => {
+        const d = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -10, PageUp: 10 }[e.key];
+        if (!d) return;
+        e.preventDefault();
+        setHandle(hd, HD.hold(h, hd.v + d * step), true);
+      });
     r.addEventListener('focus', () => {
       st.selected = hd.p.id;
       stage.classList.add('lk3d-kbd');
-      info();
+      info('pick');
       kick();
     }); // the part lights up
     r.addEventListener('blur', () => {
@@ -1800,11 +1933,13 @@ const LK3D = {
       });
     return S;
   },
+  safeHTML,
+  version: 2, // (the page API's version: it goes up when a page's own code must change)
+  // (for lk3d's own tests and tools; not part of the API)
   M,
-  version: 2,
   refreshFrom,
 };
 if (typeof window !== 'undefined') window.LK3D = LK3D;
 export default LK3D;
-export const { build, reduce, version, locales, defaults, themes } = LK3D; // (the same objects: setting defaults here sets them for LK3D)
+export const { build, reduce, version, locales, defaults, themes, format } = LK3D; // (the same objects: setting defaults here sets them for LK3D; reduce is read once, at load)
 export { mount, M, refreshFrom, clock, safeHTML };

@@ -3,7 +3,7 @@
 A scene is plain data (JSON, or anything that becomes it). This page is generated from
 [`schema/scene.schema.json`](../schema/scene.schema.json) by `npm run docs`; the validator (`lk3d/validate`) checks
 exactly these rules, plus unique part ids, handles that move parts that exist, and shapes that name a listed model.
-Fields not listed here are allowed and ignored: a page may keep its own data in a scene.
+A shape takes only the fields listed for it (a misspelt one is an error). A scene and a part may carry fields not listed here, which lk3d ignores: a page may keep its own data in a scene.
 
 ## Scene
 
@@ -17,7 +17,7 @@ A 3D figure as data: parts made of shapes, each with a name and a note, that the
 | `narrow`           | string                                                          | The stage's proportions on a narrow screen, e.g. "1 / 0.9".                                                                                |
 | `title`            | string                                                          | What the figure shows; also the canvas's label when alt is not given.                                                                      |
 | `alt`              | string                                                          | A description of the model for screen readers.                                                                                             |
-| `style`            | `"ink"` \| `"studio"` \| `"pen"`                                | The first look: ink (drawn, the default), studio (realistic) or pen (near-white, thin lines).                                              |
+| `style`            | `"ink"` \| `"studio"` \| `"pen"`                                | The first look: pen (near-white, thin lines; the default), studio (realistic) or ink (drawn).                                              |
 | `theme`            | `"light"` \| `"dark"` \| `"blueprint"` \| `"sepia"` \| `"auto"` | The colours of the page behind the model, its lines and words (auto: light or dark, as the reader's system is set). None: each look's own. |
 | `env`              | `"studio"` \| `"warm"` \| `"night"`                             | The studio look's environment.                                                                                                             |
 | `view`             | object                                                          | The first camera.                                                                                                                          |
@@ -71,12 +71,15 @@ Exactly one kind per shape (see [shapes](shapes.md) for each kind's parameters a
 | `scale`  | [number, number, number] or number | Stretched: [x, y, z], or one number for all three.                                                           |
 | `color`  | colour "#rrggbb"                   | Its own colour (vertex colours), over the part's.                                                            |
 | `detail` | number > 0                         | More or less detail than the figure's quality: 0.5 for a shape repeated hundreds of times, 2 for a close-up. |
-| `repeat` | integer ≥ 1 or object              | Copies around an axis: n of them, step degrees apart from start.                                             |
+| `repeat` | integer ≥ 1 or object              | Copies around an axis (x unless axis says): n of them, step degrees apart (360 / n) from start (0).          |
 | `node`   | string                             | With model: one node of the model (and what is under it).                                                    |
-| `closed` | boolean                            | lathe: a closed outline (a ring); tube: a loop.                                                              |
+| `closed` | boolean                            | lathe: a closed outline (a ring; a sector's is closed unless false); tube: a loop.                           |
 | `mirror` | boolean                            | lathe: flipped along x.                                                                                      |
-| `seg`    | integer ≥ 3                        | Segments around (sphere 32; 8 for a tiny bead).                                                              |
-| `r`      | number > 0                         | tube: its radius.                                                                                            |
+| `smooth` | boolean                            | lathe: normals blended across the profile's corners, for a curved surface (by default its edges stay crisp). |
+| `from`   | number                             | lathe: the angle about x where a sector starts, degrees (0).                                                 |
+| `to`     | number                             | lathe: the angle about x where a sector ends, degrees (360); its two sides are closed flat.                  |
+| `seg`    | integer ≥ 3                        | lathe, cylinder, sphere: segments around (lathe and cylinder 48, sphere 32; 8 for a tiny bead).              |
+| `r`      | number > 0                         | tube: its radius (0.02).                                                                                     |
 
 Kinds: `lathe`, `cylinder`, `box`, `sphere`, `torus`, `tube`, `helix`, `loop`, `ellipsoid`, `capsule`, `blob`, `shell`, `tree`, `molecule`, `dna`, `extrude`, `terrain`, `ring`, `orbit`, `blade`, `scatter`, `model`.
 
@@ -102,6 +105,7 @@ The reader moves the part with the pointer or the keys, held to one rule. a hand
 | Field     | Type                                            | Meaning                                                                                                                                                |
 | --------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `data`    | string                                          | The .glb as base64 (a build tool may fill it in from a file).                                                                                          |
+| `file`    | string                                          | The path to the .glb, read into data before the scene is drawn (lk3d check and render, a build tool); the engine itself reads only data.               |
 | `title`   | string                                          | Its name in the credit line.                                                                                                                           |
 | `author`  | string                                          | Who made it (credited under the figure).                                                                                                               |
 | `license` | string                                          | Its licence (credited under the figure).                                                                                                               |

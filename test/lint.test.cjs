@@ -67,3 +67,71 @@ test('a label pointing inside another part is caught; see-through parts do not h
   assert.deepEqual(lint({ parts: [{ ...base, opacity: 0.4 }, hidden] }).problems, []);
   assert.deepEqual(lint({ parts: [base, hidden], check: { allow: [['post', 'base']] } }).problems, []);
 });
+
+test('a part made of solids meeting edge to edge is still solid to the check (two shafts, a molecule)', () => {
+  // a block sent sideways through a shaft of two cylinders end to end: each edge where they meet has four faces
+  const shaft = {
+      id: 'shaft',
+      shapes: [{ cylinder: { r: 0.3, x0: -1, x1: 0 } }, { cylinder: { r: 0.3, x0: 0, x1: 1 } }],
+    },
+    block = { id: 'block', shapes: [{ box: [0.2, 0.2, 0.2], at: [0, 0, 1] }], explode: [0, 0, -2] };
+  assert.ok(says(lint({ parts: [shaft, block], check: { float: true } }), 'run into each other'));
+  const { isClosed } = require('../src/geometry.js');
+  const { buildShape } = require('../src/geometry.js');
+  const co2 = buildShape(
+    {
+      molecule: {
+        atoms: [
+          { el: 'O', at: [-1.2, 0, 0] },
+          { el: 'C', at: [0, 0, 0] },
+          { el: 'O', at: [1.2, 0, 0] },
+        ],
+        bonds: [
+          [0, 1, 2],
+          [1, 2, 2],
+        ],
+      },
+    },
+    1,
+  ).geo;
+  assert.ok(isClosed(co2), 'ball-and-stick: closed');
+  const open = buildShape(
+    {
+      lathe: [
+        [0, 0.5],
+        [1, 0.5],
+      ],
+    },
+    1,
+  ).geo; // (a tube with no ends)
+  assert.ok(!isClosed(open), 'an open surface is not');
+});
+
+test('a pin sent through a thin plate is caught, wherever on its way it passes', () => {
+  // the plate is 0.05 thick; the pin goes 4 units, so a check at a quarter, a half, … of the way would miss it
+  const plate = { id: 'plate', shapes: [{ box: [2, 0.05, 2], at: [0, 1, 0] }] },
+    pin = { id: 'pin', shapes: [{ box: [0.1, 0.4, 0.1], at: [0, 0.4, 0] }], explode: [0, 4, 0] };
+  assert.ok(says(lint({ parts: [plate, pin], check: { float: true } }), 'run into each other'));
+});
+
+test('a part that makes nothing, or makes NaN, is reported', () => {
+  const r = lint({
+    parts: [
+      { id: 'a', shapes: [{ box: [1, 1, 1] }] },
+      {
+        id: 'flat',
+        shapes: [
+          {
+            lathe: [
+              [0, 0],
+              [0, 0],
+            ],
+          },
+        ],
+        at: [0, 1, 0],
+      },
+    ],
+    check: { float: true },
+  });
+  assert.ok(says(r, 'flat makes no triangles'), JSON.stringify(r.problems));
+});

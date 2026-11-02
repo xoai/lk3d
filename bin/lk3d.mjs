@@ -17,16 +17,31 @@ import { validate } from '../src/validate.js';
 import { lint } from '../src/lint.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const [cmd, file, ...rest] = process.argv.slice(2);
-const flag = (name, dflt) => {
-  const k = rest.indexOf('--' + name);
-  return k < 0 ? dflt : rest[k + 1] && !rest[k + 1].startsWith('--') ? rest[k + 1] : true;
+// the words on the command line: flags (--name, or --name value) anywhere, the rest in order (the command, the file)
+const VALUED = new Set(['looks', 'poses', 'theme', 'width', 'out']),
+  flags = {},
+  words = [];
+for (const args = process.argv.slice(2); args.length;) {
+  const a = args.shift();
+  if (a.startsWith('--')) flags[a.slice(2)] = VALUED.has(a.slice(2)) && args.length ? args.shift() : true;
+  else words.push(a);
+}
+const [cmd, file] = words,
+  flag = (name, dflt) => flags[name] ?? dflt;
+// a failure said where it belongs: on stderr, or as JSON when JSON was asked for
+const fail = (message, code = 2) => {
+  if (flags.json) console.log(JSON.stringify({ summary: null, problems: [{ path: '(scene)', message }] }, null, 2));
+  else console.error(`lk3d ${cmd}: ${message}`);
+  process.exitCode = code;
 };
+const LOOKS = ['pen', 'studio', 'ink'],
+  POSES = ['rest', 'apart', 'cut'];
 const USAGE = `usage: lk3d check scene.json [--json]
        lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut] [--theme NAME] [--ortho] [--width 640] [--out DIR]`;
 
 function load(f) {
   const scene = JSON.parse(fs.readFileSync(f, 'utf8'));
+  if (!scene || typeof scene !== 'object' || Array.isArray(scene)) throw new Error('a scene is a JSON object');
   for (const [name, m] of Object.entries(scene.models || {}))
     if (m.file && !m.data) {
       const at = [path.dirname(f), path.dirname(path.dirname(f)), '.']
@@ -41,8 +56,15 @@ function load(f) {
 function check(f) {
   const scene = load(f),
     problems = validate(scene);
-  // the geometry is checked only on a scene in the right form (a wrong one may not build)
-  const r = problems.length ? { problems: [], summary: null } : lint(scene);
+  // the geometry is checked only on a scene in the right form (a wrong one may not build); a scene that still does not
+  // build is one problem, said as the others are
+  let r = { problems: [], summary: null };
+  if (!problems.length)
+    try {
+      r = lint(scene);
+    } catch (e) {
+      r.problems.push({ path: '(scene)', message: e.message.replace(/^lk3d: /, '') });
+    }
   const all = [...problems, ...r.problems];
   if (flag('json')) console.log(JSON.stringify({ summary: r.summary, problems: all }, null, 2));
   else {
@@ -84,16 +106,33 @@ async function render(f) {
       // (try the next)
     }
   if (!pw || !pw.chromium) {
-    console.log(
+    console.error(
       'lk3d render needs Playwright: npm i -D playwright && npx playwright install chromium\n' +
         'not checked visually: nothing was drawn',
     );
     process.exitCode = 2;
     return;
   }
-  const scene = JSON.stringify(load(f)),
+  const data = load(f),
+    wrong = validate(data);
+  if (wrong.length) {
+    for (const e of wrong) console.error(`  ${e.path || '(scene)'}: ${e.message}`);
+    return fail(
+      `the scene is not in the right form (${wrong.length} problem${wrong.length > 1 ? 's' : ''}): run lk3d check`,
+      1,
+    );
+  }
+  const width = Number(flag('width', 640)),
+    looks = String(flag('looks', 'pen,ink')).split(','),
+    poses = String(flag('poses', 'rest,apart,cut')).split(','),
+    odd = [...looks.filter((l) => !LOOKS.includes(l)), ...poses.filter((p) => !POSES.includes(p))];
+  if (!(width >= 64 && width <= 4096))
+    return fail(`--width is a number of pixels from 64 to 4096, not ${flag('width')}`);
+  if (odd.length)
+    return fail(`no look or pose ${odd.join(', ')} (looks: ${LOOKS.join(', ')}; poses: ${POSES.join(', ')})`);
+  const scene = JSON.stringify(data),
     engine = fs.readFileSync(path.join(ROOT, 'dist/lk3d.min.js')),
-    page = PAGE.replace('WIDTH', String(+flag('width', 640)));
+    page = PAGE.replace('WIDTH', String(width));
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x').pathname;
     const [type, body] =
@@ -109,8 +148,6 @@ async function render(f) {
   const base = `http://127.0.0.1:${server.address().port}/`,
     out = path.resolve(String(flag('out', '.'))),
     name = path.basename(f).replace(/\.json$/, ''),
-    looks = String(flag('looks', 'pen,ink')).split(','),
-    poses = String(flag('poses', 'rest,apart,cut')).split(','),
     theme = flag('theme', ''),
     ortho = flag('ortho', false);
   fs.mkdirSync(out, { recursive: true });
@@ -138,11 +175,11 @@ async function render(f) {
 try {
   if (cmd === 'check' && file) check(file);
   else if (cmd === 'render' && file) await render(file);
+  else if (!cmd || cmd === 'help' || flags.help) console.log(USAGE);
   else {
-    console.log(USAGE);
-    process.exitCode = cmd ? 2 : 0;
+    console.error(USAGE);
+    process.exitCode = 2;
   }
 } catch (e) {
-  console.log(`lk3d ${cmd}: ${e.message}`);
-  process.exitCode = 2;
+  fail(e.message);
 }

@@ -58,7 +58,8 @@ function check(s, v, path, out) {
           ap = s.additionalProperties;
         if (p) check(p, x, path ? `${path}.${k}` : k, errs);
         else if (ap && typeof ap === 'object') check(ap, x, path ? `${path}.${k}` : k, errs);
-        else if (ap === false) add(`has an unknown field ${k}`);
+        // (said at the field itself, so a one-sentence x-message about the object does not hide which field it is)
+        else if (ap === false) errs.push({ path: path ? `${path}.${k}` : k, message: 'is not a field here' });
       }
       for (const [k, d] of Object.entries(s.dependentSchemas || {})) if (k in v) check(d, v, path, errs);
     }
@@ -92,6 +93,16 @@ function links(scene, out) {
     }
     const walk = (s, path) => {
       if (!s || typeof s !== 'object') return;
+      // a bond between atoms that exist
+      const atoms = s.molecule && Array.isArray(s.molecule.atoms) ? s.molecule.atoms.length : 0;
+      if (s.molecule && Array.isArray(s.molecule.bonds))
+        s.molecule.bonds.forEach((b, i) => {
+          if (Array.isArray(b) && b.slice(0, 2).some((a) => Number.isInteger(a) && (a < 0 || a >= atoms)))
+            out.push({
+              path: `${path}.molecule.bonds[${i}]`,
+              message: `joins an atom the molecule does not have (it has ${atoms})`,
+            });
+        });
       if (typeof s.model === 'string' && !(s.model in models))
         out.push({ path, message: `model ${say(s.model)} is not under the scene's models` });
       if (s.scatter && s.scatter.shape) walk(s.scatter.shape, `${path}.scatter.shape`);
@@ -109,11 +120,13 @@ export function validate(scene) {
 export { schema };
 
 // from the command line: a scene (JSON) on stdin, its problems out, one JSON object per line
-if (
+// (run as `node src/validate.js`, not merely imported by a script of the same name)
+const direct =
   typeof process !== 'undefined' &&
-  /validate\.js$/.test(process.argv[1] || '') &&
-  import.meta.url.endsWith('/validate.js')
-) {
+  !!process.argv?.[1] &&
+  import.meta.url ===
+    new URL('file://' + (/^\//.test(process.argv[1]) ? '' : '/') + process.argv[1].replace(/\\/g, '/')).href;
+if (direct) {
   let text = '';
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', (d) => (text += d));

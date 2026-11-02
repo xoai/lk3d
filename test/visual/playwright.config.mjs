@@ -8,7 +8,7 @@ import os from 'node:os';
 const oldMac = process.platform === 'darwin' && +os.release().split('.')[0] < 24;
 export default defineConfig({
   testDir: '.',
-  testMatch: 'images.spec.mjs',
+  testMatch: ['images.spec.mjs', 'api.spec.mjs'],
   snapshotPathTemplate: '{testDir}/baselines/{projectName}-{platform}/{arg}{ext}',
   timeout: 60_000,
   workers: 4,

@@ -34,7 +34,7 @@
     },
     "style": {
       "enum": ["ink", "studio", "pen"],
-      "description": "The first look: ink (drawn, the default), studio (realistic) or pen (near-white, thin lines)."
+      "description": "The first look: pen (near-white, thin lines; the default), studio (realistic) or ink (drawn)."
     },
     "theme": {
       "enum": ["light", "dark", "blueprint", "sepia", "auto"],
@@ -218,6 +218,11 @@
           "type": "string",
           "description": "The .glb as base64 (a build tool may fill it in from a file)."
         },
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The path to the .glb, read into data before the scene is drawn (lk3d check and render, a build tool); the engine itself reads only data."
+        },
         "title": {
           "type": "string",
           "description": "Its name in the credit line."
@@ -238,7 +243,16 @@
           "enum": ["scan", "dataset", "artist", "ai"],
           "description": "Where it comes from: a scan of a real specimen, a scientific dataset, an artist's model, or made by AI (then called an illustration under the figure)."
         }
-      }
+      },
+      "anyOf": [
+        {
+          "required": ["data"]
+        },
+        {
+          "required": ["file"]
+        }
+      ],
+      "x-message": "a model needs its .glb: data (base64) or file (a path)"
     },
     "handle": {
       "type": "object",
@@ -522,7 +536,8 @@
                 "type": "number"
               },
               {
-                "type": "number"
+                "type": "number",
+                "minimum": 0
               }
             ],
             "minItems": 2,
@@ -533,24 +548,30 @@
           "description": "A cylinder along x from x0 to x1; ri makes it hollow, r1 a cone.",
           "type": "object",
           "required": ["r"],
+          "additionalProperties": false,
           "properties": {
             "r": {
               "type": "number",
-              "exclusiveMinimum": 0
+              "exclusiveMinimum": 0,
+              "description": "Its radius (at x0, for a cone)."
             },
             "ri": {
               "type": "number",
-              "minimum": 0
+              "minimum": 0,
+              "description": "The radius of the hole along its axis (0: solid)."
             },
             "r1": {
               "type": "number",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Its radius at x1 (default: r)."
             },
             "x0": {
-              "type": "number"
+              "type": "number",
+              "description": "Where it starts along x (-0.5)."
             },
             "x1": {
-              "type": "number"
+              "type": "number",
+              "description": "Where it ends along x (0.5)."
             }
           }
         },
@@ -589,11 +610,34 @@
         },
         "helix": {
           "description": "A coil along x: {r, x0, x1, turns, wire}.",
-          "type": "object"
+          "type": "object",
+          "required": ["r"],
+          "additionalProperties": false,
+          "properties": {
+            "r": { "type": "number", "exclusiveMinimum": 0, "description": "The coil's radius." },
+            "x0": { "type": "number", "description": "Where it starts along x (-0.5)." },
+            "x1": { "type": "number", "description": "Where it ends along x (0.5)." },
+            "turns": { "type": "number", "exclusiveMinimum": 0, "description": "How many times it winds round (8)." },
+            "wire": { "type": "number", "exclusiveMinimum": 0, "description": "The wire's radius (0.02)." }
+          }
         },
         "loop": {
           "description": "A rounded rectangular winding: {a, b, R, wire, corner, turns, gap}.",
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "a": { "type": "number", "exclusiveMinimum": 0, "description": "Its length along x (0.8)." },
+            "b": { "type": "number", "exclusiveMinimum": 0, "description": "Its width along z (0.12)." },
+            "R": { "type": "number", "description": "The height y it lies at, in the x-z plane (0.4)." },
+            "wire": { "type": "number", "exclusiveMinimum": 0, "description": "The wire's radius (0.02)." },
+            "corner": { "type": "number", "minimum": 0, "description": "The radius of its rounded corners (0.03)." },
+            "turns": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many turns, stacked one above the other (1)."
+            },
+            "gap": { "type": "number", "minimum": 0, "description": "The distance in y from one turn to the next (0)." }
+          }
         },
         "ellipsoid": {
           "description": "An egg shape with semi-axes [a, b, c].",
@@ -601,61 +645,390 @@
         },
         "capsule": {
           "description": "A rod with round ends along x: {r, x0, x1}.",
-          "type": "object"
+          "type": "object",
+          "required": ["r"],
+          "additionalProperties": false,
+          "properties": {
+            "r": { "type": "number", "exclusiveMinimum": 0, "description": "Its radius." },
+            "x0": {
+              "type": "number",
+              "description": "Where its straight part starts along x (-0.5); the round end reaches r beyond."
+            },
+            "x1": { "type": "number", "description": "Where its straight part ends along x (0.5)." }
+          }
         },
         "blob": {
           "description": "An irregular round body: {r, amp, freq, seed, stretch}.",
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "r": { "type": "number", "exclusiveMinimum": 0, "description": "Its mean radius (0.5)." },
+            "amp": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "How far the radius varies, as a share of r (0.15)."
+            },
+            "freq": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "How close together the bumps are (1.6)."
+            },
+            "seed": { "type": "integer", "description": "Picks the bumps (1)." },
+            "stretch": { "$ref": "#/$defs/vec3", "description": "Stretched along x, y and z ([1, 1, 1])." }
+          }
         },
         "shell": {
           "description": "A sphere, hollow inside ri, with the wedge outside from..to (degrees) cut away: {r, ri, from, to}.",
-          "type": "object"
+          "type": "object",
+          "required": ["r"],
+          "additionalProperties": false,
+          "properties": {
+            "r": { "type": "number", "exclusiveMinimum": 0, "description": "Its outer radius." },
+            "ri": { "type": "number", "minimum": 0, "description": "Its inner radius (0: a solid ball)." },
+            "from": { "type": "number", "description": "The angle about x where it starts, degrees (0)." },
+            "to": { "type": "number", "description": "The angle about x where it ends, degrees (360)." }
+          }
         },
         "tree": {
           "description": "Branching, tapering tubes: {at, dir, length, r, levels, branches, spread, shrink, taper, bend, seed}.",
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "at": { "$ref": "#/$defs/vec3", "description": "Where the trunk starts ([0, 0, 0])." },
+            "dir": { "$ref": "#/$defs/vec3", "description": "The way the trunk grows ([1, 0, 0])." },
+            "length": { "type": "number", "exclusiveMinimum": 0, "description": "The trunk's length (1)." },
+            "r": { "type": "number", "exclusiveMinimum": 0, "description": "The trunk's radius at its base (0.04)." },
+            "levels": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Levels of branches, the trunk the first (3)."
+            },
+            "branches": { "type": "integer", "minimum": 0, "description": "Branches from each branch (2)." },
+            "spread": { "type": "number", "description": "How far a branch turns from its parent, degrees (35)." },
+            "shrink": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "A branch's length as a share of its parent's (0.65)."
+            },
+            "taper": {
+              "type": "number",
+              "minimum": 0,
+              "description": "A branch's radius at its end as a share of its start (0.6)."
+            },
+            "bend": { "type": "number", "minimum": 0, "description": "How much the branches wander (0.12)." },
+            "seed": { "type": "integer", "description": "Picks the branching (1)." }
+          }
         },
         "molecule": {
           "description": "Atoms (CPK colours) and bonds: {atoms: [{el, at}], bonds: [[i, j, order]], scale, style}.",
           "type": "object",
-          "required": ["atoms"]
+          "required": ["atoms"],
+          "additionalProperties": false,
+          "properties": {
+            "atoms": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["el", "at"],
+                "additionalProperties": false,
+                "properties": {
+                  "el": {
+                    "type": "string",
+                    "pattern": "^[A-Z][a-z]?$",
+                    "description": "Its element's symbol: H, C, O, Na…"
+                  },
+                  "at": { "$ref": "#/$defs/vec3", "description": "Where it is, in ångström." },
+                  "r": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Its radius in ångström (default: the element's)."
+                  },
+                  "color": { "$ref": "#/$defs/color", "description": "Its colour (default: the element's)." }
+                },
+                "x-message": "an atom is {el: \"C\", at: [x, y, z]}, with r and color if they differ from the element's"
+              },
+              "description": "The atoms, each an element at a place."
+            },
+            "bonds": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  { "type": "integer", "minimum": 0 },
+                  { "type": "integer", "minimum": 0 },
+                  { "type": "integer", "minimum": 1, "maximum": 3 }
+                ],
+                "minItems": 2,
+                "maxItems": 3,
+                "x-message": "a bond is [i, j] or [i, j, order]: two atoms by their place in atoms (from 0), order 1, 2 or 3"
+              },
+              "description": "Bonds between two atoms, by their place in atoms (from 0), single unless an order is given."
+            },
+            "scale": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Scene units per ångström (1)."
+            },
+            "style": {
+              "enum": ["ball", "space"],
+              "description": "ball (ball-and-stick, the default) or space (space-filling, without bonds)."
+            },
+            "bond": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "A bond's radius in ångström (0.09)."
+            }
+          }
         },
         "dna": {
           "description": "A double helix with base pairs: {pairs, seq, scale}.",
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pairs": { "type": "integer", "minimum": 2, "description": "How many base pairs (12)." },
+            "seq": {
+              "type": "string",
+              "pattern": "^[ATGCatgc]+$",
+              "description": "One strand's bases, A T G C, repeated as needed."
+            },
+            "r": { "type": "number", "exclusiveMinimum": 0, "description": "The helix's radius (1 nm)." },
+            "rise": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "The distance from one base pair to the next along x (0.34 nm)."
+            },
+            "twist": {
+              "type": "number",
+              "description": "Degrees the helix turns from one base pair to the next (34.3: 10.5 pairs a turn)."
+            },
+            "groove": {
+              "type": "number",
+              "description": "Degrees between the two backbones around the axis (150)."
+            },
+            "wire": { "type": "number", "exclusiveMinimum": 0, "description": "A backbone's radius (0.11 nm)." },
+            "scale": { "type": "number", "exclusiveMinimum": 0, "description": "Scene units per nanometre (1)." }
+          }
         },
         "extrude": {
           "description": "A flat outline made solid: {outline, depth}.",
-          "type": "object"
+          "type": "object",
+          "required": ["outline"],
+          "additionalProperties": false,
+          "properties": {
+            "outline": {
+              "type": "array",
+              "minItems": 3,
+              "items": {
+                "type": "array",
+                "prefixItems": [{ "type": "number" }, { "type": "number" }],
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "description": "The outline's [x, y] points, in order (a simple polygon, concave or not)."
+            },
+            "depth": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Its thickness along z, centred (0.2)."
+            }
+          }
         },
         "terrain": {
           "description": "A block of ground with rock layers: {size, res, base, height, layers, top, tilt}.",
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "size": {
+              "type": "array",
+              "prefixItems": [
+                { "type": "number", "exclusiveMinimum": 0 },
+                { "type": "number", "exclusiveMinimum": 0 }
+              ],
+              "minItems": 2,
+              "maxItems": 2,
+              "description": "Its size along x and z ([2, 2])."
+            },
+            "res": {
+              "type": "integer",
+              "minimum": 2,
+              "description": "Grid steps along each side of the top (24)."
+            },
+            "base": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "The height of its top above its bottom (y = 0), before the hills (0.6)."
+            },
+            "height": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "amp": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "How far the hills rise and the valleys fall (0.12)."
+                },
+                "freq": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "How close together the hills are (1.5)."
+                },
+                "seed": { "type": "integer", "description": "Picks the hills (3)." }
+              },
+              "description": "The landscape on top."
+            },
+            "layers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["thick"],
+                "additionalProperties": false,
+                "properties": {
+                  "thick": { "type": "number", "exclusiveMinimum": 0, "description": "Its thickness." },
+                  "color": { "$ref": "#/$defs/color", "description": "Its colour." }
+                }
+              },
+              "description": "Rock layers, the top one first; the last reaches down to the bottom."
+            },
+            "top": { "$ref": "#/$defs/color", "description": "The colour of the landscape (#7a9a55)." },
+            "tilt": { "type": "number", "description": "Dips the layers along x, degrees (0)." }
+          }
         },
         "ring": {
           "description": "A flat ring: {r, ri, thickness}.",
-          "type": "object"
+          "type": "object",
+          "required": ["r"],
+          "additionalProperties": false,
+          "properties": {
+            "r": { "type": "number", "exclusiveMinimum": 0, "description": "Its outer radius." },
+            "ri": { "type": "number", "minimum": 0, "description": "Its inner radius (0: a disc)." },
+            "thickness": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Its thickness along x (0.01)."
+            }
+          }
         },
         "orbit": {
           "description": "An ellipse with the Sun at a focus: {a, e, wire}.",
           "type": "object",
-          "required": ["a"]
+          "required": ["a"],
+          "additionalProperties": false,
+          "properties": {
+            "a": { "type": "number", "exclusiveMinimum": 0, "description": "The semi-major axis." },
+            "e": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.999,
+              "description": "The eccentricity: 0 for a circle, less than 1 for an ellipse (0)."
+            },
+            "wire": { "type": "number", "exclusiveMinimum": 0, "description": "The line's radius (0.01)." }
+          }
         },
         "blade": {
           "description": "A twisted airfoil blade along y: {root, span, chord, tip, twist, thickness, camber, sweep}.",
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "root": {
+              "type": "number",
+              "minimum": 0,
+              "description": "How far from the x axis it starts (0.2)."
+            },
+            "span": { "type": "number", "exclusiveMinimum": 0, "description": "Its length along y (0.5)." },
+            "chord": { "type": "number", "exclusiveMinimum": 0, "description": "Its width at the root (0.15)." },
+            "tip": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Its width at the tip (default: chord)."
+            },
+            "twist": {
+              "type": "number",
+              "description": "Degrees its section is turned at the root, less towards the tip, 0 there (35)."
+            },
+            "thickness": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.5,
+              "description": "The section's greatest thickness, as a share of the chord (0.1)."
+            },
+            "camber": {
+              "type": "number",
+              "minimum": -0.25,
+              "maximum": 0.25,
+              "description": "How much the section curves, as a share of the chord (0.04; 0: symmetric)."
+            },
+            "sweep": {
+              "type": "number",
+              "description": "How far the tip lies along x from the root, as a share of the span (0)."
+            }
+          }
         },
         "scatter": {
           "description": "Copies of a shape at random places: {shape, n, within, avoid, size, seed}.",
           "type": "object",
           "required": ["shape"],
+          "additionalProperties": false,
           "properties": {
             "shape": {
-              "$ref": "#/$defs/shape"
+              "$ref": "#/$defs/shape",
+              "description": "The shape copied."
             },
             "n": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "description": "How many copies (50)."
+            },
+            "within": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "sphere": { "type": "number", "exclusiveMinimum": 0 },
+                "shell": {
+                  "type": "array",
+                  "prefixItems": [
+                    { "type": "number", "minimum": 0 },
+                    { "type": "number", "exclusiveMinimum": 0 }
+                  ],
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "box": { "$ref": "#/$defs/vec3" }
+              },
+              "oneOf": [{ "required": ["sphere"] }, { "required": ["shell"] }, { "required": ["box"] }],
+              "x-message": "within is one of {sphere: r}, {shell: [ri, r]}, {box: [x, y, z]}",
+              "description": "Where the copies go, around the shape's place: inside a sphere, a shell or a box ({sphere: 1})."
+            },
+            "avoid": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["sphere"],
+                "additionalProperties": false,
+                "properties": {
+                  "sphere": { "type": "number", "exclusiveMinimum": 0 },
+                  "at": { "$ref": "#/$defs/vec3" }
+                },
+                "x-message": "a region to avoid is {sphere: r, at: [x, y, z]}"
+              },
+              "description": "Balls where no copy goes, [{sphere: r, at}] (a nucleus inside a cell)."
+            },
+            "size": {
+              "type": "array",
+              "prefixItems": [
+                { "type": "number", "exclusiveMinimum": 0 },
+                { "type": "number", "exclusiveMinimum": 0 }
+              ],
+              "minItems": 2,
+              "maxItems": 2,
+              "description": "The least and the greatest scale of a copy ([1, 1])."
+            },
+            "seed": { "type": "integer", "description": "Picks the places, turns and sizes (1)." },
+            "detail": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Each copy's detail as a share of the shape's own (0.5)."
             }
           }
         },
@@ -700,6 +1073,7 @@
             {
               "type": "object",
               "required": ["n"],
+              "additionalProperties": false,
               "properties": {
                 "n": {
                   "type": "integer",
@@ -717,7 +1091,8 @@
               }
             }
           ],
-          "description": "Copies around an axis: n of them, step degrees apart from start."
+          "x-message": "repeat is a number of copies, or {n, step, start, axis: x|y|z}",
+          "description": "Copies around an axis (x unless axis says): n of them, step degrees apart (360 / n) from start (0)."
         },
         "node": {
           "type": "string",
@@ -725,23 +1100,36 @@
         },
         "closed": {
           "type": "boolean",
-          "description": "lathe: a closed outline (a ring); tube: a loop."
+          "description": "lathe: a closed outline (a ring; a sector's is closed unless false); tube: a loop."
         },
         "mirror": {
           "type": "boolean",
           "description": "lathe: flipped along x."
         },
+        "smooth": {
+          "type": "boolean",
+          "description": "lathe: normals blended across the profile's corners, for a curved surface (by default its edges stay crisp)."
+        },
+        "from": {
+          "type": "number",
+          "description": "lathe: the angle about x where a sector starts, degrees (0)."
+        },
+        "to": {
+          "type": "number",
+          "description": "lathe: the angle about x where a sector ends, degrees (360); its two sides are closed flat."
+        },
         "seg": {
           "type": "integer",
           "minimum": 3,
-          "description": "Segments around (sphere 32; 8 for a tiny bead)."
+          "description": "lathe, cylinder, sphere: segments around (lathe and cylinder 48, sphere 32; 8 for a tiny bead)."
         },
         "r": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "description": "tube: its radius."
+          "description": "tube: its radius (0.02)."
         }
       },
+      "additionalProperties": false,
       "oneOf": [
         {
           "required": ["lathe"]

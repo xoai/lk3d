@@ -407,11 +407,48 @@ function mount(el, spec, opts = {}) {
     dpr = 1,
     scale = 1;
   const shift = () => mulv(spec.view?.explodeShift || [0, 0, 0], st.explode);
+  // how far back the camera must stand to show the whole model from the first view, on a stage of this shape (a
+  // margin around it): every point of it inside the frame, whatever its proportions and wherever the scene points the
+  // camera. Never closer than the scene's own distance: only ever further, so nothing is cut off
+  let fitFor = '',
+    fit = 1,
+    outline = null; // (points of the model at rest, at most 20 000: its shape, not its box, which a round model overfills)
+  function outlinePoints() {
+    let n = 0;
+    for (const p of S.parts) for (const b of p.batches) n += b.geo.count * b.mats.length;
+    const step = Math.max(1, Math.ceil(n / 20000)),
+      out = [];
+    for (const p of S.parts)
+      for (const b of p.batches)
+        for (const m of b.mats)
+          for (let v = 0; v < b.geo.count; v += step)
+            out.push(M.pt(m, [b.geo.p[3 * v], b.geo.p[3 * v + 1], b.geo.p[3 * v + 2]]));
+    return out;
+  }
+  function fitNow() {
+    const ortho = st.projection === 'ortho',
+      key = W / H + (ortho ? 'o' : 'p');
+    if (key === fitFor) return fit;
+    fitFor = key;
+    const cp = Math.cos(home.pitch),
+      back = [cp * Math.sin(home.yaw), Math.sin(home.pitch), cp * Math.cos(home.yaw)],
+      right = norm(cross(mulv(back, -1), [0, 1, 0])),
+      up = cross(right, mulv(back, -1)),
+      t = Math.tan(((spec.view?.fov ?? 35) * D2R) / 2) / 1.08;
+    let need = 0;
+    for (const q of (outline ??= outlinePoints())) {
+      const v = sub(q, home.target);
+      need = Math.max(
+        need,
+        (ortho ? 0 : dot(v, back)) + Math.max(Math.abs(dot(v, up)), Math.abs(dot(v, right)) / (W / H)) / t,
+      );
+    }
+    // (and, as before, on a stage squarer than the scene's own proportions (a phone), back far enough for its width)
+    return (fit = Math.max(1, (spec.w || 16) / (spec.h || 10) / (W / H), need / home.dist));
+  }
   function camera() {
-    // on a stage squarer than the scene's own proportions (a phone), step back so the model's width still fits
-    const fitW = Math.max(1, (spec.w || 16) / (spec.h || 10) / (W / H));
     const cp = Math.cos(st.pitch),
-      d = st.dist * fitW * (1 + (spec.view?.explodeZoom ?? 0.5) * st.explode),
+      d = st.dist * fitNow() * (1 + (spec.view?.explodeZoom ?? 0.5) * st.explode),
       tgt = add(st.target, shift());
     // orthographic: parallel lines stay parallel; framed as the perspective camera frames the point looked at. Its depth
     // range always holds the whole model, however close the reader zooms (only the frustum shrinks)

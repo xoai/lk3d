@@ -74,4 +74,7 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
 - **One sun for every look**: shading and shadow come from one light fixed in the scene, so they agree and stay put
   as the reader turns the model; a look only changes how they are drawn (hatched in ink, soft in pen and studio). The
   ink outline keeps one width on screen (a pixel and a half), as pen's does.
+- **The whole model in the first view**: the camera starts far enough back that every point of the model fits the stage,
+  whatever its shape (a tall column on its stand, a long optical bench) and wherever the scene points the camera;
+  figures that already fit keep their framing.
 - **Small and fast**: 51 KB gzipped (a budget of 52); draws only on change, pauses off screen, adapts its resolution.

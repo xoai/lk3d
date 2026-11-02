@@ -1,0 +1,35 @@
+{
+  "about": "Prompts to try the lk3d skill on, each with what a good answer has. The `checks` are measured on the scene the agent writes (test/skill.test.cjs measures the worked example the same way); `expected_output` is for a person, or a model, to grade by.",
+  "evals": [
+    {
+      "id": "bicycle-pump",
+      "prompt": "Make an lk3d figure of a floor pump for bicycle tyres that explains how it pushes air into the tyre. A student should be able to pump it.",
+      "expected_output": "A real floor pump standing on its foot plate: barrel, handle and rod, piston with its seal, a one-way valve, hose and gauge. The piston is the accent; the handle is a slide handle with its range; the barrel can be seen through or cut open to show the valve. Taken apart, the barrel lifts off the piston along its axis. Checked and rendered in two looks before hand-over.",
+      "checks": { "minParts": 30, "accents": [1, 2], "handles": 1, "lintClean": true, "rendered": true }
+    },
+    {
+      "id": "microscope",
+      "prompt": "Make a 3D figure of a school light microscope on a bench, with its parts named, that students can take apart.",
+      "expected_output": "A microscope on a bench: base, arm, stage with clips, the revolving nosepiece with three objectives, eyepiece tube, coarse and fine focus knobs, mirror or lamp. Each part has a name and a one-sentence note; the objectives repeat round the nosepiece. Taken apart, nothing passes through anything; the pen look with an orthographic camera.",
+      "checks": { "minParts": 30, "accents": [1, 2], "lintClean": true, "rendered": true }
+    },
+    {
+      "id": "plant-cell",
+      "prompt": "Make a cut-open plant cell for a biology lesson, with its organelles named, at a true scale.",
+      "expected_output": "A plant cell: cell wall, membrane, a large central vacuole, nucleus with nucleolus, chloroplasts, mitochondria, endoplasmic reticulum, Golgi body, ribosomes (scatter). Soft shapes get no edge lines; ink or studio look, cut open with a section; a true scale bar. Any part meant to float says so under check.float.",
+      "checks": { "minParts": 12, "lintClean": true, "rendered": true, "scale": "bar" }
+    },
+    {
+      "id": "four-stroke",
+      "prompt": "Make a figure of one cylinder of a four-stroke petrol engine where the student turns the crankshaft by hand and watches the piston and valves move.",
+      "expected_output": "Cylinder block (cut open), head, piston with rings, connecting rod, crankshaft with counterweights, camshaft, two valves with springs, spark plug, on an engine stand. The crank is a turn handle with no stops; the page moves the piston and valves from the crank angle with the right geometry (the piston at top dead centre at 0°). Checked, rendered rest and cut.",
+      "checks": { "minParts": 30, "accents": [1, 2], "handles": 1, "lintClean": true, "rendered": true }
+    },
+    {
+      "id": "hydraulic-press",
+      "prompt": "Make an lk3d figure of a hydraulic press that shows Pascal's law: a small piston pushed down lifts a large one.",
+      "expected_output": "A press on a frame: a small cylinder and piston with a lever, a large cylinder and ram, the pipe between them, the oil (see-through), the platen and a load. The small piston is a slide handle; the page moves the ram by the ratio of the areas from the checked formula. Pipes end on both cylinders; nothing floats. Checked and rendered.",
+      "checks": { "minParts": 25, "accents": [1, 2], "handles": 1, "lintClean": true, "rendered": true }
+    }
+  ]
+}

@@ -79,7 +79,7 @@ environments the engine draws.
 
 `npm test`: geometry (every shape a closed solid facing outwards, volumes matching their formulas, placement and
 instancing, picking against brute force), glTF reading, handle maths, the validator against planted mistakes, the
-locales. `npm run typecheck`: the types. `npm run size`: the 42 KB budget. `npm run test:visual`: 12 reference scenes
+locales. `npm run typecheck`: the types. `npm run size`: the 45 KB budget. `npm run test:visual`: 12 reference scenes
 in each look and the 2D fallback, in Chromium, Firefox and WebKit, compared with stored pictures (`test/visual/`).
 
 ## Limits

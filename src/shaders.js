@@ -148,8 +148,10 @@ void main() {
   {  // pen: near-white solids in four close tones, lit from the viewer's upper left, faces turned up a step lighter;
      // colour only where it means something (uTint 1: an accent part, a glowing one, the one chosen; a vertex's own
      // colour, an atom's say, keeps half of its)
-    float t = d > 0.55 ? 1.0 : d > 0.2 ? 0.965 : d > -0.15 ? 0.93 : 0.895;
-    t = min(1.0, t + 0.035 * step(0.7, N.y));
+    // (a smooth ramp, not steps: a flat face has one normal, so one tone, and neighbouring faces still differ; a curved
+    // one shades evenly instead of in stripes)
+    float t = mix(0.895, 1.0, smoothstep(-0.3, 0.7, d));
+    t = min(1.0, t + 0.035 * smoothstep(0.55, 0.85, N.y));
     col = mix(uSolid, C, max(uTint, 0.55 * vCol.a)) * t * mix(0.88, 1.0, smoothstep(0.35, 0.85, ao));
   }
 #else
@@ -262,21 +264,46 @@ void main() {
 // added to it on a dark one (the blending decides).
 const FLOW_VS = `attribute vec4 aPos; attribute vec4 aDir; attribute float aA;
 uniform mat4 uVP; uniform vec2 uView; uniform float uWidth; varying float vA; varying float vSide; varying float vT;
+varying vec3 vW;
 void main() {
   vec4 a = uVP * vec4(aPos.xyz, 1.0), b = uVP * vec4(aPos.xyz + aDir.xyz, 1.0);
+  vW = aPos.xyz;
   vec2 d = (b.xy / b.w - a.xy / a.w) * uView;
   d = normalize(d + vec2(1e-6, 0.0));  // (a streak squeezed to a point: any side will do)
   a.xy += vec2(-d.y, d.x) * aPos.w * uWidth / uView * a.w;
   gl_Position = a; vA = aA; vSide = aPos.w; vT = aDir.w;
 }`;
 const FLOW_FS = `uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform float uAlpha;
-varying float vA; varying float vSide; varying float vT;
+uniform vec4 uPlane; uniform float uCut; varying float vA; varying float vSide; varying float vT; varying vec3 vW;
 void main() {
+  if (uCut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;  // cut away with the parts it flows through
   float x = clamp(vT, 0.0, 1.0) * 3.0;
   vec3 c = x < 1.0 ? mix(uC0, uC1, x) : x < 2.0 ? mix(uC1, uC2, x - 1.0) : mix(uC2, uC3, x - 2.0);
   float a = uAlpha * vA * (1.0 - smoothstep(0.3, 1.0, abs(vSide)));
   a = clamp(a + (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0, 0.0, 1.0);
   gl_FragColor = vec4(c * a, a);
+}`;
+// ---- edges: where a part's faces meet at an angle (geometry.js edgesOf), thin lines of a constant width on screen,
+// each instance of a batch placed by its matrix; nudged towards the eye so the faces they lie on do not hide them, while
+// faces in front still do
+const EDGE_VS = `attribute vec4 aPos; attribute vec4 aDir;
+attribute vec4 aI0; attribute vec4 aI1; attribute vec4 aI2; attribute vec4 aI3;
+uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uEye; uniform vec2 uView; uniform float uWidth;
+varying float vSide; varying vec3 vW;
+void main() {
+  mat4 m = uModel * mat4(aI0, aI1, aI2, aI3);
+  vec4 w = m * vec4(aPos.xyz, 1.0);
+  w.xyz += normalize(uEye - w.xyz) * 0.004 * length(uEye - w.xyz);
+  vec4 a = uVP * w, b = uVP * (w + vec4(mat3(m) * aDir.xyz, 0.0));
+  vec2 d = normalize((b.xy / b.w - a.xy / a.w) * uView + vec2(1e-6, 0.0));
+  a.xy += vec2(-d.y, d.x) * aPos.w * uWidth / uView * a.w;
+  gl_Position = a; vSide = aPos.w; vW = w.xyz;
+}`;
+const EDGE_FS = `uniform vec3 uColor; uniform float uAlpha; uniform vec4 uPlane; uniform float uCut;
+varying float vSide; varying vec3 vW;
+void main() {
+  if (uCut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
+  gl_FragColor = vec4(uColor, uAlpha * (1.0 - smoothstep(0.45, 1.0, abs(vSide))));
 }`;
 
 // ---- full-screen passes: blur and add the glow; draw the studio environment into a cube map, and prefilter it
@@ -343,6 +370,8 @@ export {
   ADD_FS,
   FLOW_VS,
   FLOW_FS,
+  EDGE_VS,
+  EDGE_FS,
   ENV_FS,
   PREFILTER_FS,
 };

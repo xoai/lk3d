@@ -6,7 +6,7 @@ export default [
   js.configs.recommended,
   { files: ['src/**/*.js', 'examples/**/*.js'], languageOptions: { globals: { ...globals.browser } } },
   {
-    files: ['*.mjs', 'docs/**/*.mjs', 'test/**/*.mjs', 'test/**/*.cjs', 'src/validate.js'],
+    files: ['*.mjs', 'bin/*.mjs', 'docs/**/*.mjs', 'test/**/*.mjs', 'test/**/*.cjs', 'src/validate.js', 'src/lint.js'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   { files: ['**/*.cjs'], languageOptions: { sourceType: 'commonjs' } },

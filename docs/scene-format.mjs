@@ -80,6 +80,12 @@ const problems = validate(scene);   // [{ path: 'parts[2].handle', message: 'a h
 From a shell: \`node node_modules/lk3d/src/validate.js < scene.json\` prints one problem per line and exits with 1 if
 there are any. Editors that understand JSON Schema complete and check scenes as you type with
 \`"$schema": "https://unpkg.com/lk3d/schema/scene.schema.json"\`.
+
+## Versions
+
+A scene may say which version of this format it is written in: \`"lk3d": 1\`. The validator refuses a version it does
+not know, and a figure warns once when its scene is newer than the engine. When a later version changes the format,
+the engine keeps reading the versions before it, and the changelog says how to move a scene forward.
 `;
 fs.writeFileSync(path.join(HERE, 'scene-format.md'), out);
 console.log('docs/scene-format.md');

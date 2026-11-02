@@ -33,13 +33,18 @@ const ENVS = {
 function glRenderer(gl, scene, opts = {}) {
   const gl2 = typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext;
   const inst = gl2
-    ? { div: (l, d) => gl.vertexAttribDivisor(l, d), draw: (m, n, t, o, c) => gl.drawElementsInstanced(m, n, t, o, c) }
+    ? {
+        div: (l, d) => gl.vertexAttribDivisor(l, d),
+        draw: (m, n, t, o, c) => gl.drawElementsInstanced(m, n, t, o, c),
+        arrays: (m, n, c) => gl.drawArraysInstanced(m, 0, n, c),
+      }
     : (() => {
         const e = gl.getExtension('ANGLE_instanced_arrays');
         return (
           e && {
             div: (l, d) => e.vertexAttribDivisorANGLE(l, d),
             draw: (m, n, t, o, c) => e.drawElementsInstancedANGLE(m, n, t, o, c),
+            arrays: (m, n, c) => e.drawArraysInstancedANGLE(m, 0, n, c),
           }
         );
       })();
@@ -141,7 +146,13 @@ function glRenderer(gl, scene, opts = {}) {
   const lazy = (name) =>
     P[name] ||
     (P[name] =
-      name === 'pts' ? program(PVS, PFS) : name === 'flow' ? program(S.FLOW_VS, S.FLOW_FS) : program(DVS, DFS));
+      name === 'pts'
+        ? program(PVS, PFS)
+        : name === 'flow'
+          ? program(S.FLOW_VS, S.FLOW_FS)
+          : name === 'edge'
+            ? program(S.EDGE_VS, S.EDGE_FS)
+            : program(DVS, DFS));
   // the pen look: compiled when first needed (no shadows: its light turns with the camera, and its ground is a halo)
   const penProg = () => P.pen || (P.pen = program(S.PART_VS, S.PART_FS, ['PEN']));
   // the studio look, its environment and the glow: compiled when first needed, or ahead of time in the background once
@@ -248,6 +259,23 @@ function glRenderer(gl, scene, opts = {}) {
       }
   }
   for (const part of scene.parts) for (const b of part.batches) upload(b);
+  // a batch's edges (geometry.js edgesOf, found after the first picture): two triangles a segment, each corner its end
+  // and side (aPos: x, y, z, ±1) and the segment's direction (aDir)
+  function edges(b) {
+    const L = b.lines,
+      n = L.length / 6,
+      v = new Float32Array(n * 6 * 7);
+    for (let s = 0; s < n; s++)
+      [0, 0, 1, 0, 1, 1].forEach((end, k) => {
+        const o = (6 * s + k) * 7,
+          a = 6 * s + 3 * end;
+        v.set([L[a], L[a + 1], L[a + 2], k === 1 || k === 3 || k === 4 ? 1 : -1], o);
+        for (let j = 0; j < 3; j++) v[o + 4 + j] = L[6 * s + 3 + j] - L[6 * s + j];
+      });
+    if (b.gl.edge) gl.deleteBuffer(b.gl.edge);
+    b.gl.edge = n ? buf(v) : null;
+    b.gl.en = n * 6;
+  }
   // a batch whose placements change (lines: rays, field lines): its matrices again, in place
   function instances(b) {
     const im = new Float32Array(b.mats.length * 16);
@@ -491,6 +519,7 @@ function glRenderer(gl, scene, opts = {}) {
     },
     upload,
     instances,
+    edges,
     get pending() {
       return pending;
     },
@@ -519,6 +548,7 @@ function glRenderer(gl, scene, opts = {}) {
         ...(flow.length ? [lazy('pts')] : []),
         ...(solid.length ? [lazy('dots')] : []),
         ...(flows.length ? [lazy('flow')] : []),
+        ...(f.edges ? [lazy('edge')] : []),
       ];
       if (kind === 1 && hifi && !env) needs.push(P.envGen, P.envPre);
       let waiting = false;
@@ -529,6 +559,7 @@ function glRenderer(gl, scene, opts = {}) {
       const each = (prog, list, set) => {
         for (const p of list) {
           gl.uniformMatrix4fv(prog.u.uModel, false, p.m);
+          if (prog.u.uCut) gl.uniform1f(prog.u.uCut, f.cut && p.cut ? 1 : 0); // (a part may stay whole: cut: false)
           if (set) set(p);
           for (const b of p.batches) {
             bindBatch(prog, b);
@@ -536,6 +567,52 @@ function glRenderer(gl, scene, opts = {}) {
           }
         }
         unbindInstances(prog);
+      };
+      // the edges of these parts, over their faces (blended, not written to depth)
+      const edgeLines = (list) => {
+        const Q = lazy('edge'),
+          A = Q.a;
+        common(Q, f);
+        gl.uniform2f(Q.u.uView, W / 2, H / 2);
+        gl.uniform1f(Q.u.uWidth, 0.5 * f.dpr + 0.5);
+        const lit = f.look.ink.map((v) => v + (1 - v) * 0.75);
+        gl.enable(gl.BLEND);
+        blendOver();
+        gl.depthMask(false);
+        gl.disable(gl.CULL_FACE);
+        only(Q.locs);
+        for (const p of list) {
+          gl.uniformMatrix4fv(Q.u.uModel, false, p.m);
+          gl.uniform1f(Q.u.uCut, f.cut && p.cut ? 1 : 0);
+          // a lit part (an accent, a glowing one, the one chosen) has light edges, as if catching the light
+          gl.uniform3fv(Q.u.uColor, f.look.kind === 2 && p.tint > 0.5 ? lit : f.look.ink);
+          gl.uniform1f(Q.u.uAlpha, p.drawAlpha);
+          for (const b of p.batches) {
+            const G = b.gl;
+            if (!G || !G.edge) continue;
+            gl.bindBuffer(gl.ARRAY_BUFFER, G.edge);
+            gl.vertexAttribPointer(A.aPos, 4, gl.FLOAT, false, 28, 0);
+            gl.vertexAttribPointer(A.aDir, 3, gl.FLOAT, false, 28, 16);
+            if (inst) {
+              inst.div(A.aPos, 0);
+              inst.div(A.aDir, 0);
+              gl.bindBuffer(gl.ARRAY_BUFFER, G.inst);
+              for (let c = 0; c < 4; c++) {
+                gl.vertexAttribPointer(A['aI' + c], 4, gl.FLOAT, false, 64, 16 * c);
+                inst.div(A['aI' + c], 1);
+              }
+              inst.arrays(gl.TRIANGLES, G.en, G.count);
+            } else
+              for (const m of b.mats) {
+                for (let c = 0; c < 4; c++)
+                  gl.vertexAttrib4f(A['aI' + c], m[4 * c], m[4 * c + 1], m[4 * c + 2], m[4 * c + 3]);
+                gl.drawArrays(gl.TRIANGLES, 0, G.en);
+              }
+          }
+        }
+        unbindInstances(Q);
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
       };
       // 1. the shadow map, from the key light, around what is on screen now. Kept while nothing that casts a shadow
       // moves (turning the camera does not change it): compared on the parts' matrices and the light's frame
@@ -633,6 +710,10 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniform3fv(u.uEmit, p.emit);
       };
       each(prog, opaque, look);
+      if (f.edges) {
+        edgeLines(opaque);
+        gl.useProgram(prog.p);
+      }
       // 4. the ground: the model's shadow and a soft contact shadow, blended onto the background
       if (f.ground) {
         const G = P.ground;
@@ -715,6 +796,7 @@ function glRenderer(gl, scene, opts = {}) {
         each(prog, sorted, look);
         gl.depthMask(true);
         gl.disable(gl.BLEND);
+        if (f.edges) edgeLines(sorted);
       }
       // 6. particles
       if (flow.length) {
@@ -745,8 +827,7 @@ function glRenderer(gl, scene, opts = {}) {
       if (flows.length) {
         const Q = lazy('flow'),
           A = Q.a;
-        gl.useProgram(Q.p);
-        gl.uniformMatrix4fv(Q.u.uVP, false, f.VP);
+        common(Q, f);
         gl.uniform2f(Q.u.uView, W / 2, H / 2);
         gl.enable(gl.BLEND);
         if (f.look.dark) gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);

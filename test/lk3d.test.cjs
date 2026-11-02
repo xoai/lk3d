@@ -918,6 +918,9 @@ test('the validator finds each planted mistake where it is, and passes a right s
     models: { m: { data: '', source: 'scan' } },
     style: 'pen',
     theme: 'blueprint',
+    lk3d: 1,
+    view: { projection: 'ortho' },
+    edges: true,
     extra: "a page's own field",
   };
   assert.deepEqual(validate(good), []);
@@ -949,8 +952,107 @@ test('the validator finds each planted mistake where it is, and passes a right s
     [{ parts: [part()], style: 'photo' }, 'style'],
     [{ parts: [part()], theme: 'neon' }, 'theme'],
     [{ parts: [part({ accent: 'yes' })] }, 'parts[0].accent'],
+    [{ parts: [part()], lk3d: 2 }, 'lk3d'], // a format this engine does not read
+    [{ parts: [part()], view: { projection: 'fisheye' } }, 'view.projection'],
+    [{ parts: [part()], edges: 'yes' }, 'edges'],
+    [{ parts: [part({ edges: 1 })] }, 'parts[0].edges'],
     [{ parts: [part()], models: { m: { source: 'web' } } }, 'models.m.source'],
   ];
   for (const [scene, path] of cases)
     assert.ok(at(scene).includes(path), `${JSON.stringify(scene).slice(0, 90)} → ${JSON.stringify(validate(scene))}`);
+});
+
+test("a part's words keep only simple formatting: nothing from a scene can run on the page", () => {
+  const { safeHTML } = require('../src/index.js');
+  assert.equal(safeHTML('H<sub>2</sub>O, <i>a</i> &gt; 0, m&#775;'), 'H<sub>2</sub>O, <i>a</i> &gt; 0, m&#775;');
+  assert.equal(safeHTML('a<br/>b <B>c</B>'), 'a<br>b <B>c</B>');
+  for (const bad of [
+    '<img src=x onerror=alert(1)>',
+    '<script>alert(1)</script>',
+    '<b onclick="alert(1)">x</b>',
+    '<a href="javascript:alert(1)">x</a>',
+    '<svg onload=alert(1)>',
+  ]) {
+    const out = safeHTML(bad);
+    assert.ok(!/<(?!\/?(b|i|em|strong|sub|sup|br)>)/i.test(out), `${bad} → ${out}`);
+  }
+  assert.equal(safeHTML('fish & chips'), 'fish &amp; chips');
+  assert.equal(safeHTML(undefined), '');
+});
+
+test('the clock: animation time can be slowed, stopped and stepped', () => {
+  const { clock } = require('../src/index.js');
+  const t0 = clock.now();
+  clock.speed = 0;
+  const t1 = clock.now();
+  clock.step(250);
+  assert.equal(clock.now(), t1 + 250);
+  for (let k = 0; k < 1e5; k++); // (wall time passes; the stopped clock does not)
+  assert.equal(clock.now(), t1 + 250);
+  clock.speed = 1;
+  assert.ok(clock.now() >= t1 + 250 && t1 >= t0);
+  clock.speed = -3;
+  assert.equal(clock.speed, 0); // never backwards
+  clock.speed = 1;
+});
+
+test('edges: where faces meet at an angle and where a surface ends, never across a smooth surface or a soft shape', () => {
+  const { edgesOf } = require('../src/geometry.js');
+  const one = (shape, o = {}) => {
+    const b = LK3D.build({ parts: [{ id: 'p', shapes: [shape], ...o }] }, 1).parts[0].batches[0];
+    return b.edgy ? edgesOf(b.geo, 40, b.soft).length / 6 : 0;
+  };
+  assert.equal(one({ box: [1, 2, 3] }), 12); // a box: its twelve edges
+  assert.equal(one({ sphere: 1 }), 0); // a sphere: none
+  assert.equal(one({ torus: [1, 0.2] }), 0);
+  const n = one({ cylinder: { r: 0.5, x0: 0, x1: 1 } });
+  assert.ok(n > 0 && n % 2 === 0, `a cylinder: its two rims (${n} segments)`);
+  // a lathe with a step: four rings (both ends and the step's two corners), each as many segments as a rim
+  assert.equal(
+    one({
+      lathe: [
+        [0, 0.2],
+        [0.5, 0.2],
+        [0.5, 0.4],
+        [1, 0.4],
+      ],
+    }),
+    2 * n,
+  );
+  // every edge of the box lies on the box's edges: two of its coordinates at a corner value
+  const b = LK3D.build({ parts: [{ id: 'p', shapes: [{ box: [1, 2, 3] }] }] }, 1).parts[0].batches[0];
+  const E = edgesOf(b.geo);
+  for (let k = 0; k < E.length; k += 3) {
+    const atCorner = [0.5, 1, 1.5].filter((h, a) => Math.abs(Math.abs(E[k + a]) - h) < 1e-6).length;
+    assert.ok(atCorner >= 2, `${[...E.slice(k, k + 3)]} is on an edge`);
+  }
+  // soft shapes have none, unless the part asks; a part may also refuse them
+  assert.equal(one({ molecule: { atoms: [['O', [0, 0, 0]]] } }), 0);
+  assert.equal(one({ box: [1, 1, 1] }, { edges: false }), 0);
+  // a soft shape merged with a hard one: only the hard one's edges
+  const m = LK3D.build({ parts: [{ id: 'p', shapes: [{ box: [1, 1, 1] }, { blob: { r: 0.4 }, at: [2, 0, 0] }] }] }, 1)
+    .parts[0].batches[0];
+  assert.equal(edgesOf(m.geo, 40, m.soft).length / 6, 12);
+});
+
+test('a sector of a lathe with a concave profile (half a cowl) is a closed solid, half the whole', () => {
+  // a thin curved wall: concave in the profile plane, which a fan of triangles from one corner would fill wrongly
+  const wall = [
+    [-1, 0.8],
+    [-0.5, 0.95],
+    [0, 1],
+    [0.5, 0.95],
+    [1, 0.8],
+    [1, 0.77],
+    [0.5, 0.92],
+    [0, 0.97],
+    [-0.5, 0.92],
+    [-1, 0.77],
+  ];
+  const whole = volume(part([{ lathe: wall, closed: true }]).g),
+    half = part([{ lathe: wall, closed: true, from: 0, to: 180 }]);
+  assert.ok(windingAgrees(half.g), 'faces point outwards');
+  assert.ok(Math.abs(volume(half.g) - whole / 2) < whole * 0.01, `half: ${volume(half.g)} of ${whole}`);
+  const { edgesOf } = require('../src/geometry.js');
+  assert.equal(edgesOf(half.g, 180).length, 0, 'closed: no surface ends anywhere');
 });

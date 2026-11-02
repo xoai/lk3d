@@ -18,6 +18,9 @@
   "type": "module",
   "main": "./src/index.js",
   "types": "./index.d.ts",
+  "bin": {
+    "lk3d": "./bin/lk3d.mjs"
+  },
   "exports": {
     ".": {
       "types": "./index.d.ts",
@@ -27,15 +30,22 @@
       "types": "./validate.d.ts",
       "default": "./src/validate.js"
     },
+    "./lint": {
+      "types": "./lint.d.ts",
+      "default": "./src/lint.js"
+    },
     "./schema.json": "./schema/scene.schema.json",
     "./bundle": "./dist/lk3d.min.js",
     "./package.json": "./package.json"
   },
   "files": [
+    "bin/",
     "dist/",
     "src/",
     "schema/",
     "index.d.ts",
+    "skill/",
+    "lint.d.ts",
     "validate.d.ts",
     "docs/*.md",
     "docs/generator.png",

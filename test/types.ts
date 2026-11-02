@@ -88,4 +88,14 @@ air.speed = 0.4;
 air.set({ amount: 0.5 });
 fig.set({ theme: 'dark', timeScale: 0.2, style: 'pen' });
 LK3D.themes.night = { ...LK3D.themes.dark, bg: '#000000' };
-void [problems, bad1, bad2, bad3, themed, bad5, fig.theme, fig.timeScale];
+// the format's version, an orthographic camera, waiting for the whole figure, and stepping time
+const versioned: Scene = { lk3d: 1, parts: [], view: { projection: 'ortho' } };
+// @ts-expect-error there is no format 2 yet
+const bad6: Scene = { lk3d: 2, parts: [] };
+void fig.ready.then((f) => f.select('lens'));
+fig.set({ projection: 'ortho' });
+const edged: Scene = { edges: true, parts: [{ id: 'a', shapes: [{ sphere: 1 }], edges: false }] };
+void edged;
+LK3D.clock.speed = 0;
+LK3D.clock.step(100);
+void [problems, bad1, bad2, bad3, themed, bad5, versioned, bad6, fig.theme, fig.timeScale];

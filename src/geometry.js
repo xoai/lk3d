@@ -1,7 +1,7 @@
 // Shapes: every part of a scene is built from simple shapes generated here (no model files). A shape repeated around an
 // axis stays one shape drawn many times (instancing), so a ring of 28 fins costs the memory of one fin.
 import { D2R, M, sub, add, mulv, dot, cross, len, norm, rgb } from './math.js';
-import science, { rng } from './science.js';
+import science, { rng, earcut, signedArea } from './science.js';
 import { load as loadModel } from './gltf.js';
 
 // A mesh is positions, normals and triangles; every triangle is turned to face the way its normals point, so shapes
@@ -123,7 +123,7 @@ class Geo {
 
 // Revolve a profile of [x, r] points around the x axis. Each profile segment gets its own normals, so the edges
 // between segments stay crisp (machined parts); smooth: true blends them (spheres, tori). from/to (degrees) make a
-// sector, closed with flat sides (the profile must then be a closed, convex outline).
+// sector, closed with flat sides (the profile must then be a closed outline; it may be concave, a cowl's thin wall).
 function lathe(profile, o = {}) {
   const g = new Geo(),
     seg = Math.max(6, Math.round(((o.seg || 48) * (o.q || 1) * ((o.to ?? 360) - (o.from ?? 0))) / 360));
@@ -197,10 +197,11 @@ function lathe(profile, o = {}) {
       [a0, -1],
       [a1, 1],
     ]) {
-      // the two flat sides of a sector: a fan over the profile
+      // the two flat sides of a sector: the profile's outline, triangulated (it may be concave)
       const n = [0, -Math.sin(ang) * sgn, Math.cos(ang) * sgn],
-        ids = pts.map(([x, r]) => g.v(at(x, r, ang), n));
-      for (let k = 1; k + 1 < ids.length; k++) g.tri(ids[0], ids[k], ids[k + 1]);
+        Q = signedArea(pts) < 0 ? pts.slice().reverse() : pts,
+        ids = Q.map(([x, r]) => g.v(at(x, r, ang), n));
+      for (const [a, b, c] of earcut(Q)) g.tri(ids[a], ids[b], ids[c]);
     }
   return g;
 }
@@ -471,17 +472,14 @@ function scatterShape(s, q, ctx) {
   return { geo: inner.geo, mats };
 }
 
-// Normals for the outline: the average at each position, so the inked silhouette has no gaps at sharp edges.
-function outlineNormals(g) {
-  // positions grouped by a numeric hash of their rounded coordinates (exact match checked)
+// Positions welded: rep[k] is the first vertex at k's place (rounded coordinates, hashed, the match checked exactly),
+// so a shape's own seams (a crease's two normals, a colour's two sides) are one place.
+function weld(g) {
   const n = g.count,
     P = g.p,
-    Nn = g.n,
     q = new Int32Array(n * 3),
     rep = new Int32Array(n),
-    buckets = new Map(),
-    acc = new Float32Array(n * 3),
-    out = new Float32Array(n * 3);
+    buckets = new Map();
   for (let k = 0; k < n; k++) {
     const x = (q[3 * k] = Math.round(P[3 * k] * 1e4)),
       y = (q[3 * k + 1] = Math.round(P[3 * k + 1] * 1e4)),
@@ -501,6 +499,19 @@ function outlineNormals(g) {
       else buckets.set(h, [k]);
     }
     rep[k] = r;
+  }
+  return rep;
+}
+
+// Normals for the outline: the average at each position, so the inked silhouette has no gaps at sharp edges.
+function outlineNormals(g) {
+  const n = g.count,
+    Nn = g.n,
+    rep = weld(g),
+    acc = new Float32Array(n * 3),
+    out = new Float32Array(n * 3);
+  for (let k = 0; k < n; k++) {
+    const r = rep[k];
     acc[3 * r] += Nn[3 * k];
     acc[3 * r + 1] += Nn[3 * k + 1];
     acc[3 * r + 2] += Nn[3 * k + 2];
@@ -516,6 +527,50 @@ function outlineNormals(g) {
     out[3 * k + 2] = z / l;
   }
   return out;
+}
+
+// The edges the pen look draws on a shape, as segments (x0, y0, z0, x1, y1, z1, …): where two faces meet at more than
+// `deg` degrees (a box's corners, a step in a lathe's profile, a blade's rim) and where a surface ends (an open tube's
+// rim). A curved surface is many faces at small angles, so it has none; a sphere has none at all. Triangles in the
+// index ranges `soft` are left out.
+function edgesOf(g, deg = 40, soft = []) {
+  const rep = weld(g),
+    P = g.p,
+    I = g.i,
+    lim = Math.cos(deg * D2R),
+    seen = new Map(), // an edge (its two welded ends) → [the first face's normal, how many faces, sharp]
+    out = [];
+  for (let t = 0; t < I.length; t += 3) {
+    if (soft.some(([a, b]) => t >= a && t < b)) continue; // (triangles of soft shapes: no edges)
+    const v = [rep[I[t]], rep[I[t + 1]], rep[I[t + 2]]];
+    if (v[0] === v[1] || v[1] === v[2] || v[0] === v[2]) continue; // a sliver at a pole: no face
+    const A = [P[3 * v[0]], P[3 * v[0] + 1], P[3 * v[0] + 2]],
+      n = cross(
+        sub([P[3 * v[1]], P[3 * v[1] + 1], P[3 * v[1] + 2]], A),
+        sub([P[3 * v[2]], P[3 * v[2] + 1], P[3 * v[2] + 2]], A),
+      ),
+      l = len(n);
+    if (l < 1e-12) continue;
+    for (let j = 0; j < 3; j++) {
+      const a = v[j],
+        b = v[(j + 1) % 3],
+        key = a < b ? a * 4294967296 + b : b * 4294967296 + a,
+        e = seen.get(key),
+        u = mulv(n, 1 / l);
+      if (!e) seen.set(key, [u, 1, false]);
+      else {
+        e[1]++;
+        if (dot(e[0], u) < lim) e[2] = true;
+      }
+    }
+  }
+  for (const [key, e] of seen)
+    if (e[1] !== 2 || e[2]) {
+      const a = Math.floor(key / 4294967296),
+        b = key - a * 4294967296;
+      out.push(P[3 * a], P[3 * a + 1], P[3 * a + 2], P[3 * b], P[3 * b + 1], P[3 * b + 2]);
+    }
+  return new Float32Array(out);
 }
 
 // The bounding box of a geometry seen through a matrix.
@@ -588,28 +643,38 @@ function rigid(m) {
   );
 }
 
+// shapes whose many small folds are not edges a pen would draw: living and grown forms, models made elsewhere
+const SOFT = ['model', 'blob', 'tree', 'terrain', 'scatter', 'molecule', 'dna'];
+
 // A scene: parts, each a list of batches (one geometry, drawn at one or more placements). Shapes of a part that are not
-// repeated are merged into one batch, so a part costs one draw for its plain shapes plus one per repeated shape.
+// repeated are merged into one batch, so a part costs one draw for its plain shapes plus one per repeated shape. Which
+// of a batch's triangles get edges in the pen look: `edgy` (none if false), less the ranges in `soft` (the part's
+// `edges`, else every shape but the soft ones).
 function buildScene(spec, q = 1) {
   const parts = (spec.parts || []).map((p, k) => {
     const place = M.trs(p.at, p.rot, p.scale),
       merged = new Geo(),
+      soft = [],
       batches = [];
     for (const s of p.shapes || []) {
       const b = buildShape(s, q, { models: spec.models }),
-        mats = b.mats.map((m) => M.mul(place, m));
+        mats = b.mats.map((m) => M.mul(place, m)),
+        edgy = p.edges ?? !SOFT.some((n) => n in s);
       if (b.geo.tex) {
         const g = new Geo();
         for (const m of mats) g.add(b.geo, m);
-        batches.push({ geo: g, mats: [M.id()] });
+        batches.push({ geo: g, mats: [M.id()], edgy });
         continue;
       } // a textured model: a batch of its own
       // copies are drawn by the GPU only when each is a rotation and a uniform scale (its shader turns normals by the
       // matrix itself); a mirrored or stretched copy is baked into the part's own geometry instead
-      if (mats.length === 1 || !mats.every(rigid)) for (const m of mats) merged.add(b.geo, m);
-      else batches.push({ geo: b.geo, mats });
+      if (mats.length === 1 || !mats.every(rigid)) {
+        const from = merged.i.length;
+        for (const m of mats) merged.add(b.geo, m);
+        if (!edgy) soft.push([from, merged.i.length]);
+      } else batches.push({ geo: b.geo, mats, edgy });
     }
-    if (merged.count) batches.unshift({ geo: merged, mats: [M.id()] });
+    if (merged.count) batches.unshift({ geo: merged, mats: [M.id()], edgy: true, soft });
     let lo = [1e9, 1e9, 1e9],
       hi = [-1e9, -1e9, -1e9],
       tris = 0,
@@ -659,6 +724,7 @@ function buildScene(spec, q = 1) {
       alpha: p.opacity ?? 1,
       xray: !!p.xray,
       accent: !!p.accent,
+      cut: p.cut !== false, // (false: whole when the model is cut open: a stand, a frame)
       explode: p.explode || [0, 0, 0],
       offset: [0, 0, 0],
       batches,
@@ -690,4 +756,4 @@ function flatten(part) {
   return g;
 }
 
-export { Geo, SHAPES, buildShape, buildScene, flatten, outlineNormals, bounds, MATERIALS, SURFACES };
+export { Geo, SHAPES, buildShape, buildScene, flatten, outlineNormals, edgesOf, bounds, MATERIALS, SURFACES };

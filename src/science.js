@@ -549,7 +549,7 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
   }
   return { ellipsoid, capsule, blob, shell, tree, molecule, dna, extrude, terrain, ring, orbit, blade };
 };
-export { rng };
+export { rng, earcut, signedArea };
 
 // [colour (CPK, as Jmol draws them), ball radius (Å, for ball-and-stick), van der Waals radius (Å, space-filling)]
 const ELEMENTS = {

@@ -14,7 +14,7 @@
 // It draws only when something changes, pauses off screen, lowers its resolution while frames are slow and moving,
 // and never reads from the page layout or the GPU while drawing: labels are measured once, picking casts rays on the CPU.
 import { D2R, M, sub, add, mulv, len, norm, cross, rgb } from './math.js';
-import { buildScene, flatten, buildShape, outlineNormals } from './geometry.js';
+import { buildScene, flatten, buildShape, outlineNormals, edgesOf } from './geometry.js';
 import { buildBVH, intersect, aoJob } from './bvh.js';
 import { glRenderer } from './renderer-gl.js';
 import { canvasRenderer } from './renderer-2d.js';
@@ -133,6 +133,45 @@ function refreshFrom(gaps) {
   return RATES.reduce((best, r) => (Math.abs(r - med) < Math.abs(best - med) ? r : best), RATES[0]);
 }
 
+// One clock for every figure: animation reads it, not the frame's own timestamp, so a test or a tool can slow time or
+// stop it and step it (LK3D.clock.speed = 0; LK3D.clock.step(100)) and draw every transition frame by frame
+const awake = new Set(); // the figures on the page, woken when the clock is stepped
+let clockT = 0,
+  wall = 0,
+  speed = 1;
+const clock = {
+  now() {
+    const w = performance.now();
+    clockT += (w - (wall || w)) * speed;
+    wall = w;
+    return clockT;
+  },
+  get speed() {
+    return speed;
+  },
+  set speed(v) {
+    clock.now();
+    speed = Math.max(0, +v || 0);
+  },
+  step(ms) {
+    clock.now();
+    clockT += ms;
+    for (const k of awake) k();
+  },
+};
+
+// a part's name and note as HTML: plain text, keeping only bare b, i, em, strong, sub, sup and br (scenes may come
+// from anyone; character references are kept, they cannot run anything)
+const safeHTML = (s) =>
+  String(s ?? '')
+    .replace(/&(?!#?\w+;)/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/&lt;(\/?)(b|i|em|strong|sub|sup|br) ?\/?&gt;/gi, '<$1$2>');
+
+const FORMAT = 1; // the version of the scene format this engine reads (a scene's "lk3d" field)
+let warned = false;
+
 function context(cv, opts) {
   const attrs = {
     antialias: true,
@@ -161,6 +200,10 @@ function context(cv, opts) {
 //   handles as range inputs (keyboard, screen readers) · watching size, visibility and the screen's density.
 function mount(el, spec, opts = {}) {
   css();
+  if (spec.lk3d > FORMAT && !warned && typeof console !== 'undefined') {
+    warned = true;
+    console.warn(`lk3d: this scene is written for format ${spec.lk3d}; this engine reads ${FORMAT}`);
+  }
   // the words on the page (opts.locale, else LK3D.defaults.locale, else English; opts.strings change single ones), and
   // the class of the built-in buttons (opts.buttonClass, e.g. a page's own button style; else lk3d's plain one)
   const D = LK3D.defaults,
@@ -173,6 +216,7 @@ function mount(el, spec, opts = {}) {
     style: opts.style || spec.style || 'ink',
     theme: opts.theme || spec.theme || null,
     timeScale: 1,
+    projection: spec.view?.projection || 'perspective',
     explode: 0,
     spin: 0,
     cut: false,
@@ -184,6 +228,24 @@ function mount(el, spec, opts = {}) {
     target: [0, 0, 0],
     hover: null,
     selected: null,
+  };
+  // the figure is complete once its first picture is up, the trees for pointing are built, the crease shading is done
+  // (there is none in 2D or with ao: false), no texture is still decoding and its edges are found: checked after each
+  // picture and when the trees are done
+  let done;
+  const ready = new Promise((r) => (done = r));
+  const settle = () => {
+    if (
+      done &&
+      stats.firstFrameMs != null &&
+      stats.treesMs != null &&
+      (aoDone || R.kind === '2d' || opts.ao === false) &&
+      !R.pending &&
+      (!edgesWanted() || (edgeTodo && !edgeTodo.length))
+    ) {
+      done(api);
+      done = null;
+    }
   };
   const small = Math.min(screen.width, screen.height) < 700;
   const cv = document.createElement('canvas');
@@ -291,7 +353,11 @@ function mount(el, spec, opts = {}) {
   cv.addEventListener('webglcontextrestored', () => {
     lost = false;
     R = glRenderer(gl, S, rOpts);
-    for (const p of S.parts) for (const b of p.batches) if (b.ao) R.setAO(b);
+    for (const p of S.parts)
+      for (const b of p.batches) {
+        if (b.ao) R.setAO(b);
+        if (b.lines) R.edges(b);
+      }
     for (const L of lines) {
       R.upload(L.part.batches[0]);
       L.dirty = true;
@@ -316,8 +382,13 @@ function mount(el, spec, opts = {}) {
       d = st.dist * fitW * (1 + (spec.view?.explodeZoom ?? 0.5) * st.explode),
       tgt = add(st.target, shift());
     eye = add(tgt, [d * cp * Math.sin(st.yaw), d * Math.sin(st.pitch), d * cp * Math.cos(st.yaw)]);
+    // orthographic: parallel lines stay parallel; framed as the perspective camera frames the point looked at
+    const fov = (spec.view?.fov ?? 35) * D2R,
+      h = d * Math.tan(fov / 2);
     VP = M.mul(
-      M.persp((spec.view?.fov ?? 35) * D2R, W / H, Math.max(0.01, d / 50), d * 10),
+      st.projection === 'ortho'
+        ? M.ortho((-h * W) / H, (h * W) / H, -h, h, -d * 4, d * 10)
+        : M.persp(fov, W / H, Math.max(0.01, d / 50), d * 10),
       M.look(eye, tgt, [0, 1, 0]),
     );
   }
@@ -325,7 +396,7 @@ function mount(el, spec, opts = {}) {
     let m = M.trans(add(mulv(p.explode, st.explode), p.offset));
     if (p.handleOf) m = M.mul(m, HD.matrix(p.handleOf.h, p.handleOf.v, p.handleOf.m));
     if (p.spin) {
-      const a = st.spin * (p.spin.ratio ?? 1),
+      const a = st.spin * D2R * (p.spin.ratio ?? 1),
         c = p.spin.center || [0, 0, 0];
       const r = p.spin.axis === 'y' ? M.rotY(a) : p.spin.axis === 'z' ? M.rotZ(a) : M.rotX(a);
       m = M.mul(m, M.mul(M.trans(c), M.mul(r, M.trans(mulv(c, -1)))));
@@ -484,12 +555,13 @@ function mount(el, spec, opts = {}) {
     raf = 0;
     if (dead) return;
     let moving = false;
+    const t = clock.now(); // (now, the frame's own time, still judges whether frames come late)
     for (const a of anim) {
-      if (a(now)) moving = true;
+      if (a(t)) moving = true;
       else anim.delete(a);
     } // a tick runs while it returns true
     // particles along paths run at the speed the page gave them
-    const pdt = pNow ? Math.min(0.05, (now - pNow) / 1000) * st.timeScale : 0;
+    const pdt = pNow ? Math.min(0.05, (t - pNow) / 1000) * st.timeScale : 0;
     let flowing = false;
     for (const h of particles)
       if (h.step && h.speed && h.visible) {
@@ -502,7 +574,7 @@ function mount(el, spec, opts = {}) {
         F.step(pdt);
         flowing = true;
       }
-    pNow = flowing ? now : 0;
+    pNow = flowing ? t : 0;
     moving = moving || flowing;
     if ((dirty || moving) && !lost) {
       // adaptive resolution: if moving frames keep coming late, draw fewer pixels until things are still again
@@ -574,6 +646,7 @@ function mount(el, spec, opts = {}) {
           style: st.style,
           parts: shown,
           flows: fl,
+          edges: !!edgeTodo && edgesWanted(),
           cut: st.cut,
           plane: plane(),
           hover: st.hover,
@@ -611,6 +684,8 @@ function mount(el, spec, opts = {}) {
               if (!dead) R.prewarm();
             }, 200);
         }
+        if (edgesWanted()) findEdges(); // (after the first picture, never before it)
+        settle();
       }
     }
     if (moving && visible && !raf) raf = requestAnimationFrame(frame); // one frame pending at most
@@ -763,12 +838,13 @@ function mount(el, spec, opts = {}) {
             Iv = M.invert(Wm),
             o = M.pt(Iv, A),
             d = M.dir(Iv, D);
-          const accept = st.cut
-            ? (t) => {
-                const w = add(A, mulv(D, t));
-                return pl[0] * w[0] + pl[1] * w[1] + pl[2] * w[2] + pl[3] <= 0;
-              }
-            : null;
+          const accept =
+            st.cut && p.cut
+              ? (t) => {
+                  const w = add(A, mulv(D, t));
+                  return pl[0] * w[0] + pl[1] * w[1] + pl[2] * w[2] + pl[3] <= 0;
+                }
+              : null;
           const h = intersect(b.geo, bvhOf(b), o, d, best, false, accept);
           if (h && h.t < best) {
             best = h.t;
@@ -792,7 +868,10 @@ function mount(el, spec, opts = {}) {
       const end = performance.now() + 6;
       while (todo.length && performance.now() < end) bvhOf(todo.shift());
       if (todo.length) setTimeout(build, 16);
-      else stats.treesMs = performance.now() - t0;
+      else {
+        stats.treesMs = performance.now() - t0;
+        settle();
+      }
     };
     setTimeout(build, 30);
   }
@@ -809,6 +888,7 @@ function mount(el, spec, opts = {}) {
             aoDone = true;
             stats.aoMs = performance.now() - t0;
             kick();
+            settle();
             return;
           }
           if (b.geo.count > 40000) continue; // a very detailed shape: its own folds already read; spare the phone the rays
@@ -831,6 +911,27 @@ function mount(el, spec, opts = {}) {
       setTimeout(work, 16);
     };
     setTimeout(work, 60);
+  }
+
+  // ---- edges: drawn in the pen look (and in any look with the scene's edges: true; never with edges: false), found in
+  // idle slices once a look needs them (a figure that never shows them never pays for them), drawn as they arrive
+  const edgesWanted = () => !!R.edges && !!look && (look.kind === 2 ? spec.edges !== false : spec.edges === true);
+  let edgeTodo = null;
+  function findEdges() {
+    if (edgeTodo) return;
+    edgeTodo = batchesAll.filter((b) => b.edgy);
+    const work = () => {
+      if (dead) return;
+      const end = performance.now() + 6;
+      while (edgeTodo.length && performance.now() < end) {
+        const b = edgeTodo.shift();
+        b.lines = edgesOf(b.geo, 40, b.soft);
+        if (b.gl) R.edges(b);
+      }
+      kick();
+      if (edgeTodo.length) setTimeout(work, 16);
+    };
+    setTimeout(work, 30);
   }
 
   // ---- pointer: orbit, pan, pinch, wheel (only with Ctrl, or once the figure has been clicked), hover and pick
@@ -1071,7 +1172,10 @@ function mount(el, spec, opts = {}) {
     // (a page's own select() does not call its onPick back)
     const id = st.selected || st.hover,
       p = S.parts.find((x) => x.id === id);
-    if (opts.info) opts.info.innerHTML = p ? `<b>${p.name}</b>${p.note ? ' ' + p.note : ''}` : opts.infoIdle || '';
+    if (opts.info)
+      opts.info.innerHTML = p
+        ? `<b>${safeHTML(p.name)}</b>${p.note ? ' ' + safeHTML(p.note) : ''}`
+        : safeHTML(opts.infoIdle);
     if (byReader && opts.onPick) opts.onPick(p || null);
   }
 
@@ -1209,6 +1313,7 @@ function mount(el, spec, opts = {}) {
       center: [0, 0, 0],
       m: M.id(),
       hidden: false,
+      cut: true,
       tris: 0,
     };
     const segs = new Array(count).fill(null);
@@ -1297,7 +1402,7 @@ function mount(el, spec, opts = {}) {
     };
     while (to.yaw - from.yaw > Math.PI) to.yaw -= 2 * Math.PI;
     while (from.yaw - to.yaw > Math.PI) to.yaw += 2 * Math.PI;
-    const t0 = performance.now(),
+    const t0 = clock.now(),
       T = LK3D.reduce ? 1 : 600;
     const tw = (now) => {
       const u = Math.min(1, (now - t0) / T),
@@ -1322,7 +1427,7 @@ function mount(el, spec, opts = {}) {
     explodeTw = null;
   function tweenExplode(to) {
     const from = st.explode,
-      t0 = performance.now(),
+      t0 = clock.now(),
       T = LK3D.reduce ? 1 : 900;
     const tw = (now) => {
       const u = Math.min(1, (now - t0) / T),
@@ -1351,6 +1456,8 @@ function mount(el, spec, opts = {}) {
       return R.hifi;
     },
     parts: S.parts,
+    // resolves once the figure is complete: the first picture, the crease shading, every texture and model
+    ready,
     view,
     explode: tweenExplode,
     // where the camera is (degrees and scene units), the part chosen, the labels and look in use
@@ -1383,9 +1490,9 @@ function mount(el, spec, opts = {}) {
         st.explode = Math.max(0, Math.min(1, o.explode));
         hooks.explode && hooks.explode(st.explode);
       }
-      for (const k of ['spin', 'cut', 'labels', 'xray', 'style', 'theme']) if (k in o) st[k] = o[k];
+      for (const k of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection']) if (k in o) st[k] = o[k];
       if ('timeScale' in o) st.timeScale = Math.max(0, +o.timeScale || 0);
-      if ('style' in o && hooks.style) hooks.style();
+      if (hooks.style) hooks.style(); // (the buttons: the look's name, which toggles are on)
       if (o.move)
         for (const [id, v] of Object.entries(o.move)) {
           const p = S.parts.find((x) => x.id === id);
@@ -1465,6 +1572,7 @@ function mount(el, spec, opts = {}) {
     },
     destroy() {
       dead = true;
+      awake.delete(kick);
       cancelAnimationFrame(raf);
       raf = 0;
       clearTimeout(idleTimer);
@@ -1549,6 +1657,7 @@ function mount(el, spec, opts = {}) {
     wake();
   };
   document.addEventListener('visibilitychange', onVis);
+  awake.add(kick);
   watchDpr();
   resize();
   info();
@@ -1558,6 +1667,8 @@ function mount(el, spec, opts = {}) {
 
 const LK3D = {
   mount,
+  clock,
+  format: FORMAT,
   locales: { en, vi },
   themes: THEMES,
   // settings for every figure on the page (a site sets them once): locale, strings, buttonClass
@@ -1581,4 +1692,4 @@ const LK3D = {
 if (typeof window !== 'undefined') window.LK3D = LK3D;
 export default LK3D;
 export const { build, reduce, version, locales, defaults, themes } = LK3D; // (the same objects: setting defaults here sets them for LK3D)
-export { mount, M, refreshFrom };
+export { mount, M, refreshFrom, clock, safeHTML };

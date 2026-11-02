@@ -1,0 +1,2206 @@
+{
+  "lk3d": 1,
+  "title": "A turbofan on a ground-run stand",
+  "alt": "A 3D model of a turbofan hanging from a ground-run test stand, its axis horizontal, air flowing left to right, cut open to show the inside: the spinner and 24 fan blades, the guide vanes behind the fan, the low- and high-pressure compressors with rows of rotor blades between rows of stator vanes, the ring-shaped combustor with its fuel nozzles, the high- and low-pressure turbines, two nested shafts, the exhaust nozzle and cone. The nacelle and core casing are in two halves that can be seen through and taken apart sideways. The engine hangs from the steel frame through a pylon and a load cell.",
+  "w": 16,
+  "h": 10,
+  "narrow": "1 / 0.9",
+  "style": "pen",
+  "view": {
+    "yaw": -36,
+    "pitch": 22,
+    "projection": "ortho",
+    "explodeZoom": 0.6,
+    "explodeShift": [0, -0.3, 0.9]
+  },
+  "section": {
+    "normal": [0, 0, 1],
+    "offset": 0
+  },
+  "scale": {
+    "note": "An illustration, not to scale"
+  },
+  "parts": [
+    {
+      "id": "de-be",
+      "name": "Base plate",
+      "note": "a thick steel plate on four feet, bolted to the floor; the frame the engine hangs from stands on it.",
+      "group": "be-thu",
+      "material": "paint",
+      "color": "#c9ccd1",
+      "studioColor": "#8e949c",
+      "cut": false,
+      "shapes": [
+        {
+          "box": [4.6, 0.14, 2.9],
+          "at": [0, -1.57, 0]
+        },
+        {
+          "box": [4.2, 0.02, 0.06],
+          "at": [0, -1.49, 1.3]
+        },
+        {
+          "box": [0.32, 0.1, 0.32],
+          "at": [-2.1, -1.69, -1.296]
+        },
+        {
+          "box": [0.32, 0.1, 0.32],
+          "at": [-2.1, -1.69, 1.296]
+        },
+        {
+          "box": [0.32, 0.1, 0.32],
+          "at": [2.1, -1.69, -1.296]
+        },
+        {
+          "box": [0.32, 0.1, 0.32],
+          "at": [2.1, -1.69, 1.296]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [-2.13, -1.5, -1.33]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [-1.87, -1.5, -1.07]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [-2.13, -1.5, -1.07]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [-1.87, -1.5, -1.33]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [-2.13, -1.5, 1.07]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [-1.87, -1.5, 1.33]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [-2.13, -1.5, 1.33]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [-1.87, -1.5, 1.07]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [1.87, -1.5, -1.33]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [2.13, -1.5, -1.07]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [1.87, -1.5, -1.07]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [2.13, -1.5, -1.33]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [1.87, -1.5, 1.07]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [2.13, -1.5, 1.33]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [1.87, -1.5, 1.33]
+        },
+        {
+          "cylinder": {
+            "r": 0.03,
+            "x0": 0,
+            "x1": 0.04
+          },
+          "rot": [0, 0, 90],
+          "at": [2.13, -1.5, 1.07]
+        }
+      ]
+    },
+    {
+      "id": "khung",
+      "name": "Test frame",
+      "note": "four steel posts and two cross beams on top, holding the engine up off the ground for a ground run.",
+      "group": "be-thu",
+      "material": "paint",
+      "color": "#c9ccd1",
+      "studioColor": "#8e949c",
+      "cut": false,
+      "shapes": [
+        {
+          "box": [0.14, 3.25, 0.14],
+          "at": [-2, 0.125, -1.2]
+        },
+        {
+          "box": [0.14, 3.25, 0.14],
+          "at": [-2, 0.125, 1.2]
+        },
+        {
+          "box": [0.14, 3.25, 0.14],
+          "at": [2, 0.125, -1.2]
+        },
+        {
+          "box": [0.14, 3.25, 0.14],
+          "at": [2, 0.125, 1.2]
+        },
+        {
+          "box": [0.3, 0.03, 0.3],
+          "at": [-2, -1.485, -1.2]
+        },
+        {
+          "box": [0.3, 0.03, 0.3],
+          "at": [-2, -1.485, 1.2]
+        },
+        {
+          "box": [0.3, 0.03, 0.3],
+          "at": [2, -1.485, -1.2]
+        },
+        {
+          "box": [0.3, 0.03, 0.3],
+          "at": [2, -1.485, 1.2]
+        },
+        {
+          "box": [0.16, 0.14, 2.56],
+          "at": [-2, 1.82, 0]
+        },
+        {
+          "box": [0.16, 0.14, 2.56],
+          "at": [2, 1.82, 0]
+        }
+      ]
+    },
+    {
+      "id": "dam-doc",
+      "name": "Long beam",
+      "note": "a steel beam joining the two cross beams, running along above the engine; the load cell hangs under it.",
+      "group": "be-thu",
+      "material": "paint",
+      "color": "#c9ccd1",
+      "studioColor": "#8e949c",
+      "cut": false,
+      "shapes": [
+        {
+          "box": [4.16, 0.14, 0.22],
+          "at": [0, 1.68, 0]
+        },
+        {
+          "cylinder": {
+            "r": 0.024,
+            "x0": 0,
+            "x1": 0.03
+          },
+          "rot": [0, 0, 90],
+          "at": [-1.9, 1.75, -0.06]
+        },
+        {
+          "cylinder": {
+            "r": 0.024,
+            "x0": 0,
+            "x1": 0.03
+          },
+          "rot": [0, 0, 90],
+          "at": [-1.9, 1.75, 0.06]
+        },
+        {
+          "cylinder": {
+            "r": 0.024,
+            "x0": 0,
+            "x1": 0.03
+          },
+          "rot": [0, 0, 90],
+          "at": [1.9, 1.75, -0.06]
+        },
+        {
+          "cylinder": {
+            "r": 0.024,
+            "x0": 0,
+            "x1": 0.03
+          },
+          "rot": [0, 0, 90],
+          "at": [1.9, 1.75, 0.06]
+        }
+      ]
+    },
+    {
+      "id": "cam-bien-luc",
+      "name": "Load cell",
+      "note": "joins the pylon to the frame. When the engine runs, its thrust pulls it forwards, and the load cell measures that force.",
+      "group": "be-thu",
+      "material": "paint",
+      "color": "#d9822b",
+      "studioColor": "#c8742a",
+      "cut": false,
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.08,
+            "x0": -0.06,
+            "x1": 0.06
+          },
+          "rot": [0, 0, 90],
+          "at": [0.35, 1.56, 0]
+        },
+        {
+          "box": [0.22, 0.04, 0.16],
+          "at": [0.35, 1.53, 0]
+        }
+      ]
+    },
+    {
+      "id": "gia-treo",
+      "name": "Pylon",
+      "note": "the steel block the engine hangs from: bolted to the fan case at the front and, through a link, to the turbine case at the back.",
+      "group": "be-thu",
+      "material": "paint",
+      "color": "#c9ccd1",
+      "studioColor": "#8e949c",
+      "cut": false,
+      "shapes": [
+        {
+          "box": [1.8, 0.4, 0.14],
+          "at": [0.35, 1.31, 0]
+        },
+        {
+          "box": [0.5, 0.2, 0.12],
+          "at": [-0.3, 1.02, 0]
+        },
+        {
+          "box": [0.1, 0.65, 0.1],
+          "at": [1.15, 0.8, 0]
+        }
+      ]
+    },
+    {
+      "id": "vo-ngoai",
+      "name": "Nacelle",
+      "note": "covers the fan and the bypass duct; two halves, joined at bolted flanges. The intake is at the front; at the back, the air that went round the core leaves at the nacelle's rear edge.",
+      "group": "vo",
+      "material": "paint",
+      "surface": {
+        "kind": "brushed",
+        "scale": 30,
+        "strength": 0.3
+      },
+      "color": "#e8e4da",
+      "studioColor": "#dcdad5",
+      "xray": true,
+      "explode": [0, 0, 2.3],
+      "shapes": [
+        {
+          "lathe": [
+            [-1.64, 0.86],
+            [-1.58, 0.93],
+            [-1.45, 0.965],
+            [-1, 0.985],
+            [-0.4, 0.965],
+            [0.2, 0.9],
+            [0.62, 0.795],
+            [0.62, 0.775],
+            [0.2, 0.79],
+            [-0.4, 0.8],
+            [-0.9, 0.81],
+            [-1.3, 0.81],
+            [-1.5, 0.82],
+            [-1.6, 0.835]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "lathe": [
+            [-1.2, 0.965],
+            [-1.2, 1.001],
+            [-1.16, 1.001],
+            [-1.16, 0.965]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": -1.16,
+            "x1": -1.146
+          },
+          "at": [0, 0.985, 0],
+          "repeat": {
+            "n": 16,
+            "step": 11.25,
+            "start": 5.625
+          }
+        },
+        {
+          "lathe": [
+            [0.03, 0.904],
+            [0.03, 0.94],
+            [0.07, 0.94],
+            [0.07, 0.904]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": 0.07,
+            "x1": 0.084
+          },
+          "at": [0, 0.924, 0],
+          "repeat": {
+            "n": 16,
+            "step": 11.25,
+            "start": 5.625
+          }
+        }
+      ]
+    },
+    {
+      "id": "vo-ngoai-sau",
+      "name": "Nacelle (far half)",
+      "note": "the far half of the nacelle: the two halves close round the fan and the bypass duct.",
+      "group": "vo",
+      "material": "paint",
+      "surface": {
+        "kind": "brushed",
+        "scale": 30,
+        "strength": 0.3
+      },
+      "color": "#e8e4da",
+      "studioColor": "#dcdad5",
+      "xray": true,
+      "label": false,
+      "explode": [0, 0, -2.3],
+      "shapes": [
+        {
+          "lathe": [
+            [-1.64, 0.86],
+            [-1.58, 0.93],
+            [-1.45, 0.965],
+            [-1, 0.985],
+            [-0.4, 0.965],
+            [0.2, 0.9],
+            [0.62, 0.795],
+            [0.62, 0.775],
+            [0.2, 0.79],
+            [-0.4, 0.8],
+            [-0.9, 0.81],
+            [-1.3, 0.81],
+            [-1.5, 0.82],
+            [-1.6, 0.835]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "lathe": [
+            [-1.2, 0.965],
+            [-1.2, 1.001],
+            [-1.16, 1.001],
+            [-1.16, 0.965]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": -1.16,
+            "x1": -1.146
+          },
+          "at": [0, 0.985, 0],
+          "repeat": {
+            "n": 16,
+            "step": 11.25,
+            "start": 185.625
+          }
+        },
+        {
+          "lathe": [
+            [0.03, 0.904],
+            [0.03, 0.94],
+            [0.07, 0.94],
+            [0.07, 0.904]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": 0.07,
+            "x1": 0.084
+          },
+          "at": [0, 0.924, 0],
+          "repeat": {
+            "n": 16,
+            "step": 11.25,
+            "start": 185.625
+          }
+        }
+      ]
+    },
+    {
+      "id": "vo-loi",
+      "name": "Core casing",
+      "note": "covers the compressors, the combustor and the turbines; two halves, joined at flanges. Its outside is the inner wall of the bypass duct; its inside follows the blade tips, narrowing through the compressor.",
+      "group": "loi",
+      "material": "metal",
+      "color": "#b9c0c8",
+      "studioColor": "#9aa3ad",
+      "xray": true,
+      "explode": [0, 0, 1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [-0.92, 0.475],
+            [-0.85, 0.5],
+            [-0.7, 0.525],
+            [-0.3, 0.55],
+            [0.3, 0.56],
+            [0.8, 0.54],
+            [1.2, 0.5],
+            [1.46, 0.475],
+            [1.46, 0.458],
+            [1.42, 0.458],
+            [1, 0.385],
+            [0.94, 0.345],
+            [0.86, 0.345],
+            [0.8, 0.4],
+            [0.5, 0.4],
+            [0.44, 0.31],
+            [0.36, 0.314],
+            [-0.24, 0.374],
+            [-0.3, 0.378],
+            [-0.38, 0.41],
+            [-0.45, 0.435],
+            [-0.52, 0.44],
+            [-0.82, 0.47],
+            [-0.9, 0.468]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "lathe": [
+            [-0.32, 0.538],
+            [-0.32, 0.574],
+            [-0.28, 0.574],
+            [-0.28, 0.538]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": -0.28,
+            "x1": -0.266
+          },
+          "at": [0, 0.558, 0],
+          "repeat": {
+            "n": 12,
+            "step": 15,
+            "start": 7.5
+          }
+        },
+        {
+          "lathe": [
+            [0.81, 0.525],
+            [0.81, 0.561],
+            [0.85, 0.561],
+            [0.85, 0.525]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": 0.85,
+            "x1": 0.864
+          },
+          "at": [0, 0.545, 0],
+          "repeat": {
+            "n": 12,
+            "step": 15,
+            "start": 7.5
+          }
+        },
+        {
+          "lathe": [
+            [1.28, 0.478],
+            [1.28, 0.514],
+            [1.32, 0.514],
+            [1.32, 0.478]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": 1.32,
+            "x1": 1.334
+          },
+          "at": [0, 0.498, 0],
+          "repeat": {
+            "n": 12,
+            "step": 15,
+            "start": 7.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "vo-loi-sau",
+      "name": "Core casing (far half)",
+      "note": "the far half of the core casing; the stator vanes are fixed to its inside.",
+      "group": "loi",
+      "material": "metal",
+      "color": "#b9c0c8",
+      "studioColor": "#9aa3ad",
+      "xray": true,
+      "label": false,
+      "explode": [0, 0, -1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [-0.92, 0.475],
+            [-0.85, 0.5],
+            [-0.7, 0.525],
+            [-0.3, 0.55],
+            [0.3, 0.56],
+            [0.8, 0.54],
+            [1.2, 0.5],
+            [1.46, 0.475],
+            [1.46, 0.458],
+            [1.42, 0.458],
+            [1, 0.385],
+            [0.94, 0.345],
+            [0.86, 0.345],
+            [0.8, 0.4],
+            [0.5, 0.4],
+            [0.44, 0.31],
+            [0.36, 0.314],
+            [-0.24, 0.374],
+            [-0.3, 0.378],
+            [-0.38, 0.41],
+            [-0.45, 0.435],
+            [-0.52, 0.44],
+            [-0.82, 0.47],
+            [-0.9, 0.468]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "lathe": [
+            [-0.32, 0.538],
+            [-0.32, 0.574],
+            [-0.28, 0.574],
+            [-0.28, 0.538]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": -0.28,
+            "x1": -0.266
+          },
+          "at": [0, 0.558, 0],
+          "repeat": {
+            "n": 12,
+            "step": 15,
+            "start": 187.5
+          }
+        },
+        {
+          "lathe": [
+            [0.81, 0.525],
+            [0.81, 0.561],
+            [0.85, 0.561],
+            [0.85, 0.525]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": 0.85,
+            "x1": 0.864
+          },
+          "at": [0, 0.545, 0],
+          "repeat": {
+            "n": 12,
+            "step": 15,
+            "start": 187.5
+          }
+        },
+        {
+          "lathe": [
+            [1.28, 0.478],
+            [1.28, 0.514],
+            [1.32, 0.514],
+            [1.32, 0.478]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": 1.32,
+            "x1": 1.334
+          },
+          "at": [0, 0.498, 0],
+          "repeat": {
+            "n": 12,
+            "step": 15,
+            "start": 187.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "hop-so-phu",
+      "name": "Accessory gearbox",
+      "note": "under the fan case; takes a drive from the engine's shaft to run the fuel pump, the oil pump and the generator.",
+      "group": "vo",
+      "material": "metal",
+      "color": "#a9aeb5",
+      "studioColor": "#7d838a",
+      "explode": [0, 0, -2.3],
+      "shapes": [
+        {
+          "box": [0.52, 0.13, 0.26],
+          "at": [-0.62, -0.995, -0.24]
+        },
+        {
+          "cylinder": {
+            "r": 0.05,
+            "x0": -0.98,
+            "x1": -0.88
+          },
+          "at": [0, -1, -0.24]
+        },
+        {
+          "cylinder": {
+            "r": 0.04,
+            "x0": -0.36,
+            "x1": -0.27
+          },
+          "at": [0, -1, -0.24]
+        },
+        {
+          "cylinder": {
+            "r": 0.035,
+            "x0": -0.36,
+            "x1": -0.27
+          },
+          "at": [0, -1, -0.14]
+        }
+      ]
+    },
+    {
+      "id": "chop-quat",
+      "name": "Spinner",
+      "note": "leads the air smoothly into the fan, and turns with it.",
+      "group": "truc-thap",
+      "material": "paint",
+      "surface": {
+        "kind": "brushed",
+        "scale": 50,
+        "strength": 0.25
+      },
+      "color": "#4a4e57",
+      "studioColor": "#2e3138",
+      "spin": {
+        "axis": "x"
+      },
+      "explode": [-1.3, 0, 0],
+      "shapes": [
+        {
+          "lathe": [
+            [-1.66, 0],
+            [-1.62, 0.05],
+            [-1.54, 0.115],
+            [-1.42, 0.18],
+            [-1.3, 0.222],
+            [-1.2, 0.24],
+            [-1.2, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quat",
+      "name": "Fan",
+      "note": "24 wide blades, twisted from root to tip. The fan draws air in and pushes most of it back through the bypass duct; the rest goes into the core.",
+      "group": "truc-thap",
+      "material": "metal",
+      "color": "#d9822b",
+      "studioColor": "#a9b2bc",
+      "accent": true,
+      "spin": {
+        "axis": "x"
+      },
+      "explode": [-0.85, 0, 0],
+      "shapes": [
+        {
+          "lathe": [
+            [-1.2, 0.05],
+            [-1.2, 0.24],
+            [-1, 0.25],
+            [-0.92, 0.28],
+            [-0.86, 0.298],
+            [-0.86, 0.05]
+          ],
+          "closed": true
+        },
+        {
+          "blade": {
+            "root": 0.24,
+            "span": 0.545,
+            "chord": 0.2,
+            "tip": 0.3,
+            "twist": 35,
+            "thickness": 0.06,
+            "camber": 0.05,
+            "sweep": 0.1
+          },
+          "at": [-1.11, 0, 0],
+          "rot": [0, 60, 0],
+          "repeat": 24
+        }
+      ]
+    },
+    {
+      "id": "mn-thap-roto",
+      "name": "Low-pressure compressor rotor",
+      "note": "3 rows of rotor blades (30, 32 and 34), on the low-pressure shaft, so they turn with the fan; they begin to compress the air going into the core.",
+      "group": "truc-thap",
+      "material": "steel",
+      "color": "#aab3bc",
+      "studioColor": "#8d969f",
+      "spin": {
+        "axis": "x"
+      },
+      "shapes": [
+        {
+          "lathe": [
+            [-0.86, 0.22],
+            [-0.86, 0.3],
+            [-0.46, 0.288],
+            [-0.4, 0.27],
+            [-0.4, 0.22]
+          ],
+          "closed": true
+        },
+        {
+          "blade": {
+            "root": 0.298,
+            "span": 0.157,
+            "chord": 0.075,
+            "twist": 15,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.8, 0, 0],
+          "rot": [0, 50, 0],
+          "repeat": 30,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.294,
+            "span": 0.147,
+            "chord": 0.07,
+            "twist": 15,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.66, 0, 0],
+          "rot": [0, 50, 0],
+          "repeat": 32,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.29,
+            "span": 0.137,
+            "chord": 0.065,
+            "twist": 15,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.52, 0, 0],
+          "rot": [0, 50, 0],
+          "repeat": 34,
+          "detail": 0.5
+        }
+      ]
+    },
+    {
+      "id": "tb-thap",
+      "name": "Low-pressure turbine",
+      "note": "4 rows of rotor blades (36, 38, 40 and 42), longer towards the back as the gas expands. The hot gas turns the turbine; the low-pressure shaft carries the turning forward to the fan and the low-pressure compressor.",
+      "group": "truc-thap",
+      "material": "metal",
+      "color": "#b98a62",
+      "studioColor": "#9a7050",
+      "glow": "#ff9a4a",
+      "spin": {
+        "axis": "x"
+      },
+      "shapes": [
+        {
+          "lathe": [
+            [0.96, 0.18],
+            [0.96, 0.245],
+            [1.44, 0.235],
+            [1.44, 0.18]
+          ],
+          "closed": true
+        },
+        {
+          "lathe": [
+            [1.3, 0.05],
+            [1.44, 0.18],
+            [1.46, 0.18],
+            [1.32, 0.05]
+          ],
+          "closed": true
+        },
+        {
+          "blade": {
+            "root": 0.243,
+            "span": 0.137,
+            "chord": 0.05,
+            "twist": 15,
+            "thickness": 0.12,
+            "camber": -0.08
+          },
+          "at": [1.04, 0, 0],
+          "rot": [0, -45, 0],
+          "repeat": 36,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.241,
+            "span": 0.16,
+            "chord": 0.054,
+            "twist": 15,
+            "thickness": 0.12,
+            "camber": -0.08
+          },
+          "at": [1.16, 0, 0],
+          "rot": [0, -45, 0],
+          "repeat": 38,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.238,
+            "span": 0.183,
+            "chord": 0.058,
+            "twist": 15,
+            "thickness": 0.12,
+            "camber": -0.08
+          },
+          "at": [1.28, 0, 0],
+          "rot": [0, -45, 0],
+          "repeat": 40,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.236,
+            "span": 0.207,
+            "chord": 0.062,
+            "twist": 15,
+            "thickness": 0.12,
+            "camber": -0.08
+          },
+          "at": [1.4, 0, 0],
+          "rot": [0, -45, 0],
+          "repeat": 42,
+          "detail": 0.5
+        }
+      ]
+    },
+    {
+      "id": "truc-thap",
+      "name": "Low-pressure shaft",
+      "note": "the long inner shaft, from the low-pressure turbine at the back to the fan and the low-pressure compressor at the front. It runs through the high-pressure shaft.",
+      "group": "truc-thap",
+      "material": "steel",
+      "color": "#8f979f",
+      "studioColor": "#c0c6cc",
+      "spin": {
+        "axis": "x"
+      },
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.05,
+            "x0": -1.18,
+            "x1": 1.46
+          }
+        }
+      ]
+    },
+    {
+      "id": "mn-cao-roto",
+      "name": "High-pressure compressor rotor",
+      "note": "6 rows of rotor blades (26, 28, 30, 32, 34 and 36), turning faster than the fan. The air is squeezed hard; the flow path narrows, so the blades get shorter towards the back.",
+      "group": "truc-cao",
+      "material": "steel",
+      "color": "#9fa9b3",
+      "studioColor": "#7d868f",
+      "spin": {
+        "axis": "x",
+        "ratio": 2.4
+      },
+      "shapes": [
+        {
+          "lathe": [
+            [-0.26, 0.12],
+            [-0.26, 0.215],
+            [0.42, 0.27],
+            [0.42, 0.12]
+          ],
+          "closed": true
+        },
+        {
+          "blade": {
+            "root": 0.218,
+            "span": 0.142,
+            "chord": 0.07,
+            "twist": 15,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.22, 0, 0],
+          "rot": [0, 50, 0],
+          "repeat": 26,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.227,
+            "span": 0.122,
+            "chord": 0.064,
+            "twist": 15,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.11, 0, 0],
+          "rot": [0, 50, 0],
+          "repeat": 28,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.236,
+            "span": 0.102,
+            "chord": 0.058,
+            "twist": 15,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0, 0, 0],
+          "rot": [0, 50, 0],
+          "repeat": 30,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.245,
+            "span": 0.082,
+            "chord": 0.052,
+            "twist": 15,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.11, 0, 0],
+          "rot": [0, 50, 0],
+          "repeat": 32,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.254,
+            "span": 0.062,
+            "chord": 0.046,
+            "twist": 15,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.22, 0, 0],
+          "rot": [0, 50, 0],
+          "repeat": 34,
+          "detail": 0.5
+        },
+        {
+          "blade": {
+            "root": 0.263,
+            "span": 0.042,
+            "chord": 0.04,
+            "twist": 15,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.33, 0, 0],
+          "rot": [0, 50, 0],
+          "repeat": 36,
+          "detail": 0.5
+        }
+      ]
+    },
+    {
+      "id": "tb-cao",
+      "name": "High-pressure turbine",
+      "note": "1 row of 40 blades, straight after the combustor, in the hottest gas. It turns the high-pressure shaft, which drives the high-pressure compressor.",
+      "group": "truc-cao",
+      "material": "metal",
+      "color": "#c08a5a",
+      "studioColor": "#a0704a",
+      "glow": "#ff8a3a",
+      "spin": {
+        "axis": "x",
+        "ratio": 2.4
+      },
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.256,
+            "ri": 0.11,
+            "x0": 0.875,
+            "x1": 0.925
+          }
+        },
+        {
+          "blade": {
+            "root": 0.255,
+            "span": 0.078,
+            "chord": 0.045,
+            "twist": 10,
+            "thickness": 0.18,
+            "camber": -0.12
+          },
+          "at": [0.9, 0, 0],
+          "rot": [0, -40, 0],
+          "repeat": 40,
+          "detail": 0.5
+        }
+      ]
+    },
+    {
+      "id": "truc-cao",
+      "name": "High-pressure shaft",
+      "note": "a short hollow shaft joining the high-pressure turbine to the high-pressure compressor. The low-pressure shaft runs inside it; the two turn at different speeds.",
+      "group": "truc-cao",
+      "material": "steel",
+      "color": "#7f8891",
+      "studioColor": "#b0b7be",
+      "spin": {
+        "axis": "x",
+        "ratio": 2.4
+      },
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.11,
+            "ri": 0.07,
+            "x0": -0.3,
+            "x1": 0.95
+          }
+        }
+      ]
+    },
+    {
+      "id": "canh-huong-dong",
+      "name": "Outlet guide vanes",
+      "note": "36 vanes standing still in the bypass duct (two halves of 18), straightening the swirling air behind the fan; they also hold the nacelle to the core casing.",
+      "group": "vo",
+      "material": "metal",
+      "color": "#9aa3ad",
+      "studioColor": "#7d868f",
+      "explode": [0, 0, 2.3],
+      "shapes": [
+        {
+          "blade": {
+            "root": 0.51,
+            "span": 0.305,
+            "chord": 0.12,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.7, 0, 0],
+          "rot": [0, -10, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 18,
+            "step": 10,
+            "start": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "canh-huong-dong-sau",
+      "name": "Outlet guide vanes (far half)",
+      "note": "the far half of the row of guide vanes behind the fan.",
+      "group": "vo",
+      "material": "metal",
+      "color": "#9aa3ad",
+      "studioColor": "#7d868f",
+      "label": false,
+      "explode": [0, 0, -2.3],
+      "shapes": [
+        {
+          "blade": {
+            "root": 0.51,
+            "span": 0.305,
+            "chord": 0.12,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.7, 0, 0],
+          "rot": [0, -10, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 18,
+            "step": 10,
+            "start": 185
+          }
+        }
+      ]
+    },
+    {
+      "id": "mn-thap-stato",
+      "name": "Low-pressure compressor stators",
+      "note": "3 rows of stator vanes (36, 38 and 40) fixed to the casing between the rotor rows: they turn the flow and change its speed into pressure; each row is in two halves, fixed to the two halves of the core casing.",
+      "group": "loi",
+      "material": "metal",
+      "color": "#8c96a0",
+      "studioColor": "#6f7983",
+      "explode": [0, 0, 1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [-0.4, 0.27],
+            [-0.26, 0.215],
+            [-0.26, 0.19],
+            [-0.4, 0.25]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "blade": {
+            "root": 0.302,
+            "span": 0.163,
+            "chord": 0.06,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.73, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 18,
+            "step": 10,
+            "start": 5
+          }
+        },
+        {
+          "blade": {
+            "root": 0.298,
+            "span": 0.153,
+            "chord": 0.06,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.59, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 19,
+            "step": 9.4737,
+            "start": 4.7368
+          }
+        },
+        {
+          "blade": {
+            "root": 0.291,
+            "span": 0.148,
+            "chord": 0.06,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.45, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 20,
+            "step": 9,
+            "start": 4.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "mn-thap-stato-sau",
+      "name": "Low-pressure compressor stators (far half)",
+      "note": "the far half of the low-pressure compressor's stator rows, fixed to the far half of the core casing.",
+      "group": "loi",
+      "material": "metal",
+      "color": "#8c96a0",
+      "studioColor": "#6f7983",
+      "label": false,
+      "explode": [0, 0, -1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [-0.4, 0.27],
+            [-0.26, 0.215],
+            [-0.26, 0.19],
+            [-0.4, 0.25]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "blade": {
+            "root": 0.302,
+            "span": 0.163,
+            "chord": 0.06,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.73, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 18,
+            "step": 10,
+            "start": 185
+          }
+        },
+        {
+          "blade": {
+            "root": 0.298,
+            "span": 0.153,
+            "chord": 0.06,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.59, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 19,
+            "step": 9.4737,
+            "start": 184.7368
+          }
+        },
+        {
+          "blade": {
+            "root": 0.291,
+            "span": 0.148,
+            "chord": 0.06,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.45, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 20,
+            "step": 9,
+            "start": 184.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "mn-cao-stato",
+      "name": "High-pressure compressor stators",
+      "note": "6 rows of stator vanes (30, 32, 34, 36, 38 and 40) fixed to the core casing, each behind a row of rotor blades; each row is in two halves.",
+      "group": "loi",
+      "material": "metal",
+      "color": "#8c96a0",
+      "studioColor": "#6f7983",
+      "explode": [0, 0, 1.35],
+      "shapes": [
+        {
+          "blade": {
+            "root": 0.229,
+            "span": 0.142,
+            "chord": 0.055,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.165, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 15,
+            "step": 12,
+            "start": 6
+          }
+        },
+        {
+          "blade": {
+            "root": 0.238,
+            "span": 0.122,
+            "chord": 0.051,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.055, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 16,
+            "step": 11.25,
+            "start": 5.625
+          }
+        },
+        {
+          "blade": {
+            "root": 0.246,
+            "span": 0.102,
+            "chord": 0.047,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.055, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 17,
+            "step": 10.5882,
+            "start": 5.2941
+          }
+        },
+        {
+          "blade": {
+            "root": 0.255,
+            "span": 0.082,
+            "chord": 0.043,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.165, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 18,
+            "step": 10,
+            "start": 5
+          }
+        },
+        {
+          "blade": {
+            "root": 0.264,
+            "span": 0.062,
+            "chord": 0.039,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.275, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 19,
+            "step": 9.4737,
+            "start": 4.7368
+          }
+        },
+        {
+          "blade": {
+            "root": 0.273,
+            "span": 0.044,
+            "chord": 0.035,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.385, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 20,
+            "step": 9,
+            "start": 4.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "mn-cao-stato-sau",
+      "name": "High-pressure compressor stators (far half)",
+      "note": "the far half of the high-pressure compressor's stator rows, fixed to the far half of the core casing.",
+      "group": "loi",
+      "material": "metal",
+      "color": "#8c96a0",
+      "studioColor": "#6f7983",
+      "label": false,
+      "explode": [0, 0, -1.35],
+      "shapes": [
+        {
+          "blade": {
+            "root": 0.229,
+            "span": 0.142,
+            "chord": 0.055,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.165, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 15,
+            "step": 12,
+            "start": 186
+          }
+        },
+        {
+          "blade": {
+            "root": 0.238,
+            "span": 0.122,
+            "chord": 0.051,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [-0.055, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 16,
+            "step": 11.25,
+            "start": 185.625
+          }
+        },
+        {
+          "blade": {
+            "root": 0.246,
+            "span": 0.102,
+            "chord": 0.047,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.055, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 17,
+            "step": 10.5882,
+            "start": 185.2941
+          }
+        },
+        {
+          "blade": {
+            "root": 0.255,
+            "span": 0.082,
+            "chord": 0.043,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.165, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 18,
+            "step": 10,
+            "start": 185
+          }
+        },
+        {
+          "blade": {
+            "root": 0.264,
+            "span": 0.062,
+            "chord": 0.039,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.275, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 19,
+            "step": 9.4737,
+            "start": 184.7368
+          }
+        },
+        {
+          "blade": {
+            "root": 0.273,
+            "span": 0.044,
+            "chord": 0.035,
+            "twist": 0,
+            "thickness": 0.08,
+            "camber": 0.05
+          },
+          "at": [0.385, 0, 0],
+          "rot": [0, -35, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 20,
+            "step": 9,
+            "start": 184.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "buong-dot",
+      "name": "Combustor",
+      "note": "a ring-shaped chamber round the shaft. Fuel sprayed in burns in the compressed air and heats it strongly; a higher throttle sprays more fuel.",
+      "group": "loi",
+      "material": "metal",
+      "surface": {
+        "kind": "cast",
+        "strength": 0.4
+      },
+      "color": "#c9a27a",
+      "studioColor": "#a88a6a",
+      "glow": "#ff6a2a",
+      "explode": [0, 0, 1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [0.5, 0.345],
+            [0.56, 0.375],
+            [0.8, 0.36],
+            [0.8, 0.35],
+            [0.56, 0.365],
+            [0.505, 0.338]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "lathe": [
+            [0.5, 0.265],
+            [0.56, 0.24],
+            [0.8, 0.26],
+            [0.8, 0.27],
+            [0.56, 0.25],
+            [0.505, 0.272]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        },
+        {
+          "lathe": [
+            [0.48, 0.262],
+            [0.48, 0.348],
+            [0.5, 0.348],
+            [0.5, 0.262]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        }
+      ]
+    },
+    {
+      "id": "buong-dot-sau",
+      "name": "Combustor (far half)",
+      "note": "the far half of the ring-shaped combustor.",
+      "group": "loi",
+      "material": "metal",
+      "surface": {
+        "kind": "cast",
+        "strength": 0.4
+      },
+      "color": "#c9a27a",
+      "studioColor": "#a88a6a",
+      "glow": "#ff6a2a",
+      "label": false,
+      "explode": [0, 0, -1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [0.5, 0.345],
+            [0.56, 0.375],
+            [0.8, 0.36],
+            [0.8, 0.35],
+            [0.56, 0.365],
+            [0.505, 0.338]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "lathe": [
+            [0.5, 0.265],
+            [0.56, 0.24],
+            [0.8, 0.26],
+            [0.8, 0.27],
+            [0.56, 0.25],
+            [0.505, 0.272]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        },
+        {
+          "lathe": [
+            [0.48, 0.262],
+            [0.48, 0.348],
+            [0.5, 0.348],
+            [0.5, 0.262]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        }
+      ]
+    },
+    {
+      "id": "ngon-lua",
+      "name": "Burning gas",
+      "note": "the very hot gas in the combustor; brighter as the throttle goes up.",
+      "group": "loi",
+      "material": "gas",
+      "color": "#ffb36a",
+      "studioColor": "#ff9a4a",
+      "opacity": 0.55,
+      "glow": "#ff7a2a",
+      "label": false,
+      "explode": [0, 0, 1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [0.51, 0.3],
+            [0.56, 0.272],
+            [0.7, 0.268],
+            [0.79, 0.275],
+            [0.79, 0.345],
+            [0.7, 0.352],
+            [0.56, 0.35],
+            [0.51, 0.315]
+          ],
+          "closed": true,
+          "from": 0,
+          "to": 180
+        }
+      ]
+    },
+    {
+      "id": "ngon-lua-sau",
+      "name": "Burning gas (far half)",
+      "note": "the far half of the burning gas in the combustor.",
+      "group": "loi",
+      "material": "gas",
+      "color": "#ffb36a",
+      "studioColor": "#ff9a4a",
+      "opacity": 0.55,
+      "glow": "#ff7a2a",
+      "label": false,
+      "explode": [0, 0, -1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [0.51, 0.3],
+            [0.56, 0.272],
+            [0.7, 0.268],
+            [0.79, 0.275],
+            [0.79, 0.345],
+            [0.7, 0.352],
+            [0.56, 0.35],
+            [0.51, 0.315]
+          ],
+          "closed": true,
+          "from": 180,
+          "to": 360
+        }
+      ]
+    },
+    {
+      "id": "voi-phun",
+      "name": "Fuel nozzles",
+      "note": "20 nozzles (two halves of 10) on a fuel ring round the combustor, spraying fine jets of fuel into its front.",
+      "group": "loi",
+      "material": "copper",
+      "color": "#d0a060",
+      "studioColor": "#b8864a",
+      "explode": [0, 0, 1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [0.441, 0.47],
+            [0.4378, 0.4778],
+            [0.43, 0.481],
+            [0.4222, 0.4778],
+            [0.419, 0.47],
+            [0.4222, 0.4622],
+            [0.43, 0.459],
+            [0.4378, 0.4622]
+          ],
+          "from": 0,
+          "to": 180,
+          "closed": true
+        },
+        {
+          "tube": [
+            [0.43, 0.47, 0],
+            [0.44, 0.42, 0],
+            [0.46, 0.35, 0],
+            [0.475, 0.315, 0],
+            [0.485, 0.305, 0]
+          ],
+          "r": 0.007,
+          "repeat": {
+            "n": 10,
+            "step": 18,
+            "start": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "voi-phun-sau",
+      "name": "Fuel nozzles (far half)",
+      "note": "the far half of the fuel ring and 10 nozzles.",
+      "group": "loi",
+      "material": "copper",
+      "color": "#d0a060",
+      "studioColor": "#b8864a",
+      "label": false,
+      "explode": [0, 0, -1.35],
+      "shapes": [
+        {
+          "lathe": [
+            [0.441, 0.47],
+            [0.4378, 0.4778],
+            [0.43, 0.481],
+            [0.4222, 0.4778],
+            [0.419, 0.47],
+            [0.4222, 0.4622],
+            [0.43, 0.459],
+            [0.4378, 0.4622]
+          ],
+          "from": 180,
+          "to": 360,
+          "closed": true
+        },
+        {
+          "tube": [
+            [0.43, 0.47, 0],
+            [0.44, 0.42, 0],
+            [0.46, 0.35, 0],
+            [0.475, 0.315, 0],
+            [0.485, 0.305, 0]
+          ],
+          "r": 0.007,
+          "repeat": {
+            "n": 10,
+            "step": 18,
+            "start": 189
+          }
+        }
+      ]
+    },
+    {
+      "id": "tb-stato",
+      "name": "Turbine stators",
+      "note": "1 row of 24 nozzle guide vanes before the high-pressure turbine and 4 rows of stator vanes (32, 34, 36 and 38) in the low-pressure turbine: they direct the hot gas onto the rotor blades; each row is in two halves.",
+      "group": "loi",
+      "material": "metal",
+      "color": "#a87e5c",
+      "studioColor": "#8a6448",
+      "explode": [0, 0, 1.35],
+      "shapes": [
+        {
+          "blade": {
+            "root": 0.258,
+            "span": 0.114,
+            "chord": 0.055,
+            "twist": 0,
+            "thickness": 0.2,
+            "camber": 0.1
+          },
+          "at": [0.835, 0, 0],
+          "rot": [0, 50, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 12,
+            "step": 15,
+            "start": 7.5
+          }
+        },
+        {
+          "blade": {
+            "root": 0.251,
+            "span": 0.125,
+            "chord": 0.05,
+            "twist": 0,
+            "thickness": 0.14,
+            "camber": 0.08
+          },
+          "at": [0.98, 0, 0],
+          "rot": [0, 45, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 16,
+            "step": 11.25,
+            "start": 5.625
+          }
+        },
+        {
+          "blade": {
+            "root": 0.248,
+            "span": 0.158,
+            "chord": 0.053,
+            "twist": 0,
+            "thickness": 0.14,
+            "camber": 0.08
+          },
+          "at": [1.1, 0, 0],
+          "rot": [0, 45, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 17,
+            "step": 10.5882,
+            "start": 5.2941
+          }
+        },
+        {
+          "blade": {
+            "root": 0.246,
+            "span": 0.182,
+            "chord": 0.056,
+            "twist": 0,
+            "thickness": 0.14,
+            "camber": 0.08
+          },
+          "at": [1.22, 0, 0],
+          "rot": [0, 45, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 18,
+            "step": 10,
+            "start": 5
+          }
+        },
+        {
+          "blade": {
+            "root": 0.243,
+            "span": 0.205,
+            "chord": 0.059,
+            "twist": 0,
+            "thickness": 0.14,
+            "camber": 0.08
+          },
+          "at": [1.34, 0, 0],
+          "rot": [0, 45, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 19,
+            "step": 9.4737,
+            "start": 4.7368
+          }
+        }
+      ]
+    },
+    {
+      "id": "tb-stato-sau",
+      "name": "Turbine stators (far half)",
+      "note": "the far half of the turbine's stator rows.",
+      "group": "loi",
+      "material": "metal",
+      "color": "#a87e5c",
+      "studioColor": "#8a6448",
+      "label": false,
+      "explode": [0, 0, -1.35],
+      "shapes": [
+        {
+          "blade": {
+            "root": 0.258,
+            "span": 0.114,
+            "chord": 0.055,
+            "twist": 0,
+            "thickness": 0.2,
+            "camber": 0.1
+          },
+          "at": [0.835, 0, 0],
+          "rot": [0, 50, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 12,
+            "step": 15,
+            "start": 187.5
+          }
+        },
+        {
+          "blade": {
+            "root": 0.251,
+            "span": 0.125,
+            "chord": 0.05,
+            "twist": 0,
+            "thickness": 0.14,
+            "camber": 0.08
+          },
+          "at": [0.98, 0, 0],
+          "rot": [0, 45, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 16,
+            "step": 11.25,
+            "start": 185.625
+          }
+        },
+        {
+          "blade": {
+            "root": 0.248,
+            "span": 0.158,
+            "chord": 0.053,
+            "twist": 0,
+            "thickness": 0.14,
+            "camber": 0.08
+          },
+          "at": [1.1, 0, 0],
+          "rot": [0, 45, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 17,
+            "step": 10.5882,
+            "start": 185.2941
+          }
+        },
+        {
+          "blade": {
+            "root": 0.246,
+            "span": 0.182,
+            "chord": 0.056,
+            "twist": 0,
+            "thickness": 0.14,
+            "camber": 0.08
+          },
+          "at": [1.22, 0, 0],
+          "rot": [0, 45, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 18,
+            "step": 10,
+            "start": 185
+          }
+        },
+        {
+          "blade": {
+            "root": 0.243,
+            "span": 0.205,
+            "chord": 0.059,
+            "twist": 0,
+            "thickness": 0.14,
+            "camber": 0.08
+          },
+          "at": [1.34, 0, 0],
+          "rot": [0, 45, 0],
+          "detail": 0.5,
+          "repeat": {
+            "n": 19,
+            "step": 9.4737,
+            "start": 184.7368
+          }
+        }
+      ]
+    },
+    {
+      "id": "ong-xa",
+      "name": "Exhaust nozzle",
+      "note": "the duct narrowing behind the turbine; the core's hot gas leaves it at high speed.",
+      "group": "xa",
+      "material": "metal",
+      "surface": {
+        "kind": "ribs",
+        "scale": 120,
+        "strength": 0.25
+      },
+      "color": "#8e949b",
+      "studioColor": "#6f757c",
+      "explode": [0.75, 0, 0],
+      "shapes": [
+        {
+          "lathe": [
+            [1.44, 0.478],
+            [1.92, 0.385],
+            [1.92, 0.368],
+            [1.44, 0.46]
+          ],
+          "closed": true
+        },
+        {
+          "lathe": [
+            [1.44, 0.466],
+            [1.44, 0.502],
+            [1.48, 0.502],
+            [1.48, 0.466]
+          ],
+          "closed": true
+        },
+        {
+          "cylinder": {
+            "r": 0.01,
+            "x0": 1.48,
+            "x1": 1.494
+          },
+          "at": [0, 0.486, 0],
+          "repeat": 24
+        }
+      ]
+    },
+    {
+      "id": "non-xa",
+      "name": "Exhaust cone",
+      "note": "the cone in the middle of the nozzle, smoothing the hot gas as it leaves the engine.",
+      "group": "xa",
+      "material": "metal",
+      "color": "#a2a8ae",
+      "studioColor": "#80868c",
+      "explode": [0.75, 0, 0],
+      "shapes": [
+        {
+          "lathe": [
+            [1.47, 0],
+            [1.47, 0.226],
+            [1.62, 0.21],
+            [1.8, 0.15],
+            [1.98, 0.065],
+            [2.06, 0]
+          ]
+        }
+      ]
+    }
+  ]
+}

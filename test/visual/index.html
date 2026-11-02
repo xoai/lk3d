@@ -1,7 +1,9 @@
 <!doctype html>
 <!-- The image tests' page: ?scene=NAME&look=ink|studio|pen|2d|pen2d[&theme=NAME] draws scenes/NAME.json with the
-     built engine (dist/lk3d.min.js) at a fixed size and resolution, with the streaks of its "test:flow" if it has them, waits until everything has arrived (the trees for picking, the
-     crease shading, texture maps), then sets window.__ready to what it drew. -->
+     built engine (dist/lk3d.min.js) at a fixed size and resolution, with the streaks of its "test:flow" if it has
+     them, waits until the figure is ready (the crease shading, texture maps), then sets window.__ready to what it drew.
+     window.__ink() reads the next picture back as three numbers (how much is drawn, and its middle), for the test of
+     transitions that jump. -->
 <html lang="en">
   <meta charset="utf-8" /><title>lk3d image test</title>
   <style>
@@ -39,6 +41,7 @@
         m.data = btoa(s);
       }
     }
+    if (q.get('proj')) scene.view = { ...scene.view, projection: q.get('proj') }; // ?proj=ortho
     const fig = LK3D.mount(document.getElementById('g'), scene, {
       controls: false,
       adaptive: false,
@@ -51,15 +54,36 @@
     });
     for (const f of scene['test:flow'] || []) fig.flow(f);
     const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
-    for (let k = 0; k < 600; k++) {
-      // at most about ten seconds
-      const s = fig.stats();
-      if (s.treesMs != null && (s.aoMs != null || fig.renderer === '2d') && !s.textures) break;
-      await frame();
-    }
+    await Promise.race([fig.ready, new Promise((r) => setTimeout(r, 30000))]); // at most 30 s (the crease shading of the cell takes about 8 s in Firefox)
     await frame();
     await frame();
     window.__fig = fig; // (for the docs' pictures)
+    // the next picture, read back right after the figure draws it (a later callback of the same frame), shrunk: how
+    // much is drawn (coverage and darkness) and the middle of it
+    window.__ink = () =>
+      new Promise((r) =>
+        requestAnimationFrame(() => {
+          const c = document.querySelector('.lk3d-canvas'),
+            w = 160,
+            h = Math.round((c.height * w) / c.width),
+            x = Object.assign(document.createElement('canvas'), { width: w, height: h }).getContext('2d', {
+              willReadFrequently: true,
+            });
+          x.drawImage(c, 0, 0, w, h);
+          const d = x.getImageData(0, 0, w, h).data;
+          let ink = 0,
+            sx = 0,
+            sy = 0;
+          for (let i = 0; i < w * h; i++) {
+            const a = d[4 * i + 3] / 255,
+              v = a * (2 - (d[4 * i] + d[4 * i + 1] + d[4 * i + 2]) / 765);
+            ink += v;
+            sx += v * (i % w);
+            sy += v * Math.floor(i / w);
+          }
+          r([ink / (w * h), sx / ink / w, sy / ink / h]);
+        }),
+      );
     window.__ready = { renderer: fig.renderer, errors, triangles: fig.stats().triangles };
   </script>
 </html>

@@ -6,6 +6,10 @@
   "type": "object",
   "required": ["parts"],
   "properties": {
+    "lk3d": {
+      "const": 1,
+      "description": "The version of this format the scene is written in (1). Optional; a later engine that changes the format reads older versions."
+    },
     "w": {
       "description": "The stage's width in proportion to h (16 by default).",
       "type": "number",
@@ -66,6 +70,10 @@
           "exclusiveMinimum": 0,
           "description": "Field of view, degrees (35)."
         },
+        "projection": {
+          "enum": ["perspective", "ortho"],
+          "description": "perspective (the default) or ortho: parallel lines stay parallel, as in a technical illustration."
+        },
         "explodeZoom": {
           "type": "number",
           "description": "How far the camera steps back when the model is taken apart (0.5)."
@@ -73,6 +81,31 @@
         "explodeShift": {
           "$ref": "#/$defs/vec3",
           "description": "Where the view moves when the model is taken apart."
+        }
+      }
+    },
+    "edges": {
+      "type": "boolean",
+      "description": "Lines where a part's faces meet at an angle: drawn in the pen look unless false; true draws them in every look."
+    },
+    "check": {
+      "type": "object",
+      "description": "What the geometry check (lk3d check, lk3d/lint) is to excuse, by name: what the scene means on purpose.",
+      "additionalProperties": false,
+      "properties": {
+        "allow": {
+          "type": "array",
+          "description": "Pairs of part ids that may run into each other when taken apart, or hide each other's label (two pictures of one molecule, shown in turn).",
+          "items": {
+            "type": "array",
+            "prefixItems": [{ "type": "string" }, { "type": "string" }],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "float": {
+          "description": "Parts (ids or groups) that hang in the air on purpose, or true: all of them (planets, molecules side by side).",
+          "anyOf": [{ "type": "boolean" }, { "type": "array", "items": { "type": "string" } }]
         }
       }
     },
@@ -350,6 +383,14 @@
         "glow": {
           "$ref": "#/$defs/color",
           "description": "The colour it glows when the page lights it (set({glow}))."
+        },
+        "cut": {
+          "const": false,
+          "description": "false: the part stays whole when the model is cut open (a stand, a frame, a base)."
+        },
+        "edges": {
+          "type": "boolean",
+          "description": "Whether its edges are drawn (by default yes, except on soft shapes: models, blobs, trees, terrain, scatter, molecules, DNA)."
         },
         "accent": {
           "type": "boolean",

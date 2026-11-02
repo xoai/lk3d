@@ -91,7 +91,7 @@
     fig.tick((now) => {
       const dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
       last = now;
-      spin += dt * fig.timeScale * (2 + 10 * +thr.value); // radians a second
+      spin += dt * fig.timeScale * (115 + 575 * +thr.value); // degrees a second
       fig.set({ spin });
       return !LK3D.reduce;
     });

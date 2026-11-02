@@ -35,5 +35,18 @@
       b.addEventListener('click', () => fig.focus(s.parts.filter((p) => p.id.startsWith(id)).map((p) => p.id)));
       document.getElementById('pick').append(b);
     }
+    // ball-and-stick or space-filling: two pictures of each molecule in one place, shown one at a time
+    let model = 'que';
+    const show = () => fig.set({ hide: [model === 'que' ? 'dac' : 'que', ...(model === 'dac' ? ['cap'] : [])] });
+    const t = document.createElement('button');
+    t.type = 'button';
+    t.textContent = 'Space-filling';
+    t.addEventListener('click', () => {
+      model = model === 'que' ? 'dac' : 'que';
+      t.textContent = model === 'que' ? 'Space-filling' : 'Ball and stick';
+      show();
+    });
+    document.getElementById('pick').append(t);
+    show();
   </script>
 </html>

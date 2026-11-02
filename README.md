@@ -49,19 +49,24 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
   glTF models for what generated shapes cannot draw, textured scans included ([models](docs/models.md)).
 - **Three looks, four themes**: a drawn look (coloured pencil, hatching, ink outlines), a realistic studio look
   (physically based materials, a generated environment, soft shadows, surface detail, glass that bends light) and a
-  pen look (near-white solids, thin lines, colour only for accents); light, dark, blueprint and sepia themes, or the
-  reader's own setting ([looks](docs/looks-and-materials.md)).
+  pen look (near-white solids, thin outlines and edges, colour only for accents), with an orthographic camera for a
+  technical illustration; light, dark, blueprint and sepia themes, or the reader's own setting
+  ([looks](docs/looks-and-materials.md)).
 - **Honest scale**: a scale bar that keeps its true length as the view zooms, or a note saying what is not to scale.
 - **Accessible**: the figure has a text description, every control works by keyboard, handles are read out, motion
   respects reduced-motion settings, English and Vietnamese words built in (add your own), themed by CSS variables.
 - **Checked**: a JSON Schema for scenes and a validator that says what is wrong where ([format](docs/scene-format.md));
-  TypeScript types.
+  a geometry check that finds parts running into each other when taken apart, parts hanging in the air and hidden
+  labels; TypeScript types.
+- **Made for AI agents too**: `npx lk3d check scene.json` and `npx lk3d render scene.json` (PNG pictures of each look
+  and pose, to look at), and an [Agent Skill](skill/lk3d/SKILL.md) that teaches an agent to build detailed, clean,
+  correct figures.
 
 ## Small and fast
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 104 KB   | 42 KB   |
+| lk3d                                                                                                                              | 109 KB   | 44 KB   |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
@@ -84,7 +89,7 @@ npm install lk3d
 
 ```js
 import LK3D from 'lk3d'; // or <script src=".../dist/lk3d.min.js"> for the global LK3D
-import { validate } from 'lk3d/validate'; // check a scene before showing it
+import { validate } from 'lk3d/validate'; // check a scene's form before showing it (and lk3d/lint: its geometry)
 const fig = LK3D.mount(el, scene, { info: document.querySelector('#info'), onHandle: (id, v) => console.log(id, v) });
 fig.set({ explode: 1 });
 ```
@@ -94,15 +99,17 @@ fig.set({ explode: 1 });
   [Looks and materials](docs/looks-and-materials.md) · [Models](docs/models.md) · [How it works](docs/design.md) ·
   [Performance](docs/performance.md).
 - [Examples](examples/): a generator, a lens bench, a cell, molecules, the Solar System, rock layers, a gauge, a fossil
-  skull, the two looks, a circuit. `npm run examples` serves them.
+  skull, the three looks, a circuit, air through a fan. `npm run examples` serves them.
+- From the command line: `lk3d check scene.json` (form and geometry, and the scene's size) and `lk3d render
+scene.json --looks pen,ink --poses rest,apart,cut` (pictures drawn by the engine; needs Playwright).
 
 ## Develop
 
 ```sh
 npm install
-npm test               # geometry, models, handles, the validator, the locales
+npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # the bundle stays within 42 KB gzipped
+npm run size           # the bundle stays within 45 KB gzipped
 npm run test:visual    # reference scenes compared with stored pictures, in Chromium, Firefox and WebKit
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again

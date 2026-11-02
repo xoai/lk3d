@@ -6,6 +6,8 @@ export type Vec3 = [number, number, number];
 export type Color = string;
 
 export interface Scene {
+  /** the version of the scene format it is written in (1) */
+  lk3d?: 1;
   parts: Part[];
   /** the stage's proportions (16 : 10 by default); on a narrow screen `narrow`, e.g. "1 / 0.9" */
   w?: number;
@@ -26,9 +28,16 @@ export interface Scene {
     dist?: number;
     target?: Vec3;
     fov?: number;
+    /** perspective (the default), or ortho: parallel lines stay parallel, as in a technical illustration */
+    projection?: 'perspective' | 'ortho';
     explodeZoom?: number;
     explodeShift?: Vec3;
   };
+  /** lines where faces meet at an angle: drawn in the pen look unless false; true: in every look */
+  edges?: boolean;
+  /** what the geometry check excuses: pairs of parts that may run into each other or hide each other's label; parts
+   * that hang in the air on purpose (or true: all) */
+  check?: { allow?: [string, string][]; float?: boolean | string[] };
   /** a shadow under the model (true by default) */
   ground?: boolean;
   /** the cut: a plane, or false to offer none */
@@ -107,6 +116,10 @@ export interface Part {
   glow?: Color;
   /** keeps its full colour in the pen look */
   accent?: boolean;
+  /** whether its edges are drawn (by default yes, except on soft shapes: models, blobs, trees, molecules…) */
+  edges?: boolean;
+  /** false: it stays whole when the model is cut open (a stand, a frame) */
+  cut?: false;
   opacity?: number;
   xray?: boolean;
   hidden?: boolean;
@@ -311,7 +324,10 @@ export interface Figure {
   readonly renderer: 'webgl2' | 'webgl1' | '2d';
   readonly hifi: boolean;
   readonly parts: BuiltPart[];
+  /** resolves once the figure is complete: its first picture, the crease shading, every texture */
+  readonly ready: Promise<Figure>;
   set(o: {
+    /** the spin angle, degrees, of parts with `spin` */
     spin?: number;
     explode?: number;
     cut?: boolean;
@@ -321,6 +337,8 @@ export interface Figure {
     theme?: string | null;
     /** how fast particles and flows move (1; 0.2 for slow motion) */
     timeScale?: number;
+    /** the camera: perspective, or ortho (parallel lines stay parallel) */
+    projection?: 'perspective' | 'ortho';
     glow?: Record<string, number>;
     hide?: string[];
     move?: Record<string, Vec3>;
@@ -372,6 +390,15 @@ export const themes: Record<string, Theme>;
 export const defaults: Defaults;
 export const reduce: boolean;
 export const version: number;
+/** One clock for every figure's animation: slow it, stop it (speed 0) and step it, for tests and tools */
+export interface Clock {
+  speed: number;
+  now(): number;
+  step(ms: number): void;
+}
+export const clock: Clock;
+/** a part's words as HTML: plain text, keeping only bare b, i, em, strong, sub, sup and br */
+export function safeHTML(s: string): string;
 
 declare const LK3D: {
   mount: typeof mount;
@@ -381,5 +408,8 @@ declare const LK3D: {
   defaults: Defaults;
   reduce: boolean;
   version: number;
+  clock: Clock;
+  /** the version of the scene format this engine reads */
+  format: number;
 };
 export default LK3D;

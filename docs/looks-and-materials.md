@@ -2,14 +2,26 @@
 
 ## Three looks
 
-| Look                   | WebGL 2                                                                                                                                                                                                                                                                                                                                                                        | WebGL 1                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| `ink` (default): drawn | three bands of coloured-pencil shading, hatching in the shade, cross-hatching in creases (ambient occlusion), a hatched shadow on the paper, ink outlines, paper grain                                                                                                                                                                                                         | the same, with a soft contact shadow instead of a cast one |
-| `pen`: plain           | near-white solids in four tones about 3–4 % apart, lit from the viewer's upper left (the light turns with the camera, so the model always reads the same way), faces turned up a step lighter, thin grey outlines, a soft halo for a ground; a part keeps its colour only when it is an `accent: true` part, glows or is chosen (a vertex's own colour, an atom's, keeps half) | the same                                                   |
-| `studio`: realistic    | physically based materials (the lighting model of Google's Filament: GGX, correlated Smith visibility, Schlick Fresnel) lit by a studio environment the engine generates and prefilters on the GPU (no image to download), soft cast shadows, ambient occlusion, a glow around glowing parts, Khronos PBR Neutral tone mapping                                                 | the same materials with an analytic sky                    |
+| Look                   | WebGL 2                                                                                                                                                                                                                                                                                                                                                                                                                                                | WebGL 1                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `ink` (default): drawn | three bands of coloured-pencil shading, hatching in the shade, cross-hatching in creases (ambient occlusion), a hatched shadow on the paper, ink outlines, paper grain                                                                                                                                                                                                                                                                                 | the same, with a soft contact shadow instead of a cast one |
+| `pen`: plain           | near-white solids lit from the viewer's upper left (the light turns with the camera, so the model always reads the same way): a flat face takes one tone, about 3–4 % from its neighbours, and a curved one shades smoothly; faces turned up a step lighter; thin grey outlines and edges, a soft halo for a ground; a part keeps its colour only when it is an `accent: true` part, glows or is chosen (a vertex's own colour, an atom's, keeps half) | the same                                                   |
+| `studio`: realistic    | physically based materials (the lighting model of Google's Filament: GGX, correlated Smith visibility, Schlick Fresnel) lit by a studio environment the engine generates and prefilters on the GPU (no image to download), soft cast shadows, ambient occlusion, a glow around glowing parts, Khronos PBR Neutral tone mapping                                                                                                                         | the same materials with an analytic sky                    |
 
-The Canvas 2D fallback draws flat shading in the same bands, with coarser shapes; labels, picking and handles still
-work. The reader goes round the looks with the built-in button; `style` sets the first, and a look lk3d does not know
+**Edges.** The pen look draws a thin line wherever a part's faces meet at more than 40°: a box's corners, a step in a
+lathe's profile, a fin's rim, an open tube's end. Curved surfaces have none, and soft shapes (models, blobs, trees,
+terrain, scatter, molecules, DNA) get none unless their part says `edges: true`; `edges: false` on a part leaves its
+edges out, and on the scene leaves out all of them. A scene's `edges: true` draws them in the other looks too. They are
+found in idle time after the first picture, only once a look needs them.
+
+**Projection.** `view: { projection: 'ortho' }` (or `set({ projection })`) draws with an orthographic camera:
+parallel lines stay parallel, as in a technical illustration. With the pen look and its edges, it is the look of an
+exploded-view drawing. The default is perspective.
+
+![The generator in the pen look, with an orthographic camera](pen-ortho.png)
+
+The Canvas 2D fallback draws flat shading in the same bands, with coarser shapes and no edges; labels, picking and
+handles still work. The reader goes round the looks with the built-in button; `style` sets the first, and a look lk3d does not know
 is drawn as `ink`. The studio environment and the glow are made only
 when first needed, and their shaders compile in the background where the browser can.
 

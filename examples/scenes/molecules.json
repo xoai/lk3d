@@ -505,5 +505,16 @@
         }
       ]
     }
-  ]
+  ],
+  "check": {
+    "allow": [
+      ["co2", "co2-dac"],
+      ["bf3", "bf3-dac"],
+      ["ch4", "ch4-dac"],
+      ["nh3", "nh3-dac"],
+      ["h2o", "h2o-dac"],
+      ["nh3-dac", "nh3-cap"],
+      ["h2o-dac", "h2o-cap"]
+    ]
+  }
 }

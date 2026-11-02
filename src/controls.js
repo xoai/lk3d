@@ -26,12 +26,16 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
   if (explodable) bar.append(ex);
   const apart = explodable ? button(T.takeApart, T.takeApartTitle, () => tweenExplode(st.explode > 0.5 ? 0 : 1)) : null;
 
-  // toggles: each shows it is on
+  // toggles: each shows it is on (aria-pressed for screen readers), also when the page turns it on itself
+  const toggles = [];
   const toggle = (label, title, flip, isOn) => {
-    const b = button(label, title, () => {
-      flip();
-      b.classList.toggle('on', isOn());
-    });
+    const b = button(label, title, flip),
+      sync = () => {
+        b.classList.toggle('on', isOn());
+        b.setAttribute('aria-pressed', String(isOn()));
+      };
+    toggles.push(sync);
+    sync();
   };
   if (cuttable)
     toggle(
@@ -65,7 +69,7 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
   bar.append(views);
   el.append(bar);
 
-  // kept in step when the page takes the model apart or changes the look itself
+  // kept in step when the page takes the model apart, cuts it, or changes the look itself
   return {
     explode(v) {
       exIn.value = v;
@@ -73,6 +77,7 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
     },
     style() {
       look.textContent = T[next()];
+      for (const s of toggles) s();
     },
   };
 }

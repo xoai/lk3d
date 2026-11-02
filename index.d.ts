@@ -46,6 +46,14 @@ export interface Scene {
   section?: false | { normal?: Vec3; offset?: number };
   /** parts that move together as one value goes along a range (a crank turning, a sleeve sliding back) */
   motions?: Motion[];
+  /** what one scene unit is (m): the laws of liquids and gases are worked out in it */
+  unit?: 'mm' | 'cm' | 'dm' | 'm' | 'km';
+  /** parts that hold liquids or a gas */
+  vessels?: Vessel[];
+  /** liquids, filling their vessels by volume, stacking by density, pouring by Torricelli's law */
+  liquids?: Liquid[];
+  /** gases under a piston, which rests where pV = nRT puts it */
+  gases?: Gas[];
   /** honest scale: a bar of a true length and/or a note saying what is not to scale */
   scale?: { bar?: { length: number; label: string }; note?: string };
   /** glTF 2.0 models (.glb, base64) by name, for { model: name } shapes */
@@ -111,7 +119,8 @@ export type Material =
 export interface Part {
   /** unique in the scene */
   id: string;
-  shapes: Shape[];
+  /** (none for a liquid's or a gas's part: lk3d makes its body) */
+  shapes?: Shape[];
   /** its label, and what the figure says when it is pointed at (may hold simple HTML) */
   name?: string;
   note?: string;
@@ -296,6 +305,38 @@ export interface Motion {
     /** a smooth start and stop at each key */
     ease?: boolean;
   }>;
+}
+export interface Vessel {
+  id: string;
+  /** the part that is the vessel */
+  part: string;
+  /** where height 0 is, on its upright axis */
+  at?: Vec3;
+  /** its inside, bottom to brim: [height, radius] */
+  inside: Array<[number, number]>;
+  /** where it pours: a bore at its bottom, the stream leaving at tip (dir: [0, -1, 0]); opened by a motion, or the page */
+  outlet?: { radius: number; tip: Vec3; dir?: Vec3; valve?: string; cd?: number };
+}
+export interface Liquid {
+  /** the part drawn as it */
+  part: string;
+  /** its vessel */
+  in: string;
+  /** scene units cubed */
+  volume?: number;
+  density?: number;
+  /** the liquid it becomes in the vessel below when its vessel pours */
+  into?: string;
+}
+export interface Gas {
+  part: string;
+  in: string;
+  piston?: string;
+  /** moles; kelvin; pascals outside (101325); the piston's kilograms (0) */
+  n: number;
+  T: number;
+  p?: number;
+  mass?: number;
 }
 /** a motion as the page drives it */
 export interface MotionHandle {
@@ -505,6 +546,23 @@ export interface Figure {
   }): void;
   /** a motion of the scene, to set or play */
   motion(id: string): MotionHandle | undefined;
+  /** a liquid by its part: its volume, its surface's height in the scene; set its volume */
+  liquid(
+    id: string,
+  ): { readonly volume: number; readonly level: number | null; set(o: { volume?: number }): void } | undefined;
+  /** a vessel: how open its outlet is (0 to 1), what pours out a second; open it (when no motion does) */
+  vessel(id: string): { readonly open: number; readonly flow: number; set(o: { open?: number }): void } | undefined;
+  /** a gas by its part: its height (where its piston rests), its moles and temperature; heat it, add to it */
+  gas(id: string):
+    | {
+        readonly height: number;
+        readonly n: number;
+        readonly T: number;
+        set(o: { n?: number; T?: number; p?: number; mass?: number }): void;
+      }
+    | undefined;
+  /** a buoyant plume of air or gas rising from `at`: widening and slowing as one does (a stream) */
+  plume(o: { at: Vec3; height: number; radius?: number } & Partial<StreamOptions>): Stream;
   view(
     v: ViewName | [number, number] | { yaw?: number; pitch?: number; dist?: number; zoom?: number; target?: Vec3 },
   ): void;

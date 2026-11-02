@@ -61,7 +61,8 @@ Show the inside without a click when the inside is the idea: a `section` and `se
 
 Map the idea to the object: which part does the work (the **accent**, `accent: true`, one or two at most), what moves
 (spin, handles, `motions` for a mechanism's sequence (a sleeve sliding back, a crank and its piston), flow streaks
-inside it, streams of air or gas around it), what is inside (cut open with `section`, see-through casings with `xray`), what comes apart and
+inside it, streams of air or gas around it, liquids in vessels and gases under pistons that move by their laws
+(`vessels`, `liquids`, `gases`: a funnel pouring, a piston rising as the gas is heated)), what is inside (cut open with `section`, see-through casings with `xray`), what comes apart and
 in which direction (`explode`).
 
 ## 3. Write the parts list before any geometry

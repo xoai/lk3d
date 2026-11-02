@@ -12,6 +12,7 @@ import { buildScene, flatten, isClosed } from './geometry.js';
 import { buildBVH, intersect } from './bvh.js';
 import { M, add, mulv, sub, cross, dot, len, norm } from './math.js';
 import { tracksOf, motionMatrix } from './motion.js';
+import * as FX from './fluids.js';
 
 const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -0.64, -0.75])];
 
@@ -202,7 +203,8 @@ export function lint(scene, o = {}) {
     parts = S.parts.filter((p) => p.tris > 0).map(solid);
   // parts that make nothing to draw, or a shape whose numbers are not numbers (NaN): the rest of the check is blind there
   for (const p of S.parts)
-    if (!p.tris || p.batches.some((b) => !b.geo.p.every(Number.isFinite)))
+    if ((!p.tris && !p.fluid) || p.batches.some((b) => !b.geo.p.every(Number.isFinite)))
+      // (an empty vessel's liquid: none)
       problems.push({
         path: path(p),
         message: p.tris
@@ -264,6 +266,54 @@ export function lint(scene, o = {}) {
             message: `${a.p.id} and ${b.p.id} run into each other as ${mo.id} moves (${Math.round(worst * 100)} % of one inside the other, ${Math.round(at0 * 100)} % at its start): change the motion's keys`,
           });
       }
+  }
+  // liquids and gases (fluids.js): what each vessel holds, and where a pour or a heated gas would take it
+  if (scene.liquids || scene.gases) {
+    const F = FX.fluidsOf(scene),
+      at = (v) => `vessels[${(scene.vessels || []).indexOf(scene.vessels.find((x) => x.id === v.id))}]`,
+      held = (v) => F.liquids.filter((l) => l.in === v.id).reduce((n, l) => n + l.volume, 0);
+    for (const v of F.vessels.values()) {
+      const cap = FX.capacity(v.inside),
+        // (everything that can pour into it, from the liquids that become one of its own)
+        poured = F.liquids
+          .filter((l) => l.into && F.liquids.find((x) => x.part === l.into)?.in === v.id)
+          .reduce((n, l) => n + l.volume, 0);
+      if (held(v) > cap * 1.0001)
+        problems.push({
+          path: at(v),
+          message: `${v.id} holds ${+held(v).toFixed(3)} but its inside takes ${+cap.toFixed(3)}: less liquid, or a larger inside`,
+        });
+      else if (poured && held(v) + poured > cap * 1.0001)
+        problems.push({
+          path: at(v),
+          message: `${v.id} would overflow if all that pours into it came (${+(held(v) + poured).toFixed(3)}; it takes ${+cap.toFixed(3)})`,
+        });
+      // its inside, filled to the brim, against its own walls: a profile wider than the vessel goes through the glass
+      const wall = parts.find((x) => x.p.id === v.part);
+      if (wall && wall.closed) {
+        // (both ways: a liquid through the glass, or the glass inside a liquid wider than the vessel; from a hair above
+        // its floor, which a liquid rests on)
+        const [h0, h1] = [v.inside[0][0], v.inside.at(-1)[0]],
+          full = solid(
+            buildScene({ parts: [{ id: v.id, shapes: [FX.shapeOf(v, h0 + (h1 - h0) * 0.01, h1)] }] }, 0.5).parts[0],
+          ),
+          out = Math.max(through(full, wall, 0, eps), through(wall, full, 0, eps));
+        if (out > 0.03)
+          problems.push({
+            path: at(v),
+            message: `the inside given for ${v.id} goes through the walls of ${v.part} (${Math.round(out * 100)} % of one in the other): give its radius at each height inside the glass`,
+          });
+      }
+    }
+    for (const [i, x] of F.gases.entries()) {
+      const v = F.vessels.get(x.in),
+        h = FX.pistonHeight(v.inside, x.n, x.T, x.p, x.mass, F.m);
+      if (h >= v.inside[v.inside.length - 1][0] - 1e-9)
+        problems.push({
+          path: `gases[${i}]`,
+          message: `the gas in ${v.id} would push its piston out of it: fewer moles, a lower temperature, or a taller vessel`,
+        });
+    }
   }
   // parts that rest on nothing: touching no other part and above the ground
   if (check.float !== true)

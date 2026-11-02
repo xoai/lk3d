@@ -109,6 +109,34 @@ function links(scene, out) {
     };
     (Array.isArray(p.shapes) ? p.shapes : []).forEach((s, j) => walk(s, `parts[${k}].shapes[${j}]`));
   });
+  // vessels, liquids and gases: each names what exists; a part without shapes is a liquid's or a gas's (lk3d makes it)
+  const vids = new Set((Array.isArray(scene.vessels) ? scene.vessels : []).map((v) => v && v.id)),
+    lids = new Set((Array.isArray(scene.liquids) ? scene.liquids : []).map((l) => l && l.part)),
+    fluid = new Set([...lids, ...(Array.isArray(scene.gases) ? scene.gases : []).map((x) => x && x.part)]),
+    mids = new Set((Array.isArray(scene.motions) ? scene.motions : []).map((m) => m && m.id)),
+    has = (id) => parts.some((p) => p.id === id);
+  parts.forEach((p, k) => {
+    if (!p.shapes && !fluid.has(p.id))
+      out.push({ path: `parts[${k}]`, message: 'needs shapes (or is a liquid or a gas)' });
+  });
+  for (const [list, what] of [
+    [scene.vessels, 'vessels'],
+    [scene.liquids, 'liquids'],
+    [scene.gases, 'gases'],
+  ])
+    (Array.isArray(list) ? list : []).forEach((x, i) => {
+      if (!x || typeof x !== 'object') return;
+      const at = `${what}[${i}]`,
+        bad = (field, msg) => out.push({ path: `${at}.${field}`, message: msg });
+      if (x.part != null && !has(x.part)) bad('part', `${say(x.part)} is no part`);
+      if (x.in != null && !vids.has(x.in)) bad('in', `${say(x.in)} is no vessel`);
+      if (x.piston != null && !has(x.piston)) bad('piston', `${say(x.piston)} is no part`);
+      if (x.into != null && (!lids.has(x.into) || x.into === x.part)) bad('into', `${say(x.into)} is no other liquid`);
+      if (x.outlet && x.outlet.valve != null && !mids.has(x.outlet.valve))
+        bad('outlet.valve', `${say(x.outlet.valve)} is no motion`);
+      if (Array.isArray(x.inside) && x.inside.some((h, n) => Array.isArray(h) && n && h[0] <= x.inside[n - 1][0]))
+        bad('inside', 'heights go up from the bottom to the brim');
+    });
   // motions: one id each; tracks that move parts that exist, with keys in order and within the range
   const ids = new Set();
   (Array.isArray(scene.motions) ? scene.motions : []).forEach((mo, i) => {

@@ -16,6 +16,7 @@ lk3d is about 5 000 lines of plain JavaScript (ES modules, no dependencies). Thi
 | `src/bvh.js`                                                     | bounding-volume trees: picking and ambient occlusion by rays on the CPU                                                                                                                                                                                                                                     |
 | `src/handles.js`                                                 | the handle maths: a pointer ray to an angle, a distance or a place along a path (pure, tested in Node)                                                                                                                                                                                                      |
 | `src/motion.js`                                                  | motions: keys between values, and a part's matrix at the motions' values (shared by the engine and the check)                                                                                                                                                                                               |
+| `src/fluids.js`                                                  | liquids and gases by their laws: a vessel's volume and level, settling by density, Torricelli's outflow, the falling stream, the ideal gas, a plume (shared by the engine and the check)                                                                                                                    |
 | `src/stream.js`                                                  | streams: a path's travel-time table, the radius profile, and the hull the GPU marches through                                                                                                                                                                                                               |
 | `src/lint.js`                                                    | the geometry check: parts that run into each other when taken apart or as a motion moves, floating parts, hidden labels (not in the runtime bundle)                                                                                                                                                         |
 | `src/controls.js`, `src/style.js`, `src/text.js`, `src/locales/` | the built-in buttons, the stylesheet, label widths, the words                                                                                                                                                                                                                                               |
@@ -94,7 +95,7 @@ environments the engine draws.
 
 `npm test`: geometry (every shape a closed solid facing outwards, volumes matching their formulas, placement and
 instancing, picking against brute force), glTF reading, handle maths, the validator against planted mistakes, the
-locales. `npm run typecheck`: the types. `npm run size`: the 52 KB budget. `npm run test:visual`: 12 reference scenes
+locales. `npm run typecheck`: the types. `npm run size`: the 56 KB budget. `npm run test:visual`: 12 reference scenes
 in each look and the 2D fallback, in Chromium, Firefox and WebKit, compared with stored pictures (`test/visual/`).
 
 ## Limits

@@ -14,7 +14,7 @@
 // It draws only when something changes, pauses off screen, lowers its resolution while frames are slow and moving,
 // and never reads from the page layout or the GPU while drawing: labels are measured once, picking casts rays on the CPU.
 import { D2R, M, sub, add, mulv, len, norm, cross, dot, rgb } from './math.js';
-import { buildScene, flatten, buildShape, outlineNormals, edgesOf } from './geometry.js';
+import { Geo, buildScene, flatten, buildShape, outlineNormals, edgesOf, bounds } from './geometry.js';
 import { buildBVH, intersect, aoJob } from './bvh.js';
 import { glRenderer } from './renderer-gl.js';
 import { canvasRenderer } from './renderer-2d.js';
@@ -25,6 +25,7 @@ import { controls } from './controls.js';
 import { pathOf, makeFlow, ramp } from './flow.js';
 import { makeStream } from './stream.js';
 import { tracksOf, motionMatrix, startOf } from './motion.js';
+import * as FX from './fluids.js';
 import en from './locales/en.js';
 import vi from './locales/vi.js';
 const mod360 = (v) => ((v % 360) + 360) % 360;
@@ -286,6 +287,114 @@ function mount(el, spec, opts = {}) {
   const motions = spec.motions || [];
   for (const mo of motions) st.motion[mo.id] = startOf(mo);
   for (const p of S.parts) p.tracks = tracksOf(motions, p);
+
+  // ---- liquids and gases (fluids.js): their state, moved on by their laws as time runs (fluidStep, in the frame loop).
+  // A vessel pours through its outlet while its valve is open (Torricelli), into the liquid below, as a falling stream;
+  // a gas holds its piston where pV = nRT puts it, easing there when the page heats it or adds to it
+  const FL = spec.liquids || spec.gases ? FX.fluidsOf(spec) : null,
+    jets = new Map(), // (a vessel's falling stream, made when it first pours)
+    gasH = new Map(),
+    seat = new Map(), // (each piston's lowest point as drawn: it is set on the gas, wherever the scene drew it)
+    drawn = new Map(); // (each body's shape as last drawn: drawn again only when it changes)
+  let fluidVer = 0;
+  if (FL) {
+    const { out, heights } = FX.bodies(FL);
+    for (const [k, h] of heights) gasH.set(k, h);
+    for (const x of FL.gases) {
+      const pp = x.piston && S.parts.find((p) => p.id === x.piston);
+      if (pp) seat.set(x.part, pp.lo[1]);
+    }
+    for (const [k, sh] of out) drawn.set(k, JSON.stringify(sh));
+  }
+  const colourOf = (id) => (spec.parts.find((p) => p.id === id) || {}).color || '#7fb3e4';
+  // a liquid's or a gas's body drawn for its new shape: a batch of its own, sent to the GPU again
+  function reshape(p, shape) {
+    if (p.batches[0] && R.release) R.release(p.batches[0]);
+    p.batches = [];
+    p.tris = 0;
+    if (!shape) return;
+    const s = buildShape(shape, q),
+      g = new Geo();
+    g.add(s.geo, s.mats[0]);
+    const b = { geo: g, mats: [M.id()], out: outlineNormals(g), dynamic: true, ver: ++fluidVer };
+    if (R.upload) R.upload(b);
+    p.batches = [b];
+    p.tris = g.i.length / 3;
+    ({ lo: p.lo, hi: p.hi } = bounds(g));
+    p.center = mulv(add(p.lo, p.hi), 0.5);
+    if (!Array.isArray(p.label)) p.anchor = [p.center[0], p.hi[1], p.center[2]]; // (its label: its surface)
+  }
+  // a vessel's liquids, stacked, and the height (in the scene) of the top one's surface
+  const layersIn = (v) =>
+    FX.stack(
+      v.inside,
+      FL.liquids.filter((l) => l.in === v.id && l.volume > 0),
+    );
+  const surface = (v, L = layersIn(v)) => v.at[1] + (L.length ? L[L.length - 1].h1 : v.inside[0][0]);
+  // how far open a vessel's outlet is: its valve's motion along its range, or what the page set
+  const openOf = (v) => {
+    const mo = v.outlet.valve && motions.find((x) => x.id === v.outlet.valve);
+    return mo ? (st.motion[mo.id] - mo.range[0]) / (mo.range[1] - mo.range[0]) : (v.open ?? 0);
+  };
+  function fluidStep(dt) {
+    let busy = false;
+    for (const v of FL.vessels.values()) {
+      const o = v.outlet;
+      if (!o) continue;
+      const L = layersIn(v),
+        open = openOf(v),
+        H = surface(v, L) - o.tip[1], // (the head: from the surface down to where the stream leaves)
+        Q = L.length && open > 0 ? open * FX.outflow(o.radius, H, FL.g, o.cd) : 0,
+        J = jets.get(v.id);
+      v.flow = Q;
+      if (!Q) {
+        if (J) J.clear();
+        continue;
+      }
+      busy = true;
+      // the bottom layer goes first, into the liquid it becomes below
+      const from = L[0].l,
+        to = from.into && FL.liquids.find((l) => l.part === from.into),
+        dv = Math.min(from.volume, Q * dt);
+      from.volume -= dv;
+      if (to) to.volume += dv;
+      // the stream: out of the tip at √(2gH), as wide as the open bore lets it, falling to the surface below
+      const w = to && FL.vessels.get(to.in),
+        pts = FX.jet(
+          o.tip,
+          mulv(norm(o.dir || [0, -1, 0]), Math.sqrt(2 * FL.g * H)),
+          o.radius * Math.sqrt((o.cd ?? 0.6) * open),
+          FL.g,
+          w ? surface(w) : S.lo[1],
+        );
+      const K = J || jets.set(v.id, addLines({ count: 12, color: colourOf(from.part) })).get(v.id);
+      for (let k = 0; k + 1 < pts.length; k++)
+        K.set(k, pts[k].slice(0, 3), pts[k + 1].slice(0, 3), (pts[k][3] + pts[k + 1][3]) / 2);
+    }
+    for (const x of FL.gases) {
+      const v = FL.vessels.get(x.in),
+        to = FX.pistonHeight(v.inside, x.n, x.T, x.p, x.mass, FL.m),
+        h = gasH.get(x.part),
+        // (quasi-static: it eases to where the law puts it, without bouncing)
+        nh = Math.abs(to - h) < 1e-6 * (1 + Math.abs(to)) ? to : h + (to - h) * (1 - Math.exp(-dt / 0.3));
+      if (nh !== to || h !== to) busy = true;
+      gasH.set(x.part, nh);
+      const pp = x.piston && S.parts.find((p) => p.id === x.piston);
+      if (pp) pp.offset = [0, v.at[1] + nh - seat.get(x.part), 0];
+    }
+    // the bodies whose shape changed, drawn again
+    for (const [id, sh] of FX.bodies(FL, gasH).out) {
+      const k = JSON.stringify(sh);
+      if (drawn.get(id) !== k) {
+        drawn.set(id, k);
+        reshape(
+          S.parts.find((p) => p.id === id),
+          sh,
+        );
+      }
+    }
+    return busy;
+  }
   // the order parts are drawn in: parts that share a geometry one after another (the GPU then binds it once for them)
   const geoId = new Map(),
     drawOrder = S.parts
@@ -632,6 +741,7 @@ function mount(el, spec, opts = {}) {
     const pdt = pNow ? Math.min(0.05, (t - pNow) / 1000) * st.timeScale : 0;
     let flowing = false;
     // (all of it stands still for a reader who asked for less motion; a flow with nothing to show does not move)
+    if (FL && fluidStep(pdt)) flowing = true; // (liquids pour and gases settle by their laws)
     for (const h of particles)
       if (h.step && h.speed && h.visible && !LK3D.reduce) {
         h.step(pdt);
@@ -1011,7 +1121,7 @@ function mount(el, spec, opts = {}) {
   // first picture (a few milliseconds per frame), then drawn
   let aoDone = false;
   const batchesAll = [];
-  for (const p of S.parts) for (const b of p.batches) batchesAll.push(b);
+  for (const p of S.parts) if (!p.fluid) for (const b of p.batches) batchesAll.push(b); // (a fluid's shape changes)
   {
     // the intersection trees first, in idle time just after the first picture, so pointing never waits for one
     const todo = batchesAll.slice();
@@ -1563,9 +1673,9 @@ function mount(el, spec, opts = {}) {
       visible: true,
       dirty: true,
       radius,
-      set(k, a, c) {
+      set(k, a, c, r) {
         if (k >= 0 && k < segs.length) {
-          segs[k] = a && c ? [a, c] : null;
+          segs[k] = a && c ? [a, c, r] : null;
           L.dirty = true;
           kick();
         }
@@ -1590,14 +1700,14 @@ function mount(el, spec, opts = {}) {
         b.mats = segs
           .filter(Boolean)
           .filter(([a, c]) => len(sub(c, a)) > 1e-9)
-          .map(([a, c]) => {
+          .map(([a, c, rr]) => {
             const d = sub(c, a),
               l = len(d),
               x = mulv(d, 1 / l),
               up = Math.abs(x[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
             const z = norm(cross(x, up)),
               y = cross(z, x),
-              r = L.radius;
+              r = rr ?? L.radius;
             return [
               x[0] * l,
               x[1] * l,
@@ -1837,6 +1947,68 @@ function mount(el, spec, opts = {}) {
           },
         }
       );
+    },
+    // the scene's liquids, vessels and gases (fluids.js), read and set by the page; and a buoyant plume of air or gas
+    liquid(id) {
+      const l = FL && FL.liquids.find((x) => x.part === id);
+      return (
+        l && {
+          get volume() {
+            return l.volume;
+          },
+          // (the height of its surface in the scene)
+          get level() {
+            const v = FL.vessels.get(l.in),
+              s = layersIn(v).find((x) => x.l === l);
+            return s ? v.at[1] + s.h1 : null;
+          },
+          set(o) {
+            if ('volume' in o) l.volume = Math.max(0, +o.volume || 0);
+            kick();
+          },
+        }
+      );
+    },
+    vessel(id) {
+      const v = FL && FL.vessels.get(id);
+      return (
+        v && {
+          get open() {
+            return v.outlet ? openOf(v) : 0;
+          },
+          // (what pours out now, in scene units cubed a second)
+          get flow() {
+            return v.flow || 0;
+          },
+          set(o) {
+            if ('open' in o) v.open = Math.max(0, Math.min(1, +o.open || 0));
+            kick();
+          },
+        }
+      );
+    },
+    gas(id) {
+      const x = FL && FL.gases.find((g) => g.part === id);
+      return (
+        x && {
+          get height() {
+            return gasH.get(id);
+          },
+          get n() {
+            return x.n;
+          },
+          get T() {
+            return x.T;
+          },
+          set(o) {
+            for (const k of ['n', 'T', 'p', 'mass']) if (k in o) x[k] = +o[k];
+            kick();
+          },
+        }
+      );
+    },
+    plume(o) {
+      return addStream({ ramp: 'heat', ...o, ...FX.plume(o.at, o.height, o.radius ?? 0.05) });
     },
     // a motion of the scene, set or played by the page: { value, set(v), play(), stop(), playing }
     motion(id) {

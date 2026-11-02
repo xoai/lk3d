@@ -3,6 +3,7 @@
 import { D2R, M, sub, add, mulv, dot, cross, len, norm, carry, rgb } from './math.js';
 import science, { rng, earcut, signedArea } from './science.js';
 import { load as loadModel, parseGLB, bytes } from './gltf.js';
+import { fluidsOf, bodies } from './fluids.js';
 
 // A mesh is positions, normals and triangles; every triangle is turned to face the way its normals point, so shapes
 // can be written without minding winding order. Vertices may also carry a colour (c: r, g, b, a per vertex, 0-255):
@@ -711,11 +712,15 @@ function buildScene(spec, q = 1) {
   const ctx = { models: spec.models, cache: new Map() },
     parts0 = new Map(),
     outs = new WeakMap();
-  const parts = (spec.parts || []).map((p, k) => {
+  // liquids and gases (fluids.js): their parts' shapes are their bodies at the start, made from their vessels
+  const fl = spec.liquids || spec.gases ? bodies(fluidsOf(spec)).out : null;
+  const parts = (spec.parts || []).map((given, k) => {
+    const p =
+      fl && fl.has(given.id) ? { ...given, shapes: fl.get(given.id) ? [fl.get(given.id)] : [], fluid: true } : given;
     const place = M.trs(p.at, p.rot, p.scale),
       own = rigid(place), // (a stretched or mirrored part is baked, as its shapes are)
       local = own ? M.id() : place,
-      key = own && JSON.stringify([p.shapes, p.edges]),
+      key = own && !p.fluid && JSON.stringify([p.shapes, p.edges]),
       shared = key && parts0.get(key),
       merged = shared ? shared.geo : new Geo(),
       soft = shared ? shared.soft : [],
@@ -740,7 +745,8 @@ function buildScene(spec, q = 1) {
       } else batches.push({ geo: b.geo, mats, edgy });
     }
     if (key && !shared) parts0.set(key, { geo: merged, soft });
-    if (merged.count) batches.unshift({ geo: merged, mats: [own ? place : M.id()], edgy: true, soft });
+    if (merged.count)
+      batches.unshift({ geo: merged, mats: [own ? place : M.id()], edgy: true, soft, dynamic: p.fluid || undefined });
     let lo = [1e9, 1e9, 1e9],
       hi = [-1e9, -1e9, -1e9],
       tris = 0,
@@ -802,6 +808,7 @@ function buildScene(spec, q = 1) {
       anchor: Array.isArray(p.label) ? p.label : anchor || mid,
       hidden: !!p.hidden,
       hidden0: !!p.hidden, // (what the scene itself hides: set({hide}) adds to it)
+      fluid: !!p.fluid, // (a liquid's or a gas's body: its shape changes as it flows, drains or is heated)
       emit: [0, 0, 0],
       glowColor: rgb(p.glow || '#ffcf6a'),
       index: k,

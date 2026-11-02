@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url)),
   ENTRY = path.join(HERE, 'src/index.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this without a decision to raise it
-export const BUDGET_KB = 52;
+export const BUDGET_KB = 56;
 
 export const squeeze = (glsl) =>
   glsl

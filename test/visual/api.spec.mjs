@@ -258,3 +258,51 @@ test("a motion's slider moves it, the reader's way", async ({ page }) => {
   });
   expect(v).toBeCloseTo(0.7, 5);
 });
+
+test('a funnel pours by Torricelli into a beaker below: volume kept, a stream while it flows, stopped when shut', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const scene = await (await fetch('/test/visual/scenes/pour.json')).json();
+    const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+    await fig.ready;
+    const up = fig.liquid('water'),
+      down = fig.liquid('water-below'),
+      tap = fig.vessel('f'),
+      gl = document.querySelector('#g canvas');
+    const before = { up: up.volume, down: down.volume, level: up.level };
+    tap.set({ open: 1 });
+    await new Promise((res) => setTimeout(res, 800));
+    const during = { up: up.volume, down: down.volume, flow: tap.flow, level: up.level, below: down.level };
+    tap.set({ open: 0 });
+    await new Promise((res) => setTimeout(res, 300));
+    const shut = { up: up.volume, flow: tap.flow };
+    await new Promise((res) => setTimeout(res, 300));
+    return { before, during, shut, still: up.volume, w: gl.width };
+  });
+  expect(r.during.up).toBeLessThan(r.before.up);
+  expect(r.during.up + r.during.down).toBeCloseTo(r.before.up + r.before.down, 6); // (nothing lost)
+  expect(r.during.flow).toBeGreaterThan(0);
+  expect(r.during.level).toBeLessThan(r.before.level);
+  expect(r.shut.flow).toBe(0);
+  expect(r.still).toBe(r.shut.up);
+});
+
+test('a gas holds its piston where pV = nRT puts it: half as hot again, half as high again', async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const scene = await (await fetch('/test/visual/scenes/piston.json')).json();
+    const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+    await fig.ready;
+    await new Promise((res) => setTimeout(res, 200));
+    const gas = fig.gas('air'),
+      piston = () => fig.parts.find((p) => p.id === 'piston'),
+      h0 = gas.height,
+      seat0 = piston().lo[1] + piston().m[13];
+    gas.set({ T: 293 * 1.5 });
+    await new Promise((res) => setTimeout(res, 3000));
+    return { h0, h1: gas.height, seat0, seat1: piston().lo[1] + piston().m[13] };
+  });
+  expect(r.h1 - 0.2).toBeCloseTo(1.5 * (r.h0 - 0.2), 2); // (above the inside's floor at 0.2; still easing in)
+  expect(r.seat0).toBeCloseTo(r.h0, 5); // (the piston sits on the gas)
+  expect(r.seat1).toBeCloseTo(r.h1, 5);
+});

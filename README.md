@@ -44,6 +44,10 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
   path (a planet on its orbit), each also a range input for the keyboard and screen readers. Rays, field lines and
   forces as lines; streaks of air or blood flowing along paths, coloured cool to hot, as many and as fast as a page
   value says ([flow](docs/handles-and-lines.md#flow)); particles along paths; solid balls a simulation places.
+- **Liquids and gases by their laws**: a liquid fills its vessel to the level its volume gives, by the vessel's own
+  shape, and pours through an open stopcock by Torricelli's law into the vessel below, as a falling stream; liquids
+  stack by density; a gas holds its piston where pV = nRT puts it; warm air rises as a buoyant plume
+  ([liquids and gases](docs/fluids.md)).
 - **Shapes from a few numbers**: lathes, cylinders, tubes, coils, windings, blades for machines; cells, membranes,
   branching trees, molecules in CPK colours, DNA, rock layers, orbits for the sciences ([catalogue](docs/shapes.md)).
   glTF models for what generated shapes cannot draw, textured scans included ([models](docs/models.md)).
@@ -66,7 +70,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 129 KB   | 51 KB   |
+| lk3d                                                                                                                              | 135 KB   | 54 KB   |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
@@ -109,7 +113,7 @@ scene.json --looks pen,ink --poses rest,apart,cut` (pictures drawn by the engine
 npm install
 npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # the bundle stays within 52 KB gzipped
+npm run size           # the bundle stays within 56 KB gzipped
 npm run test:visual    # reference scenes compared with stored pictures, in Chromium, Firefox and WebKit
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again

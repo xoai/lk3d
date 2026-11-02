@@ -77,4 +77,10 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
 - **The whole model in the first view**: the camera starts far enough back that every point of the model fits the stage,
   whatever its shape (a tall column on its stand, a long optical bench) and wherever the scene points the camera;
   figures that already fit keep their framing.
-- **Small and fast**: 51 KB gzipped (a budget of 52); draws only on change, pauses off screen, adapts its resolution.
+- **Liquids and gases by their laws** (`vessels`, `liquids`, `gases`, `unit`; `fig.liquid`, `fig.vessel`, `fig.gas`,
+  `fig.plume`): a liquid fills its vessel to the level its volume gives, by the vessel's own shape; liquids stack by
+  density; an open outlet pours by Torricelli's law into the liquid below, as a falling stream that curves and narrows
+  as a projectile under continuity; a gas holds its piston where pV = nRT puts it; a plume rises and widens as a
+  buoyant one does. `lk3d check` catches overfull and overflowing vessels, an inside wider than the glass and a piston
+  pushed out ([liquids and gases](docs/fluids.md)).
+- **Small and fast**: 54 KB gzipped (a budget of 56); draws only on change, pauses off screen, adapts its resolution.

@@ -1,0 +1,17 @@
+{
+  "title": "Gas under a piston",
+  "unit": "cm",
+  "w": 12,
+  "h": 12,
+  "view": { "yaw": -25, "pitch": 15 },
+  "scale": { "bar": { "length": 5, "label": "5 cm" } },
+  "parts": [
+    { "id": "cylinder", "name": "Cylinder", "material": "glass", "opacity": 0.3, "color": "#dfe8ee",
+      "shapes": [{ "cylinder": { "r": 3.2, "ri": 3, "x0": 0.2, "x1": 16 }, "rot": [0, 0, 90] }, { "cylinder": { "r": 3.2, "x0": 0, "x1": 0.2 }, "rot": [0, 0, 90] }] },
+    { "id": "piston", "name": "Piston", "material": "steel", "color": "#9aa3ad",
+      "shapes": [{ "cylinder": { "r": 2.98, "x0": 0, "x1": 0.6 }, "rot": [0, 0, 90], "at": [0, 8.12, 0] }, { "cylinder": { "r": 0.3, "x0": 0.6, "x1": 6 }, "rot": [0, 0, 90], "at": [0, 8.12, 0] }] },
+    { "id": "air", "name": "Air", "color": "#a9c8ea", "opacity": 0.35 }
+  ],
+  "vessels": [{ "id": "c", "part": "cylinder", "inside": [[0.2, 3], [16, 3]] }],
+  "gases": [{ "part": "air", "in": "c", "piston": "piston", "n": 0.01, "T": 293 }]
+}

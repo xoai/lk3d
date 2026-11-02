@@ -1,0 +1,193 @@
+{
+  "title": "A funnel pouring into a beaker",
+  "unit": "cm",
+  "w": 16,
+  "h": 12,
+  "view": {
+    "yaw": -25,
+    "pitch": 12
+  },
+  "scale": {
+    "bar": {
+      "length": 5,
+      "label": "5 cm"
+    }
+  },
+  "check": {
+    "float": true
+  },
+  "parts": [
+    {
+      "id": "funnel",
+      "name": "Funnel",
+      "material": "glass",
+      "opacity": 0.3,
+      "color": "#dfe8ee",
+      "shapes": [
+        {
+          "lathe": [
+            [
+              12,
+              0.25
+            ],
+            [
+              14,
+              0.6
+            ],
+            [
+              17,
+              2.4
+            ],
+            [
+              19,
+              2.6
+            ],
+            [
+              19,
+              2.75
+            ],
+            [
+              17,
+              2.55
+            ],
+            [
+              14,
+              0.75
+            ],
+            [
+              12,
+              0.4
+            ]
+          ],
+          "rot": [
+            0,
+            0,
+            90
+          ]
+        },
+        {
+          "cylinder": {
+            "r": 0.4,
+            "ri": 0.25,
+            "x0": 9,
+            "x1": 12
+          },
+          "rot": [
+            0,
+            0,
+            90
+          ]
+        }
+      ]
+    },
+    {
+      "id": "beaker",
+      "name": "Beaker",
+      "material": "glass",
+      "opacity": 0.3,
+      "color": "#dfe8ee",
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 3.2,
+            "ri": 3,
+            "x0": 0.2,
+            "x1": 7
+          },
+          "rot": [
+            0,
+            0,
+            90
+          ]
+        },
+        {
+          "cylinder": {
+            "r": 3.2,
+            "x0": 0,
+            "x1": 0.2
+          },
+          "rot": [
+            0,
+            0,
+            90
+          ]
+        }
+      ]
+    },
+    {
+      "id": "water",
+      "name": "Water",
+      "color": "#5a9be0",
+      "opacity": 0.85
+    },
+    {
+      "id": "water-below",
+      "name": "Water poured",
+      "color": "#5a9be0",
+      "opacity": 0.85
+    }
+  ],
+  "vessels": [
+    {
+      "id": "f",
+      "part": "funnel",
+      "inside": [
+        [
+          9,
+          0.25
+        ],
+        [
+          12,
+          0.25
+        ],
+        [
+          14,
+          0.6
+        ],
+        [
+          17,
+          2.4
+        ],
+        [
+          19,
+          2.6
+        ]
+      ],
+      "outlet": {
+        "radius": 0.2,
+        "tip": [
+          0,
+          9,
+          0
+        ]
+      }
+    },
+    {
+      "id": "b",
+      "part": "beaker",
+      "inside": [
+        [
+          0.2,
+          3
+        ],
+        [
+          7,
+          3
+        ]
+      ]
+    }
+  ],
+  "liquids": [
+    {
+      "part": "water",
+      "in": "f",
+      "volume": 30,
+      "into": "water-below"
+    },
+    {
+      "part": "water-below",
+      "in": "b",
+      "volume": 10
+    }
+  ]
+}

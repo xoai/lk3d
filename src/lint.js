@@ -10,7 +10,8 @@
 // scene whose parts all float.
 import { buildScene, flatten, isClosed } from './geometry.js';
 import { buildBVH, intersect } from './bvh.js';
-import { add, mulv, sub, cross, dot, len, norm } from './math.js';
+import { M, add, mulv, sub, cross, dot, len, norm } from './math.js';
+import { tracksOf, motionMatrix } from './motion.js';
 
 const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -0.64, -0.75])];
 
@@ -76,6 +77,34 @@ function through(a, b, apart, eps) {
   let hits = 0;
   for (const q of pts) if (depthIn(b, add(q, shift)) > eps) hits++;
   return pts.length ? hits / pts.length : 0;
+}
+// the share of a's points more than eps inside b, each part placed by its matrix (a motion's): a's points into the
+// scene by Ma, then into b's own frame at rest by the inverse of Mb
+function throughM(a, Ma, b, Mb, eps) {
+  const pts = samples(a),
+    to = M.mul(M.invert(Mb), Ma);
+  let hits = 0;
+  for (const q of pts) {
+    const r = M.pt(to, q);
+    if (inBox(b, r) && depthIn(b, r) > eps) hits++;
+  }
+  return pts.length ? hits / pts.length : 0;
+}
+// a part's box placed by a matrix (its eight corners, moved)
+function boxAt(s, m) {
+  const lo = [Infinity, Infinity, Infinity],
+    hi = [-Infinity, -Infinity, -Infinity];
+  for (let c = 0; c < 8; c++) {
+    const w = M.pt(
+      m,
+      [0, 1, 2].map((a) => ((c >> a) & 1 ? s.p.hi[a] : s.p.lo[a])),
+    );
+    for (let a = 0; a < 3; a++) {
+      lo[a] = Math.min(lo[a], w[a]);
+      hi[a] = Math.max(hi[a], w[a]);
+    }
+  }
+  return [lo, hi];
 }
 // is the point within the part's bounds at rest? (a cheap test before casting rays)
 const inBox = (s, q) => [0, 1, 2].every((k) => q[k] >= s.p.lo[k] && q[k] <= s.p.hi[k]);
@@ -202,6 +231,39 @@ export function lint(scene, o = {}) {
           message: `${a.p.id} and ${b.p.id} run into each other when taken apart (${Math.round(worst * 100)} % of one inside the other, ${Math.round(rest * 100)} % at rest): move them apart along other paths`,
         });
     }
+  }
+  // parts that run into each other as a motion goes through its range (the others at their start): more of one inside
+  // the other than with every motion at its start
+  for (const mo of scene.motions || []) {
+    const [a0, a1] = mo.range,
+      keys = mo.tracks.reduce((n, tr) => n + (tr.move || tr.turn.keys).length, 0),
+      n = Math.min(64, Math.max(16, keys * 4)),
+      tracks = parts.map((s) => tracksOf(scene.motions, s.p)),
+      movers = parts.map((s, i) => i).filter((i) => tracks[i].some((x) => x.mo === mo));
+    const rest = parts.map((s, i) => motionMatrix(tracks[i], {}));
+    for (const i of movers)
+      for (const [j, b] of parts.entries()) {
+        if (j === i || (movers.includes(j) && j < i) || pair(parts[i].p.id, b.p.id)) continue;
+        const a = parts[i];
+        if (!a.closed && !b.closed) continue;
+        const share = (Ma, Mb) => {
+          const [la, ha] = boxAt(a, Ma),
+            [lb, hb] = boxAt(b, Mb);
+          if ([0, 1, 2].some((k) => la[k] > hb[k] - eps || lb[k] > ha[k] - eps)) return 0;
+          return Math.max(b.closed ? throughM(a, Ma, b, Mb, eps) : 0, a.closed ? throughM(b, Mb, a, Ma, eps) : 0);
+        };
+        const at0 = share(rest[i], rest[j]);
+        let worst = 0;
+        for (let k = 0; k <= n; k++) {
+          const v = { [mo.id]: a0 + ((a1 - a0) * k) / n };
+          worst = Math.max(worst, share(motionMatrix(tracks[i], v), motionMatrix(tracks[j], v)));
+        }
+        if (worst > at0 + 0.03)
+          problems.push({
+            path: path(a.p),
+            message: `${a.p.id} and ${b.p.id} run into each other as ${mo.id} moves (${Math.round(worst * 100)} % of one inside the other, ${Math.round(at0 * 100)} % at its start): change the motion's keys`,
+          });
+      }
   }
   // parts that rest on nothing: touching no other part and above the ground
   if (check.float !== true)

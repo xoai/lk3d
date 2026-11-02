@@ -15,6 +15,9 @@ lk3d is about 5 000 lines of plain JavaScript (ES modules, no dependencies). Thi
 | `src/renderer-2d.js`                                             | the Canvas 2D fallback                                                                                                                                                                                                                                                                                      |
 | `src/bvh.js`                                                     | bounding-volume trees: picking and ambient occlusion by rays on the CPU                                                                                                                                                                                                                                     |
 | `src/handles.js`                                                 | the handle maths: a pointer ray to an angle, a distance or a place along a path (pure, tested in Node)                                                                                                                                                                                                      |
+| `src/motion.js`                                                  | motions: keys between values, and a part's matrix at the motions' values (shared by the engine and the check)                                                                                                                                                                                               |
+| `src/stream.js`                                                  | streams: a path's travel-time table, the radius profile, and the hull the GPU marches through                                                                                                                                                                                                               |
+| `src/lint.js`                                                    | the geometry check: parts that run into each other when taken apart or as a motion moves, floating parts, hidden labels (not in the runtime bundle)                                                                                                                                                         |
 | `src/controls.js`, `src/style.js`, `src/text.js`, `src/locales/` | the built-in buttons, the stylesheet, label widths, the words                                                                                                                                                                                                                                               |
 | `src/validate.js`, `schema/scene.schema.json`                    | the scene format and its validator (not in the runtime bundle)                                                                                                                                                                                                                                              |
 | `build.mjs`                                                      | the bundle (esbuild), with the shaders' GLSL squeezed (comments and spaces out, line breaks kept)                                                                                                                                                                                                           |
@@ -25,7 +28,9 @@ lk3d is about 5 000 lines of plain JavaScript (ES modules, no dependencies). Thi
 merged into one batch; a shape repeated round an axis (28 fins, 12 coils) stays one geometry drawn with 28 matrices
 (instancing), unless a copy is mirrored or stretched, which is baked into the merged geometry instead (normals go
 through the cofactor matrix, so they stay true). A textured model is a batch of its own. Uploaded, a batch's positions
-are 16-bit and its normals 8-bit, quantized per batch.
+are 16-bit and its normals 8-bit, quantized per batch. Parts alike share their batches' buffers, and at draw time the
+batches of one shape on solid parts of one material form a group drawn in one instanced call per pass, each copy
+with its part's matrix and state.
 
 ## The renderer
 
@@ -87,7 +92,7 @@ environments the engine draws.
 
 `npm test`: geometry (every shape a closed solid facing outwards, volumes matching their formulas, placement and
 instancing, picking against brute force), glTF reading, handle maths, the validator against planted mistakes, the
-locales. `npm run typecheck`: the types. `npm run size`: the 50 KB budget. `npm run test:visual`: 12 reference scenes
+locales. `npm run typecheck`: the types. `npm run size`: the 52 KB budget. `npm run test:visual`: 12 reference scenes
 in each look and the 2D fallback, in Chromium, Firefox and WebKit, compared with stored pictures (`test/visual/`).
 
 ## Limits

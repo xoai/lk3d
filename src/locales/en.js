@@ -11,6 +11,8 @@ export default {
   takeApart: 'Take apart',
   putTogether: 'Put together',
   takeApartTitle: 'Take apart / put together',
+  play: 'Play',
+  pause: 'Pause',
   cut: 'Cut open',
   cutTitle: 'Cut the model in half to see inside',
   xray: 'See through',

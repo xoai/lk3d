@@ -7,11 +7,11 @@ it, keep the tab in front, press Run).
 
 ## Size
 
-The global script `dist/lk3d.min.js`, built by `npm run build`; `npm run size` fails past the budget of 50 KB gzipped.
+The global script `dist/lk3d.min.js`, built by `npm run build`; `npm run size` fails past the budget of 52 KB gzipped.
 
 |                                                                                                                                         | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d 0.1.0                                                                                                                              | 124.2 KB | 49.2 KB |
+| lk3d 0.1.0                                                                                                                              | 128.6 KB | 50.9 KB |
 | three.js r187, the smallest page (renderer, camera, box, basic material)                                                                | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, orbit controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
@@ -49,11 +49,11 @@ grid (a plate, a post, a collar; every third with eight bolts; about 430 triangl
 Headless Chrome on the same laptop (Metal, 60 Hz), 2 November 2026; script is lk3d's work per frame, median / 95th
 percentile in ms.
 
-| Parts  | Triangles | Build (Node) | Geometry check (Node) | First picture | Script      |
-| ------ | --------- | ------------ | --------------------- | ------------- | ----------- |
-| 1 000  | 432 448   | 0.13 s       | 0.6 s                 | 73 ms         | 2.4 / 2.6   |
-| 3 000  | 1 296 000 | 0.24 s       | 1.7 s                 | 96 ms         | 18.3 / 22.0 |
-| 10 000 | 4 320 448 | 0.77 s       | 8.7 s                 | 315 ms        | 62 / 70     |
+| Parts  | Triangles | Build (Node) | Geometry check (Node) | Frame (60 Hz) | Script      | Before parts alike were drawn together |
+| ------ | --------- | ------------ | --------------------- | ------------- | ----------- | -------------------------------------- |
+| 1 000  | 432 448   | 0.13 s       | 0.6 s                 | 16.7          | 2.0 / 2.7   | 2.4 / 2.6                              |
+| 3 000  | 1 296 000 | 0.24 s       | 1.7 s                 | 16.7          | 4.9 / 5.5   | 18.3 / 22.0                            |
+| 10 000 | 4 320 448 | 0.77 s       | 8.7 s                 | 16.7          | 16.7 / 21.4 | 62 / 70 (a frame took 66.6 ms)         |
 
 What was fixed on the way (before: 1 000 parts cost 5.2 ms a frame; building 10 000 parts took 10 s, checking them 100 s):
 
@@ -63,14 +63,17 @@ What was fixed on the way (before: 1 000 parts cost 5.2 ms a frame; building 10 
 - a part's uniforms are sent only when they differ from the last part's;
 - the shadow map's key no longer searches for each part (a quadratic cost);
 - labels are made only when first shown, and placed largest part first, never overlapping;
-- the geometry check pairs parts through a spatial grid instead of testing every pair.
+- the geometry check pairs parts through a spatial grid instead of testing every pair;
+- parts alike are drawn together: the batches of one shape on solid parts of one material form a group, whose
+  copies' matrices and their parts' state (colour and tint, glow, lit and cut) are one buffer, so each pass draws a
+  group in one instanced call. A part drawn alone gets the same state as constant attributes, so both share one
+  shader path.
 
-**What limits it now** is the number of WebGL calls a frame: about four per part per pass (matrix, draw, and what
-differs). Up to about 1 000 parts a frame takes a few milliseconds; past about 2 000 the browser's command buffer
-fills and frames slow down sharply. The next step is to draw parts that share a geometry in one instanced call, with
-their colours and matrices as per-instance data (WebGL 2 does this). WebAssembly would not help: lk3d's own
-JavaScript is a small part of the frame, and building 10 000 parts takes under a second. WebGPU would make each call
-cheaper, but instancing removes most of the calls on WebGL 2 already, so it waits until a real scene needs more.
+**What limits it now**: parts alike cost a few calls a pass however many there are; ten thousand of them keep 60
+frames a second. Most of what is left is lk3d's own JavaScript each frame a part moves (each part's matrix, then
+each copy's in its group: about 1.7 µs a part), and parts that are each different, which are still drawn one by one
+(a model of thousands of different parts would need its shapes merged into shared buffers). WebAssembly would not
+help the first much; WebGPU would make the second cheaper, so it waits until a real scene needs it.
 
 ## Devices still to measure
 

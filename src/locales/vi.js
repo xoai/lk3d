@@ -10,6 +10,8 @@ export default {
   takeApart: 'Tách ra',
   putTogether: 'Lắp lại',
   takeApartTitle: 'Tách rời / lắp lại',
+  play: 'Phát',
+  pause: 'Tạm dừng',
   cut: 'Cắt dọc',
   cutTitle: 'Cắt đôi mô hình để xem bên trong',
   xray: 'Nhìn xuyên',

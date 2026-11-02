@@ -156,3 +156,105 @@ test('mounting again replaces the figure; destroy leaves the element as it was, 
   expect(r.settled).toBe(true);
   expect(r.kids).toBe(0);
 });
+
+test('parts alike are drawn together: a frame of 400 alike parts takes a few draw calls, not hundreds', async ({
+  page,
+}) => {
+  const calls = await page.evaluate(async () => {
+    const parts = [];
+    for (let k = 0; k < 400; k++)
+      parts.push({
+        id: 'p' + k,
+        name: 'Part ' + k,
+        color: k % 5 ? '#c9ccd1' : '#d9822b',
+        at: [(k % 20) * 0.5, 0, Math.floor(k / 20) * 0.5],
+        shapes: [{ box: [0.3, 0.1, 0.3] }, { cylinder: { r: 0.05, x0: 0, x1: 0.2 }, rot: [0, 0, 90] }],
+      });
+    const fig = LK3D.mount(document.getElementById('g'), { parts, check: { float: true } }, { controls: false });
+    await fig.ready;
+    const gl = document.querySelector('#g canvas').getContext('webgl2');
+    let n = 0;
+    for (const k of ['drawElements', 'drawElementsInstanced', 'drawArrays', 'drawArraysInstanced']) {
+      const o = gl[k].bind(gl);
+      gl[k] = (...a) => (n++, o(...a));
+    }
+    fig.set({ explode: 0.5 }); // (every part moves: the groups' copies are written again)
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return n;
+  });
+  // shadow, outline, solids, edges and the ground: a handful each, for two shapes
+  expect(calls).toBeLessThan(40);
+});
+
+test('a motion is set, played to its end and back, and stopped by the page; its slider follows', async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    window.scene.motions = [
+      {
+        id: 'lift',
+        name: 'Lift',
+        range: [0, 1],
+        speed: 4,
+        tracks: [
+          {
+            parts: ['knob'],
+            move: [
+              [0, [0, 0, 0]],
+              [1, [0, 1, 0]],
+            ],
+          },
+        ],
+      },
+    ];
+    const fig = LK3D.mount(document.getElementById('g'), window.scene, {});
+    await fig.ready;
+    const m = fig.motion('lift'),
+      slider = document.querySelector('#g input[aria-label="Lift"]'),
+      knob = () => fig.parts.find((p) => p.id === 'knob').m[13];
+    m.set(0.5);
+    await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const half = { y: knob(), slider: +slider.value };
+    m.play();
+    await new Promise((res) => setTimeout(res, 600));
+    const end = { y: knob(), value: m.value, playing: m.playing };
+    m.play(); // (at its end: back to the start)
+    await new Promise((res) => setTimeout(res, 100));
+    m.stop();
+    const stopped = m.value;
+    await new Promise((res) => setTimeout(res, 100));
+    return { half, end, stopped, still: m.value, unknown: fig.motion('nope') === undefined };
+  });
+  expect(r.half.y).toBeCloseTo(0.5, 5);
+  expect(r.half.slider).toBeCloseTo(0.5, 5);
+  expect(r.end).toEqual({ y: 1, value: 1, playing: false });
+  expect(r.stopped).toBeLessThan(1);
+  expect(r.still).toBe(r.stopped);
+  expect(r.unknown).toBe(true);
+});
+
+test("a motion's slider moves it, the reader's way", async ({ page }) => {
+  const v = await page.evaluate(async () => {
+    window.scene.motions = [
+      {
+        id: 'lift',
+        name: 'Lift',
+        range: [0, 1],
+        tracks: [
+          {
+            parts: ['knob'],
+            move: [
+              [0, [0, 0, 0]],
+              [1, [0, 1, 0]],
+            ],
+          },
+        ],
+      },
+    ];
+    const fig = LK3D.mount(document.getElementById('g'), window.scene, {});
+    await fig.ready;
+    const slider = document.querySelector('#g input[aria-label="Lift"]');
+    slider.value = 0.7;
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    return fig.motion('lift').value;
+  });
+  expect(v).toBeCloseTo(0.7, 5);
+});

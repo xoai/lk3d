@@ -1,7 +1,7 @@
 // The built-in controls under a figure: take apart (a slider and a button), cut open, see through, show all labels,
 // go round the looks, and the four views. They act through the figure's own API (fig.set, fig.view), so a page that
 // passes `controls: false` and builds its own buttons gets exactly the same behaviour.
-export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeThrough, tweenExplode }) {
+export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeThrough, tweenExplode, motions }) {
   const bar = document.createElement('div');
   bar.className = 'lk3d-bar';
   const button = (label, title, fn, into = bar) => {
@@ -25,6 +25,30 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
   exIn.addEventListener('input', () => fig.set({ explode: +exIn.value }));
   if (explodable) bar.append(ex);
   const apart = explodable ? button(T.takeApart, T.takeApartTitle, () => tweenExplode(st.explode > 0.5 ? 0 : 1)) : null;
+
+  // each named motion: a slider along its range, and a button that plays it or stops it
+  const moves = motions.map((mo) => {
+    const m = fig.motion(mo.id),
+      r = document.createElement('label');
+    r.className = 'lk3d-range';
+    r.innerHTML = `<span></span><input type="range" min="${mo.range[0]}" max="${mo.range[1]}" step="${(mo.range[1] - mo.range[0]) / 200}">`;
+    r.firstChild.textContent = mo.name;
+    const input = r.lastChild;
+    input.setAttribute('aria-label', mo.name);
+    input.addEventListener('input', () => {
+      const v = +input.value; // (read first: stopping puts the slider back where the motion is)
+      m.stop();
+      m.set(v);
+    });
+    bar.append(r);
+    const b = button(T.play, mo.name, () => (m.playing ? m.stop() : m.play()));
+    const sync = () => {
+      input.value = m.value;
+      b.textContent = m.playing ? T.pause : T.play;
+    };
+    sync();
+    return [mo.id, sync];
+  });
 
   // toggles: each shows it is on (aria-pressed for screen readers), also when the page turns it on itself
   const toggles = [];
@@ -71,6 +95,9 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
 
   // kept in step when the page takes the model apart, cuts it, or changes the look itself
   return {
+    motion(id) {
+      for (const [k, sync] of moves) if (k === id) sync();
+    },
     explode(v) {
       exIn.value = v;
       if (apart) apart.textContent = v > 0.5 ? T.putTogether : T.takeApart;

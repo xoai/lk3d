@@ -24,6 +24,7 @@ import * as HD from './handles.js';
 import { controls } from './controls.js';
 import { pathOf, makeFlow, ramp } from './flow.js';
 import { makeStream } from './stream.js';
+import { tracksOf, motionMatrix, startOf } from './motion.js';
 import en from './locales/en.js';
 import vi from './locales/vi.js';
 const mod360 = (v) => ((v % 360) + 360) % 360;
@@ -239,6 +240,7 @@ function mount(el, spec, opts = {}) {
     target: [0, 0, 0],
     hover: null,
     selected: null,
+    motion: {}, // each motion's value (motion.js)
   };
   // the figure is complete once its first picture is up, the trees for pointing are built, the crease shading is done
   // (there is none in 2D or with ao: false), no texture is still decoding and its edges are found: checked after each
@@ -282,6 +284,10 @@ function mount(el, spec, opts = {}) {
       handles.push(hd);
       for (const q of parts) q.handleOf = hd;
     }
+  // motions: what moves each part, and where each motion starts
+  const motions = spec.motions || [];
+  for (const mo of motions) st.motion[mo.id] = startOf(mo);
+  for (const p of S.parts) p.tracks = tracksOf(motions, p);
   // the order parts are drawn in: parts that share a geometry one after another (the GPU then binds it once for them)
   const geoId = new Map(),
     drawOrder = S.parts
@@ -426,6 +432,7 @@ function mount(el, spec, opts = {}) {
   }
   function model(p) {
     let m = M.trans(add(mulv(p.explode, st.explode), p.offset));
+    if (p.tracks.length) m = M.mul(m, motionMatrix(p.tracks, st.motion));
     if (p.handleOf) m = M.mul(m, HD.matrix(p.handleOf.h, p.handleOf.v, p.handleOf.m));
     if (p.spin) {
       const a = st.spin * D2R * (p.spin.ratio ?? 1),
@@ -1665,6 +1672,40 @@ function mount(el, spec, opts = {}) {
     kick();
   }
 
+  // ---- motions (motion.js): a value set by the page or the reader, or played: on along its range at its speed (a
+  // second a range by default), round again if it loops, else to its end and back the next time it is played
+  const playing = new Map(); // a motion's id → its step in the frame loop
+  function setMotion(mo, v) {
+    const [a, b] = mo.range;
+    st.motion[mo.id] = mo.loop ? a + ((((v - a) % (b - a)) + (b - a)) % (b - a)) : Math.max(a, Math.min(b, v));
+    if (hooks.motion) hooks.motion(mo.id);
+    kick();
+  }
+  function stopMotion(mo) {
+    anim.delete(playing.get(mo.id));
+    playing.delete(mo.id);
+    if (hooks.motion) hooks.motion(mo.id);
+  }
+  function playMotion(mo) {
+    stopMotion(mo);
+    const [a, b] = mo.range,
+      back = !mo.loop && st.motion[mo.id] >= b; // (at its end: played back to the start)
+    if (LK3D.reduce) return mo.loop || setMotion(mo, back ? a : b); // (no movement: straight to where it goes)
+    let last = null;
+    const step = (now) => {
+      const dt = last == null ? 0 : Math.min(0.05, (now - last) / 1000), // (not a leap after a hidden tab)
+        v = st.motion[mo.id] + (back ? -1 : 1) * (mo.speed ?? b - a) * dt * st.timeScale;
+      last = now;
+      setMotion(mo, v);
+      if (!mo.loop && (back ? v <= a : v >= b)) return (stopMotion(mo), false);
+      return true;
+    };
+    playing.set(mo.id, step);
+    anim.add(step);
+    if (hooks.motion) hooks.motion(mo.id);
+    kick();
+  }
+
   const hooks = {}; // the built-in controls' hooks (made below, once the page's handle exists)
 
   // ---- the page's handle
@@ -1729,6 +1770,11 @@ function mount(el, spec, opts = {}) {
           const p = S.parts.find((x) => x.id === id);
           if (p) p.emit = mulv(p.glowColor, v);
         }
+      if (o.motion)
+        for (const [id, v] of Object.entries(o.motion)) {
+          const mo = motions.find((x) => x.id === id);
+          if (mo) setMotion(mo, v);
+        }
       if (o.hide) {
         for (const p of S.parts) p.hidden = p.hidden0 || o.hide.includes(p.id) || o.hide.includes(p.group);
         if (S.parts.find((p) => p.id === st.selected)?.hidden) {
@@ -1760,6 +1806,23 @@ function mount(el, spec, opts = {}) {
           set(v) {
             setHandle(hd, HD.hold(hd.h, v), false);
           },
+        }
+      );
+    },
+    // a motion of the scene, set or played by the page: { value, set(v), play(), stop(), playing }
+    motion(id) {
+      const mo = motions.find((x) => x.id === id);
+      return (
+        mo && {
+          get value() {
+            return st.motion[id];
+          },
+          get playing() {
+            return playing.has(id);
+          },
+          set: (v) => setMotion(mo, v),
+          play: () => playMotion(mo),
+          stop: () => stopMotion(mo),
         }
       );
     },
@@ -1840,6 +1903,7 @@ function mount(el, spec, opts = {}) {
         btnClass,
         tweenExplode,
         explodable: S.parts.some((p) => p.explode.some((v) => v !== 0)),
+        motions: motions.filter((mo) => mo.name),
         cuttable: spec.section !== false && R && R.kind !== '2d',
         seeThrough: S.parts.some((p) => p.xray),
       }),

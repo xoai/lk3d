@@ -109,6 +109,32 @@ function links(scene, out) {
     };
     (Array.isArray(p.shapes) ? p.shapes : []).forEach((s, j) => walk(s, `parts[${k}].shapes[${j}]`));
   });
+  // motions: one id each; tracks that move parts that exist, with keys in order and within the range
+  const ids = new Set();
+  (Array.isArray(scene.motions) ? scene.motions : []).forEach((mo, i) => {
+    if (!mo || typeof mo !== 'object') return;
+    if (ids.has(mo.id)) out.push({ path: `motions[${i}].id`, message: `${say(mo.id)} is used by two motions` });
+    ids.add(mo.id);
+    const [a, b] = Array.isArray(mo.range) ? mo.range : [];
+    if (!(b > a)) out.push({ path: `motions[${i}].range`, message: 'runs from a value to a larger one' });
+    (Array.isArray(mo.tracks) ? mo.tracks : []).forEach((tr, j) => {
+      const at = `motions[${i}].tracks[${j}]`;
+      for (const n of (tr && Array.isArray(tr.parts) && tr.parts) || [])
+        if (!names.has(n)) out.push({ path: `${at}.parts`, message: `moves ${say(n)}, which is no part or group` });
+      for (const [keys, where] of [
+        [tr && tr.move, 'move'],
+        [tr && tr.turn && tr.turn.keys, 'turn.keys'],
+      ])
+        if (
+          Array.isArray(keys) &&
+          keys.some((k, n) => !Array.isArray(k) || k[0] < a || k[0] > b || (n && k[0] < keys[n - 1][0]))
+        )
+          out.push({
+            path: `${at}.${where}`,
+            message: `keys go in order of their values, within the range [${a}, ${b}]`,
+          });
+    });
+  });
 }
 
 export function validate(scene) {

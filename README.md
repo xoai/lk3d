@@ -66,7 +66,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 124 KB   | 49 KB   |
+| lk3d                                                                                                                              | 129 KB   | 51 KB   |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
@@ -109,7 +109,7 @@ scene.json --looks pen,ink --poses rest,apart,cut` (pictures drawn by the engine
 npm install
 npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # the bundle stays within 50 KB gzipped
+npm run size           # the bundle stays within 52 KB gzipped
 npm run test:visual    # reference scenes compared with stored pictures, in Chromium, Firefox and WebKit
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again

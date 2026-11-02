@@ -44,6 +44,8 @@ export interface Scene {
   ground?: boolean;
   /** the cut: a plane, or false to offer none */
   section?: false | { normal?: Vec3; offset?: number };
+  /** parts that move together as one value goes along a range (a crank turning, a sleeve sliding back) */
+  motions?: Motion[];
   /** honest scale: a bar of a true length and/or a note saying what is not to scale */
   scale?: { bar?: { length: number; label: string }; note?: string };
   /** glTF 2.0 models (.glb, base64) by name, for { model: name } shapes */
@@ -273,6 +275,37 @@ export type Shape =
     >
   | (Placement & { model: string; node?: string });
 
+/** parts moved by keys: at the motion's value t, moved by [x, y, z] and turned by degrees about an axis */
+export interface Motion {
+  /** unique among the scene's motions */
+  id: string;
+  /** what the reader's slider says (no name: no slider; the page drives it) */
+  name?: string;
+  range: [number, number];
+  /** where it starts (the start of its range) */
+  value?: number;
+  /** played round and round (a crank), else to its end and back */
+  loop?: boolean;
+  /** how far along its range it goes in a second when played (the whole range) */
+  speed?: number;
+  tracks: Array<{
+    /** part ids or groups */
+    parts: string[];
+    move?: Array<[number, Vec3]>;
+    turn?: { axis: Vec3; center?: Vec3; keys: Array<[number, number]> };
+    /** a smooth start and stop at each key */
+    ease?: boolean;
+  }>;
+}
+/** a motion as the page drives it */
+export interface MotionHandle {
+  readonly value: number;
+  readonly playing: boolean;
+  set(v: number): void;
+  play(): void;
+  stop(): void;
+}
+
 export interface Strings {
   model: string;
   hintTouch: string;
@@ -298,6 +331,8 @@ export interface Strings {
   side: string;
   top: string;
   home: string;
+  play: string;
+  pause: string;
   /** the decimal mark in numbers read out (handles) */
   decimal: string;
 }
@@ -465,7 +500,11 @@ export interface Figure {
     glow?: Record<string, number>;
     hide?: string[];
     move?: Record<string, Vec3>;
+    /** motions' values, by id */
+    motion?: Record<string, number>;
   }): void;
+  /** a motion of the scene, to set or play */
+  motion(id: string): MotionHandle | undefined;
   view(
     v: ViewName | [number, number] | { yaw?: number; pitch?: number; dist?: number; zoom?: number; target?: Vec3 },
   ): void;

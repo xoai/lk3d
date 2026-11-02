@@ -87,6 +87,8 @@ function glRenderer(gl, scene, opts = {}) {
     aDir: 10,
     aFace: 11,
     aA: 12,
+    aIC: 13,
+    aIE: 14,
   };
   const vx = gl2
     ? { make: () => gl.createVertexArray(), bind: (v) => gl.bindVertexArray(v), del: (v) => gl.deleteVertexArray(v) }
@@ -368,32 +370,44 @@ function glRenderer(gl, scene, opts = {}) {
   };
   const fbufs = new WeakMap(); // each flow's vertex buffer, made once at its full size and refilled in place
 
-  // a batch's vertex array: its buffers described once, then bound with one call per draw (a scene of thousands of
-  // parts otherwise spends most of its frame describing buffers again)
-  function batchVAO(G) {
-    G.vao = vx.make();
-    vx.bind(G.vao);
-    const at = (l, buffer, size, type, norm, stride = 0, off = 0, div = 0) => {
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  // a vertex array, described once: a shape's buffers (or its edges' segments) and its copies' placements in buf, 16
+  // numbers a copy (a batch's own), or 24 with the part's state (a group of parts alike: see groupsOf); bound with
+  // one call per draw (a scene of thousands of parts otherwise spends most of its frame describing buffers again)
+  function vao(G, buf, stride, edges) {
+    const v = vx.make();
+    vx.bind(v);
+    const at = (l, b, size, type, norm, st = 0, off = 0, div = 0) => {
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
       gl.enableVertexAttribArray(l);
-      gl.vertexAttribPointer(l, size, type, norm, stride, off);
+      gl.vertexAttribPointer(l, size, type, norm, st, off);
       inst.div(l, div);
     };
-    at(0, G.pos, 4, gl.SHORT, true);
-    at(1, G.nrm, 4, gl.BYTE, true);
-    at(2, G.out, 4, gl.BYTE, true);
-    at(3, G.ao, 1, gl.UNSIGNED_BYTE, true);
-    at(4, G.col, 4, gl.UNSIGNED_BYTE, true);
-    for (let c = 0; c < 4; c++) at(5 + c, G.inst, 4, gl.FLOAT, false, 64, 16 * c, 1);
-    if (G.uv) at(9, G.uv, 2, gl.FLOAT, false);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.idx);
+    if (edges)
+      for (const [l, n, o] of [
+        [0, 4, 0],
+        [10, 3, 16],
+        [11, 3, 28],
+      ])
+        at(l, G.edge, n, gl.FLOAT, false, 40, o);
+    else {
+      at(0, G.pos, 4, gl.SHORT, true);
+      at(1, G.nrm, 4, gl.BYTE, true);
+      at(2, G.out, 4, gl.BYTE, true);
+      at(3, G.ao, 1, gl.UNSIGNED_BYTE, true);
+      at(4, G.col, 4, gl.UNSIGNED_BYTE, true);
+      if (G.uv) at(9, G.uv, 2, gl.FLOAT, false);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.idx);
+    }
+    for (let c = 0; c < stride / 16; c++)
+      at([5, 6, 7, 8, LOC.aIC, LOC.aIE][c], buf, 4, gl.FLOAT, false, stride, 16 * c, 1);
+    vx.bind(null); // (bound where it is drawn: nothing else changes it by accident)
+    return v;
   }
   let bound = false; // (a vertex array is bound: the default one must be put back before anything else draws)
   function bindBatch(prog, b) {
     const G = b.gl,
       u = prog.u;
-    if (!G.vao) batchVAO(G);
-    else vx.bind(G.vao);
+    vx.bind(G.vao || (G.vao = vao(G, G.inst, 64)));
     bound = true;
     if (u.uTex) {
       // which maps this batch has, on units 4, 5, 6
@@ -414,6 +428,77 @@ function glRenderer(gl, scene, opts = {}) {
     }
   }
   const drawBatch = (b) => inst.draw(gl.TRIANGLES, b.gl.n, b.gl.type, 0, b.gl.count);
+
+  // ---- parts alike in one call: groups of batches that share a shape's buffers, on solid parts of one material.
+  // A group's buffer holds each copy's matrix (its part's matrix times its own placement) and its part's state (colour
+  // and tint, glow and flags: the attributes aIC and aIE), 24 numbers a copy; its vertex arrays read the shape's
+  // buffers and this one, so a group is drawn as one batch
+  const STRIDE_G = 96,
+    ID = M.id(),
+    ids = new WeakMap(), // (a number for each shape's buffers, for the groups' keys)
+    gcache = new Map(); // a group's buffer and vertex arrays, kept from frame to frame
+  let shapes = 0;
+  const shapeId = (G) => ids.get(G.pos) ?? (ids.set(G.pos, ++shapes), shapes);
+  // this frame's groups: batch → its group. A part joins only when every batch of it is in a group of two or more
+  // (a part drawn half alone and half with others would be drawn twice)
+  function groupsOf(solid, kind, flags, colour) {
+    const key = (p, b) => {
+      const G = b.gl;
+      if (!G || b.dynamic || G.uv || G.tex.base || G.tex.normal || G.tex.mr) return null; // (lines; textured models)
+      return (b.gkey ??= shapeId(G) + '|' + p.mat + '|' + p.surf);
+    };
+    let parts = solid.filter((p) => p.batches.every((b) => key(p, b)));
+    for (;;) {
+      const n = new Map();
+      for (const p of parts) for (const b of p.batches) n.set(b.gkey, (n.get(b.gkey) || 0) + 1);
+      const keep = parts.filter((p) => p.batches.every((b) => n.get(b.gkey) > 1));
+      if (keep.length === parts.length) break;
+      parts = keep;
+    }
+    const out = new Map(),
+      found = new Map();
+    for (const p of parts)
+      for (const b of p.batches) {
+        let g = found.get(b.gkey);
+        if (!g) {
+          found.set(b.gkey, (g = { members: [], count: 0 }));
+          let c = gcache.get(b.gkey);
+          if (!c) {
+            const buf = gl.createBuffer();
+            gcache.set(b.gkey, (c = { buf, G: b.gl, data: new Float32Array(0), vao: null, evao: null }));
+            c.vao = vao(b.gl, buf, STRIDE_G);
+          }
+          g.c = c;
+        }
+        g.members.push([p, b]);
+        g.count += b.mats.length;
+        out.set(b, g);
+      }
+    for (const g of found.values()) {
+      const c = g.c;
+      if (c.data.length < g.count * 24) c.data = new Float32Array(g.count * 24 * 1.5);
+      let o = 0;
+      for (const [p, b] of g.members) {
+        const col = colour(p),
+          fl = flags(p);
+        for (const m of b.mats) {
+          c.data.set(M.mul(p.m, m), o);
+          c.data.set(col, o + 16);
+          c.data[o + 19] = p.tint ?? 1;
+          c.data.set(p.emit, o + 20);
+          c.data[o + 23] = fl;
+          o += 24;
+        }
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, c.buf);
+      gl.bufferData(gl.ARRAY_BUFFER, c.data.subarray(0, o), gl.DYNAMIC_DRAW);
+      // drawn as a batch of its own: the shape's buffers, the group's copies
+      g.batch = { gl: { ...c.G, vao: c.vao, count: g.count } };
+      if (c.G.edge && !c.evao) c.evao = vao(c.G, c.buf, STRIDE_G, true);
+      g.edges = c.evao && c.G.edge ? { vao: c.evao, en: c.G.en, count: g.count } : null;
+    }
+    return out;
+  }
   function unbind() {
     if (bound) vx.bind(null);
     bound = false;
@@ -643,11 +728,42 @@ function glRenderer(gl, scene, opts = {}) {
       if (waiting) return false;
       const opaque = f.parts.filter((p) => p.drawAlpha >= 0.99),
         clear = f.parts.filter((p) => p.drawAlpha > 0.01 && p.drawAlpha < 0.99);
+      // a part's own state, as constant attributes for a part drawn alone (one call each, as a uniform would be): its
+      // colour in this look and how much of it the pen look shows; its glow, and flags (1 lit, 2 cut: a part may stay
+      // whole, cut: false)
+      const flags = (p) => (p.id === f.hover || p.id === f.selected ? 1 : 0) + (f.cut && p.cut ? 2 : 0),
+        colour = (p) => (kind === 1 ? p.studioColor : p.color);
+      const state = (p) => {
+        const c = colour(p),
+          e = p.emit;
+        gl.vertexAttrib4f(LOC.aIC, c[0], c[1], c[2], p.tint ?? 1);
+        gl.vertexAttrib4f(LOC.aIE, e[0], e[1], e[2], flags(p));
+      };
+      // parts alike drawn together: the batches of one shape (buffers shared) on solid parts of one material, every
+      // copy's matrix and the part's state in one buffer, so a pass draws them in one call (bolts, a scene of
+      // thousands of parts alike). Made again each frame drawn; only the passes over every solid part use them
+      const groupOf = groupsOf(opaque, kind, flags, colour);
       const each = (prog, list, set) => {
         last.clear();
+        const u = prog.u,
+          together = list === opaque && groupOf.size,
+          done = new Set();
         for (const p of list) {
-          gl.uniformMatrix4fv(prog.u.uModel, false, p.m);
-          if (prog.u.uCut) set1(prog.u.uCut, f.cut && p.cut ? 1 : 0); // (a part may stay whole: cut: false)
+          if (together && p.batches.every((b) => groupOf.has(b))) {
+            // (all of it drawn with others: nothing of its own to set)
+            for (const b of p.batches) {
+              const g = groupOf.get(b);
+              if (done.has(g)) continue;
+              done.add(g);
+              gl.uniformMatrix4fv(u.uModel, false, ID);
+              if (set) set(p); // (what a group shares: its material)
+              bindBatch(prog, g.batch);
+              drawBatch(g.batch);
+            }
+            continue;
+          }
+          gl.uniformMatrix4fv(u.uModel, false, p.m);
+          state(p);
           if (set) set(p);
           for (const b of p.batches) {
             bindBatch(prog, b);
@@ -667,39 +783,34 @@ function glRenderer(gl, scene, opts = {}) {
         // the edges a little lighter than the outline, so the outline reads first; a lit part's light
         const line = f.look.solid ? f.look.ink.map((v, i) => v + (f.look.solid[i] - v) * 0.2) : f.look.ink,
           lit = f.look.ink.map((v) => v + (1 - v) * 0.75);
+        gl.uniform3fv(Q.u.uColor, line);
+        gl.uniform3fv(Q.u.uLit, f.look.kind === 2 ? lit : line); // (a lit part's edges, by its tint: pen only)
         gl.enable(gl.BLEND);
         blendOver();
         gl.depthMask(false);
         gl.disable(gl.CULL_FACE);
+        const together = list === opaque && groupOf.size,
+          done = new Set();
         for (const p of list) {
+          if (together && p.batches.every((b) => groupOf.has(b))) {
+            for (const b of p.batches) {
+              const g = groupOf.get(b).edges;
+              if (!g || done.has(g.vao)) continue;
+              done.add(g.vao);
+              gl.uniformMatrix4fv(Q.u.uModel, false, ID);
+              gl.uniform1f(Q.u.uAlpha, 1);
+              vx.bind(g.vao);
+              inst.arrays(gl.TRIANGLES, g.en, g.count);
+            }
+            continue;
+          }
           gl.uniformMatrix4fv(Q.u.uModel, false, p.m);
-          gl.uniform1f(Q.u.uCut, f.cut && p.cut ? 1 : 0);
-          // a lit part (an accent, a glowing one, the one chosen) has light edges, as if catching the light
-          gl.uniform3fv(Q.u.uColor, f.look.kind === 2 && p.tint > 0.5 ? lit : line);
+          state(p);
           gl.uniform1f(Q.u.uAlpha, p.drawAlpha);
           for (const b of p.batches) {
             const G = b.gl;
             if (!G || !G.edge) continue;
-            // (its vertex array: the edges' buffer and the batch's placements, described once)
-            if (!G.evao) {
-              G.evao = vx.make();
-              vx.bind(G.evao);
-              gl.bindBuffer(gl.ARRAY_BUFFER, G.edge);
-              for (const [l, n, o] of [
-                [0, 4, 0],
-                [10, 3, 16],
-                [11, 3, 28],
-              ]) {
-                gl.enableVertexAttribArray(l);
-                gl.vertexAttribPointer(l, n, gl.FLOAT, false, 40, o);
-              }
-              gl.bindBuffer(gl.ARRAY_BUFFER, G.inst);
-              for (let c = 0; c < 4; c++) {
-                gl.enableVertexAttribArray(5 + c);
-                gl.vertexAttribPointer(5 + c, 4, gl.FLOAT, false, 64, 16 * c);
-                inst.div(5 + c, 1);
-              }
-            } else vx.bind(G.evao);
+            vx.bind(G.evao || (G.evao = vao(G, G.inst, 64, true)));
             inst.arrays(gl.TRIANGLES, G.en, G.count);
           }
         }
@@ -783,7 +894,6 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniform1f(u.uAlpha, 1);
         // (in pen about one pixel on screen whatever the canvas's size; ink's, as it always was)
         gl.uniform1f(u.uOutline, pen ? (2.2 * f.dpr * f.tanHalf) / H : 0.0028);
-        gl.uniform3fv(u.uEmit, [0, 0, 0]);
         each(prog, opaque);
       }
       // 3. the solid parts (with the section on, both faces: the inside of a cut part shows as a cap)
@@ -794,17 +904,14 @@ function glRenderer(gl, scene, opts = {}) {
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.BACK);
       }
+      // (a part's material; its colour, glow and flags come with its state)
       const look = (p) => {
-        set3(u.uColor, kind === 1 ? p.studioColor : p.color);
-        if (u.uTint) set1(u.uTint, p.tint);
         set3(u.uMat, p.mat);
         set1(u.uAlpha, p.drawAlpha);
         if (u.uSurf) {
           set3(u.uSurf, p.surf);
           set1(u.uRefr, back && p.drawAlpha < 0.99 ? p.refract : 0);
         }
-        set1(u.uHi, p.id === f.hover || p.id === f.selected ? 1 : 0);
-        set3(u.uEmit, p.emit);
       };
       each(prog, opaque, look);
       if (f.edges) {
@@ -1092,7 +1199,6 @@ function glRenderer(gl, scene, opts = {}) {
           f.parts.filter(
             (p) => p.drawAlpha >= 0.99 || (p.drawAlpha > 0.01 && p.emit[0] + p.emit[1] + p.emit[2] > 0.01),
           ),
-          (p) => gl.uniform3fv(Gp.u.uEmit, p.emit),
         );
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.CULL_FACE);

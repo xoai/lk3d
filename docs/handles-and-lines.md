@@ -1,4 +1,4 @@
-# Handles, lines and flow
+# Handles, motions, lines and flow
 
 ## Handles: parts the reader moves
 
@@ -34,6 +34,37 @@ fig.handle('object').set(-3);
 The engine's handle maths (`src/handles.js`: the pointer ray to an angle, a distance or a place on a path) is pure and
 tested in Node. Examples: [the lens](../examples/lens.html), [the gauge](../examples/gauge.html),
 [the Solar System](../examples/solar.html), [the generator](../examples/generator.html).
+
+## Motions: parts that move together
+
+A mechanism's movement as data: one value goes along a range (a crank's degrees, 0 to 1 for a sleeve that opens) and
+each track says where its parts are at some values of it, moved by `[x, y, z]` and turned by degrees about an axis.
+Between keys a part goes in a straight line (`ease: true`: starting and stopping smoothly at each key).
+
+```json
+"motions": [
+  { "id": "reverser", "name": "Thrust reverser", "range": [0, 1], "speed": 0.8,
+    "tracks": [{ "parts": ["sleeve"], "move": [[0, [0, 0, 0]], [1, [0.32, 0, 0]]], "ease": true }] },
+  { "id": "crank", "range": [0, 360], "loop": true, "speed": 180,
+    "tracks": [
+      { "parts": ["crankshaft"], "turn": { "axis": [1, 0, 0], "keys": [[0, 0], [360, 360]] } },
+      { "parts": ["piston"], "move": [[0, [0, 0.4, 0]], [90, [0, 0.06, 0]], [180, [0, -0.4, 0]], [270, [0, 0.06, 0]], [360, [0, 0.4, 0]]], "ease": true }
+    ] }
+]
+```
+
+A named motion gets a slider and a play button under the figure; the page drives any motion by its id:
+
+```js
+const rev = fig.motion('reverser'); // { value, playing, set(v), play(), stop() }
+rev.set(0.5);
+rev.play(); // on to its end (or back from it); round and round if it loops
+fig.set({ motion: { crank: 90 } });
+```
+
+`lk3d check` runs each motion through its range and reports parts that run into each other on the way, as it does
+for taking apart; `check.allow` excuses a pair by name. Played under reduced motion, a motion goes straight to where
+it would end.
 
 ## Lines: rays, field lines, forces
 

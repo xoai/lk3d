@@ -22,6 +22,9 @@ attribute vec4 aPos; attribute vec4 aNrm; attribute vec4 aOut; attribute float a
 attribute vec2 aUV; varying vec2 vUV;
 #endif
 attribute vec4 aI0; attribute vec4 aI1; attribute vec4 aI2; attribute vec4 aI3;
+// the part's own state, the same for each copy (per copy when parts alike are drawn in one call): its colour and how
+// much of it the pen look shows (aIC); its glow, and its flags: 1 lit (pointed at or chosen), 2 cut (aIE)
+attribute vec4 aIC; attribute vec4 aIE; varying vec4 vIC; varying vec4 vIE;
 uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uEye; uniform float uOutline; uniform vec3 uQs; uniform vec3 uQo;
 uniform float uViewD;  // the camera's distance in ortho (0 in perspective): what an outline's width scales with
 #ifdef SHADOWS
@@ -30,7 +33,7 @@ uniform mat4 uLightVP; varying vec4 vSh;
 varying vec3 vW; varying vec3 vN; varying float vAO; varying vec4 vCol; varying vec3 vO;
 void main() {
   mat4 m = uModel * mat4(aI0, aI1, aI2, aI3);
-  vCol = aCol;
+  vCol = aCol; vIC = aIC; vIE = aIE;
   vO = aPos.xyz * uQs + uQo;
 #ifdef HIFI
   vUV = aUV;
@@ -46,11 +49,10 @@ void main() {
 }`;
 
 const PART_FS = `
-uniform vec3 uColor; uniform float uAlpha; uniform float uFlat; uniform vec3 uMat;
-uniform vec3 uLight; uniform vec3 uEye; uniform vec4 uPlane; uniform float uCut; uniform vec3 uCap;
-uniform float uHi; uniform vec3 uEmit; uniform float uDpr; uniform float uAOk;
-uniform vec3 uPaper; uniform vec3 uSolid; uniform float uTint;
-varying vec3 vW; varying vec3 vN; varying float vAO; varying vec4 vCol; varying vec3 vO;
+uniform vec3 uColor; uniform float uAlpha; uniform float uFlat; uniform vec3 uMat;  // (uColor: the outline's)
+uniform vec3 uLight; uniform vec3 uEye; uniform vec4 uPlane; uniform vec3 uCap;
+uniform float uDpr; uniform float uAOk; uniform vec3 uPaper; uniform vec3 uSolid;
+varying vec3 vW; varying vec3 vN; varying float vAO; varying vec4 vCol; varying vec3 vO; varying vec4 vIC; varying vec4 vIE;
 #ifdef HIFI
 uniform samplerCube uEnv; uniform float uEnvMax; uniform float uExposure;
 uniform vec3 uSurf; uniform float uRefr; uniform sampler2D uBack; uniform vec2 uView; uniform mat4 uVP;
@@ -115,11 +117,12 @@ vec2 envBRDF(float NoV, float r) {  // the split-sum environment term, as Karis 
 }
 #endif
 void main() {
-  if (uCut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
+  float cut = step(1.5, vIE.w), hi = step(0.5, vIE.w - 2.0 * cut);
+  if (cut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
   if (uFlat > 0.5) { gl_FragColor = vec4(uColor, uAlpha); return; }
-  vec3 C = mix(uColor, vCol.rgb, vCol.a);  // a vertex's own colour (atoms, bands, layers) where it has one
+  vec3 C = mix(vIC.rgb, vCol.rgb, vCol.a);  // a vertex's own colour (atoms, bands, layers) where it has one
   vec2 fc = gl_FragCoord.xy / uDpr;
-  if (!gl_FrontFacing && uCut > 0.5) {  // the inside of a cut part: a cap in the part's colour, hatched
+  if (!gl_FrontFacing && cut > 0.5) {  // the inside of a cut part: a cap in the part's colour, hatched
     float h = step(0.55, fract((fc.x + fc.y) / 7.0));
 #ifdef INK
     vec3 cap = mix(C, uCap, 0.35);
@@ -147,13 +150,13 @@ void main() {
   }
 #elif defined(PEN)
   {  // pen: light solids lit from the viewer's upper left (a fifth darker facing away), faces turned up a step
-     // lighter; full colour where it means something (uTint 1: an accent part, a glowing one, the one chosen), a soft
-     // wash of it elsewhere (uTint 0.4), a vertex's own colour (an atom's) keeping most of its
+     // lighter; full colour where it means something (vIC.a 1: an accent part, a glowing one, the one chosen), a soft
+     // wash of it elsewhere (0.4), a vertex's own colour (an atom's) keeping most of its
     // (a smooth ramp, not steps: a flat face has one normal, so one tone, and neighbouring faces still differ; a curved
     // one shades evenly instead of in stripes)
     float t = mix(0.8, 1.0, smoothstep(-0.3, 0.7, d));
     t = min(1.0, t + 0.05 * smoothstep(0.55, 0.85, N.y));
-    col = mix(uSolid, C, max(uTint, 0.7 * vCol.a)) * t * mix(0.86, 1.0, smoothstep(0.35, 0.85, ao));
+    col = mix(uSolid, C, max(vIC.a, 0.7 * vCol.a)) * t * mix(0.86, 1.0, smoothstep(0.35, 0.85, ao));
   }
 #else
   {
@@ -213,18 +216,18 @@ void main() {
 #endif
   }
 #endif
-  col += uEmit;
-  col = mix(col, vec3(1.0, 0.82, 0.35), uHi * 0.35);
+  col += vIE.rgb;
+  col = mix(col, vec3(1.0, 0.82, 0.35), hi * 0.35);
   gl_FragColor = vec4(col, al);
 }`;
 
 // ---- depth only, for the shadow map
-const DEPTH_FS = `uniform vec4 uPlane; uniform float uCut; varying vec3 vW; varying vec3 vN; varying float vAO;
-void main() { if (uCut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard; gl_FragColor = vec4(1.0); }`;
+const DEPTH_FS = `uniform vec4 uPlane; varying vec3 vW; varying vec4 vIE;
+void main() { if (vIE.w > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard; gl_FragColor = vec4(1.0); }`;
 
 // ---- emission only, for the glow
-const GLOW_FS = `uniform vec3 uEmit; uniform vec4 uPlane; uniform float uCut; varying vec3 vW; varying vec3 vN; varying float vAO;
-void main() { if (uCut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard; gl_FragColor = vec4(uEmit, 1.0); }`;
+const GLOW_FS = `uniform vec4 uPlane; varying vec3 vW; varying vec4 vIE;
+void main() { if (vIE.w > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard; gl_FragColor = vec4(vIE.rgb, 1.0); }`;
 
 // ---- the ground: a disc under the model that only shows the shadow (and a soft contact shadow)
 const GROUND_VS = `attribute vec4 aPos; uniform mat4 uVP; uniform vec3 uCenter; uniform float uRadius; uniform float uY;
@@ -289,9 +292,9 @@ void main() {
 // each instance of a batch placed by its matrix; nudged towards the eye so the faces they lie on do not hide them, while
 // faces in front still do
 const EDGE_VS = `attribute vec4 aPos; attribute vec4 aDir; attribute vec3 aFace;
-attribute vec4 aI0; attribute vec4 aI1; attribute vec4 aI2; attribute vec4 aI3;
+attribute vec4 aI0; attribute vec4 aI1; attribute vec4 aI2; attribute vec4 aI3; attribute vec4 aIC; attribute vec4 aIE;
 uniform mat4 uModel; uniform mat4 uVP; uniform vec3 uEye; uniform vec2 uView; uniform float uWidth; uniform float uViewD;
-uniform vec3 uLight; varying float vSide; varying vec3 vW; varying float vLit;
+uniform vec3 uLight; varying float vSide; varying vec3 vW; varying float vLit; varying float vTint; varying float vCut;
 void main() {
   mat4 m = uModel * mat4(aI0, aI1, aI2, aI3);
   vec4 w = m * vec4(aPos.xyz, 1.0);
@@ -300,13 +303,16 @@ void main() {
   vec2 d = normalize((b.xy / b.w - a.xy / a.w) * uView + vec2(1e-6, 0.0));
   a.xy += vec2(-d.y, d.x) * aPos.w * uWidth / uView * a.w;
   gl_Position = a; vSide = aPos.w; vW = w.xyz; vLit = dot(normalize(mat3(m) * aFace), uLight);
+  vTint = aIC.a; vCut = aIE.w;
 }`;
-const EDGE_FS = `uniform vec3 uColor; uniform float uAlpha; uniform vec4 uPlane; uniform float uCut;
-varying float vSide; varying vec3 vW; varying float vLit;
+const EDGE_FS = `uniform vec3 uColor; uniform vec3 uLit; uniform float uAlpha; uniform vec4 uPlane;
+varying float vSide; varying vec3 vW; varying float vLit; varying float vTint; varying float vCut;
 void main() {
-  if (uCut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
-  // an edge whose faces turn to the light is drawn lighter, one turned away darker (a bevel catching the light)
-  gl_FragColor = vec4(min(uColor * mix(0.8, 1.2, smoothstep(-0.2, 0.7, vLit)), 1.0), uAlpha * (1.0 - smoothstep(0.45, 1.0, abs(vSide))));
+  if (vCut > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
+  // a lit part's edges light (an accent, a glowing one, the one chosen: as if catching the light); and an edge whose
+  // faces turn to the light lighter, one turned away darker (a bevel catching the light)
+  vec3 c = vTint > 0.5 ? uLit : uColor;
+  gl_FragColor = vec4(min(c * mix(0.8, 1.2, smoothstep(-0.2, 0.7, vLit)), 1.0), uAlpha * (1.0 - smoothstep(0.45, 1.0, abs(vSide))));
 }`;
 
 // ---- streams (stream.js): drawn on the back faces of a hull round the path, into a half-size picture of their own.

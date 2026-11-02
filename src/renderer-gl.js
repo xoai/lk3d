@@ -193,7 +193,7 @@ function glRenderer(gl, scene, opts = {}) {
                 : program(DVS, DFS),
       { optional: true },
     ));
-  // the pen look: compiled when first needed (no shadows: its light turns with the camera, and its ground is a halo)
+  // the pen look: compiled when first needed (its parts take no shadow: only the ground does)
   const penProg = () => P.pen || (P.pen = program(S.PART_VS, S.PART_FS, ['PEN']));
   // the studio look, its environment and the glow: compiled when first needed, or ahead of time in the background once
   // the first picture is up (only where that does not block)
@@ -660,8 +660,7 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniform3fv(l, v);
       }
     };
-  const NOSHADOW = M.mul(M.trans([10, 10, 10]), M.scale([0, 0, 0])),
-    PEN_SUN = [0.12, 1, 0.18];
+  const NOSHADOW = M.mul(M.trans([10, 10, 10]), M.scale([0, 0, 0]));
   gl.enable(gl.DEPTH_TEST);
   function common(prog, f, VP) {
     gl.useProgram(prog.p);
@@ -821,8 +820,8 @@ function glRenderer(gl, scene, opts = {}) {
       // 1. the shadow map, from the key light, around what is on screen now. Kept while nothing that casts a shadow
       // moves (turning the camera does not change it): compared on the parts' matrices and the light's frame
       let lightVP = null;
-      // (pen: the shadow of a light from above, falling only on the ground: a soft shadow shaped like the object)
-      const sun = pen ? PEN_SUN : f.look.light,
+      // (the sun every look shades by: one shadow, drawn in each look's own way on the ground)
+      const sun = f.look.light,
         key = shadowsOn && f.shadows ? partsKey(0, opaque, f, [...f.bounds.center, ...sun]) : null;
       if (key && shadowKeep && sameKey(key, shadowKeep.key)) lightVP = shadowKeep.vp;
       else if (key) {
@@ -892,8 +891,8 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniform1f(u.uFlat, 1);
         gl.uniform3fv(u.uColor, f.look.ink);
         gl.uniform1f(u.uAlpha, 1);
-        // (in pen about one pixel on screen whatever the canvas's size; ink's, as it always was)
-        gl.uniform1f(u.uOutline, pen ? (2.2 * f.dpr * f.tanHalf) / H : 0.0028);
+        // (the same width on screen whatever the canvas's size: about a pixel in pen, a pixel and a half in ink)
+        gl.uniform1f(u.uOutline, ((pen ? 2.2 : 3) * f.dpr * f.tanHalf) / H);
         each(prog, opaque);
       }
       // 3. the solid parts (with the section on, both faces: the inside of a cut part shows as a cap)

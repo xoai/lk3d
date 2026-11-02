@@ -50,8 +50,10 @@ particles; see-through parts far to near (glass that refracts samples a copy of 
 pen look's edges; path particles; flow streaks (ribbons widened on screen in the vertex shader, inked over a light page
 or added to a dark one); streams (the solid parts' depth, drawn again only when they or the camera move; each stream,
 far to near, marched once per pixel from its hull's farthest face into a half-size picture, put over the page); the
-glow (emission at half resolution, blurred at a quarter, added). The pen look's shadow map is drawn from a light
-straight above and falls only on the ground; its shading light turns with the camera. The environment is drawn once
+glow (emission at half resolution, blurred at a quarter, added). Every look has one sun, fixed in the scene: it shades the
+parts and casts the shadow, so the two always agree and stay put as the reader turns the model. It is high,
+from the right and in front of the usual first view; each look then draws the same shadow its own way (hatched in
+ink, soft in studio and pen). The environment is drawn once
 into a cube map and prefiltered per roughness on the GPU. Every pass blends premultiplied colour, and so does the
 canvas: the page shows through anti-aliased edges, shadows, glass and glow as it should.
 

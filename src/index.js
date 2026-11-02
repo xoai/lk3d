@@ -29,6 +29,11 @@ import en from './locales/en.js';
 import vi from './locales/vi.js';
 const mod360 = (v) => ((v % 360) + 360) % 360;
 
+// the sun: one light for every look, for shading and for shadows alike, fixed in the scene (it stays where it is as the
+// reader turns the model, as a real one would): high, from the right and in front of the usual first view, so it also
+// lights what a cut opens. A look only changes how the light and its shadow are drawn
+const SUN = norm([0.45, 0.8, 0.55]);
+
 // The looks: ink (drawn: coloured pencil, hatching, ink outlines), studio (realistic) and pen (near-white solids in a few
 // close tones, thin grey lines, colour only for accents). kind is what the renderers branch on.
 const LOOKS = {
@@ -37,7 +42,6 @@ const LOOKS = {
     bg: 'transparent',
     ink: [0.114, 0.102, 0.118],
     cap: [0.95, 0.86, 0.62],
-    light: [0.45, 0.8, 0.55],
     paper: [0.97, 0.96, 0.93], // (the grain's paper, the hatched shadow's pencil)
     shade: [0.11, 0.1, 0.12],
     label: 'ink',
@@ -47,7 +51,6 @@ const LOOKS = {
     bg: 'radial-gradient(ellipse at 50% 35%, #2a3240 0%, #12161d 70%, #0b0e13 100%)',
     ink: [0, 0, 0],
     cap: [0.93, 0.55, 0.25],
-    light: [0.4, 0.75, 0.6],
     shade: [0, 0, 0],
     dark: true,
     label: 'studio',
@@ -57,7 +60,6 @@ const LOOKS = {
     bg: '#fbfbfa',
     ink: [0.5, 0.52, 0.55],
     cap: [0.95, 0.62, 0.42],
-    light: [0, 1, 0], // (turns with the camera: from the viewer's upper left)
     label: 'pen',
   },
 };
@@ -114,10 +116,6 @@ const THEMES = {
     dark: false,
   },
 };
-for (const l of [LOOKS.ink, LOOKS.studio]) {
-  const n = Math.hypot(...l.light);
-  l.light = l.light.map((v) => v / n);
-}
 // the studio look's other environments (env: warm | night), behind the model
 const BGS = {
   warm: 'radial-gradient(ellipse at 50% 35%, #3b3128 0%, #1a1511 70%, #0e0b09 100%)',
@@ -561,7 +559,6 @@ function mount(el, spec, opts = {}) {
       const Th = name && LK3D.themes[name];
       look = {
         ...base,
-        light: base.light.slice(),
         ...(Th && {
           ink: rgb(Th.line),
           paper: rgb(Th.bg),
@@ -580,12 +577,7 @@ function mount(el, spec, opts = {}) {
         if (Th) stage.style.setProperty('--lk3d-' + k, Th[k]);
         else stage.style.removeProperty('--lk3d-' + k);
     }
-    if (look.kind === 2) {
-      const fwd = norm(sub(add(st.target, shift()), eye)),
-        right = norm(cross(fwd, [0, 1, 0])),
-        up = cross(right, fwd);
-      look.light = norm(add(add(mulv(right, -0.45), mulv(up, 0.7)), mulv(fwd, -0.55)));
-    }
+    look.light = SUN;
     return look;
   }
   const anim = new Set();

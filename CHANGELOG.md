@@ -71,4 +71,7 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
 - **Parts alike drawn together**: the batches of one shape on solid parts of one material are drawn in one instanced
   call per pass, each copy with its part's state; ten thousand alike parts keep 60 frames a second (they took 66 ms a
   frame).
+- **One sun for every look**: shading and shadow come from one light fixed in the scene, so they agree and stay put
+  as the reader turns the model; a look only changes how they are drawn (hatched in ink, soft in pen and studio). The
+  ink outline keeps one width on screen (a pixel and a half), as pen's does.
 - **Small and fast**: 51 KB gzipped (a budget of 52); draws only on change, pauses off screen, adapts its resolution.

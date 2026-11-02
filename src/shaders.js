@@ -327,7 +327,7 @@ const STREAM_FS = `uniform vec4 uPts[16]; uniform vec3 uTab[24]; uniform int uN;
 uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3;
 uniform vec3 uEye; uniform vec3 uFwd; uniform float uOrtho; uniform mat4 uVP;
 uniform sampler2D uDepth; uniform float uHasDepth; uniform vec2 uView;
-uniform vec4 uF; uniform vec3 uG; uniform float uDen; uniform vec4 uPlane; uniform float uCut;
+uniform vec4 uF; uniform vec3 uG; uniform float uDen; uniform vec4 uPlane; uniform float uCut; uniform vec3 uLo; uniform vec3 uHi;
 varying vec3 vW;  // uF: how far the air has travelled, the field's scale along the path, reach (how far a ray crosses),
 // turbulence; uG: swirl, the path's length, where it fades; uTab: inner and outer radius and travel time along the path
 float h3(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
@@ -368,11 +368,12 @@ float dens(vec3 p, out float f) {
 void main() {
   vec3 dir = uOrtho > 0.5 ? uFwd : normalize(vW - uEye);
   float zs = uHasDepth > 0.5 ? texture2D(uDepth, gl_FragCoord.xy / uView).r : 2.0, f;
-  vec3 d0; float s0;
-  // a ray slanting along the stream crosses more of it than its width: the march is longer (up to about three times)
-  float st = uF.z / max(length(cross(dir, near(vW, d0, s0))), 0.3) / 32.0, j = fract(52.9829 * fract(dot(gl_FragCoord.xy, vec2(0.06711, 0.00584))));  // (a smooth dither)
+  // the march: from the hull's farthest face towards the eye, until the ray leaves the hull's box (the whole of the
+  // stream on this ray, however much of it lies along the ray), in 48 steps
+  vec3 b = mix(uLo, uHi, step(0.0, -dir)), q = (b - vW) / (-dir + sign(-dir) * 1e-6 + vec3(equal(dir, vec3(0.0))) * 1e-6);
+  float st = max(0.0, min(q.x, min(q.y, q.z))) / 48.0, j = fract(52.9829 * fract(dot(gl_FragCoord.xy, vec2(0.06711, 0.00584))));  // (a smooth dither)
   vec4 acc = vec4(0.0);
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0; i < 48; i++) {
     vec3 p = vW - dir * st * (float(i) + j);
     if (uCut > 0.5 && dot(uPlane.xyz, p) + uPlane.w > 0.0) continue;
     vec4 cp = uVP * vec4(p, 1.0);

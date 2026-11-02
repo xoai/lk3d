@@ -106,6 +106,9 @@ export function makeStream(o = {}) {
     scale: 11 / Math.max(...rad.map((r) => r[2])), // the field's size along the path
     hull: { p: new Float32Array(V), i: new Uint16Array(I) },
     center: mulv(P.reduce(add, [0, 0, 0]), 1 / P.length), // (streams are drawn far to near by it)
+    box: [0, 1, 2].map((a) =>
+      [0, 1].map((m) => V.filter((_, k) => k % 3 === a).reduce((x, y) => (m ? Math.max(x, y) : Math.min(x, y)))),
+    ), // (the hull's bounds: how far a ray marches)
     reach: Math.max(...rad.map((r) => r[2])) * 2.6, // how far a ray may cross it
     speed: o.speed ?? 0,
     density: o.density ?? 1,

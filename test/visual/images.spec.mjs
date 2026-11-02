@@ -31,6 +31,8 @@ const runs = [
   // streams of air: the exhaust jet and the intake, in pen, pen on a dark page, and studio
   ['stream', 'pen', 'dark'],
   ['stream', 'studio', 'dark'],
+  // one stream round another (a bypass jet round the core's), seen from behind: each is marched, neither hides the other
+  ['jets', 'pen', 'dark'],
   // the orthographic camera, with the pen look's edges: machines drawn as a technical illustration
   ['engine', 'pen', null, 'ortho'],
   ['generator', 'pen', null, 'ortho'],

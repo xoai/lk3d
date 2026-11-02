@@ -1150,11 +1150,13 @@ function glRenderer(gl, scene, opts = {}) {
           gl.uniform1i(u.uN, T.n);
           T.colors.forEach((c, i) => gl.uniform3fv(u['uC' + i], c));
           gl.uniform4f(u.uF, T.phase, T.scale, T.reach, T.turbulence);
+          gl.uniform3f(u.uLo, T.box[0][0], T.box[1][0], T.box[2][0]);
+          gl.uniform3f(u.uHi, T.box[0][1], T.box[1][1], T.box[2][1]);
           gl.uniform3f(u.uG, T.swirl, T.total, T.fade ?? 0.7);
           gl.uniform1f(u.uDen, T.density);
+          gl.depthMask(true); // (before the clear: a depth buffer is cleared only where it may be written)
           gl.clear(gl.DEPTH_BUFFER_BIT);
           gl.depthFunc(gl.GREATER);
-          gl.depthMask(true);
           gl.colorMask(false, false, false, false);
           gl.drawElements(gl.TRIANGLES, T.hull.i.length, gl.UNSIGNED_SHORT, 0);
           gl.depthFunc(gl.EQUAL);

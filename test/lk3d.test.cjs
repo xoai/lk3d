@@ -652,7 +652,7 @@ test('a textured glTF model: its texture coordinates (transformed) and maps, in 
   );
 });
 
-test('a glTF cut-out keeps its alpha cutoff, and a double-sided surface shows from behind', () => {
+test('a glTF cut-out keeps its alpha cutoff, and a double-sided surface is marked to show from behind', () => {
   const square = (mat) =>
     LK3D.build({
       models: { m: { data: texturedGlb({ mat }) } },
@@ -662,17 +662,29 @@ test('a glTF cut-out keeps its alpha cutoff, and a double-sided surface shows fr
   assert.equal(square({ alphaMode: 'MASK' }).tex.cut, 0.5, "MASK's default cutoff");
   assert.equal(square({ alphaMode: 'MASK', alphaCutoff: 0.3 }).tex.cut, 0.3);
   assert.equal(square({ alphaMode: 'BLEND' }).tex.cut, 0.5, 'BLEND drawn as a cut-out at half');
+  // marked, not copied: drawn with both faces (a copy turned inwards would show through a closed body's outline)
   const one = square({}),
     two = square({ doubleSided: true });
-  assert.equal(two.count, 2 * one.count, 'each vertex twice');
-  assert.equal(two.i.length, 2 * one.i.length, 'each triangle twice');
-  assert.deepEqual(two.uv.slice(8), one.uv, 'the copy keeps its texture coordinates');
-  assert.deepEqual(
-    two.n.slice(3 * one.count).map((v) => +v.toFixed(6)),
-    one.n.map((v) => +(-v).toFixed(6)),
-    'the copy faces the other way',
-  );
-  assert.ok(windingAgrees(two), 'and its triangles turn with it');
+  assert.ok(!one.twoSided);
+  assert.equal(two.twoSided, true);
+  assert.equal(two.count, one.count, 'no copy of its vertices');
+  assert.equal(two.i.length, one.i.length);
+  // and a part that holds it, placed by a part's own matrix, keeps the mark
+  const placed = LK3D.build({
+    models: { m: { data: texturedGlb({ mat: { doubleSided: true } }) } },
+    parts: [
+      {
+        id: 'p',
+        at: [1, 0, 0],
+        shapes: [
+          { model: 'm', node: 'Square' },
+          { model: 'm', node: 'Plain' },
+        ],
+      },
+    ],
+  }).parts[0];
+  assert.ok(placed.batches.find((b) => b.geo.tex).geo.twoSided, 'the textured batch');
+  assert.ok(!placed.batches.find((b) => !b.geo.tex).geo.twoSided, 'not the plain one (its material is single-sided)');
 });
 
 test("a glTF model's glass is see-through glass in its tint, and a shape's colour replaces a texture", () => {

@@ -115,6 +115,7 @@ class Geo {
       else for (let k = 0; k < g.count * 2; k++) this.uv.push(0);
       this.tex = this.tex || g.tex;
     }
+    if (g.twoSided) this.twoSided = true; // (drawn with both faces: a model's double-sided surface)
     const I = g.i;
     if (s > 0) for (const k of I) this.i.push(base + k);
     else for (let t = 0; t < I.length; t += 3) this.i.push(base + I[t], base + I[t + 2], base + I[t + 1]);

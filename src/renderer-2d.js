@@ -99,12 +99,11 @@ function canvasRenderer(cv, scene) {
                 b2 = I[t + 1],
                 c = I[t + 2];
               if (scr[3 * a + 2] <= 0 || scr[3 * b2 + 2] <= 0 || scr[3 * c + 2] <= 0) continue;
-              if (
+              const away =
                 (scr[3 * b2] - scr[3 * a]) * (scr[3 * c + 1] - scr[3 * a + 1]) -
                   (scr[3 * b2 + 1] - scr[3 * a + 1]) * (scr[3 * c] - scr[3 * a]) >=
-                0
-              )
-                continue; // facing away
+                0;
+              if (away && !b.geo.twoSided) continue; // facing away (a two-sided surface shows its other face)
               const A = [wp[3 * a], wp[3 * a + 1], wp[3 * a + 2]];
               const nrm = norm(
                   cross(
@@ -112,7 +111,7 @@ function canvasRenderer(cv, scene) {
                     sub([wp[3 * c], wp[3 * c + 1], wp[3 * c + 2]], A),
                   ),
                 ),
-                d = dot(nrm, L);
+                d = away ? -dot(nrm, L) : dot(nrm, L);
               // the shaders' light: ink's three bands; pen's smooth ramp, deeper than on the GPU (here no outline
               // or edge shows the shape); studio's smooth light
               const x = Math.max(0, Math.min(1, (d + 0.3) / 1)),

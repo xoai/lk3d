@@ -448,7 +448,7 @@ function glRenderer(gl, scene, opts = {}) {
   function groupsOf(solid, kind, flags, colour) {
     const key = (p, b) => {
       const G = b.gl;
-      if (!G || b.dynamic || G.uv || G.tex.base || G.tex.normal || G.tex.mr) return null; // (lines; textured models)
+      if (!G || b.dynamic || b.geo.twoSided || G.uv || G.tex.base || G.tex.normal || G.tex.mr) return null; // (lines; models)
       return (b.gkey ??= shapeId(G) + '|' + p.mat + '|' + p.surf);
     };
     let parts = solid.filter((p) => p.batches.every((b) => key(p, b)));
@@ -747,7 +747,8 @@ function glRenderer(gl, scene, opts = {}) {
       // copy's matrix and the part's state in one buffer, so a pass draws them in one call (bolts, a scene of
       // thousands of parts alike). Made again each frame drawn; only the passes over every solid part use them
       const groupOf = groupsOf(opaque, kind, flags, colour);
-      const each = (prog, list, set) => {
+      // cull: back faces are being culled in this pass, so a two-sided batch is drawn with culling off
+      const each = (prog, list, set, cull = false) => {
         last.clear();
         const u = prog.u,
           together = list === opaque && groupOf.size,
@@ -771,7 +772,11 @@ function glRenderer(gl, scene, opts = {}) {
           if (set) set(p);
           for (const b of p.batches) {
             bindBatch(prog, b);
-            drawBatch(b);
+            if (cull && b.geo.twoSided) {
+              gl.disable(gl.CULL_FACE);
+              drawBatch(b);
+              gl.enable(gl.CULL_FACE);
+            } else drawBatch(b);
           }
         }
         unbind();
@@ -845,7 +850,7 @@ function glRenderer(gl, scene, opts = {}) {
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.BACK);
         common(P.depth, f, lightVP);
-        each(P.depth, opaque);
+        each(P.depth, opaque, null, true);
         gl.colorMask(true, true, true, true);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         shadowKeep = { key, vp: lightVP };
@@ -917,7 +922,7 @@ function glRenderer(gl, scene, opts = {}) {
           set1(u.uRefr, back && p.drawAlpha < 0.99 ? p.refract : 0);
         }
       };
-      each(prog, opaque, look);
+      each(prog, opaque, look, !f.cut);
       if (f.edges) {
         edgeLines(opaque);
         gl.useProgram(prog.p);
@@ -1115,7 +1120,7 @@ function glRenderer(gl, scene, opts = {}) {
             gl.cullFace(gl.BACK);
           }
           common(P.depth, f);
-          each(P.depth, opaque);
+          each(P.depth, opaque, null, !f.cut);
           gl.colorMask(true, true, true, true);
         }
         const Q = lazy('stream'),

@@ -1,7 +1,8 @@
 // Writes the models of the image tests, made here so no licensed file is needed: assets/ball.glb, a sphere with a
 // generated colour map (a checkerboard, a red band at the top so a flipped map shows) and a bumpy normal map; and
-// assets/card.glb, a feather-like card with clear stripes (alphaMode MASK, double-sided) and a glass bead
-// (KHR_materials_transmission, tinted by KHR_materials_volume).
+// assets/card.glb, a feather-like card with clear stripes (alphaMode MASK, double-sided), a glass bead
+// (KHR_materials_transmission, tinted by KHR_materials_volume) and a pebble, a closed body marked double-sided as scans
+// often are (it must keep a clean outline in the drawn looks).
 //   node test/visual/make-assets.cjs
 const fs = require('fs'),
   path = require('path'),
@@ -176,14 +177,16 @@ glb(
     asset: { version: '2.0' },
     extensionsUsed: ['KHR_materials_transmission', 'KHR_materials_volume'],
     scene: 0,
-    scenes: [{ nodes: [0, 1] }],
+    scenes: [{ nodes: [0, 1, 2] }],
     nodes: [
       { name: 'Card', mesh: 0 },
       { name: 'Bead', mesh: 1, translation: [1.4, 0, 0] },
+      { name: 'Pebble', mesh: 2, translation: [-1.4, 0, 0], scale: [1.4, 1, 1.2] },
     ],
     meshes: [
       { primitives: [{ attributes: { POSITION: 0, NORMAL: 1, TEXCOORD_0: 2 }, indices: 3, material: 0 }] },
       { primitives: [{ attributes: { POSITION: 4 }, indices: 5, material: 1 }] },
+      { primitives: [{ attributes: { POSITION: 4 }, indices: 5, material: 2 }] },
     ],
     materials: [
       {
@@ -198,6 +201,7 @@ glb(
           KHR_materials_volume: { attenuationColor: [0.9, 0.35, 0.05], thicknessFactor: 0.5 },
         },
       },
+      { pbrMetallicRoughness: { baseColorFactor: [0.35, 0.45, 0.3, 1], roughnessFactor: 0.8 }, doubleSided: true },
     ],
     textures: [{ source: 0 }],
     images: [{ bufferView: 4, mimeType: 'image/png' }],

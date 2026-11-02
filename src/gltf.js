@@ -94,22 +94,6 @@ const trsMatrix = (node) => {
   return M.mul(M.trans(node.translation || [0, 0, 0]), M.mul(R, M.scale(node.scale || [1, 1, 1])));
 };
 
-// A double-sided surface (a card of feathers, a leaf, a membrane open at its edge): a copy of each vertex facing the
-// other way, and its triangles turned round, so it shows from behind as well (the renderer drops faces turned away)
-function twoSided(g) {
-  const n = g.count,
-    P = g.p,
-    N = g.n,
-    I = g.i.length;
-  for (let k = 0; k < 3 * n; k++) {
-    P.push(P[k]);
-    N.push(-N[k]);
-  }
-  if (g.uv) for (let k = 0; k < 2 * n; k++) g.uv.push(g.uv[k]);
-  if (g.c) for (let k = 0; k < 4 * n; k++) g.c.push(g.c[k]);
-  for (let t = 0; t < I; t += 3) g.i.push(n + g.i[t], n + g.i[t + 2], n + g.i[t + 1]);
-}
-
 // The model's names (nodes and meshes), to map to the parts of a scene
 function names(b64) {
   const { json } = parseGLB(bytes(b64));
@@ -209,7 +193,9 @@ function load(Geo, b64, only) {
           .padStart(2, '0');
       local.paint('#' + s(bc[0]) + s(bc[1]) + s(bc[2]));
     }
-    if (mat?.doubleSided) twoSided(local);
+    // a double-sided surface (a card of feathers, a leaf) is drawn with both faces; marked, not copied, so a closed
+    // body marked so (a scan often is) keeps its outline in the drawn looks
+    if (mat?.doubleSided) local.twoSided = true;
     g.add(local, m);
     g.clear = clear && g.clear !== false; // (all of it glass)
   };

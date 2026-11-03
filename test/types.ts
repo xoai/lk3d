@@ -114,4 +114,18 @@ const edged: Scene = { edges: true, parts: [{ id: 'a', shapes: [{ sphere: 1 }], 
 void edged;
 LK3D.clock.speed = 0;
 LK3D.clock.step(100);
+// a timeline: the clock set to its time, the camera placed at once, chosen labels, drawn at once, a point projected
+LK3D.clock.set(2500);
+fig.view('front', { ms: 0 });
+fig.focus(['lens'], { ms: 0 });
+fig.set({ camera: { yaw: 10, zoom: 2, target: [0, 0, 0] }, labels: ['lens', 'object'], transparent: true });
+const drawn: boolean = fig.drawNow();
+const onStage: [number, number] | null = fig.project([0, 0, 0], 'lens');
+const film = mount(document.body, scene, { transparent: true, labels: [] });
+LK3D.themes.film = { ...LK3D.themes.dark, bg: 'transparent' };
+// @ts-expect-error a label mode it does not have
+fig.set({ labels: 'some' });
+// @ts-expect-error the camera in degrees and scene units, not a string
+fig.set({ camera: 'front' });
+void [drawn, onStage, film];
 void [problems, bad1, bad2, bad3, themed, bad5, versioned, bad6, fig.theme, fig.timeScale];

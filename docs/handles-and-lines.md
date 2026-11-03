@@ -170,3 +170,22 @@ throttle.oninput = () => core.set({ density: 0.3 + 0.7 * t, speed: 1 + 4 * t });
 
 Streams are drawn at half resolution with 32 samples a pixel, so a page with several large streams costs the GPU more
 than streaks do. Without WebGL a stream is drawn as streaks along its path.
+
+## Flows on a timeline: the clock
+
+Flows, streams and particles along a path move by `LK3D.clock`, the one clock every figure runs on. While it runs, each
+frame moves them on by its own time. Stopped (`LK3D.clock.speed = 0`), they are placed for the clock's time instead,
+which a page sets with `LK3D.clock.set(ms)`, forwards or back: each has gone what its speed (times the figure's
+`timeScale`) carries it in that time, so the same time always draws the same picture. A video renderer seeking its own
+timeline does just this ([a timeline](api.md#driving-a-figure-from-a-timeline)):
+
+```js
+LK3D.clock.speed = 0;
+const air = fig.flow({ path, speed: 0.8 });
+LK3D.clock.set(2500); // the streaks where 2.5 s of air carries them
+fig.drawNow();
+```
+
+Their time starts at 0, or where the clock last ran. When a speed changes, the thing goes on from where it was last
+drawn at its new speed; a timeline that changes speeds as it goes seeks in order, as an export does, to draw the same
+picture each time. No re-simulation is needed: their places follow from their seeds and the distance travelled.

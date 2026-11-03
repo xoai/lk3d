@@ -66,8 +66,9 @@ export type Look = 'ink' | 'studio' | 'pen';
 export type ThemeName = 'light' | 'dark' | 'blueprint' | 'sepia';
 /** a theme's colours ("#rrggbb"): add one to LK3D.themes to use it by name */
 export interface Theme {
-  /** the page behind the model; the words (and text lines); the lines (outlines, leader lines, label borders) */
-  bg: Color;
+  /** the page behind the model ('transparent': none); the words (and text lines); the lines (outlines, leader
+   * lines, label borders) */
+  bg: Color | 'transparent';
   ink: Color;
   line: Color;
   /** label backgrounds; hints and credits; the "not to scale" note; a chosen label */
@@ -386,7 +387,9 @@ export interface MountOptions {
   controls?: boolean;
   style?: Look;
   theme?: string;
-  labels?: 'auto' | 'all' | 'none';
+  labels?: Labels;
+  /** nothing painted behind the model, in any look (the theme's lines, solids and words still apply) */
+  transparent?: boolean;
   /** a part chosen by the reader (a tap, a click, a handle reached by Tab), or null when they let it go */
   onPick?: (part: BuiltPart | null) => void;
   /** the part under the pointer, as it moves onto one or off it (null) */
@@ -518,6 +521,16 @@ export interface Lines {
 }
 
 export type ViewName = 'front' | 'side' | 'top' | 'iso' | 'home';
+/** which labels show: on hover and when taken apart, all, none, or exactly those of these parts (ids or groups) */
+export type Labels = 'auto' | 'all' | 'none' | string[];
+/** a camera: degrees, scene units; zoom instead of dist: how close (2: twice as close as the whole model) */
+export interface CameraView {
+  yaw?: number;
+  pitch?: number;
+  dist?: number;
+  zoom?: number;
+  target?: Vec3;
+}
 
 export interface Figure {
   readonly renderer: 'webgl2' | 'webgl1' | '2d';
@@ -531,9 +544,13 @@ export interface Figure {
     explode?: number;
     cut?: boolean;
     xray?: boolean;
-    labels?: 'auto' | 'all' | 'none';
+    labels?: Labels;
     style?: Look;
     theme?: string | null;
+    /** nothing painted behind the model */
+    transparent?: boolean;
+    /** the camera, placed at once (a gliding view stops) */
+    camera?: CameraView;
     /** how fast particles and flows move (1; 0.2 for slow motion) */
     timeScale?: number;
     /** the camera: perspective, or ortho (parallel lines stay parallel) */
@@ -563,20 +580,19 @@ export interface Figure {
     | undefined;
   /** a buoyant plume of air or gas rising from `at`: widening and slowing as one does (a stream) */
   plume(o: { at: Vec3; height: number; radius?: number } & Partial<StreamOptions>): Stream;
-  view(
-    v: ViewName | [number, number] | { yaw?: number; pitch?: number; dist?: number; zoom?: number; target?: Vec3 },
-  ): void;
+  /** glide the camera there, over ms milliseconds (600; 0: at once) */
+  view(v: ViewName | [number, number] | CameraView, o?: { ms?: number }): void;
   /** zoom by a factor (2: twice as close), towards a point of the stage (CSS pixels) if given */
   zoom(factor: number, x?: number, y?: number): void;
   /** how close the view is: 1 fits the whole model */
   readonly zoomLevel: number;
   explode(v: number): void;
-  focus(ids: string[], o?: { yaw?: number; pitch?: number }): void;
+  focus(ids: string[], o?: { yaw?: number; pitch?: number; ms?: number }): void;
   camera(): { yaw: number; pitch: number; dist: number; target: Vec3 };
   readonly selected: string | null;
   /** choose a part (or null) without calling onPick */
   select(id: string | null): void;
-  readonly labels: 'auto' | 'all' | 'none';
+  readonly labels: Labels;
   readonly style: Look;
   readonly theme: string | null;
   readonly timeScale: number;
@@ -599,6 +615,10 @@ export interface Figure {
   tick(fn: (now: number) => boolean): () => void;
   pick(x: number, y: number): string | null;
   redraw(): void;
+  /** draw the state as it is now, before returning; false while the shaders are still compiling */
+  drawNow(): boolean;
+  /** a point of the scene (or of a part, as placed now) on the stage, in CSS pixels; null behind the eye */
+  project(p: Vec3, id?: string): [number, number] | null;
   readonly refreshMs: number;
   stats(): Record<string, unknown>;
   destroy(): void;
@@ -622,11 +642,15 @@ export const reduce: boolean;
 export const version: number;
 /** the version of the scene format this engine reads (a scene says its own in `lk3d`) */
 export const format: number;
-/** One clock for every figure's animation: slow it, stop it (speed 0) and step it, for tests and tools */
+/** One clock for every figure's animation: slow it, stop it (speed 0), step it or set it, for tests, tools and
+ * timelines (stopped, flows, streams and particles along paths are placed for its time) */
 export interface Clock {
   speed: number;
+  /** its time, in milliseconds */
   now(): number;
   step(ms: number): void;
+  /** set its time (backwards too) */
+  set(ms: number): void;
 }
 export const clock: Clock;
 /** a part's words as HTML: plain text, keeping only bare b, i, em, strong, sub, sup and br */

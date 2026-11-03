@@ -51,6 +51,21 @@ backgrounds), `muted` (hints), `warn` (the "not to scale" note), `highlight` (a 
 (the pen look's solids and ground), and `dark` (true when the page is dark: light is then added, as glows and
 streaks, rather than inked).
 
+### A transparent page
+
+`bg: 'transparent'` in a theme, or the mount option `transparent: true` (also `set({ transparent })`), paints nothing
+behind the model, in any look: the canvas is cleared to nothing and the stage has no background, so whatever is behind
+the figure (a page's own picture, a video's frame) shows through. Everything else still applies: the theme's lines,
+solids, shadows on the ground and words, and its `dark`, which says how glows and streaks are blended (added on a dark
+page, inked on a light one): choose the theme for the picture the figure will sit on. With `transparent: true` and no
+theme, the pen look still takes `light`'s colours; the drawn look is transparent already (its pencil and grain are in
+the solids, not in the page). A theme with a transparent `bg` takes its `paper` for the drawn look's paper.
+
+```js
+LK3D.themes.film = { ...LK3D.themes.dark, bg: 'transparent' };
+LK3D.mount(el, scene, { theme: 'film', style: 'pen' }); // or { theme: 'dark', transparent: true }
+```
+
 ## Materials
 
 `metal`, `steel`, `copper`, `gold`, `plastic`, `rubber`, `paint` (the default), `glass`, `magnet`, `matte`, `wood`,

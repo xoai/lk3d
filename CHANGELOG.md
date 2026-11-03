@@ -35,6 +35,14 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
 - **Dependable for tools**: `fig.ready` once a figure is complete; one clock (`LK3D.clock`) that tests can stop and
   step, so every transition can be checked frame by frame; scenes say which version of the format they are written in
   (`"lk3d": 1`).
+- **Driven by a timeline** (a video renderer seeking to any time and taking a picture), without touching internals:
+  `view(v, { ms })` glides for that long, or places the camera at once with 0, and `set({ camera: { yaw, pitch, dist
+or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` shows exactly those parts' labels,
+  whatever else is on; a transparent page in every look (`transparent: true`, or a theme's `bg: 'transparent'`): the
+  canvas clear, the theme's lines, solids and words still drawn; `LK3D.clock.set(ms)` sets the clock's time, backwards
+  too, and with the clock stopped, flows, streams and particles along paths are placed for its time, so one time is one
+  picture; `fig.drawNow()` draws before returning; `fig.project([x, y, z], id)` gives a point of the scene or of a part
+  on the stage, for a page's own labels. Tweens no longer run backwards when the clock is set back.
 - **Checked geometry** (`lk3d/lint`): parts that run into each other while the model is taken apart, parts hanging in
   the air, labels pointing inside other parts; a scene excuses what it means by name (`check: {allow, float}`).
 - **Tools and a skill for AI agents**: `lk3d check` (form, geometry, size) and `lk3d render` (a PNG per look and pose,

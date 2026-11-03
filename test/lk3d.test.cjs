@@ -1068,7 +1068,7 @@ test("a part's words keep only simple formatting: nothing from a scene can run o
   assert.equal(safeHTML(undefined), '');
 });
 
-test('the clock: animation time can be slowed, stopped and stepped', () => {
+test('the clock: animation time can be slowed, stopped, stepped and set', () => {
   const { clock } = require('../src/index.js');
   const t0 = clock.now();
   clock.speed = 0;
@@ -1081,6 +1081,12 @@ test('the clock: animation time can be slowed, stopped and stepped', () => {
   assert.ok(clock.now() >= t1 + 250 && t1 >= t0);
   clock.speed = -3;
   assert.equal(clock.speed, 0); // never backwards
+  clock.set(5000); // (but set to a time, it may go back: a video seeking its timeline)
+  assert.equal(clock.now(), 5000);
+  clock.set(1200);
+  assert.equal(clock.now(), 1200);
+  clock.step(-200);
+  assert.equal(clock.now(), 1000);
   clock.speed = 1;
 });
 

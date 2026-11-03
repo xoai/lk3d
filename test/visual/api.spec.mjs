@@ -306,3 +306,159 @@ test('a gas holds its piston where pV = nRT puts it: half as hot again, half as 
   expect(r.seat0).toBeCloseTo(r.h0, 5); // (the piston sits on the gas)
   expect(r.seat1).toBeCloseTo(r.h1, 5);
 });
+
+// A page that draws the figure frame by frame from its own timeline (a video seeking to any time and taking a picture)
+test('a timeline drives the figure: the camera placed at once, drawn at once, a point of a part on the stage', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const fig = mountIt({ adaptive: false });
+    await fig.ready;
+    fig.view({ yaw: 40, pitch: 10, zoom: 2 }, { ms: 0 });
+    const a = fig.camera();
+    fig.view('top'); // (a glide, which the page's own camera replaces)
+    fig.set({ camera: { yaw: -20, pitch: 30, dist: 5, target: [0, 0.1, 0] } });
+    await new Promise((res) => setTimeout(res, 700));
+    const b = fig.camera(),
+      drawn = fig.drawNow(),
+      p0 = fig.project([0, 0, 0], 'knob');
+    fig.set({ move: { knob: [0, 0.5, 0] } });
+    const p1 = fig.project([0, 0, 0], 'knob'),
+      behind = fig.project([0, 0, 100]);
+    return { a, b, drawn, p0, p1, behind, zoom: fig.zoomLevel };
+  });
+  expect(r.a.yaw).toBeCloseTo(40, 6);
+  expect(r.a.pitch).toBeCloseTo(10, 6);
+  expect(r.b.yaw).toBeCloseTo(-20, 9);
+  expect(r.b.pitch).toBeCloseTo(30, 9);
+  expect([r.b.dist, ...r.b.target]).toEqual([5, 0, 0.1, 0]);
+  expect(r.drawn).toBe(true);
+  expect(r.p0.length).toBe(2);
+  expect(r.p1[1]).toBeLessThan(r.p0[1] - 10); // (moved up, so higher on the stage)
+  expect(r.behind).toBe(null);
+});
+
+test("labels for chosen parts: exactly theirs, whatever else is on; 'none' still hides all", async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const fig = mountIt();
+    await fig.ready;
+    const shown = () =>
+      [...document.querySelectorAll('#g .lk3d-tag')].filter((t) => t.style.display !== 'none').map((t) => t.dataset.id);
+    fig.set({ labels: ['knob'] });
+    fig.select('base');
+    fig.drawNow();
+    const one = shown();
+    fig.set({ explode: 1, labels: ['knob', 'base'] });
+    fig.drawNow();
+    const two = shown();
+    fig.set({ labels: [] });
+    fig.drawNow();
+    const empty = shown();
+    fig.set({ labels: 'none' });
+    fig.drawNow();
+    return { one, two, empty, none: shown() };
+  });
+  expect(r.one).toEqual(['knob']);
+  expect(r.two.sort()).toEqual(['base', 'knob']);
+  expect(r.empty).toEqual([]);
+  expect(r.none).toEqual([]);
+});
+
+test('a transparent page: the canvas clear behind the model in every look, the theme still drawing it', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const out = {};
+    // (the corner of the canvas, read in the same task as the picture is drawn)
+    const corner = (fig) => {
+      fig.drawNow();
+      const cv = document.querySelector('#g canvas'),
+        gl = cv.getContext(fig.renderer === 'webgl2' ? 'webgl2' : 'webgl'),
+        px = new Uint8Array(4);
+      gl.readPixels(1, 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return [...px];
+    };
+    for (const style of ['pen', 'studio', 'ink']) {
+      const fig = mountIt({ style, theme: 'dark', transparent: true });
+      await fig.ready;
+      out[style] = { px: corner(fig), bg: getComputedStyle(document.querySelector('#g .lk3d-stage')).backgroundColor };
+    }
+    let fig = mountIt({ theme: 'dark' });
+    await fig.ready;
+    out.opaque = corner(fig);
+    fig = mountIt({ force2d: true, transparent: true }); // (the 2D fallback, the pen look's light theme)
+    await fig.ready;
+    fig.drawNow();
+    out.flat = [...document.querySelector('#g canvas').getContext('2d').getImageData(1, 1, 1, 1).data];
+    LK3D.themes.film = { ...LK3D.themes.dark, bg: 'transparent' };
+    fig = mountIt({ theme: 'film' });
+    await fig.ready;
+    out.themed = {
+      px: corner(fig),
+      line: getComputedStyle(document.querySelector('#g .lk3d-stage')).getPropertyValue('--lk3d-line'),
+    };
+    fig.set({ theme: 'dark' });
+    out.back = corner(fig);
+    return out;
+  });
+  for (const s of ['pen', 'studio', 'ink']) {
+    expect(r[s].px[3]).toBe(0);
+    expect(r[s].bg).toBe('rgba(0, 0, 0, 0)');
+  }
+  expect(r.opaque[3]).toBe(255);
+  expect(r.flat[3]).toBe(0);
+  expect(r.themed.px[3]).toBe(0);
+  expect(r.themed.line.trim()).toBe('#8d939b');
+  expect(r.back[3]).toBe(255);
+});
+
+test('the clock set to a time: particles, flows and streams show the same picture for the same time', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    LK3D.clock.speed = 0;
+    LK3D.clock.set(0);
+    const fig = mountIt({ adaptive: false });
+    await fig.ready;
+    const path = [
+      [-1, 0.4, 0],
+      [1, 0.4, 0],
+    ];
+    const dots = fig.particles({ path, count: 6 });
+    dots.speed = 0.5; // (a quarter of the path a second)
+    fig.flow({ path, count: 80, speed: 0.7, spread: 0.05 });
+    fig.stream({
+      path: [
+        [-1, 0.8, 0],
+        [1, 0.8, 0],
+      ],
+      radius: 0.1,
+      speed: 0.6,
+    });
+    const cv = document.querySelector('#g canvas'),
+      gl = cv.getContext(fig.renderer === 'webgl2' ? 'webgl2' : 'webgl');
+    const at = (ms) => {
+      LK3D.clock.set(ms);
+      fig.drawNow();
+      const px = new Uint8Array(cv.width * cv.height * 4);
+      gl.readPixels(0, 0, cv.width, cv.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let h = 0;
+      for (let k = 0; k < px.length; k++) h = (h * 31 + px[k]) | 0;
+      return { offset: dots.offset, h };
+    };
+    const a = at(1000),
+      b = at(2600),
+      c = at(1000),
+      d = at(2600);
+    dots.speed = 0; // (stopped at 2.6 s: it stays there whatever the time)
+    const e = at(4000);
+    LK3D.clock.speed = 1;
+    return { a, b, c, d, e };
+  });
+  expect(r.a.offset).toBeCloseTo(0.25, 9);
+  expect(r.b.offset).toBeCloseTo(0.65, 9);
+  expect(r.c).toEqual(r.a);
+  expect(r.d).toEqual(r.b);
+  expect(r.a.h).not.toBe(r.b.h);
+  expect(r.e.offset).toBeCloseTo(0.65, 9);
+});

@@ -135,8 +135,9 @@ function refreshFrom(gaps) {
 }
 
 // One clock for every figure: animation reads it, not the frame's own timestamp, so a test or a tool can slow time or
-// stop it and step it (LK3D.clock.speed = 0; LK3D.clock.step(100)) and draw every transition frame by frame
-const awake = new Set(); // the figures on the page, woken when the clock is stepped
+// stop it and step it (LK3D.clock.speed = 0; LK3D.clock.step(100)) and draw every transition frame by frame, or set
+// it to a time (clock.set(ms), backwards too: a video seeking its own timeline)
+const awake = new Set(); // the figures on the page, woken when the clock is stepped or set
 let clockT = 0,
   wall = 0,
   speed = 1;
@@ -155,8 +156,11 @@ const clock = {
     speed = Math.max(0, +v || 0);
   },
   step(ms) {
+    clock.set(clock.now() + ms);
+  },
+  set(ms) {
     clock.now();
-    clockT += ms;
+    clockT = +ms || 0;
     for (const k of awake) k();
   },
 };
@@ -226,6 +230,7 @@ function mount(el, spec, opts = {}) {
   const st = {
     style: opts.style || spec.style || 'pen',
     theme: opts.theme || spec.theme || null,
+    transparent: !!opts.transparent, // (no page behind the model: the canvas clear, the stage with no background)
     timeScale: 1,
     projection: spec.view?.projection || 'perspective',
     explode: 0,
@@ -700,22 +705,25 @@ function mount(el, spec, opts = {}) {
             : base.kind === 2
               ? 'light'
               : null,
-      key = style + '|' + name;
+      key = style + '|' + name + '|' + st.transparent;
     if (key !== lookKey) {
-      const Th = name && LK3D.themes[name];
+      const Th = name && LK3D.themes[name],
+        // a transparent page (the mount's option, or a theme's bg: 'transparent'): nothing painted behind the model, in
+        // any look; the theme's lines, solids and words still apply (a video lays the figure over its own picture)
+        clear = st.transparent || Th?.bg === 'transparent';
       look = {
         ...base,
         ...(Th && {
           ink: rgb(Th.line),
-          paper: rgb(Th.bg),
-          fill: rgb(Th.bg),
+          paper: rgb(Th.bg === 'transparent' ? Th.paper : Th.bg),
+          fill: clear ? null : rgb(Th.bg),
           solid: rgb(Th.solid),
           shade: rgb(Th.shadow),
           dark: Th.dark,
         }),
       };
       lookKey = key;
-      stage.style.background = Th ? Th.bg : (style === 'studio' && BGS[spec.env]) || base.bg;
+      stage.style.background = clear ? 'transparent' : Th ? Th.bg : (style === 'studio' && BGS[spec.env]) || base.bg;
       stage.dataset.look = style;
       if (Th) stage.dataset.theme = name;
       else delete stage.dataset.theme;
@@ -728,6 +736,30 @@ function mount(el, spec, opts = {}) {
   }
   const anim = new Set();
   let pNow = 0;
+  // Things that run along paths (particles, flows, streams): while the clock runs, moved on by each frame's time; while
+  // it is stopped, where their speed puts them at the clock's time: the value at an anchor plus speed × time since it.
+  // The anchor is time 0 (or the last frame the clock ran), and moves to the last time drawn when the speed or the
+  // time scale changes, or the page moves the thing itself. So one time is one picture, however the clock got there
+  const anchors = new WeakMap();
+  function travel(X, key, speed, t, dt, wrap) {
+    const was = X[key],
+      r = speed * st.timeScale;
+    let a = anchors.get(X);
+    if (!a) anchors.set(X, (a = { t: 0, v: was, r, at: 0, w: was }));
+    let v;
+    if (clock.speed) v = was + speed * dt;
+    else {
+      if (a.r !== r || a.w !== was) Object.assign(a, { t: a.at, v: was, r });
+      v = a.v + (r * (t - a.t)) / 1000;
+    }
+    if (wrap) v %= wrap;
+    if (clock.speed) Object.assign(a, { t, v, r });
+    a.at = t;
+    a.w = v;
+    if (v === was) return false;
+    X[key] = v;
+    return true;
+  }
   function frame(now) {
     raf = 0;
     if (dead) return;
@@ -737,21 +769,17 @@ function mount(el, spec, opts = {}) {
       if (a(t)) moving = true;
       else anim.delete(a);
     } // a tick runs while it returns true
-    // particles along paths run at the speed the page gave them
-    const pdt = pNow ? Math.min(0.05, (t - pNow) / 1000) * st.timeScale : 0;
+    // particles along paths run at the speed the page gave them (never backwards: a clock set back is not a frame)
+    const pdt = pNow ? Math.max(0, Math.min(0.05, (t - pNow) / 1000)) * st.timeScale : 0,
+      still = !clock.speed;
     let flowing = false;
-    // (all of it stands still for a reader who asked for less motion; a flow with nothing to show does not move)
     if (FL && fluidStep(pdt)) flowing = true; // (liquids pour and gases settle by their laws)
-    for (const h of particles)
-      if (h.step && h.speed && h.visible && !LK3D.reduce) {
-        h.step(pdt);
-        flowing = true;
-      }
-    for (const F of flows.concat(streams))
-      if (F.speed && F.visible && (F.amount ?? F.density) > 0 && !LK3D.reduce) {
-        F.step(pdt);
-        flowing = true;
-      }
+    // (all of it stands still for a reader who asked for less motion; a flow with nothing to show does not move; with
+    // the clock stopped, each is placed for the clock's time, and draws again only if that moved it: see travel)
+    if (!LK3D.reduce)
+      for (const X of particles.concat(flows, streams))
+        if (X.go && X.visible && (X.amount ?? X.density ?? 1) > 0 && (X.speed || still) && (X.go(t, pdt) || !still))
+          flowing = true;
     pNow = flowing ? t : 0;
     moving = moving || flowing;
     if ((dirty || moving) && !lost) {
@@ -938,14 +966,20 @@ function mount(el, spec, opts = {}) {
   };
   function labels() {
     scaleBar();
-    const vis = (p) =>
-      !p.hidden &&
-      p.drawAlpha > 0.05 &&
-      (st.labels === 'all' || p.id === st.hover || p.id === st.selected || (st.labels === 'auto' && st.explode > 0.45));
+    // which tags show: 'all'; 'auto' (the part pointed at or chosen, and all of them once the model is well apart);
+    // 'none'; or a list of parts and groups (exactly theirs, each shown even where it cannot find a free place)
+    const L = st.labels,
+      chosen = Array.isArray(L) && ((p) => L.includes(p.id) || L.includes(p.group)),
+      vis = (p) =>
+        !p.hidden &&
+        p.drawAlpha > 0.05 &&
+        (chosen
+          ? chosen(p)
+          : L === 'all' || p.id === st.hover || p.id === st.selected || (L === 'auto' && st.explode > 0.45));
     const c = M.project(VP, add(S.center, shift()), W, H) || [W / 2, H / 2];
     const items = [];
     for (const i of tagEls) {
-      let on = st.labels !== 'none' && vis(i.p),
+      let on = L !== 'none' && vis(i.p),
         a = null;
       if (on) {
         a = M.project(
@@ -993,7 +1027,7 @@ function mount(el, spec, opts = {}) {
           break;
         }
       }
-      if (y == null && it.first) y = Math.round(Math.max(2, Math.min(H - 22, it.y)));
+      if (y == null && (it.first || chosen)) y = Math.round(Math.max(2, Math.min(H - 22, it.y)));
       show(it.i, y != null);
       if (y == null) continue;
       placed.push({ x, y, w });
@@ -1393,7 +1427,7 @@ function mount(el, spec, opts = {}) {
       let v = vel.slice(0, 2).map((x) => Math.max(-30, Math.min(30, x))),
         prev = 0;
       const glide = (now) => {
-        const dt = prev ? Math.min(50, now - prev) : 16.7;
+        const dt = prev ? Math.max(0, Math.min(50, now - prev)) : 16.7;
         prev = now;
         const k = Math.pow(0.9, dt / 16.7),
           f = dt / 16.7;
@@ -1549,9 +1583,7 @@ function mount(el, spec, opts = {}) {
         h.pos4[4 * i + 3] = 1;
       }
     };
-    h.step = (dt) => {
-      if (total) h.offset += (h.speed * dt) / total;
-    };
+    h.go = (t, dt) => travel(h, 'offset', total ? h.speed / total : 0, t, dt);
     live(h, ['speed', 'visible', 'offset']);
     particles.push(h);
     kick();
@@ -1563,6 +1595,7 @@ function mount(el, spec, opts = {}) {
   function addFlow(o) {
     const F = makeFlow(o);
     F.owner = o.part ? S.parts.find((x) => x.id === o.part) : null;
+    F.go = (t, dt) => travel(F, 'dist', F.speed, t, dt);
     const h = {
       set(o) {
         for (const k of ['speed', 'amount', 'length', 'width', 'spread', 'opacity', 'visible', 'ramp'])
@@ -1609,6 +1642,7 @@ function mount(el, spec, opts = {}) {
       return f;
     }
     const T = makeStream(o);
+    T.go = (t, dt) => travel(T, 'phase', T.speed, t, dt, 3000); // (kept small for the GPU's precision)
     const h = {
       set(o) {
         for (const k of ['speed', 'density', 'turbulence', 'swirl', 'visible', 'ramp']) if (k in o) T[k] = o[k];
@@ -1740,8 +1774,9 @@ function mount(el, spec, opts = {}) {
   }
 
   // ---- tweening the camera to a view, and taking apart
-  // a named view, [yaw, pitch] (degrees), or {yaw, pitch, dist, target}: any of them, the rest kept
-  function view(name) {
+  // a named view, [yaw, pitch] (degrees), or {yaw, pitch, dist | zoom, target}: any of them, the rest kept; over
+  // o.ms milliseconds (600), or at once (0: a page that places the camera itself every frame)
+  function view(name, o = {}) {
     if (typeof name === 'string' && !VIEWS[name] && name !== 'home') return; // (a view this engine does not know)
     const obj = name && typeof name === 'object' && !Array.isArray(name);
     const V = obj
@@ -1756,12 +1791,13 @@ function mount(el, spec, opts = {}) {
       dist: obj ? (name.zoom ? baseDist / name.zoom : (name.dist ?? st.dist)) : name === 'home' ? home.dist : st.dist,
       target: obj ? name.target || st.target : name === 'home' ? home.target : st.target,
     };
-    while (to.yaw - from.yaw > Math.PI) to.yaw -= 2 * Math.PI;
-    while (from.yaw - to.yaw > Math.PI) to.yaw += 2 * Math.PI;
     const t0 = clock.now(),
-      T = LK3D.reduce ? 1 : 600;
+      T = LK3D.reduce ? 1 : (o.ms ?? 600);
+    // (a glide takes the short way round; a view placed at once keeps the angle the page gave)
+    while (T > 0 && to.yaw - from.yaw > Math.PI) to.yaw -= 2 * Math.PI;
+    while (T > 0 && from.yaw - to.yaw > Math.PI) to.yaw += 2 * Math.PI;
     const tw = (now) => {
-      const u = Math.min(1, (now - t0) / T),
+      const u = T > 0 ? Math.max(0, Math.min(1, (now - t0) / T)) : 1,
         e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
       st.yaw = from.yaw + (to.yaw - from.yaw) * e;
       st.pitch = from.pitch + (to.pitch - from.pitch) * e;
@@ -1774,7 +1810,8 @@ function mount(el, spec, opts = {}) {
       }
       return true;
     };
-    if (viewTw) anim.delete(viewTw);
+    cancelView();
+    if (!(T > 0)) return (tw(t0), kick());
     viewTw = tw;
     anim.add(tw);
     kick();
@@ -1794,7 +1831,7 @@ function mount(el, spec, opts = {}) {
       t0 = clock.now(),
       T = LK3D.reduce ? 1 : 900;
     const tw = (now) => {
-      const u = Math.min(1, (now - t0) / T),
+      const u = Math.max(0, Math.min(1, (now - t0) / T)),
         e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
       setExplode(from + (to - from) * e);
       dirty = true;
@@ -1832,7 +1869,7 @@ function mount(el, spec, opts = {}) {
     if (LK3D.reduce) return mo.loop || setMotion(mo, back ? a : b); // (no movement: straight to where it goes)
     let last = null;
     const step = (now) => {
-      const dt = last == null ? 0 : Math.min(0.05, (now - last) / 1000), // (not a leap after a hidden tab)
+      const dt = last == null ? 0 : Math.max(0, Math.min(0.05, (now - last) / 1000)), // (not a leap after a hidden tab)
         v = st.motion[mo.id] + (back ? -1 : 1) * (mo.speed ?? b - a) * dt * st.timeScale;
       last = now;
       setMotion(mo, v);
@@ -1897,6 +1934,8 @@ function mount(el, spec, opts = {}) {
         setExplode(o.explode);
       }
       for (const k of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection']) if (k in o) st[k] = o[k];
+      if ('transparent' in o) st.transparent = !!o.transparent;
+      if (o.camera) view(o.camera, { ms: 0 }); // (placed at once: the page's camera wins over a gliding view)
       if ('timeScale' in o) st.timeScale = Math.max(0, +o.timeScale || 0);
       if (hooks.style) hooks.style(); // (the buttons: the look's name, which toggles are on)
       if (o.move)
@@ -1934,6 +1973,23 @@ function mount(el, spec, opts = {}) {
     }, // fn(now) returns true while it keeps moving
     pick: pickAt,
     redraw: kick,
+    // draw the state as it is now, before returning (a tool that screenshots right after setting it); false while the
+    // shaders are still compiling (it draws again on the next frame by itself)
+    drawNow() {
+      if (dead) return false;
+      cancelAnimationFrame(raf);
+      raf = 0;
+      dirty = true;
+      frame(performance.now());
+      return !dirty;
+    },
+    // a point of the scene (or of a part, as that part is placed now) on the stage, in CSS pixels; null behind the eye
+    project(p, id) {
+      const q = id && S.parts.find((x) => x.id === id);
+      camera();
+      const s = M.project(VP, q ? M.pt(model(q), p) : p, W, H);
+      return s && [s[0], s[1]];
+    },
     // a handle's value, read or set by the page (setting it does not call onHandle)
     handle(id) {
       const hd = handles.find((x) => x.p.id === id);
@@ -2040,7 +2096,7 @@ function mount(el, spec, opts = {}) {
           hi[a] = Math.max(hi[a], p.hi[a] + d[a]);
         }
       }
-      view({ ...o, target: mulv(add(lo, hi), 0.5), dist: (len(sub(hi, lo)) / 2 || 1) * 2.6 });
+      view({ ...o, target: mulv(add(lo, hi), 0.5), dist: (len(sub(hi, lo)) / 2 || 1) * 2.6 }, o);
     },
     get refreshMs() {
       return refresh;

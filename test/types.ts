@@ -127,5 +127,6 @@ LK3D.themes.film = { ...LK3D.themes.dark, bg: 'transparent' };
 fig.set({ labels: 'some' });
 // @ts-expect-error the camera in degrees and scene units, not a string
 fig.set({ camera: 'front' });
+fig.set({ cut: 0.4, section: { normal: [1, 0, 0], offset: 0.2 } });
 void [drawn, onStage, film];
 void [problems, bad1, bad2, bad3, themed, bad5, versioned, bad6, fig.theme, fig.timeScale];

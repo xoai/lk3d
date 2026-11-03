@@ -108,7 +108,8 @@ in each look and the 2D fallback, in Chromium, Firefox and WebKit, compared with
 - **Very detailed shapes** (over 40 000 vertices in one shape) get no crease shading, to spare phones the rays.
 - Animation is what the page drives (spin, glow, particles, moved parts). There is no general physics engine; a page that
   simulates writes its own model.
-- The cut is one plane through the model, chosen in the scene (`section`); the reader cannot move it yet.
+- The cut is one plane at a time: the scene's (`section`), which a page can move or sweep through the model
+  (`set({ section, cut })`); the reader cannot drag it.
 - Ambient occlusion is computed per part (a part's own creases and hollows), not between parts.
 - The 2D fallback has no section view (its button is not offered) and no shadows, and draws balls without sorting them
   by depth; WebGL 1 has no cast shadows, no glow halo, no surface detail, refraction or textures.

@@ -136,7 +136,7 @@
       "description": "A shadow under the model (true by default)."
     },
     "section": {
-      "description": "The cut: a plane, or false to offer none.",
+      "description": "The cut: a plane, or false to offer none. What lies on the side its normal points to, beyond offset along it, is cut away; a page may move it (set({ section }))",
       "anyOf": [
         {
           "const": false

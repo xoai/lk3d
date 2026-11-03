@@ -236,6 +236,7 @@ function mount(el, spec, opts = {}) {
     explode: 0,
     spin: 0,
     cut: false,
+    section: { normal: [0, 0, 1], offset: 0, ...spec.section }, // (the cut's plane: the scene's, moved by the page)
     labels: opts.labels || 'auto',
     xray: false,
     yaw: (spec.view?.yaw ?? -35) * D2R,
@@ -591,9 +592,31 @@ function mount(el, spec, opts = {}) {
     }
     return m;
   }
+  // the cut's plane [n, -offset]: what lies on the side its normal points to is cut away. A cut between 0 and 1 is how
+  // far the plane has swept, from just outside the model as it is now (nothing cut) to the section's own offset
   const plane = () => {
-    const n = spec.section?.normal || [0, 0, 1];
-    return [n[0], n[1], n[2], -(spec.section?.offset ?? 0)];
+    const n = norm(st.section.normal),
+      to = st.section.offset,
+      k = st.cut === true ? 1 : Math.max(0, Math.min(1, +st.cut || 0));
+    let from = -Infinity;
+    if (k < 1) {
+      for (const p of S.parts)
+        if (p.cut && !p.hidden) {
+          const o = add(mulv(p.explode, st.explode), p.offset);
+          from = Math.max(
+            from,
+            dot(
+              n,
+              add(
+                o,
+                [0, 1, 2].map((a) => (n[a] > 0 ? p.hi[a] : p.lo[a])),
+              ),
+            ),
+          );
+        }
+      from = Math.max(to, from + S.radius * 0.01);
+    }
+    return [n[0], n[1], n[2], -(k < 1 ? from + (to - from) * k : to)];
   };
   // what is on screen now (for the shadow's reach) and the floor under the assembled model
   function nowBounds() {
@@ -856,7 +879,7 @@ function mount(el, spec, opts = {}) {
           streams,
           fwd: norm(sub(add(st.target, shift()), eye)),
           edges: !!edgeTodo && edgesWanted(),
-          cut: st.cut,
+          cut: !!st.cut,
           plane: plane(),
           hover: st.hover,
           selected: st.selected,
@@ -1935,6 +1958,7 @@ function mount(el, spec, opts = {}) {
       }
       for (const k of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection']) if (k in o) st[k] = o[k];
       if ('transparent' in o) st.transparent = !!o.transparent;
+      if (o.section) st.section = { ...st.section, ...o.section };
       if (o.camera) view(o.camera, { ms: 0 }); // (placed at once: the page's camera wins over a gliding view)
       if ('timeScale' in o) st.timeScale = Math.max(0, +o.timeScale || 0);
       if (hooks.style) hooks.style(); // (the buttons: the look's name, which toggles are on)

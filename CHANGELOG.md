@@ -42,7 +42,9 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
   canvas clear, the theme's lines, solids and words still drawn; `LK3D.clock.set(ms)` sets the clock's time, backwards
   too, and with the clock stopped, flows, streams and particles along paths are placed for its time, so one time is one
   picture; `fig.drawNow()` draws before returning; `fig.project([x, y, z], id)` gives a point of the scene or of a part
-  on the stage, for a page's own labels. Tweens no longer run backwards when the clock is set back.
+  on the stage, for a page's own labels. Tweens no longer run backwards when the clock is set back. The page moves the
+  cut: `set({ section: { normal, offset } })` places its plane, and `set({ cut: 0..1 })` sweeps it in from just outside
+  the model to the section, at once, its shadow following.
 - **Checked geometry** (`lk3d/lint`): parts that run into each other while the model is taken apart, parts hanging in
   the air, labels pointing inside other parts; a scene excuses what it means by name (`check: {allow, float}`).
 - **Tools and a skill for AI agents**: `lk3d check` (form, geometry, size) and `lk3d render` (a PNG per look and pose,

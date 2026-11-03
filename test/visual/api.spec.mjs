@@ -462,3 +462,55 @@ test('the clock set to a time: particles, flows and streams show the same pictur
   expect(r.a.h).not.toBe(r.b.h);
   expect(r.e.offset).toBeCloseTo(0.65, 9);
 });
+
+test('the page moves the cut: a plane of its own, or swept in from outside the model, drawn at once', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const hash = (fig) => {
+      fig.drawNow();
+      const cv = document.querySelector('#g canvas'),
+        gl = cv.getContext(fig.renderer === 'webgl2' ? 'webgl2' : 'webgl'),
+        px = new Uint8Array(cv.width * cv.height * 4);
+      gl.readPixels(0, 0, cv.width, cv.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let h = 0;
+      for (let k = 0; k < px.length; k++) h = (h * 31 + px[k]) | 0;
+      return h;
+    };
+    let fig = mountIt({ adaptive: false });
+    await fig.ready;
+    // a point on the base's top, near its front edge (the scene's plane, z = 0, cuts away z > 0)
+    const at = () => {
+      fig.drawNow();
+      const [x, y] = fig.project([0.3, 0.1, 0.9]);
+      return fig.pick(x, y);
+    };
+    const out = { none: at() };
+    fig.set({ cut: true });
+    out.whole = at();
+    fig.set({ cut: 0.03 }); // (just in from outside: the plane past the point)
+    out.early = at();
+    fig.set({ cut: 0.6 });
+    out.late = at();
+    fig.set({ cut: true, section: { offset: 0.95 } });
+    out.moved = at();
+    fig.set({ section: { normal: [0, 0, -1], offset: 0 } }); // (the other half cut away)
+    out.flipped = at();
+    fig.set({ section: { normal: [0, 0, 1], offset: 0.4 } });
+    hash(fig);
+    fig.set({ section: { offset: -0.3 } });
+    out.after = hash(fig);
+    fig = mountIt({ adaptive: false });
+    await fig.ready;
+    fig.set({ cut: true, section: { offset: -0.3 } });
+    out.fresh = hash(fig);
+    return out;
+  });
+  expect(r.none).toBe('base');
+  expect(r.whole).not.toBe('base');
+  expect(r.early).toBe('base');
+  expect(r.late).not.toBe('base');
+  expect(r.moved).toBe('base');
+  expect(r.flipped).toBe('base');
+  expect(r.after).toBe(r.fresh); // (nothing kept from the plane before: the shadow follows it)
+});

@@ -542,7 +542,10 @@ export interface Figure {
     /** the spin angle, degrees, of parts with `spin` */
     spin?: number;
     explode?: number;
-    cut?: boolean;
+    /** the cut: on, off, or how far its plane has swept in (0: just outside the model, nothing cut; 1: at the section) */
+    cut?: boolean | number;
+    /** the cut's plane: what lies on the side the normal points to, beyond offset along it, is cut away */
+    section?: { normal?: Vec3; offset?: number };
     xray?: boolean;
     labels?: Labels;
     style?: Look;

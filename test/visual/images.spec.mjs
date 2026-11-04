@@ -45,8 +45,12 @@ for (const [scene, look, theme, proj] of runs) {
     await page.goto(
       `/test/visual/index.html?scene=${scene}&look=${look}${theme ? '&theme=' + theme : ''}${proj ? '&proj=' + proj : ''}`,
     );
-    const done = await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 }).then((h) => h.jsonValue());
+    const done = await page
+      .waitForFunction(() => window.__ready, null, { timeout: 100_000 })
+      .then((h) => h.jsonValue());
     expect(done.errors, 'no errors on the page').toEqual([]);
+    // (a picture of a figure still finding its edges or shading differs from run to run: refused, not compared)
+    expect(done.complete, 'the figure complete (fig.ready) before its picture').toBe(true);
     // (a WebGL look drawn by the 2D fallback would be compared with pictures of the wrong thing: refused)
     if (look.endsWith('2d')) expect(done.renderer).toBe('2d');
     else expect(done.renderer, 'drawn with WebGL').not.toBe('2d');
@@ -60,7 +64,7 @@ for (const [scene, look, theme, proj] of runs) {
 test('a chosen textured model keeps its colours', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium', 'the same shader everywhere');
   await page.goto('/test/visual/index.html?scene=textured&look=studio');
-  await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 });
+  await page.waitForFunction(() => window.__ready, null, { timeout: 100_000 });
   const canvas = page.locator('.lk3d-stage canvas').first();
   const shot = async (id) => {
     await page.evaluate(async (id) => {
@@ -101,7 +105,7 @@ test('a chosen textured model keeps its colours', async ({ page, browserName }) 
 // a look the engine does not know is drawn in the default look, pen, without an error
 test('an unknown look', async ({ page }) => {
   await page.goto('/test/visual/index.html?scene=generator&look=photo');
-  const done = await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 }).then((h) => h.jsonValue());
+  const done = await page.waitForFunction(() => window.__ready, null, { timeout: 100_000 }).then((h) => h.jsonValue());
   expect(done.errors).toEqual([]);
   await expect(page.locator('.lk3d-stage')).toHaveAttribute('data-look', 'pen');
 });
@@ -112,7 +116,7 @@ test('an unknown look', async ({ page }) => {
 // catch it: a check that cannot see a jump proves nothing.
 async function takeApart(page, plant) {
   await page.goto('/test/visual/index.html?scene=generator&look=ink');
-  await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 });
+  await page.waitForFunction(() => window.__ready, null, { timeout: 100_000 });
   return page.evaluate(async (plant) => {
     const fig = window.__fig;
     window.LK3D.clock.speed = 0;
@@ -150,7 +154,10 @@ test('taking apart never jumps', async ({ page }) => {
 for (const proj of ['perspective', 'ortho'])
   test(`zooming into a detail, ${proj}`, async ({ page }) => {
     await page.goto(`/test/visual/index.html?scene=generator&look=pen&proj=${proj}`);
-    await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 });
+    const done = await page
+      .waitForFunction(() => window.__ready, null, { timeout: 100_000 })
+      .then((h) => h.jsonValue());
+    expect(done.complete, 'the figure complete (fig.ready) before its picture').toBe(true);
     const r = await page.evaluate(async () => {
       const fig = window.__fig,
         frame = () => new Promise((f) => requestAnimationFrame(() => f()));

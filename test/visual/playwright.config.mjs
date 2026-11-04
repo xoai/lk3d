@@ -10,7 +10,7 @@ export default defineConfig({
   testDir: '.',
   testMatch: ['images.spec.mjs', 'api.spec.mjs'],
   snapshotPathTemplate: '{testDir}/baselines/{projectName}-{platform}/{arg}{ext}',
-  timeout: 60_000,
+  timeout: 120_000,
   workers: 4,
   reporter: [['list']],
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002, threshold: 0.02, animations: 'disabled' } },

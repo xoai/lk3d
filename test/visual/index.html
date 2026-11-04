@@ -55,7 +55,12 @@
     for (const f of scene['test:flow'] || []) fig.flow(f);
     for (const f of scene['test:stream'] || []) fig.stream(f);
     const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
-    await Promise.race([fig.ready, new Promise((r) => setTimeout(r, 30000))]); // at most 30 s (the crease shading of the cell takes about 8 s in Firefox)
+    // complete: the crease shading, the edges, every texture (the cell's crease shading takes about 8 s in Firefox here,
+    // over 30 s on CI's machines, which draw in software); at most 90 s, and the test says if it was not
+    const complete = await Promise.race([
+      fig.ready.then(() => true),
+      new Promise((r) => setTimeout(() => r(false), 90000)),
+    ]);
     await frame();
     await frame();
     window.__fig = fig; // (for the docs' pictures)
@@ -85,6 +90,6 @@
           r([ink / (w * h), sx / ink / w, sy / ink / h]);
         }),
       );
-    window.__ready = { renderer: fig.renderer, errors, triangles: fig.stats().triangles };
+    window.__ready = { renderer: fig.renderer, errors, triangles: fig.stats().triangles, complete };
   </script>
 </html>

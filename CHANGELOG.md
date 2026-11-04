@@ -85,7 +85,11 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
   (a crank driven by a motion, a piston held by its rod in closed form, the rod aimed at the crank pin, a cam
   following at half speed, joints carried by a parent); validated, and run through their motions by `lk3d check`.
 - **glTF export** (`fig.exportGLB()`, `lk3d export`): parts as named nodes with their meshes and materials, posed as
-  shown, motions as animations when asked (`{ animate: true }`, `--animate`).
+  shown, motions as animations when asked (`{ animate: true }`, `--animate`). The exporter is apart from the global
+  script: load `dist/lk3d-export.min.js` after it, or import `lk3d/export` (`dist/lk3d.mjs` has it).
+- **A scene's words stay words**: a model's credit links only to a web address (`http`/`https`; the schema refuses
+  another, and the engine shows it as plain text), and the sliders under a figure are built element by element, so a
+  motion's name or range cannot add HTML.
 - **Cut faces hatched on the cut's plane**: the hatching lies across the section and stays put as the camera moves
   (it was fixed to the screen).
 - **Parts alike drawn together**: the batches of one shape on solid parts of one material are drawn in one instanced
@@ -103,5 +107,5 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
   as a projectile under continuity; a gas holds its piston where pV = nRT puts it; a plume rises and widens as a
   buoyant one does. `lk3d check` catches overfull and overflowing vessels, an inside wider than the glass and a piston
   pushed out ([liquids and gases](docs/fluids.md)).
-- **Small and fast**: 57.5 KB gzipped (144 KB minified), against a budget of 56 KB that `npm run size` enforces;
+- **Small and fast**: 55.8 KB gzipped (140 KB minified), against a budget of 56 KB that `npm run size` enforces;
   draws only on change, pauses off screen, adapts its resolution.

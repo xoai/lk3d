@@ -514,3 +514,70 @@ test('the page moves the cut: a plane of its own, or swept in from outside the m
   expect(r.flipped).toBe('base');
   expect(r.after).toBe(r.fresh); // (nothing kept from the plane before: the shadow follows it)
 });
+
+test("what a scene says is shown as words: a model's link only to a web page, a motion's slider built of its values", async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    window.scene.models = {
+      a: { data: '', title: 'A', author: 'X', license: 'CC0', url: 'javascript:window.hit=1' },
+      b: { data: '', title: 'B', author: 'Y', license: 'CC0', url: 'https://example.org/b' },
+    };
+    window.scene.motions = [
+      {
+        id: 'lift',
+        name: '<img src=x onerror="window.hit=2">',
+        range: ['0" onfocus="window.hit=3', 1],
+        tracks: [
+          {
+            parts: ['knob'],
+            move: [
+              [0, [0, 0, 0]],
+              [1, [0, 1, 0]],
+            ],
+          },
+        ],
+      },
+    ];
+    const fig = LK3D.mount(document.getElementById('g'), window.scene, {});
+    await fig.ready;
+    await new Promise((ok) => setTimeout(ok, 50));
+    const links = [...document.querySelectorAll('#g .lk3d-credit a')].map((a) => a.getAttribute('href')),
+      slider = document.querySelector('#g .lk3d-range input[aria-label^="<img"]');
+    return {
+      links,
+      credit: document.querySelector('#g .lk3d-credit').textContent,
+      img: document.querySelectorAll('#g img').length,
+      words: slider.previousSibling.textContent,
+      attrs: slider.getAttributeNames().sort(),
+      hit: window.hit,
+    };
+  });
+  expect(r.links).toEqual(['https://example.org/b']);
+  expect(r.credit).toContain('A, X, CC0'); // (still credited, as words)
+  expect(r.img).toBe(0);
+  expect(r.words).toBe('<img src=x onerror="window.hit=2">');
+  expect(r.attrs).not.toContain('onfocus');
+  expect(r.hit).toBeUndefined();
+});
+
+test('exportGLB needs the exporter, which a page loads as a script of its own', async ({ page }) => {
+  const without = await page.evaluate(async () => {
+    const fig = mountIt();
+    await fig.ready;
+    try {
+      fig.exportGLB();
+      return 'no error';
+    } catch (e) {
+      return e.message;
+    }
+  });
+  expect(without).toContain('lk3d-export.min.js');
+  await page.addScriptTag({ url: '/dist/lk3d-export.min.js' });
+  const head = await page.evaluate(async () => {
+    const fig = mountIt(),
+      b = fig.exportGLB();
+    return [String.fromCharCode(...b.slice(0, 4)), b.length > 200];
+  });
+  expect(head).toEqual(['glTF', true]);
+});

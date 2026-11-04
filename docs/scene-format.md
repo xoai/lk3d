@@ -117,7 +117,7 @@ The reader moves the part with the pointer or the keys, held to one rule. a hand
 | `title`   | string                                          | Its name in the credit line.                                                                                                                           |
 | `author`  | string                                          | Who made it (credited under the figure).                                                                                                               |
 | `license` | string                                          | Its licence (credited under the figure).                                                                                                               |
-| `url`     | string                                          | Where it comes from (the credit links to it).                                                                                                          |
+| `url`     | string                                          | Where it comes from: a web address (http or https), which the credit links to.                                                                         |
 | `source`  | `"scan"` \| `"dataset"` \| `"artist"` \| `"ai"` | Where it comes from: a scan of a real specimen, a scientific dataset, an artist's model, or made by AI (then called an illustration under the figure). |
 
 ## View

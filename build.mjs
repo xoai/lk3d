@@ -14,6 +14,10 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)),
   ENTRY = path.join(HERE, 'src/index.js');
+// the glTF exporter is not in the global script (the budget's): dist/lk3d-export.min.js brings it to a page that
+// exports. The module bundle has it (src/export.js), so a page importing lk3d loses nothing.
+const EXPORTER = path.join(HERE, 'src/export-script.js'),
+  MODULE = path.join(HERE, 'src/export.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this without a decision to raise it
 export const BUDGET_KB = 56;
 
@@ -40,8 +44,8 @@ const glsl = {
     }));
   },
 };
-const options = (format) => ({
-  entryPoints: [ENTRY],
+const options = (format, entry) => ({
+  entryPoints: [entry],
   bundle: true,
   write: false,
   format,
@@ -50,20 +54,25 @@ const options = (format) => ({
   plugins: [glsl],
 });
 
-export async function bundle(format = 'iife') {
-  return (await esbuild.build(options(format))).outputFiles[0].text;
+export async function bundle(format = 'iife', entry = ENTRY) {
+  return (await esbuild.build(options(format, entry))).outputFiles[0].text;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const dist = path.join(HERE, 'dist');
   fs.mkdirSync(dist, { recursive: true });
   const iife = await bundle('iife'),
-    esm = await bundle('esm');
+    esm = await bundle('esm', MODULE),
+    exporter = await bundle('iife', EXPORTER);
   fs.writeFileSync(path.join(dist, 'lk3d.min.js'), iife);
   fs.writeFileSync(path.join(dist, 'lk3d.mjs'), esm);
+  fs.writeFileSync(path.join(dist, 'lk3d-export.min.js'), exporter);
   const kb = (s) => (Buffer.byteLength(s) / 1024).toFixed(1),
     gz = (s) => (zlib.gzipSync(s, { level: 9 }).length / 1024).toFixed(1);
-  console.log(`dist/lk3d.min.js ${kb(iife)} KB (${gz(iife)} KB gzipped), dist/lk3d.mjs ${kb(esm)} KB`);
+  console.log(
+    `dist/lk3d.min.js ${kb(iife)} KB (${gz(iife)} KB gzipped), dist/lk3d.mjs ${kb(esm)} KB, ` +
+      `dist/lk3d-export.min.js ${kb(exporter)} KB (${gz(exporter)} KB gzipped)`,
+  );
   // (compared exactly: a rounded 42.0 may be a few bytes over)
   if (process.argv.includes('--size') && zlib.gzipSync(iife, { level: 9 }).length > BUDGET_KB * 1024) {
     console.error(`✗ dist/lk3d.min.js is ${gz(iife)} KB gzipped, over the budget of ${BUDGET_KB} KB`);

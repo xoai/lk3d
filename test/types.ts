@@ -1,6 +1,7 @@
 // Type check of the declarations (npm run typecheck): a page's use of lk3d must compile, and mistakes must not.
 import LK3D, { mount, type Scene, type Figure } from 'lk3d';
 import { validate } from 'lk3d/validate';
+import LK3DX, { sceneToGLB } from 'lk3d/export';
 
 const scene: Scene = {
   w: 16,
@@ -130,3 +131,11 @@ fig.set({ camera: 'front' });
 fig.set({ cut: 0.4, section: { normal: [1, 0, 0], offset: 0.2 } });
 void [drawn, onStage, film];
 void [problems, bad1, bad2, bad3, themed, bad5, versioned, bad6, fig.theme, fig.timeScale];
+
+// the exporter: lk3d itself with it set, and a scene straight to .glb
+const glb: Uint8Array = sceneToGLB(scene, { animate: true, motion: {} });
+const sameEngine: typeof LK3D = LK3DX;
+void glb;
+void sameEngine;
+// @ts-expect-error  a scene's motions are numbers
+sceneToGLB(scene, { motion: { lift: 'up' } });

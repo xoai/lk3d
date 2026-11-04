@@ -34,10 +34,15 @@
       "types": "./lint.d.ts",
       "default": "./src/lint.js"
     },
+    "./export": {
+      "types": "./export.d.ts",
+      "default": "./src/export.js"
+    },
     "./schema.json": "./schema/scene.schema.json",
     "./bundle": "./dist/lk3d.min.js",
     "./package.json": "./package.json",
-    "./bundle.mjs": "./dist/lk3d.mjs"
+    "./bundle.mjs": "./dist/lk3d.mjs",
+    "./bundle-export": "./dist/lk3d-export.min.js"
   },
   "files": [
     "bin/",
@@ -47,6 +52,7 @@
     "index.d.ts",
     "skill/",
     "lint.d.ts",
+    "export.d.ts",
     "validate.d.ts",
     "docs/*.md",
     "docs/*.png",
@@ -58,6 +64,8 @@
   ],
   "sideEffects": [
     "./src/index.js",
+    "./src/export.js",
+    "./src/export-script.js",
     "./dist/*"
   ],
   "engines": {

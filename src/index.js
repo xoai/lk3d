@@ -26,7 +26,6 @@ import { pathOf, makeFlow, ramp } from './flow.js';
 import { makeStream } from './stream.js';
 import { tracksOf, motionMatrix, startOf } from './motion.js';
 import { jointsOf, jointOf, solve as solveJoints } from './joints.js';
-import { toGLB } from './gltf-write.js';
 import * as FX from './fluids.js';
 import en from './locales/en.js';
 import vi from './locales/vi.js';
@@ -468,9 +467,11 @@ function mount(el, spec, opts = {}) {
     c.append(T.credit);
     credits.forEach(([name, m], k) => {
       if (k) c.append('; ');
-      const a = document.createElement(m.url ? 'a' : 'span');
+      // (a link only to a web page: not javascript: or data:, whatever the scene says)
+      const web = /^https?:\/\//i.test(m.url),
+        a = document.createElement(web ? 'a' : 'span');
       a.textContent = m.title || name;
-      if (m.url) {
+      if (web) {
         a.href = m.url;
         a.target = '_blank';
         a.rel = 'noopener';
@@ -2016,8 +2017,11 @@ function mount(el, spec, opts = {}) {
     }, // fn(now) returns true while it keeps moving
     pick: pickAt,
     // the figure as glTF 2.0 binary (.glb bytes), posed as it is now (taken apart, moved, its motions and joints);
-    // { animate: true } adds each motion as an animation along its range (samples: 120 poses)
+    // { animate: true } adds each motion as an animation along its range (samples: 120 poses). The exporter is apart
+    // from the engine (export.js), set as LK3D.toGLB by importing lk3d/export or loading dist/lk3d-export.min.js
     exportGLB(o = {}) {
+      if (!LK3D.toGLB)
+        throw new Error('lk3d: exportGLB needs the exporter: load dist/lk3d-export.min.js, or import lk3d/export');
       const now = { ...st.motion },
         animations = [];
       if (o.animate)
@@ -2037,7 +2041,7 @@ function mount(el, spec, opts = {}) {
           });
         }
       st.motion = now;
-      return toGLB(S, { matrix: model, animations, unit: spec.unit, title: spec.title });
+      return LK3D.toGLB(S, { matrix: model, animations, unit: spec.unit, title: spec.title, flatten });
     },
     redraw: kick,
     // draw the state as it is now, before returning (a tool that screenshots right after setting it); false while the

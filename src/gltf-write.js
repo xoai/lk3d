@@ -37,7 +37,8 @@ export function trs(m) {
 }
 
 // S: the built scene (buildScene); o.matrix(p): where each part is now (default: as drawn); o.animations: [{ name,
-// times: [s, …], matrix(p, k): the part's matrix at the k-th time }]; o.unit, o.title. → the .glb's bytes
+// times: [s, …], matrix(p, k): the part's matrix at the k-th time }]; o.unit, o.title; o.flatten: geometry.js's flatten,
+// passed in, so the exporter's own script (export-script.js) carries no second copy of the shapes. → the .glb's bytes
 export function toGLB(S, o = {}) {
   const chunks = [],
     views = [],
@@ -90,7 +91,7 @@ export function toGLB(S, o = {}) {
   const nodeOf = new Map();
   for (const p of S.parts) {
     if (p.hidden || !p.batches.length) continue;
-    const g = flatten(p);
+    const g = o.flatten(p);
     if (!g.count) continue;
     const pos = new Float32Array(g.p),
       nrm = new Float32Array(g.n),
@@ -227,5 +228,5 @@ export function sceneToGLB(spec, o = {}) {
           poses = Array.from({ length: n + 1 }, (_, k) => at({ ...now, [mo.id]: a + ((b - a) * k) / n }));
         return { name: mo.name || mo.id, times: poses.map((_, k) => (secs * k) / n), matrix: (p, k) => poses[k](p) };
       });
-  return toGLB(S, { matrix: at(now), animations, unit: spec.unit, title: spec.title });
+  return toGLB(S, { matrix: at(now), animations, unit: spec.unit, title: spec.title, flatten });
 }

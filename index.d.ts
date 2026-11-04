@@ -597,7 +597,8 @@ export interface Figure {
     joints?: Record<string, number>;
   }): void;
   /** a motion of the scene, to set or play */
-  /** the figure as glTF 2.0 binary (.glb), posed as it is now; animate: each motion as an animation */
+  /** the figure as glTF 2.0 binary (.glb), posed as it is now; animate: each motion as an animation. Needs the
+   * exporter: import lk3d/export, or load dist/lk3d-export.min.js after dist/lk3d.min.js (it throws without) */
   exportGLB(o?: { animate?: boolean; samples?: number }): Uint8Array;
   motion(id: string): MotionHandle | undefined;
   /** a liquid by its part: its volume, its surface's height in the scene; set its volume */
@@ -705,5 +706,7 @@ declare const LK3D: {
   /** the version of the scene format this engine reads */
   format: number;
   safeHTML: typeof safeHTML;
+  /** the glTF writer, set by the exporter (lk3d/export, dist/lk3d-export.min.js): what exportGLB() calls */
+  toGLB?: (scene: unknown, o?: object) => Uint8Array;
 };
 export default LK3D;

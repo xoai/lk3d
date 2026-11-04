@@ -293,7 +293,9 @@
         },
         "url": {
           "type": "string",
-          "description": "Where it comes from (the credit links to it)."
+          "pattern": "^https?://",
+          "x-message": "a model's url is a web address (https://…): the credit links to it",
+          "description": "Where it comes from: a web address (http or https), which the credit links to."
         },
         "source": {
           "enum": ["scan", "dataset", "artist", "ai"],

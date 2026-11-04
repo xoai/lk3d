@@ -109,6 +109,10 @@ each motion as an animation along its range at its speed (keys and joints both).
 `lk3d export scene.json [out.glb] [--animate] [--motion crank=90]`. Textures, lines, labels and flows are not
 written.
 
+The exporter is not in the global script, which every reader downloads: a page that exports loads it after lk3d,
+`<script src="https://unpkg.com/lk3d/dist/lk3d-export.min.js"></script>` (2 KB gzipped), or imports `lk3d/export`
+instead of `lk3d`. Without it `exportGLB()` throws, saying so.
+
 ## Lines: rays, field lines, forces
 
 ```js

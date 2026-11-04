@@ -15,32 +15,36 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
     return b;
   };
 
+  // a slider with its words before it; built element by element, as its words and range may come from the scene
+  const slider = (words, label, min, max, step, value) => {
+    const r = document.createElement('label'),
+      s = document.createElement('span'),
+      input = document.createElement('input');
+    r.className = 'lk3d-range';
+    s.textContent = words;
+    Object.assign(input, { type: 'range', min, max, step, value });
+    input.setAttribute('aria-label', label);
+    r.append(s, input);
+    return input;
+  };
+
   // taking apart: a slider for how far, and a button that goes all the way out or back
-  const ex = document.createElement('label');
-  ex.className = 'lk3d-range';
-  ex.innerHTML = '<span></span><input type="range" min="0" max="1" step="0.01" value="0">';
-  ex.firstChild.textContent = T.apart;
-  const exIn = ex.lastChild;
-  exIn.setAttribute('aria-label', T.apartLabel);
+  const exIn = slider(T.apart, T.apartLabel, 0, 1, 0.01, 0);
   exIn.addEventListener('input', () => fig.set({ explode: +exIn.value }));
-  if (explodable) bar.append(ex);
+  if (explodable) bar.append(exIn.parentNode);
   const apart = explodable ? button(T.takeApart, T.takeApartTitle, () => tweenExplode(st.explode > 0.5 ? 0 : 1)) : null;
 
   // each named motion: a slider along its range, and a button that plays it or stops it
   const moves = motions.map((mo) => {
     const m = fig.motion(mo.id),
-      r = document.createElement('label');
-    r.className = 'lk3d-range';
-    r.innerHTML = `<span></span><input type="range" min="${mo.range[0]}" max="${mo.range[1]}" step="${(mo.range[1] - mo.range[0]) / 200}">`;
-    r.firstChild.textContent = mo.name;
-    const input = r.lastChild;
-    input.setAttribute('aria-label', mo.name);
+      [lo, hi] = mo.range.map(Number),
+      input = slider(mo.name, mo.name, lo, hi, (hi - lo) / 200, m.value);
     input.addEventListener('input', () => {
       const v = +input.value; // (read first: stopping puts the slider back where the motion is)
       m.stop();
       m.set(v);
     });
-    bar.append(r);
+    bar.append(input.parentNode);
     const b = button(T.play, mo.name, () => (m.playing ? m.stop() : m.play()));
     const sync = () => {
       input.value = m.value;

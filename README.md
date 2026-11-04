@@ -47,7 +47,8 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 - **Mechanisms that move as they are joined**: a crank turns and its piston, rod and cam follow exactly, from joints
   rather than keys for each part ([joints](docs/handles-and-lines.md#joints-parts-posed-by-how-they-are-joined)).
 - **Out to glTF**: the figure as a .glb for Blender, a game engine or a viewer, posed as shown (`fig.exportGLB()`,
-  `lk3d export`), its motions as animations when asked (`fig.exportGLB({ animate: true })`, `lk3d export --animate`).
+  `lk3d export`), its motions as animations when asked (`fig.exportGLB({ animate: true })`, `lk3d export --animate`);
+  the exporter is a script of its own (`dist/lk3d-export.min.js`), so a page that does not export does not carry it.
 - **Liquids and gases by their laws**: a liquid fills its vessel to the level its volume gives, by the vessel's own
   shape, and pours through an open stopcock by Torricelli's law into the vessel below, as a falling stream; liquids
   stack by density; a gas holds its piston where pV = nRT puts it; warm air rises as a buoyant plume
@@ -74,7 +75,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 144 KB   | 57.5 KB |
+| lk3d                                                                                                                              | 140 KB   | 55.8 KB |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 

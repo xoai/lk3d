@@ -109,3 +109,16 @@ test('trs: a rigid matrix as translation and rotation; a stretched one is refuse
   assert.equal(trs(M.scale([2, 1, 1])), null);
   assert.ok(toGLB({ parts: [] }).length > 20);
 });
+
+test('the exporter is apart from the engine: lk3d/export sets it, and the global script leaves it out', () => {
+  const X = require('../src/export.js');
+  assert.equal(X.default.toGLB, toGLB, 'importing lk3d/export sets LK3D.toGLB, which fig.exportGLB() calls');
+  assert.equal(X.sceneToGLB, sceneToGLB);
+  assert.equal(typeof X.mount, 'function', 'the rest of lk3d with it');
+  const fs = require('node:fs'),
+    path = require('node:path'),
+    dist = (f) => path.join(__dirname, '..', 'dist', f);
+  if (!fs.existsSync(dist('lk3d-export.min.js'))) return; // (not built yet)
+  const has = (f) => fs.readFileSync(dist(f), 'utf8').includes('generator:"lk3d"'); // (the writer's asset record)
+  assert.deepEqual([has('lk3d.min.js'), has('lk3d-export.min.js'), has('lk3d.mjs')], [false, true, true]);
+});

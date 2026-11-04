@@ -1021,6 +1021,7 @@ test('the validator finds each planted mistake where it is, and passes a right s
     [{ parts: [part({ shapes: [{ cube: 1 }] })] }, 'parts[0].shapes[0]'], // an unknown kind
     [{ parts: [part({ shapes: [{ box: [1, 1] }] })] }, 'parts[0].shapes[0].box'], // a box of two sizes
     [{ parts: [part({ shapes: [{ model: 'heart' }] })] }, 'parts[0].shapes[0]'], // a model not listed
+    [{ parts: [part()], models: { m: { data: '', url: 'javascript:alert(1)' } } }, 'models.m.url'], // a link that is not a web address
     [
       { parts: [part({ handle: { turn: { axis: [1, 0, 0] }, slide: { axis: [0, 1, 0] }, min: 0, max: 1 } })] },
       'parts[0].handle',

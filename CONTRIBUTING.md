@@ -6,7 +6,13 @@ backend), so we can agree on the design before you write it.
 
 ## Setting up
 
-lk3d is developed in the lessonkit repository and published from `packages/lk3d`:
+lk3d is developed in the lessonkit repository (github.com/xoai/lessonkit) and published from `packages/lk3d`. Its
+own repository, github.com/xoai/lk3d, is that folder with its history, kept in step from lessonkit after each change
+there (`git remote add lk3d git@github.com:xoai/lk3d.git` once; then, from lessonkit's root,
+`git push origin main && git subtree push --prefix=packages/lk3d lk3d main`). Make changes in lessonkit, not in lk3d's
+repository: a commit made there would not come back.
+
+To work on it:
 
 ```sh
 cd packages/lk3d

@@ -2,7 +2,7 @@
 // callback, tweens give way to the page and the reader, removed and destroyed things leave nothing behind. Each test
 // mounts a small scene of its own on api.html and drives it as a page would. (Chromium: the wiring is the same
 // everywhere.)
-/* global LK3D, mountIt */ // (in the page: the engine, and the helper beforeEach puts there)
+/* global LK3D, mountIt, until */ // (in the page: the engine, and the helpers beforeEach puts there)
 import { test, expect } from '@playwright/test';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'the wiring is the same in every browser');
@@ -23,6 +23,11 @@ test.beforeEach(async ({ page }) => {
       ],
     };
     window.mountIt = (o = {}) => LK3D.mount(document.getElementById('g'), window.scene, { controls: false, ...o });
+    // waits for what the figure does, not for a time: CI's machines draw in software and give frames slowly (and a
+    // frame moves things by a tenth of a second at most); 10 s at most, then the test's own check says what is wrong
+    window.until = async (ok) => {
+      for (let t = 0; t < 10000 && !ok(); t += 20) await new Promise((res) => setTimeout(res, 20));
+    };
   });
 });
 
@@ -51,7 +56,7 @@ test('onPick is for choosing, onHover for pointing; neither fires at mount', asy
         }),
       );
     ev('pointermove', at);
-    await new Promise((res) => setTimeout(res, 60));
+    await until(() => calls.length > 0);
     const afterHover = calls.slice();
     ev('pointerdown', at);
     ev('pointerup', at);
@@ -75,7 +80,7 @@ test('what a page sets by assignment is drawn; a ball set starts at version 0', 
     const balls = fig.particles({ count: 3, radius: 0.05 });
     await new Promise((res) => setTimeout(res, 100)); // (the figure is idle: nothing draws by itself)
     dots.speed = 1;
-    await new Promise((res) => setTimeout(res, 400));
+    await until(() => dots.offset > 0.1);
     const L = fig.lines({ count: 1 });
     L.set(0, [0, 0.5, 0], [1, 0.5, 0]);
     await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
@@ -213,10 +218,6 @@ test('a motion is set, played to its end and back, and stopped by the page; its 
     m.set(0.5);
     await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
     const half = { y: knob(), slider: +slider.value };
-    // (waits for what the motion does, not for a time: a machine drawing in software gives frames slowly; 10 s at most)
-    const until = async (ok) => {
-      for (let t = 0; t < 10000 && !ok(); t += 20) await new Promise((res) => setTimeout(res, 20));
-    };
     m.play();
     await until(() => !m.playing);
     const end = { y: knob(), value: m.value, playing: m.playing };
@@ -276,10 +277,10 @@ test('a funnel pours by Torricelli into a beaker below: volume kept, a stream wh
       gl = document.querySelector('#g canvas');
     const before = { up: up.volume, down: down.volume, level: up.level };
     tap.set({ open: 1 });
-    await new Promise((res) => setTimeout(res, 800));
+    await until(() => up.volume < before.up && up.level < before.level && down.level > 0);
     const during = { up: up.volume, down: down.volume, flow: tap.flow, level: up.level, below: down.level };
     tap.set({ open: 0 });
-    await new Promise((res) => setTimeout(res, 300));
+    await until(() => tap.flow === 0);
     const shut = { up: up.volume, flow: tap.flow };
     await new Promise((res) => setTimeout(res, 300));
     return { before, during, shut, still: up.volume, w: gl.width };

@@ -27,7 +27,13 @@ export default defineConfig({
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'], viewport: { width: 520, height: 420 }, deviceScaleFactor: 1 },
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport: { width: 520, height: 420 },
+        deviceScaleFactor: 1,
+        // headless Firefox on Linux (CI) turns WebGL off without a GPU, and lk3d would draw in 2D: drawn in software
+        launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
+      },
     },
     {
       name: 'webkit',

@@ -47,8 +47,9 @@ for (const [scene, look, theme, proj] of runs) {
     );
     const done = await page.waitForFunction(() => window.__ready, null, { timeout: 45_000 }).then((h) => h.jsonValue());
     expect(done.errors, 'no errors on the page').toEqual([]);
+    // (a WebGL look drawn by the 2D fallback would be compared with pictures of the wrong thing: refused)
     if (look.endsWith('2d')) expect(done.renderer).toBe('2d');
-    else test.info().annotations.push({ type: 'renderer', description: done.renderer }); // WebGL 2 where the browser has it
+    else expect(done.renderer, 'drawn with WebGL').not.toBe('2d');
     expect(done.triangles).toBeGreaterThan(0);
     await expect(page.locator('.lk3d-stage')).toHaveScreenshot(`${name}.png`);
   });

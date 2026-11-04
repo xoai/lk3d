@@ -31,7 +31,9 @@ export default defineConfig({
         ...devices['Desktop Firefox'],
         viewport: { width: 520, height: 420 },
         deviceScaleFactor: 1,
-        // headless Firefox on Linux (CI) turns WebGL off without a GPU, and lk3d would draw in 2D: drawn in software
+        // headless Firefox on Linux (CI) has no WebGL, and lk3d would draw in 2D: there it runs with a window, on the
+        // virtual display the workflow gives it (xvfb-run), drawing WebGL in software (Mesa)
+        headless: !(process.platform === 'linux' && process.env.CI),
         launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
       },
     },

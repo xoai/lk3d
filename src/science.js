@@ -237,9 +237,12 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
     },
     o,
   ) {
-    const g = new Geo(),
+    // the form (each branch's wander, where its branches start) is drawn at FORM steps whatever the detail, so a phone
+    // or the 2D fallback (built coarser) shows the same tree: the detail only chooses how many of its points are drawn
+    const FORM = 8,
+      g = new Geo(),
       R = rng(seed),
-      segs = Math.max(4, Math.round(8 * (o.q || 1)));
+      segs = Math.min(FORM, Math.max(4, Math.round(FORM * (o.q || 1))));
     const grow = (p0, d0, L, r0, level) => {
       const d = norm(d0),
         side = norm(cross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])),
@@ -248,18 +251,26 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
         radii = [];
       let p = p0,
         dd = d;
-      for (let k = 1; k <= segs; k++) {
+      for (let k = 1; k <= FORM; k++) {
         // a gently wandering path
         dd = norm(add(dd, add(mulv(side, (R() - 0.5) * bend), mulv(up, (R() - 0.5) * bend))));
-        p = add(p, mulv(dd, L / segs));
+        p = add(p, mulv(dd, L / FORM));
         path.push(p);
       }
       const r1 = r0 * taper;
-      for (let k = 0; k <= segs; k++) radii.push(r0 + ((r1 - r0) * k) / segs);
-      g.add(tube(path, radii, o), M.id());
+      for (let k = 0; k <= FORM; k++) radii.push(r0 + ((r1 - r0) * k) / FORM);
+      const drawn = Array.from({ length: segs + 1 }, (_, i) => Math.round((i * FORM) / segs));
+      g.add(
+        tube(
+          drawn.map((k) => path[k]),
+          drawn.map((k) => radii[k]),
+          o,
+        ),
+        M.id(),
+      );
       if (level >= levels) return;
       for (let b = 0; b < branches; b++) {
-        const k = b === branches - 1 ? segs : Math.max(1, Math.round(segs * (0.45 + 0.5 * R()))),
+        const k = b === branches - 1 ? FORM : Math.max(1, Math.round(FORM * (0.45 + 0.5 * R()))),
           az = 2 * Math.PI * (b / branches + 0.3 * R());
         const perp = add(mulv(side, Math.cos(az)), mulv(up, Math.sin(az))),
           sp = spread * D2R * (0.6 + 0.8 * R());

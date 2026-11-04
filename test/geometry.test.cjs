@@ -126,3 +126,21 @@ test('a point along a long path is found by halving, as by walking', () => {
     assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-9, `s = ${s}`);
   }
 });
+
+test('a tree is the same tree at every detail: a phone or the 2D fallback (built coarser) shows the dendrites a laptop does', () => {
+  const { bounds } = require('../src/geometry.js');
+  const s = {
+    tree: { at: [0, 0, 0], dir: [1, 0.2, 0], length: 1, r: 0.05, levels: 4, branches: 2, spread: 40, seed: 7 },
+  };
+  const box = (q) => bounds(buildShape(s, q).geo);
+  const fine = box(1);
+  for (const q of [0.6, 0.5]) {
+    const b = box(q);
+    // (coarser: fewer points along the same branches, and fewer round each, so a little inside; not another tree)
+    for (let i = 0; i < 3; i++) {
+      assert.ok(Math.abs(b.lo[i] - fine.lo[i]) < 0.03, `detail ${q}: low end along axis ${i}`);
+      assert.ok(Math.abs(b.hi[i] - fine.hi[i]) < 0.03, `detail ${q}: high end along axis ${i}`);
+    }
+  }
+  assert.ok(buildShape(s, 0.5).geo.count < buildShape(s, 1).geo.count, 'and coarser it costs less');
+});

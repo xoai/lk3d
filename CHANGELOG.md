@@ -87,6 +87,8 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
 - **glTF export** (`fig.exportGLB()`, `lk3d export`): parts as named nodes with their meshes and materials, posed as
   shown, motions as animations when asked (`{ animate: true }`, `--animate`). The exporter is apart from the global
   script: load `dist/lk3d-export.min.js` after it, or import `lk3d/export` (`dist/lk3d.mjs` has it).
+- **A tree is the same tree at every detail**: its form is drawn at full detail always, so a phone and the 2D fallback
+  (which build shapes coarser) show the branches a laptop does; they showed another tree.
 - **A scene's words stay words**: a model's credit links only to a web address (`http`/`https`; the schema refuses
   another, and the engine shows it as plain text), and the sliders under a figure are built element by element, so a
   motion's name or range cannot add HTML.

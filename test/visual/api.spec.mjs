@@ -213,11 +213,15 @@ test('a motion is set, played to its end and back, and stopped by the page; its 
     m.set(0.5);
     await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
     const half = { y: knob(), slider: +slider.value };
+    // (waits for what the motion does, not for a time: a machine drawing in software gives frames slowly; 10 s at most)
+    const until = async (ok) => {
+      for (let t = 0; t < 10000 && !ok(); t += 20) await new Promise((res) => setTimeout(res, 20));
+    };
     m.play();
-    await new Promise((res) => setTimeout(res, 600));
+    await until(() => !m.playing);
     const end = { y: knob(), value: m.value, playing: m.playing };
     m.play(); // (at its end: back to the start)
-    await new Promise((res) => setTimeout(res, 100));
+    await until(() => m.value < 1);
     m.stop();
     const stopped = m.value;
     await new Promise((res) => setTimeout(res, 100));

@@ -2,8 +2,10 @@
 
 A scene is plain data (JSON, or anything that becomes it). This page is generated from
 [`schema/scene.schema.json`](../schema/scene.schema.json) by `npm run docs`; the validator (`lk3d/validate`) checks
-exactly these rules, plus unique part ids, handles that move parts that exist, and shapes that name a listed model.
-A shape takes only the fields listed for it (a misspelt one is an error). A scene and a part may carry fields not listed here, which lk3d ignores: a page may keep its own data in a scene.
+exactly these rules, plus what they name: unique part, motion and joint ids; handles, motions and joints that move
+parts that exist; shapes that name a listed model; liquids and gases in vessels that exist; joints that read joints
+and motions that exist, without a loop.
+A shape, a motion, a joint, a vessel, a liquid and a gas take only the fields listed for them (a misspelt one is an error). A scene, its view and a part may carry fields not listed here, which lk3d ignores: a page may keep its own data in a scene.
 
 ## Scene
 
@@ -49,7 +51,7 @@ A 3D figure as data: parts made of shapes, each with a name and a note, that the
 | `glow`          | colour "#rrggbb"                                                                                                                                                                                                                                                | The colour it glows when the page lights it (set({glow})).                                                                                                      |
 | `cut`           | `false`                                                                                                                                                                                                                                                         | false: the part stays whole when the model is cut open (a stand, a frame, a base).                                                                              |
 | `edges`         | boolean                                                                                                                                                                                                                                                         | Whether its edges are drawn (by default yes, except on soft shapes: models, blobs, trees, terrain, scatter, molecules, DNA).                                    |
-| `accent`        | boolean                                                                                                                                                                                                                                                         | Keeps its full colour in the pen look (where other parts are near-white).                                                                                       |
+| `accent`        | boolean                                                                                                                                                                                                                                                         | Keeps its full colour in the pen look, where other parts get a soft wash of theirs (40 %; vertex colours keep 70 %).                                            |
 | `opacity`       | number ≥ 0 ≤ 1                                                                                                                                                                                                                                                  | Always see-through: 1 is solid (glass about 0.35; a part made only of a model's glass, KHR_materials_transmission, is 0.35 and glass unless it says otherwise). |
 | `xray`          | boolean                                                                                                                                                                                                                                                         | Becomes see-through with the "See through" control.                                                                                                             |
 | `hidden`        | boolean                                                                                                                                                                                                                                                         | Not drawn at first (set({hide}) changes it).                                                                                                                    |
@@ -117,6 +119,120 @@ The reader moves the part with the pointer or the keys, held to one rule. a hand
 | `license` | string                                          | Its licence (credited under the figure).                                                                                                               |
 | `url`     | string                                          | Where it comes from (the credit links to it).                                                                                                          |
 | `source`  | `"scan"` \| `"dataset"` \| `"artist"` \| `"ai"` | Where it comes from: a scan of a real specimen, a scientific dataset, an artist's model, or made by AI (then called an illustration under the figure). |
+
+## View
+
+The first camera.
+
+| Field          | Type                         | Meaning                                                                                                      |
+| -------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `yaw`          | number                       | Degrees round the vertical.                                                                                  |
+| `pitch`        | number                       | Degrees up.                                                                                                  |
+| `dist`         | number > 0                   | Distance from the target (default: to fit).                                                                  |
+| `target`       | [x, y, z]                    | The point looked at (default: the middle).                                                                   |
+| `fov`          | number > 0                   | Field of view, degrees (35).                                                                                 |
+| `minZoom`      | number > 0                   | How close the reader may zoom, as a share of the distance that fits the whole model (0.02: 50 times closer). |
+| `projection`   | `"perspective"` \| `"ortho"` | perspective (the default) or ortho: parallel lines stay parallel, as in a technical illustration.            |
+| `explodeZoom`  | number                       | How far the camera steps back when the model is taken apart (0.5).                                           |
+| `explodeShift` | [x, y, z]                    | Where the view moves when the model is taken apart.                                                          |
+
+## Motion
+
+Parts that move together as one value goes along a range: a piston's stroke as the crank turns, a sleeve sliding back, a valve opening. Set or played by the page (fig.motion(id)) and, when named, by the reader (a slider and a play button); run through its range by the geometry check. See [motions](handles-and-lines.md#motions-parts-that-move-together).
+
+| Field              | Type             | Meaning                                                                                            |
+| ------------------ | ---------------- | -------------------------------------------------------------------------------------------------- |
+| `id` (required)    | string           | Unique among the scene's motions: what the page names it by.                                       |
+| `name`             | string           | What the reader's slider says (no name: no slider, the page drives it).                            |
+| `range` (required) | [number, number] | From and to: degrees of a crank, a fraction from 0 to 1, a time: whatever the keys are written in. |
+| `value`            | number           | Where it starts (the start of its range).                                                          |
+| `loop`             | boolean          | Played on round and round (a crank), else to its end and back.                                     |
+| `speed`            | number > 0       | How far along its range it goes in a second when played (the whole range).                         |
+| `tracks`           | list of object   | Parts it moves by keys (none when it only drives joints).                                          |
+
+Each of `tracks`: parts that move one way: moved, turned, or both (moved, then turned). A track moves its parts (move), turns them (turn), or both.
+
+| Field              | Type                                       | Meaning                                                              |
+| ------------------ | ------------------------------------------ | -------------------------------------------------------------------- |
+| `parts` (required) | list of string                             | Part ids or groups.                                                  |
+| `move`             | list of [number, [number, number, number]] | Keys [t, [x, y, z]]: at the motion's value t, moved by [x, y, z].    |
+| `turn`             | object                                     | Turned about an axis through center: keys [t, degrees].              |
+| `ease`             | boolean                                    | A smooth start and stop at each key (else straight from key to key). |
+
+## Joint
+
+Parts posed by how they are joined, not by keys for each: a crank driven by a motion, a piston held by its rod, a rod aimed at the crank pin, a cam that follows at half speed. A joint's value comes from a motion, another joint, a rod, an aim, or the page (set({ joints })). A joint turns its parts (turn) or slides them (slide). See
+[joints](handles-and-lines.md#joints-parts-posed-by-how-they-are-joined).
+
+| Field              | Type             | Meaning                                                                                                                                                              |
+| ------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id` (required)    | string           | Unique among the scene's joints: what the page and other joints name it by.                                                                                          |
+| `parts` (required) | list of string   | Part ids or groups it moves (a part on one joint only).                                                                                                              |
+| `parent`           | string           | A joint whose movement its parts share first (a rod rides on its piston).                                                                                            |
+| `turn`             | object           | It turns its parts: degrees about axis through center.                                                                                                               |
+| `slide`            | object           | It slides its parts: scene units along axis.                                                                                                                         |
+| `value`            | number           | Its value when nothing drives it (0: as the parts are drawn).                                                                                                        |
+| `drive`            | string or object | Its value from a motion: the motion's own value (its id), or scaled or read off keys.                                                                                |
+| `follow`           | object           | Its value from another joint's: a gear (ratio), a cam's follower (keys).                                                                                             |
+| `rod`              | object           | A slide held by a rod of fixed length (a piston): from at, a point carried by joint, to pin, a point of its own parts; the rod is as long as they are apart at rest. |
+| `aim`              | object           | A turn that keeps its parts pointing at at, a point carried by joint (a connecting rod, on its piston, aimed at the crank pin).                                      |
+
+`follow` (and `drive` as an object, with `motion` in place of `joint`):
+
+| Field              | Type                     | Meaning                                                                                                |
+| ------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `ratio`            | number                   | Its value is the other's times ratio (1), plus offset.                                                 |
+| `offset`           | number                   | Added to the scaled value (0).                                                                         |
+| `keys`             | list of [number, number] | Keys [the other's value, this joint's value], in order: a cam's lift, a gear train that isn't a ratio. |
+| `joint` (required) | string                   | The joint it follows.                                                                                  |
+
+## Vessel
+
+Parts that hold liquids or a gas: the radius of their inside at each height, and an outlet they pour through. See [liquids and gases](fluids.md).
+
+| Field               | Type                         | Meaning                                                                                            |
+| ------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `id` (required)     | string                       | Its name: what liquids, gases and the page (fig.vessel(id)) call it by.                            |
+| `part` (required)   | string                       | The part that is the vessel (its glass).                                                           |
+| `at`                | [x, y, z]                    | Where height 0 is, on the vessel's upright axis ([0, 0, 0]).                                       |
+| `inside` (required) | list of [number, number ≥ 0] | Its inside, bottom to brim: [height, radius] (an outlet's stem included, so it fills as it pours). |
+| `outlet`            | object                       | Where it pours from: a bore at its bottom, the stream leaving at tip.                              |
+
+The `outlet`:
+
+| Field               | Type           | Meaning                                                                                                  |
+| ------------------- | -------------- | -------------------------------------------------------------------------------------------------------- |
+| `radius` (required) | number > 0     | The bore's radius.                                                                                       |
+| `tip` (required)    | [x, y, z]      | Where the stream leaves (in the scene).                                                                  |
+| `dir`               | [x, y, z]      | Which way it leaves ([0, -1, 0]: down; sideways for a hole in a tank's side).                            |
+| `valve`             | string         | The motion that opens it (its range: shut to open); else the page opens it (fig.vessel(id).set({open})). |
+| `cd`                | number > 0 ≤ 1 | How much of the bore the stream fills (0.6, a sharp-edged hole).                                         |
+
+## Liquid
+
+Liquids in vessels, drawn by lk3d as bodies that fill their vessel to the level their volume gives; liquids in one vessel stack by density; an open outlet pours by Torricelli's law into the liquid below.
+
+| Field             | Type       | Meaning                                                                       |
+| ----------------- | ---------- | ----------------------------------------------------------------------------- |
+| `part` (required) | string     | The part drawn as this liquid (its name, note, colour; lk3d makes its shape). |
+| `in` (required)   | string     | The vessel it is in.                                                          |
+| `volume`          | number ≥ 0 | How much (scene units cubed: cm³ in a scene in cm).                           |
+| `density`         | number > 0 | Its density (1): liquids in one vessel stack, the densest at the bottom.      |
+| `into`            | string     | The liquid (in a vessel below) it becomes when its vessel pours.              |
+
+## Gas
+
+Gases under a piston: the piston rests where pV = nRT puts it (n moles at T kelvin under p pascals and the piston's weight).
+
+| Field             | Type       | Meaning                                                                |
+| ----------------- | ---------- | ---------------------------------------------------------------------- |
+| `part` (required) | string     | The part drawn as this gas.                                            |
+| `in` (required)   | string     | Its vessel, upright (a cylinder).                                      |
+| `piston`          | string     | The part that rests on it (set on the gas wherever the scene drew it). |
+| `n` (required)    | number > 0 | Moles of gas.                                                          |
+| `T` (required)    | number > 0 | Temperature, kelvin.                                                   |
+| `p`               | number > 0 | Pressure outside, pascals (101325).                                    |
+| `mass`            | number ≥ 0 | The piston's mass, kilograms (0): its weight adds to the pressure.     |
 
 ## Validating
 

@@ -114,6 +114,9 @@ written.
 ```js
 const rays = fig.lines({ count: 6, radius: 0.01, color: '#d99a00', studioColor: '#ffcf66', glow: '#ffb030' });
 rays.set(0, [x0, y0, z0], [x1, y1, z1]); // segment k from a to b; set(k, null) hides it
+rays.set(1, [x0, y0, z0], [x2, y2, z2], 0.02); // a fourth number: this segment's own radius
+rays.radius = 0.015; // every segment without its own radius (setting it, or visible, draws again)
+rays.visible = false;
 rays.glow(0.8);
 rays.clear();
 ```
@@ -152,6 +155,9 @@ fig.set({ timeScale: 0.2 }); // slow motion, for flows and particles alike
 | `spread`, `opacity` | 0, 0.85  | how far streaks wander from the path (scene units); how strong they are                               |
 | `ramp`              | `'cool'` | `'cool'`, `'heat'` (dull red, orange, yellow), one colour, or up to four from the path's start to end |
 | `part`, `closed`    |          | a part whose movement the streaks follow; a path that joins up                                        |
+
+A flow's `speed`, `amount` and `visible` are also properties (setting one draws again); `set({…})` changes those and
+`length`, `width`, `spread`, `opacity` and `ramp` (not its paths, count or part).
 
 How they are drawn follows the page. On a light page the streaks are ink: blended over the picture, never added
 (added light washes out into white paper), and the presets end in a strong colour there; on a dark page (a theme
@@ -211,7 +217,10 @@ throttle.oninput = () => core.set({ density: 0.3 + 0.7 * t, speed: 1 + 4 * t });
 | `turbulence`, `swirl` | 0.5, 0.5 | how much the filaments are stirred; how much more towards the edge, growing downstream            |
 | `ramp`                | `'cool'` | as for flows                                                                                      |
 
-Streams are drawn at half resolution with 32 samples a pixel, so a page with several large streams costs the GPU more
+A stream's `speed`, `density` and `visible` are also properties; `set({…})` changes those, `turbulence`, `swirl` and
+`ramp`.
+
+Streams are drawn at half resolution with 48 samples a pixel, so a page with several large streams costs the GPU more
 than streaks do. Without WebGL a stream is drawn as streaks along its path.
 
 ## Flows on a timeline: the clock

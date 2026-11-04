@@ -13,8 +13,9 @@ strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time,
 
 - **Scenes as data**: parts made of shapes, each with a name and a note; a JSON Schema
   (`schema/scene.schema.json`) and a validator (`lk3d/validate`) that says what is wrong where; TypeScript types.
-- **Exploring**: turn, zoom and pan by mouse, touch, pen and keyboard; preset views; taking apart; cutting open with
-  filled, hatched cut faces; see-through casings; labels with leader lines; a note for each part.
+- **Exploring**: turn and zoom by mouse, touch, pen and keyboard, pan by Shift-drag or right-drag; preset views;
+  taking apart; cutting open with filled, hatched cut faces; see-through casings; labels with leader lines; a note for
+  each part.
 - **Moving parts by hand**: handles that turn, slide or follow a path, each also a range input for the keyboard and
   screen readers; lines for rays and field lines; flow streaks along paths, coloured by a ramp (cool to hot), as many
   and as fast as a page value says, with slow motion (`timeScale`); particles along paths; solid balls for
@@ -84,7 +85,7 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
   (a crank driven by a motion, a piston held by its rod in closed form, the rod aimed at the crank pin, a cam
   following at half speed, joints carried by a parent); validated, and run through their motions by `lk3d check`.
 - **glTF export** (`fig.exportGLB()`, `lk3d export`): parts as named nodes with their meshes and materials, posed as
-  shown, motions as animations.
+  shown, motions as animations when asked (`{ animate: true }`, `--animate`).
 - **Cut faces hatched on the cut's plane**: the hatching lies across the section and stays put as the camera moves
   (it was fixed to the screen).
 - **Parts alike drawn together**: the batches of one shape on solid parts of one material are drawn in one instanced
@@ -102,4 +103,5 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
   as a projectile under continuity; a gas holds its piston where pV = nRT puts it; a plume rises and widens as a
   buoyant one does. `lk3d check` catches overfull and overflowing vessels, an inside wider than the glass and a piston
   pushed out ([liquids and gases](docs/fluids.md)).
-- **Small and fast**: 54 KB gzipped (a budget of 56); draws only on change, pauses off screen, adapts its resolution.
+- **Small and fast**: 57.5 KB gzipped (144 KB minified), against a budget of 56 KB that `npm run size` enforces;
+  draws only on change, pauses off screen, adapts its resolution.

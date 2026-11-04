@@ -37,17 +37,17 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 ## What it does
 
-- **Explore**: turn, zoom, pan (mouse, touch, pen, keyboard); preset views; take the model apart (each part along its
-  own path); cut it open, with the cut faces filled and hatched; see through casings; labels with leader lines that do
-  not overlap; a note for each part.
+- **Explore**: turn and zoom (mouse, touch, pen, keyboard) and pan (Shift-drag or right-drag); preset views; take the
+  model apart (each part along its own path); cut it open, with the cut faces filled and hatched; see through casings;
+  labels with leader lines that do not overlap; a note for each part.
 - **Move parts by hand**: handles that turn (a focus ring, a rotor), slide (a piston, an object on a bench) or follow a
   path (a planet on its orbit), each also a range input for the keyboard and screen readers. Rays, field lines and
   forces as lines; streaks of air or blood flowing along paths, coloured cool to hot, as many and as fast as a page
   value says ([flow](docs/handles-and-lines.md#flow)); particles along paths; solid balls a simulation places.
 - **Mechanisms that move as they are joined**: a crank turns and its piston, rod and cam follow exactly, from joints
   rather than keys for each part ([joints](docs/handles-and-lines.md#joints-parts-posed-by-how-they-are-joined)).
-- **Out to glTF**: the figure as a .glb for Blender, a game engine or a viewer, its motions as animations
-  (`fig.exportGLB()`, `lk3d export`).
+- **Out to glTF**: the figure as a .glb for Blender, a game engine or a viewer, posed as shown (`fig.exportGLB()`,
+  `lk3d export`), its motions as animations when asked (`fig.exportGLB({ animate: true })`, `lk3d export --animate`).
 - **Liquids and gases by their laws**: a liquid fills its vessel to the level its volume gives, by the vessel's own
   shape, and pours through an open stopcock by Torricelli's law into the vessel below, as a falling stream; liquids
   stack by density; a gas holds its piston where pV = nRT puts it; warm air rises as a buoyant plume
@@ -66,15 +66,15 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 - **Checked**: a JSON Schema for scenes and a validator that says what is wrong where ([format](docs/scene-format.md));
   a geometry check that finds parts running into each other when taken apart, parts hanging in the air and hidden
   labels; TypeScript types.
-- **Made for AI agents too**: `npx lk3d check scene.json` and `npx lk3d render scene.json` (PNG pictures of each look
-  and pose, to look at), and an [Agent Skill](skill/lk3d/SKILL.md) that teaches an agent to build detailed, clean,
+- **Made for AI agents too**: `npx lk3d check scene.json` and `npx lk3d render scene.json` (PNG pictures of the looks
+  and poses you ask for, pen and ink by default, to look at), and an [Agent Skill](skill/lk3d/SKILL.md) that teaches an agent to build detailed, clean,
   correct figures.
 
 ## Small and fast
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 135 KB   | 54 KB   |
+| lk3d                                                                                                                              | 144 KB   | 57.5 KB |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
@@ -108,8 +108,15 @@ fig.set({ explode: 1 });
   [Performance](docs/performance.md).
 - [Examples](examples/): a generator, a lens bench, a cell, molecules, the Solar System, rock layers, a gauge, a fossil
   skull, the three looks, a circuit, air through a fan. `npm run examples` serves them.
-- From the command line: `lk3d check scene.json` (form and geometry, and the scene's size) and `lk3d render
-scene.json --looks pen,ink --poses rest,apart,cut` (pictures drawn by the engine; needs Playwright).
+- Reading a figure: drag to turn it, Shift-drag or right-drag to pan, pinch to zoom; the wheel zooms only with Ctrl
+  held or once the figure has been clicked, so it never takes over the page's scrolling. On the keyboard, the arrow
+  keys turn it and `+` and `-` zoom ([details](docs/api.md#the-readers-controls)).
+- From the command line ([details](docs/api.md#the-command-line)):
+  - `lk3d check scene.json [--json]`: form and geometry, and the scene's size; exit code 1 on any problem.
+  - `lk3d render scene.json [--looks …] [--poses …] [--theme NAME] [--ortho] [--width 640] [--out DIR]`: PNG pictures
+    of the looks and poses you ask for (pen and ink, at rest, apart and cut, by default), drawn by the engine in a
+    headless browser (needs Playwright; from a checkout of the repository, `npm run build` first).
+  - `lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]`: the scene as glTF 2.0 binary.
 
 ## Develop
 
@@ -117,14 +124,15 @@ scene.json --looks pen,ink --poses rest,apart,cut` (pictures drawn by the engine
 npm install
 npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # the bundle stays within 56 KB gzipped
-npm run test:visual    # reference scenes compared with stored pictures, in Chromium, Firefox and WebKit
+npm run size           # fails if the bundle is over its budget (56 KB gzipped, BUDGET_KB in build.mjs)
+npm run test:visual    # reference scenes compared with stored pictures (stored for Chromium and Firefox on macOS)
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again
 ```
 
-lk3d began as the 3D engine of [lessonkit](../../README.md), which builds verified interactive lessons; it is developed
-in that repository and published from `packages/lk3d`.
+lk3d began as the 3D engine of [lessonkit](https://github.com/xoai/lessonkit), which builds verified interactive
+lessons, and is developed there, in `packages/lk3d`. [github.com/xoai/lk3d](https://github.com/xoai/lk3d) is that
+folder with its history, kept in step ([contributing](https://github.com/xoai/lk3d/blob/main/CONTRIBUTING.md)).
 
 ## Licence
 

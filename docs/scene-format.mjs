@@ -32,13 +32,17 @@ function table(obj, required = []) {
   });
   return ['| Field | Type | Meaning |', '|---|---|---|', ...rows].join('\n');
 }
-const d = schema.$defs;
+const d = schema.$defs,
+  cap = (s) => s.charAt(0).toUpperCase() + s.slice(1),
+  low = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 const out = `# Scene format
 
 A scene is plain data (JSON, or anything that becomes it). This page is generated from
 [\`schema/scene.schema.json\`](../schema/scene.schema.json) by \`npm run docs\`; the validator (\`lk3d/validate\`) checks
-exactly these rules, plus unique part ids, handles that move parts that exist, and shapes that name a listed model.
-A shape takes only the fields listed for it (a misspelt one is an error). A scene and a part may carry fields not listed here, which lk3d ignores: a page may keep its own data in a scene.
+exactly these rules, plus what they name: unique part, motion and joint ids; handles, motions and joints that move
+parts that exist; shapes that name a listed model; liquids and gases in vessels that exist; joints that read joints
+and motions that exist, without a loop.
+A shape, a motion, a joint, a vessel, a liquid and a gas take only the fields listed for them (a misspelt one is an error). A scene, its view and a part may carry fields not listed here, which lk3d ignores: a page may keep its own data in a scene.
 
 ## Scene
 
@@ -69,6 +73,55 @@ ${table(d.handle)}
 ## Model
 
 ${table(d.model)}
+
+## View
+
+${schema.properties.view.description}
+
+${table(schema.properties.view)}
+
+## Motion
+
+${schema.properties.motions.description} See [motions](handles-and-lines.md#motions-parts-that-move-together).
+
+${table(d.motion, d.motion.required)}
+
+Each of \`tracks\`: ${low(d.motion.properties.tracks.items.description)} ${cap(d.motion.properties.tracks.items['x-message'])}.
+
+${table(d.motion.properties.tracks.items, d.motion.properties.tracks.items.required)}
+
+## Joint
+
+${schema.properties.joints.description} ${cap(d.joint['x-message'])}. See
+[joints](handles-and-lines.md#joints-parts-posed-by-how-they-are-joined).
+
+${table(d.joint, d.joint.required)}
+
+\`follow\` (and \`drive\` as an object, with \`motion\` in place of \`joint\`):
+
+${table(d.joint.properties.follow, d.joint.properties.follow.required)}
+
+## Vessel
+
+${schema.properties.vessels.description} See [liquids and gases](fluids.md).
+
+${table(d.vessel, d.vessel.required)}
+
+The \`outlet\`:
+
+${table(d.vessel.properties.outlet, d.vessel.properties.outlet.required)}
+
+## Liquid
+
+${schema.properties.liquids.description}
+
+${table(d.liquid, d.liquid.required)}
+
+## Gas
+
+${schema.properties.gases.description}
+
+${table(d.gas, d.gas.required)}
 
 ## Validating
 

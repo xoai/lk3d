@@ -72,8 +72,9 @@ ended.
 
 - `color` is the drawn and pen looks' colour; `studioColor` the realistic look's. Use a small palette: greys for
   structure, one colour per group the reader must tell apart, a strong colour for the accent.
-- In the pen look every part is near-white except accents, glowing parts and the selected one; vertex colours (atoms)
-  keep half. So in pen, **the accent is the message**.
+- In the pen look accents, glowing parts and the selected one keep their full colour; every other part gets a soft
+  wash of its colour (40 %: grey machine parts stay nearly white), and vertex colours (atoms) keep 70 %. So in pen,
+  **the accent is the message**.
 - Materials (`metal`, `paint`, `plastic`, `glass`, `rubber`, `tissue`, …) matter in the studio look; glass may bend
   light (`refract`).
 

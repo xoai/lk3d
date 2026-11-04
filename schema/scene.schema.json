@@ -469,7 +469,7 @@
         },
         "accent": {
           "type": "boolean",
-          "description": "Keeps its full colour in the pen look (where other parts are near-white)."
+          "description": "Keeps its full colour in the pen look, where other parts get a soft wash of theirs (40 %; vertex colours keep 70 %)."
         },
         "opacity": {
           "type": "number",
@@ -1607,7 +1607,8 @@
       "required": ["id", "part", "inside"],
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "description": "Its name: what liquids, gases and the page (fig.vessel(id)) call it by."
         },
         "part": {
           "type": "string",

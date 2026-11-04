@@ -5,12 +5,12 @@ repository; `npm run examples` serves them), their scenes in `examples/scenes/`.
 
 | Example                                   | Parts                          | What it shows how to do                                                                          |
 | ----------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `gauge.html`: a pressure gauge            | 6                              | a handle that turns between stops, read out for screen readers                                   |
-| `circuit.html`: current in a circuit      | 6                              | particles along a closed path, faster with the voltage                                           |
-| `skull.html`: a fossil skull              | 4                              | a textured glTF scan with its licence, author and source; a caliper the reader moves             |
+| `gauge.html`: a pressure gauge            | 3                              | a handle that turns between stops, read out for screen readers                                   |
+| `circuit.html`: current in a circuit      | 5                              | particles along a closed path, faster with the voltage                                           |
+| `skull.html`: a fossil skull              | 4                              | a textured glTF scan credited (licence, author, source); red dots on its features, each a part   |
 | `flow.html`: air through a ducted fan     | 4                              | flow streaks with colour ramps, `amount` and `speed` from a throttle, slow motion, themes        |
 | `lens.html`: a converging lens on a bench | 8                              | handles along a bench, rays drawn with `lines`, glass that bends light, a true scale bar         |
-| `solar.html`: the inner Solar System      | 9                              | handles along orbits, a night environment, `check.float` for planets                             |
+| `solar.html`: the inner Solar System      | 9                              | handles along orbits (made by the page from the orbit shapes' numbers), a night environment      |
 | `terrain.html`: rock layers               | few                            | `terrain` with tilted layers and a fault                                                         |
 | `molecules.html`: molecules               | 12                             | CPK colours to one scale; two pictures of each molecule shown in turn (`hide`, `check.allow`)    |
 | `generator.html`: an AC generator         | 14                             | take apart, cut open, see through the casing, a rotor turned by hand, a lamp that glows          |

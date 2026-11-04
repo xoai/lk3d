@@ -25,6 +25,8 @@ import { controls } from './controls.js';
 import { pathOf, makeFlow, ramp } from './flow.js';
 import { makeStream } from './stream.js';
 import { tracksOf, motionMatrix, startOf } from './motion.js';
+import { jointsOf, jointOf, solve as solveJoints } from './joints.js';
+import { toGLB } from './gltf-write.js';
 import * as FX from './fluids.js';
 import en from './locales/en.js';
 import vi from './locales/vi.js';
@@ -246,6 +248,7 @@ function mount(el, spec, opts = {}) {
     hover: null,
     selected: null,
     motion: {}, // each motion's value (motion.js)
+    joints: {}, // a joint's value set by the page, over its drive (joints.js)
   };
   // the figure is complete once its first picture is up, the trees for pointing are built, the crease shading is done
   // (there is none in 2D or with ao: false), no texture is still decoding and its edges are found: checked after each
@@ -293,6 +296,19 @@ function mount(el, spec, opts = {}) {
   const motions = spec.motions || [];
   for (const mo of motions) st.motion[mo.id] = startOf(mo);
   for (const p of S.parts) p.tracks = tracksOf(motions, p);
+  // joints (joints.js): parts posed by how they are joined; their matrices worked out once for each set of values
+  const J = jointsOf(spec);
+  for (const p of S.parts) p.joint = jointOf(J, p);
+  let poseKey = null,
+    pose = null;
+  const jointMatrix = (p) => {
+    const k = JSON.stringify([st.motion, st.joints]);
+    if (k !== poseKey) {
+      pose = solveJoints(J, motions, st.motion, st.joints);
+      poseKey = k;
+    }
+    return pose.matrix.get(p.joint.id);
+  };
 
   // ---- liquids and gases (fluids.js): their state, moved on by their laws as time runs (fluidStep, in the frame loop).
   // A vessel pours through its outlet while its valve is open (Torricelli), into the liquid below, as a falling stream;
@@ -583,6 +599,7 @@ function mount(el, spec, opts = {}) {
   function model(p) {
     let m = M.trans(add(mulv(p.explode, st.explode), p.offset));
     if (p.tracks.length) m = M.mul(m, motionMatrix(p.tracks, st.motion));
+    if (p.joint) m = M.mul(m, jointMatrix(p));
     if (p.handleOf) m = M.mul(m, HD.matrix(p.handleOf.h, p.handleOf.v, p.handleOf.m));
     if (p.spin) {
       const a = st.spin * D2R * (p.spin.ratio ?? 1),
@@ -881,6 +898,7 @@ function mount(el, spec, opts = {}) {
           edges: !!edgeTodo && edgesWanted(),
           cut: !!st.cut,
           plane: plane(),
+          hatch: S.radius / 80, // (a cap's hatching: lines this far apart on the cut, a few px when the model fills the view)
           hover: st.hover,
           selected: st.selected,
           dpr: dpr * scale,
@@ -1972,6 +1990,7 @@ function mount(el, spec, opts = {}) {
           const p = S.parts.find((x) => x.id === id);
           if (p) p.emit = mulv(p.glowColor, v);
         }
+      if (o.joints) st.joints = { ...o.joints }; // (each call says all the page sets: a joint not named follows its drive)
       if (o.motion)
         for (const [id, v] of Object.entries(o.motion)) {
           const mo = motions.find((x) => x.id === id);
@@ -1996,6 +2015,30 @@ function mount(el, spec, opts = {}) {
       return () => anim.delete(fn);
     }, // fn(now) returns true while it keeps moving
     pick: pickAt,
+    // the figure as glTF 2.0 binary (.glb bytes), posed as it is now (taken apart, moved, its motions and joints);
+    // { animate: true } adds each motion as an animation along its range (samples: 120 poses)
+    exportGLB(o = {}) {
+      const now = { ...st.motion },
+        animations = [];
+      if (o.animate)
+        for (const mo of motions) {
+          const [a, b] = mo.range,
+            n = o.samples ?? 120,
+            secs = (b - a) / (mo.speed ?? b - a),
+            poses = [];
+          for (let k = 0; k <= n; k++) {
+            st.motion = { ...now, [mo.id]: a + ((b - a) * k) / n };
+            poses.push(new Map(S.parts.map((p) => [p, model(p)])));
+          }
+          animations.push({
+            name: mo.name || mo.id,
+            times: poses.map((_, k) => (secs * k) / n),
+            matrix: (p, k) => poses[k].get(p),
+          });
+        }
+      st.motion = now;
+      return toGLB(S, { matrix: model, animations, unit: spec.unit, title: spec.title });
+    },
     redraw: kick,
     // draw the state as it is now, before returning (a tool that screenshots right after setting it); false while the
     // shaders are still compiling (it draws again on the next frame by itself)

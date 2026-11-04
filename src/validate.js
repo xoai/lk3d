@@ -137,6 +137,57 @@ function links(scene, out) {
       if (Array.isArray(x.inside) && x.inside.some((h, n) => Array.isArray(h) && n && h[0] <= x.inside[n - 1][0]))
         bad('inside', 'heights go up from the bottom to the brim');
     });
+  // joints: one id each, moving parts that exist (a part on one joint only), reading joints and motions that exist,
+  // without a loop; a rod holds a slide, an aim turns
+  const jl = Array.isArray(scene.joints) ? scene.joints : [],
+    jids = new Map(),
+    owner = new Map();
+  jl.forEach((j, i) => {
+    if (!j || typeof j !== 'object') return;
+    if (jids.has(j.id)) out.push({ path: `joints[${i}].id`, message: `${say(j.id)} is used by two joints` });
+    jids.set(j.id, j);
+  });
+  jl.forEach((j, i) => {
+    if (!j || typeof j !== 'object') return;
+    const at = `joints[${i}]`,
+      bad = (field, msg) => out.push({ path: `${at}.${field}`, message: msg });
+    for (const n of Array.isArray(j.parts) ? j.parts : []) {
+      if (!names.has(n)) bad('parts', `moves ${say(n)}, which is no part or group`);
+      else if (owner.has(n) && owner.get(n) !== j.id)
+        bad('parts', `${say(n)} is on joint ${say(owner.get(n))} already`);
+      owner.set(n, j.id);
+    }
+    for (const [field, id] of [
+      ['parent', j.parent],
+      ['follow.joint', j.follow && j.follow.joint],
+      ['rod.joint', j.rod && j.rod.joint],
+      ['aim.joint', j.aim && j.aim.joint],
+    ])
+      if (id != null && !jids.has(id)) bad(field, `${say(id)} is no joint`);
+      else if (id === j.id) bad(field, 'a joint reads another joint, not itself');
+    const d = j.drive && (typeof j.drive === 'string' ? j.drive : j.drive.motion);
+    if (d != null && !mids.has(d)) bad('drive', `${say(d)} is no motion`);
+    if (j.rod && !j.slide) bad('rod', 'a rod holds a slide (a piston): give the joint slide, not turn');
+    if (j.aim && !j.turn) bad('aim', 'an aim turns its parts: give the joint turn, not slide');
+    const given = ['drive', 'follow', 'rod', 'aim'].filter((k) => j[k] != null);
+    if (given.length > 1) bad(given[1], `its value comes from one place: ${given.join(' or ')}`);
+  });
+  // (a loop: a joint that reads itself through others)
+  const jseen = new Map(),
+    reads = (j) =>
+      [j.parent, j.follow && j.follow.joint, j.rod && j.rod.joint, j.aim && j.aim.joint].filter((x) => jids.has(x));
+  const loop = (j) => {
+    if (jseen.get(j.id) === 2) return false;
+    if (jseen.get(j.id) === 1) return true;
+    jseen.set(j.id, 1);
+    const l = reads(j).some((r) => loop(jids.get(r)));
+    jseen.set(j.id, 2);
+    return l;
+  };
+  jl.forEach((j, i) => {
+    if (j && typeof j === 'object' && !jseen.has(j.id) && loop(j))
+      out.push({ path: `joints[${i}]`, message: `${say(j.id)} reads itself through other joints (a loop)` });
+  });
   // motions: one id each; tracks that move parts that exist, with keys in order and within the range
   const ids = new Set();
   (Array.isArray(scene.motions) ? scene.motions : []).forEach((mo, i) => {

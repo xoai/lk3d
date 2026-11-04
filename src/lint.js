@@ -12,6 +12,7 @@ import { buildScene, flatten, isClosed } from './geometry.js';
 import { buildBVH, intersect } from './bvh.js';
 import { M, add, mulv, sub, cross, dot, len, norm } from './math.js';
 import { tracksOf, motionMatrix } from './motion.js';
+import { jointsOf, jointOf, motionsOf, solve as solveJoints } from './joints.js';
 import * as FX from './fluids.js';
 
 const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -0.64, -0.75])];
@@ -236,13 +237,26 @@ export function lint(scene, o = {}) {
   }
   // parts that run into each other as a motion goes through its range (the others at their start): more of one inside
   // the other than with every motion at its start
+  // (a part on a joint is posed by it too: moved by the motion when the joint's value comes from it)
+  const J = jointsOf(scene),
+    joint = parts.map((s) => jointOf(J, s.p)),
+    poses = new Map(),
+    jointAt = (i, v) => {
+      if (!joint[i]) return M.id();
+      const k = JSON.stringify(v);
+      if (!poses.has(k)) poses.set(k, solveJoints(J, scene.motions, v));
+      return poses.get(k).matrix.get(joint[i].id);
+    };
   for (const mo of scene.motions || []) {
     const [a0, a1] = mo.range,
-      keys = mo.tracks.reduce((n, tr) => n + (tr.move || tr.turn.keys).length, 0),
-      n = Math.min(64, Math.max(16, keys * 4)),
+      keys = (mo.tracks || []).reduce((n, tr) => n + (tr.move || (tr.turn && tr.turn.keys) || []).length, 0),
+      n = Math.min(64, Math.max(16, keys * 4, joint.some((j) => j && motionsOf(J, j).has(mo.id)) ? 48 : 0)),
       tracks = parts.map((s) => tracksOf(scene.motions, s.p)),
-      movers = parts.map((s, i) => i).filter((i) => tracks[i].some((x) => x.mo === mo));
-    const rest = parts.map((s, i) => motionMatrix(tracks[i], {}));
+      movers = parts
+        .map((s, i) => i)
+        .filter((i) => tracks[i].some((x) => x.mo === mo) || (joint[i] && motionsOf(J, joint[i]).has(mo.id)));
+    const at = (i, v) => M.mul(motionMatrix(tracks[i], v), jointAt(i, v)),
+      rest = parts.map((s, i) => at(i, {}));
     for (const i of movers)
       for (const [j, b] of parts.entries()) {
         if (j === i || (movers.includes(j) && j < i) || pair(parts[i].p.id, b.p.id)) continue;
@@ -258,12 +272,12 @@ export function lint(scene, o = {}) {
         let worst = 0;
         for (let k = 0; k <= n; k++) {
           const v = { [mo.id]: a0 + ((a1 - a0) * k) / n };
-          worst = Math.max(worst, share(motionMatrix(tracks[i], v), motionMatrix(tracks[j], v)));
+          worst = Math.max(worst, share(at(i, v), at(j, v)));
         }
         if (worst > at0 + 0.03)
           problems.push({
             path: path(a.p),
-            message: `${a.p.id} and ${b.p.id} run into each other as ${mo.id} moves (${Math.round(worst * 100)} % of one inside the other, ${Math.round(at0 * 100)} % at its start): change the motion's keys`,
+            message: `${a.p.id} and ${b.p.id} run into each other as ${mo.id} moves (${Math.round(worst * 100)} % of one inside the other, ${Math.round(at0 * 100)} % at its start): change the motion's keys or joints`,
           });
       }
   }

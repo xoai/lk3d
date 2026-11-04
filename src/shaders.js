@@ -51,6 +51,8 @@ void main() {
 const PART_FS = `
 uniform vec3 uColor; uniform float uAlpha; uniform float uFlat; uniform vec3 uMat;  // (uColor: the outline's)
 uniform vec3 uLight; uniform vec3 uEye; uniform vec4 uPlane; uniform vec3 uCap;
+// (a cap's hatching lies on the cut's plane, every uHatch units: uFwd and uOrtho give the ray from the eye)
+uniform vec3 uFwd; uniform float uOrtho; uniform float uHatch;
 uniform float uDpr; uniform float uAOk; uniform vec3 uPaper; uniform vec3 uSolid;
 varying vec3 vW; varying vec3 vN; varying float vAO; varying vec4 vCol; varying vec3 vO; varying vec4 vIC; varying vec4 vIE;
 #ifdef HIFI
@@ -129,7 +131,17 @@ void main() {
   vec3 C = mix(vIC.rgb, vCol.rgb, vCol.a);  // a vertex's own colour (atoms, bands, layers) where it has one
   vec2 fc = gl_FragCoord.xy / uDpr;
   if (!gl_FrontFacing && cut > 0.5) {  // the inside of a cut part: a cap in the part's colour, hatched
-    float h = step(0.55, fract((fc.x + fc.y) / 7.0));
+    // the inside face is drawn where it is (so a cap shows only where the cut runs through material: an inside face
+    // behind open space, a bore, is hidden by the nearer wall), hatched where the ray to it crosses the cut's plane,
+    // in the plane's own coordinates: the hatching stays put on the section as the camera drifts
+    vec3 rd = uOrtho > 0.5 ? uFwd : vW - uEye;
+    float den = dot(uPlane.xyz, rd);
+    vec3 P = abs(den) > 1e-6 ? vW - rd * ((dot(uPlane.xyz, vW) + uPlane.w) / den) : vW;
+    vec3 ax = normalize(cross(uPlane.xyz, abs(uPlane.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+    float hs = (dot(P, ax) + dot(P, cross(uPlane.xyz, ax))) / max(uHatch, 1e-4), h = step(0.55, fract(hs));
+#ifdef GL2
+    h = mix(h, 0.45, smoothstep(0.15, 0.4, fwidth(hs)));  // (lines too fine for the pixels: their even tone, no moiré)
+#endif
 #ifdef INK
     vec3 cap = mix(C, uCap, 0.35);
 #elif defined(PEN)

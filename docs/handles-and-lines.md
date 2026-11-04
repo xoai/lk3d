@@ -66,6 +66,49 @@ fig.set({ motion: { crank: 90 } });
 for taking apart; `check.allow` excuses a pair by name. Played under reduced motion, a motion goes straight to where
 it would end.
 
+## Joints: parts posed by how they are joined
+
+Keys for every part of a mechanism are a lot of numbers to get right: a piston's stroke is not a sine, a connecting
+rod swings and slides at once. With `joints` (as URDF and the robot viewers have them) only the driver is moved; the
+rest follow from how they are joined, exactly. A joint turns its parts (`turn: { axis, center }`, degrees) or slides
+them (`slide: { axis }`, scene units), and its value comes from one place:
+
+- `drive`: a motion's value (`"cycle"`), or scaled (`{ "motion": "cycle", "ratio": 0.5 }`), or read off keys;
+- `follow`: another joint's (`{ "joint": "crank", "ratio": 0.5 }` for a cam at half speed; `keys` for a cam's lift);
+- `rod`: a slide held by a rod of fixed length, from `at` (a point carried by `joint`) to `pin` (a point of its own
+  parts): a piston, solved in closed form at every value;
+- `aim`: a turn that keeps its parts pointing at `at` (carried by `joint`): the connecting rod;
+- or the page: `fig.set({ joints: { crank: 90 } })`, over a drive.
+
+`parent` carries a joint's parts with another joint first (the rod rides on its piston). Every point and axis is
+written where the parts are drawn: at rest, every joint at 0.
+
+```json
+"motions": [{ "id": "cycle", "name": "Crank", "range": [0, 720], "loop": true, "speed": 180 }],
+"joints": [
+  { "id": "crank", "parts": ["crankshaft"], "turn": { "axis": [1, 0, 0], "center": [0, 0, 0] }, "drive": "cycle" },
+  { "id": "piston", "parts": ["piston", "pin"], "slide": { "axis": [0, 1, 0] },
+    "rod": { "joint": "crank", "at": [0, 0.4, 0], "pin": [0, 1.7, 0] } },
+  { "id": "rod", "parent": "piston", "parts": ["conrod"], "turn": { "axis": [1, 0, 0], "center": [0, 1.7, 0] },
+    "aim": { "joint": "crank", "at": [0, 0.4, 0] } },
+  { "id": "cam", "parts": ["camshaft"], "turn": { "axis": [1, 0, 0], "center": [0, 2.6, 0] },
+    "follow": { "joint": "crank", "ratio": 0.5 } }
+]
+```
+
+A motion that only drives joints needs no `tracks`. The validator checks that what a joint names exists, that a part
+is on one joint, that a rod holds a slide and an aim a turn, and that no joint reads itself through others; `lk3d
+check` runs the motions through their range with the joints posed, as it does for keys.
+
+## Exporting: glTF
+
+`fig.exportGLB({ animate })` gives the figure as glTF 2.0 binary (a `Uint8Array`), posed as it is now: each part a
+node named as the scene names it (its id and note under `extras.lk3d`), with its mesh, vertex colours and a material
+from its studio colour and material; one root node scaled from the scene's `unit` to metres. `animate: true` adds
+each motion as an animation along its range at its speed (keys and joints both). From the command line:
+`lk3d export scene.json [out.glb] [--animate] [--motion crank=90]`. Textures, lines, labels and flows are not
+written.
+
 ## Lines: rays, field lines, forces
 
 ```js

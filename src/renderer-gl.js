@@ -865,6 +865,11 @@ function glRenderer(gl, scene, opts = {}) {
       common(prog, f);
       gl.uniform3fv(u.uLight, f.look.light);
       gl.uniform3fv(u.uCap, f.look.cap);
+      if (u.uHatch) {
+        gl.uniform3fv(u.uFwd, f.fwd);
+        gl.uniform1f(u.uOrtho, f.viewD ? 1 : 0);
+        gl.uniform1f(u.uHatch, f.hatch || 0.02);
+      }
       gl.uniform1f(u.uDpr, f.dpr);
       gl.uniform1f(u.uAOk, f.ao ? 1 : 0);
       if (u.uPaper) gl.uniform3fv(u.uPaper, f.look.paper);

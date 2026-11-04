@@ -7,6 +7,9 @@
 //                          [--out DIR]
 //       PNG pictures, one per look and pose, drawn by the real engine in a headless browser (Playwright); without
 //       Playwright it says so: the scene is then not checked by eye
+//   lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
+//       the scene as glTF 2.0 binary (Blender, game engines, viewers): parts as named nodes with their materials, posed
+//       at the motions' starts (or --motion), each motion an animation with --animate
 // A model given as a file ("file": "heart.glb") is read in, as a build would: from beside the scene, or beside the page
 // one folder up (as the examples keep them), or from where lk3d runs.
 import fs from 'node:fs';
@@ -15,10 +18,11 @@ import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { validate } from '../src/validate.js';
 import { lint } from '../src/lint.js';
+import { sceneToGLB } from '../src/gltf-write.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 // the words on the command line: flags (--name, or --name value) anywhere, the rest in order (the command, the file)
-const VALUED = new Set(['looks', 'poses', 'theme', 'width', 'out']),
+const VALUED = new Set(['looks', 'poses', 'theme', 'width', 'out', 'motion']),
   flags = {},
   words = [];
 for (const args = process.argv.slice(2); args.length;) {
@@ -37,6 +41,7 @@ const fail = (message, code = 2) => {
 const LOOKS = ['pen', 'studio', 'ink'],
   POSES = ['rest', 'apart', 'cut'];
 const USAGE = `usage: lk3d check scene.json [--json]
+       lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
        lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut] [--theme NAME] [--ortho] [--width 640] [--out DIR]`;
 
 function load(f) {
@@ -51,6 +56,26 @@ function load(f) {
       m.data = fs.readFileSync(at).toString('base64');
     }
   return scene;
+}
+
+function exportGLB(f, out) {
+  const scene = load(f),
+    problems = validate(scene);
+  if (problems.length)
+    return fail(`not a valid scene (lk3d check ${path.basename(f)}): ${problems[0].path}: ${problems[0].message}`, 1);
+  const motion = Object.fromEntries(
+    String(flag('motion', ''))
+      .split(',')
+      .filter(Boolean)
+      .map((kv) => [kv.split('=')[0], +kv.split('=')[1]]),
+  );
+  const glb = sceneToGLB(scene, { motion, animate: !!flag('animate') }),
+    to = out || f.replace(/\.json$/i, '') + '.glb';
+  fs.writeFileSync(to, glb);
+  console.log(
+    `${to}: ${(glb.length / 1e6).toFixed(1)} MB` +
+      (flag('animate') ? `, ${(scene.motions || []).length} animation(s)` : ''),
+  );
 }
 
 function check(f) {
@@ -175,6 +200,7 @@ async function render(f) {
 try {
   if (cmd === 'check' && file) check(file);
   else if (cmd === 'render' && file) await render(file);
+  else if (cmd === 'export' && file) exportGLB(file, words[2]);
   else if (!cmd || cmd === 'help' || flags.help) console.log(USAGE);
   else {
     console.error(USAGE);

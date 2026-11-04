@@ -80,6 +80,13 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
 - **Motions** (`motions` in the scene, `fig.motion(id)`): parts that move together as one value goes along a range
   (a crank and its piston, a sleeve sliding back), written as keyframes; a slider and a play button for a named one;
   `lk3d check` runs each through its range and reports parts that run into each other on the way.
+- **Joints** (`joints` in the scene, `set({ joints })`): parts posed by how they are joined instead of keys for each
+  (a crank driven by a motion, a piston held by its rod in closed form, the rod aimed at the crank pin, a cam
+  following at half speed, joints carried by a parent); validated, and run through their motions by `lk3d check`.
+- **glTF export** (`fig.exportGLB()`, `lk3d export`): parts as named nodes with their meshes and materials, posed as
+  shown, motions as animations.
+- **Cut faces hatched on the cut's plane**: the hatching lies across the section and stays put as the camera moves
+  (it was fixed to the screen).
 - **Parts alike drawn together**: the batches of one shape on solid parts of one material are drawn in one instanced
   call per pass, each copy with its part's state; ten thousand alike parts keep 60 frames a second (they took 66 ms a
   frame).

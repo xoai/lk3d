@@ -161,6 +161,13 @@
         "$ref": "#/$defs/motion"
       }
     },
+    "joints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/joint"
+      },
+      "description": "Parts posed by how they are joined, not by keys for each: a crank driven by a motion, a piston held by its rod, a rod aimed at the crank pin, a cam that follows at half speed. A joint's value comes from a motion, another joint, a rod, an aim, or the page (set({ joints }))."
+    },
     "scale": {
       "description": "Honest scale: a bar that keeps its true length as the view zooms, and/or a note saying what is not to scale.",
       "type": "object",
@@ -1472,7 +1479,7 @@
     "motion": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "range", "tracks"],
+      "required": ["id", "range"],
       "properties": {
         "id": {
           "type": "string",
@@ -1589,7 +1596,8 @@
               }
             ],
             "x-message": "a track moves its parts (move), turns them (turn), or both"
-          }
+          },
+          "description": "Parts it moves by keys (none when it only drives joints)."
         }
       }
     },
@@ -1728,6 +1736,180 @@
           "description": "The piston's mass, kilograms (0): its weight adds to the pressure."
         }
       }
+    },
+    "joint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "parts"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique among the scene's joints: what the page and other joints name it by."
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Part ids or groups it moves (a part on one joint only)."
+        },
+        "parent": {
+          "type": "string",
+          "description": "A joint whose movement its parts share first (a rod rides on its piston)."
+        },
+        "turn": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["axis"],
+          "description": "It turns its parts: degrees about axis through center.",
+          "properties": {
+            "axis": {
+              "$ref": "#/$defs/vec3"
+            },
+            "center": {
+              "$ref": "#/$defs/vec3"
+            }
+          }
+        },
+        "slide": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["axis"],
+          "description": "It slides its parts: scene units along axis.",
+          "properties": {
+            "axis": {
+              "$ref": "#/$defs/vec3"
+            }
+          }
+        },
+        "value": {
+          "type": "number",
+          "description": "Its value when nothing drives it (0: as the parts are drawn)."
+        },
+        "drive": {
+          "description": "Its value from a motion: the motion's own value (its id), or scaled or read off keys.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "ratio": {
+                  "type": "number",
+                  "description": "Its value is the other's times ratio (1), plus offset."
+                },
+                "offset": {
+                  "type": "number",
+                  "description": "Added to the scaled value (0)."
+                },
+                "keys": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "description": "Keys [the other's value, this joint's value], in order: a cam's lift, a gear train that isn't a ratio."
+                },
+                "motion": {
+                  "type": "string",
+                  "description": "The motion's id."
+                }
+              },
+              "required": ["motion"]
+            }
+          ]
+        },
+        "follow": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ratio": {
+              "type": "number",
+              "description": "Its value is the other's times ratio (1), plus offset."
+            },
+            "offset": {
+              "type": "number",
+              "description": "Added to the scaled value (0)."
+            },
+            "keys": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "description": "Keys [the other's value, this joint's value], in order: a cam's lift, a gear train that isn't a ratio."
+            },
+            "joint": {
+              "type": "string",
+              "description": "The joint it follows."
+            }
+          },
+          "required": ["joint"],
+          "description": "Its value from another joint's: a gear (ratio), a cam's follower (keys)."
+        },
+        "rod": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["joint", "at", "pin"],
+          "description": "A slide held by a rod of fixed length (a piston): from at, a point carried by joint, to pin, a point of its own parts; the rod is as long as they are apart at rest.",
+          "properties": {
+            "joint": {
+              "type": "string"
+            },
+            "at": {
+              "$ref": "#/$defs/vec3"
+            },
+            "pin": {
+              "$ref": "#/$defs/vec3"
+            }
+          }
+        },
+        "aim": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["joint", "at"],
+          "description": "A turn that keeps its parts pointing at at, a point carried by joint (a connecting rod, on its piston, aimed at the crank pin).",
+          "properties": {
+            "joint": {
+              "type": "string"
+            },
+            "at": {
+              "$ref": "#/$defs/vec3"
+            }
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["turn"]
+        },
+        {
+          "required": ["slide"]
+        }
+      ],
+      "x-message": "a joint turns its parts (turn) or slides them (slide)"
     }
   }
 }

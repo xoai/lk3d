@@ -60,7 +60,8 @@ only when they are real **and** part of the explanation: the tyre a pump fills, 
 Show the inside without a click when the inside is the idea: a `section` and `set({cut: true})` at the start.
 
 Map the idea to the object: which part does the work (the **accent**, `accent: true`, one or two at most), what moves
-(spin, handles, `motions` for a mechanism's sequence (a sleeve sliding back, a crank and its piston), flow streaks
+(spin, handles, `motions` for a mechanism's sequence (a sleeve sliding back), `joints` for linkages (a crank, its piston held by
+the rod, the rod aimed at the pin, a cam at half speed: exact, without keys for each part), flow streaks
 inside it, streams of air or gas around it, liquids in vessels and gases under pistons that move by their laws
 (`vessels`, `liquids`, `gases`: a funnel pouring, a piston rising as the gas is heated)), what is inside (cut open with `section`, see-through casings with `xray`), what comes apart and
 in which direction (`explode`).

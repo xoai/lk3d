@@ -44,6 +44,10 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
   path (a planet on its orbit), each also a range input for the keyboard and screen readers. Rays, field lines and
   forces as lines; streaks of air or blood flowing along paths, coloured cool to hot, as many and as fast as a page
   value says ([flow](docs/handles-and-lines.md#flow)); particles along paths; solid balls a simulation places.
+- **Mechanisms that move as they are joined**: a crank turns and its piston, rod and cam follow exactly, from joints
+  rather than keys for each part ([joints](docs/handles-and-lines.md#joints-parts-posed-by-how-they-are-joined)).
+- **Out to glTF**: the figure as a .glb for Blender, a game engine or a viewer, its motions as animations
+  (`fig.exportGLB()`, `lk3d export`).
 - **Liquids and gases by their laws**: a liquid fills its vessel to the level its volume gives, by the vessel's own
   shape, and pours through an open stopcock by Torricelli's law into the vessel below, as a falling stream; liquids
   stack by density; a gas holds its piston where pV = nRT puts it; warm air rises as a buoyant plume

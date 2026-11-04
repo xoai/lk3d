@@ -24,7 +24,9 @@ export function between(keys, t, ease) {
 // the tracks that move a part (it is named, or its group), with their motion
 export const tracksOf = (motions, p) =>
   (motions || []).flatMap((mo) =>
-    (mo.tracks || []).filter((tr) => tr.parts.some((n) => n === p.id || n === p.group)).map((tr) => ({ mo, tr })),
+    (mo.tracks || [])
+      .filter((tr) => (tr.parts || []).some((n) => n === p.id || n === p.group))
+      .map((tr) => ({ mo, tr })),
   );
 
 // a motion's value when none is given: where the scene starts it

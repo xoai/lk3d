@@ -46,6 +46,8 @@ export interface Scene {
   section?: false | { normal?: Vec3; offset?: number };
   /** parts that move together as one value goes along a range (a crank turning, a sleeve sliding back) */
   motions?: Motion[];
+  /** parts posed by how they are joined: a crank driven by a motion, a piston held by its rod, a rod aimed at the pin */
+  joints?: Joint[];
   /** what one scene unit is (m): the laws of liquids and gases are worked out in it */
   unit?: 'mm' | 'cm' | 'dm' | 'm' | 'km';
   /** parts that hold liquids or a gas */
@@ -298,7 +300,8 @@ export interface Motion {
   loop?: boolean;
   /** how far along its range it goes in a second when played (the whole range) */
   speed?: number;
-  tracks: Array<{
+  /** parts it moves by keys (none when it only drives joints) */
+  tracks?: Array<{
     /** part ids or groups */
     parts: string[];
     move?: Array<[number, Vec3]>;
@@ -306,6 +309,33 @@ export interface Motion {
     /** a smooth start and stop at each key */
     ease?: boolean;
   }>;
+}
+/** a value read off another: times ratio (1) plus offset (0), or off keys [the other's value, this one's] */
+export interface Scaled {
+  ratio?: number;
+  offset?: number;
+  keys?: Array<[number, number]>;
+}
+/** parts posed by a joint: turned about an axis through center, or slid along an axis (points as drawn, at rest) */
+export interface Joint {
+  /** unique among the scene's joints */
+  id: string;
+  /** part ids or groups it moves (a part on one joint only) */
+  parts: string[];
+  /** a joint whose movement its parts share first */
+  parent?: string;
+  turn?: { axis: Vec3; center?: Vec3 };
+  slide?: { axis: Vec3 };
+  /** its value when nothing drives it (0: as drawn) */
+  value?: number;
+  /** its value from a motion: the motion's own value, or scaled */
+  drive?: string | (Scaled & { motion: string });
+  /** its value from another joint (a gear: ratio; a cam's follower: keys) */
+  follow?: Scaled & { joint: string };
+  /** a slide held by a rod as long as `at` (carried by joint) and `pin` (its own) are apart at rest */
+  rod?: { joint: string; at: Vec3; pin: Vec3 };
+  /** a turn that keeps its parts pointing at `at`, carried by joint */
+  aim?: { joint: string; at: Vec3 };
 }
 export interface Vessel {
   id: string;
@@ -563,8 +593,12 @@ export interface Figure {
     move?: Record<string, Vec3>;
     /** motions' values, by id */
     motion?: Record<string, number>;
+    /** joints' values, by id, over their drives (a joint held by a rod or an aim keeps to it); each call replaces the last */
+    joints?: Record<string, number>;
   }): void;
   /** a motion of the scene, to set or play */
+  /** the figure as glTF 2.0 binary (.glb), posed as it is now; animate: each motion as an animation */
+  exportGLB(o?: { animate?: boolean; samples?: number }): Uint8Array;
   motion(id: string): MotionHandle | undefined;
   /** a liquid by its part: its volume, its surface's height in the scene; set its volume */
   liquid(

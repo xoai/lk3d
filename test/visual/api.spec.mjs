@@ -299,10 +299,14 @@ test('a gas holds its piston where pV = nRT puts it: half as hot again, half as 
       h0 = gas.height,
       seat0 = piston().lo[1] + piston().m[13];
     gas.set({ T: 293 * 1.5 });
-    await new Promise((res) => setTimeout(res, 3000));
+    // until it has settled (it eases in by frames, which a machine drawing in software gives slowly), 20 s at most
+    for (let t = 0, last = NaN; t < 20000 && gas.height !== last; t += 1000) {
+      last = gas.height;
+      await new Promise((res) => setTimeout(res, 1000));
+    }
     return { h0, h1: gas.height, seat0, seat1: piston().lo[1] + piston().m[13] };
   });
-  expect(r.h1 - 0.2).toBeCloseTo(1.5 * (r.h0 - 0.2), 2); // (above the inside's floor at 0.2; still easing in)
+  expect(r.h1 - 0.2).toBeCloseTo(1.5 * (r.h0 - 0.2), 2); // (above the inside's floor at 0.2)
   expect(r.seat0).toBeCloseTo(r.h0, 5); // (the piston sits on the gas)
   expect(r.seat1).toBeCloseTo(r.h1, 5);
 });

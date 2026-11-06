@@ -590,3 +590,56 @@ test('exportGLB needs the exporter, which a page loads as a script of its own', 
   });
   expect(head).toEqual(['glTF', true]);
 });
+
+test("the figure's own credit: © its author (linked only to a web page) and its licence, before the models'", async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const credit = async (o) => {
+      const fig = LK3D.mount(document.getElementById('g'), { ...window.scene, ...o }, {});
+      await fig.ready;
+      const c = document.querySelector('#g .lk3d-credit');
+      return c && { text: c.textContent, links: [...c.querySelectorAll('a')].map((a) => a.getAttribute('href')) };
+    };
+    return {
+      own: await credit({ author: 'xoai', license: 'CC BY-NC-ND 4.0', url: 'https://example.org/' }),
+      both: await credit({
+        author: 'xoai',
+        license: 'CC BY-NC-ND 4.0',
+        url: 'javascript:window.hit=1',
+        models: { m: { data: '', title: 'M', author: 'Y', license: 'CC0' } },
+      }),
+      licence: await credit({ license: 'CC0' }),
+      none: await credit({}),
+    };
+  });
+  expect(r.own).toEqual({ text: '© xoai, CC BY-NC-ND 4.0', links: ['https://example.org/'] });
+  expect(r.both.text).toBe('© xoai, CC BY-NC-ND 4.0. 3D model: M, Y, CC0');
+  expect(r.both.links).toEqual([]); // (not a web address: the name as words)
+  expect(r.licence.text).toBe('CC0');
+  expect(r.none).toBeNull();
+});
+
+test("lk3d's mark is in the corner of every figure, in view, in every look", async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const out = [];
+    for (const style of ['pen', 'studio']) {
+      const fig = mountIt({ style });
+      await fig.ready;
+      const m = document.querySelector('#g .lk3d-stage .lk3d-mark'),
+        s = document.querySelector('#g .lk3d-stage').getBoundingClientRect(),
+        b = m.getBoundingClientRect(),
+        cs = getComputedStyle(m);
+      out.push({
+        text: m.textContent,
+        inside: b.left >= s.left && b.top >= s.top && b.right <= s.right && b.bottom <= s.bottom && b.width > 10,
+        shown: cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity >= 0.8,
+      });
+    }
+    return out;
+  });
+  expect(r).toEqual([
+    { text: 'lk3d', inside: true, shown: true },
+    { text: 'lk3d', inside: true, shown: true },
+  ]);
+});

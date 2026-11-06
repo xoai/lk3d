@@ -87,6 +87,12 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
 - **glTF export** (`fig.exportGLB()`, `lk3d export`): parts as named nodes with their meshes and materials, posed as
   shown, motions as animations when asked (`{ animate: true }`, `--animate`). The exporter is apart from the global
   script: load `dist/lk3d-export.min.js` after it, or import `lk3d/export` (`dist/lk3d.mjs` has it).
+- **lk3d's mark on every figure**: its name in the figure's top-left corner, in every look and in the 2D fallback, so
+  what drew the figure is in view with it (and in a screenshot of it); the MIT notice heads every built file. The size
+  budget goes from 56 to 57 KB for them.
+- **A figure's own credit**: a scene's `author`, `license` and `url` are credited under the figure ("© author,
+  licence", the name linked only to a web address) before its models', and written into an exported .glb as glTF's
+  `copyright`.
 - **A tree is the same tree at every detail**: its form is drawn at full detail always, so a phone and the 2D fallback
   (which build shapes coarser) show the branches a laptop does; they showed another tree.
 - **A scene's words stay words**: a model's credit links only to a web address (`http`/`https`; the schema refuses
@@ -109,5 +115,5 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
   as a projectile under continuity; a gas holds its piston where pV = nRT puts it; a plume rises and widens as a
   buoyant one does. `lk3d check` catches overfull and overflowing vessels, an inside wider than the glass and a piston
   pushed out ([liquids and gases](docs/fluids.md)).
-- **Small and fast**: 55.8 KB gzipped (140 KB minified), against a budget of 56 KB that `npm run size` enforces;
+- **Small and fast**: 56.1 KB gzipped (141 KB minified), against a budget of 57 KB that `npm run size` enforces;
   draws only on change, pauses off screen, adapts its resolution.

@@ -447,6 +447,10 @@ function mount(el, spec, opts = {}) {
   const hint = document.createElement('div');
   hint.className = 'lk3d-hint';
   hint.textContent = matchMedia('(pointer: coarse)').matches ? T.hintTouch : T.hintMouse;
+  // the engine's name in the corner of every figure it draws: what drew it, in view with it (a screenshot keeps it)
+  const mark = document.createElement('span');
+  mark.className = 'lk3d-mark';
+  mark.textContent = 'lk3d';
   // the scale, honestly: a bar that keeps its true length as the view zooms, and/or a note ("not to scale")
   const scaleEl = spec.scale ? document.createElement('div') : null;
   if (scaleEl) {
@@ -457,26 +461,34 @@ function mount(el, spec, opts = {}) {
     if (spec.scale.bar) scaleEl.querySelector('.lk3d-bar-label').textContent = spec.scale.bar.label;
     if (spec.scale.note) scaleEl.querySelector('.lk3d-note').textContent = spec.scale.note;
   }
-  stage.append(cv, svg, tags, hint, ...(scaleEl ? [scaleEl] : []));
+  stage.append(cv, svg, tags, hint, mark, ...(scaleEl ? [scaleEl] : []));
   el.append(stage);
-  // models made by others: their authors and licences, under the figure (CC BY asks for it)
-  const credits = Object.entries(spec.models || {});
-  if (credits.length) {
+  // under the figure: whose it is and on what terms (the scene's author and licence), then the models made by others,
+  // their authors and licences (CC BY asks for it)
+  const credits = Object.entries(spec.models || {}),
+    whose = spec.author || spec.license;
+  if (whose || credits.length) {
     const c = document.createElement('p');
     c.className = 'lk3d-credit';
-    c.append(T.credit);
-    credits.forEach(([name, m], k) => {
-      if (k) c.append('; ');
-      // (a link only to a web page: not javascript: or data:, whatever the scene says)
-      const web = /^https?:\/\//i.test(m.url),
+    // (a link only to a web page: not javascript: or data:, whatever the scene says)
+    const link = (text, url) => {
+      const web = /^https?:\/\//i.test(url),
         a = document.createElement(web ? 'a' : 'span');
-      a.textContent = m.title || name;
+      a.textContent = text;
       if (web) {
-        a.href = m.url;
+        a.href = url;
         a.target = '_blank';
         a.rel = 'noopener';
       }
-      c.append(a, `, ${m.author}, ${m.license}` + (m.source === 'ai' ? T.ai : ''));
+      return a;
+    };
+    if (spec.author) c.append('© ', link(spec.author, spec.url));
+    if (spec.license) c.append((spec.author ? ', ' : '') + spec.license);
+    if (whose && credits.length) c.append('. ');
+    if (credits.length) c.append(T.credit);
+    credits.forEach(([name, m], k) => {
+      if (k) c.append('; ');
+      c.append(link(m.title || name, m.url), `, ${m.author}, ${m.license}` + (m.source === 'ai' ? T.ai : ''));
     });
     el.append(c);
   }
@@ -2041,7 +2053,15 @@ function mount(el, spec, opts = {}) {
           });
         }
       st.motion = now;
-      return LK3D.toGLB(S, { matrix: model, animations, unit: spec.unit, title: spec.title, flatten });
+      return LK3D.toGLB(S, {
+        matrix: model,
+        animations,
+        unit: spec.unit,
+        title: spec.title,
+        author: spec.author,
+        license: spec.license,
+        flatten,
+      });
     },
     redraw: kick,
     // draw the state as it is now, before returning (a tool that screenshots right after setting it); false while the

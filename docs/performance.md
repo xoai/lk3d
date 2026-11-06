@@ -7,13 +7,13 @@ it, keep the tab in front, press Run).
 
 ## Size
 
-The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 56 KB gzipped: `npm run size` fails past
+The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 57 KB gzipped: `npm run size` fails past
 it, and the CI workflow runs it. The glTF exporter is a script of its own, `dist/lk3d-export.min.js` (3.8 KB, 2.0 KB
 gzipped), outside the budget: a page loads it only to export.
 
 |                                                                                                                                         | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d 0.1.0                                                                                                                              | 140.5 KB | 55.8 KB |
+| lk3d 0.1.0                                                                                                                              | 141.2 KB | 56.1 KB |
 | three.js r187, the smallest page (renderer, camera, box, basic material)                                                                | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, orbit controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 

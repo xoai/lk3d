@@ -28,6 +28,20 @@
       "type": "string",
       "description": "What the figure shows; also the canvas's label when alt is not given."
     },
+    "author": {
+      "type": "string",
+      "description": "Who made the figure: credited under it (© author), and written into an exported .glb."
+    },
+    "license": {
+      "type": "string",
+      "description": "The terms the figure is under (\"CC BY-NC-ND 4.0\", \"all rights reserved\"): credited under it, after its author, and written into an exported .glb."
+    },
+    "url": {
+      "type": "string",
+      "pattern": "^https?://",
+      "x-message": "a figure's url is a web address (https://…): the credit links its author to it",
+      "description": "Where the figure comes from: a web address (http or https), which the author's name in the credit links to."
+    },
     "alt": {
       "type": "string",
       "description": "A description of the model for screen readers."

@@ -122,3 +122,11 @@ test('the exporter is apart from the engine: lk3d/export sets it, and the global
   const has = (f) => fs.readFileSync(dist(f), 'utf8').includes('generator:"lk3d"'); // (the writer's asset record)
   assert.deepEqual([has('lk3d.min.js'), has('lk3d-export.min.js'), has('lk3d.mjs')], [false, true, true]);
 });
+
+test("the figure's author and licence go into the .glb as glTF's copyright, and nothing when it has neither", () => {
+  const { parseGLB } = require('../src/gltf.js');
+  const asset = (o) => parseGLB(sceneToGLB({ ...SCENE, ...o })).json.asset;
+  assert.equal(asset({ author: 'xoai', license: 'CC BY-NC-ND 4.0' }).copyright, '© xoai, CC BY-NC-ND 4.0');
+  assert.equal(asset({ license: 'CC0' }).copyright, 'CC0');
+  assert.equal(asset({}).copyright, undefined);
+});

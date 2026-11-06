@@ -37,7 +37,8 @@ export function trs(m) {
 }
 
 // S: the built scene (buildScene); o.matrix(p): where each part is now (default: as drawn); o.animations: [{ name,
-// times: [s, …], matrix(p, k): the part's matrix at the k-th time }]; o.unit, o.title; o.flatten: geometry.js's flatten,
+// times: [s, …], matrix(p, k): the part's matrix at the k-th time }]; o.unit, o.title, o.author and o.license (glTF's
+// copyright: "© author, licence"); o.flatten: geometry.js's flatten,
 // passed in, so the exporter's own script (export-script.js) carries no second copy of the shapes. → the .glb's bytes
 export function toGLB(S, o = {}) {
   const chunks = [],
@@ -166,7 +167,13 @@ export function toGLB(S, o = {}) {
   const k = UNIT[o.unit] ?? 1;
   nodes.push({ name: o.title || 'lk3d', children: nodes.map((_, i) => i), ...(k !== 1 && { scale: [k, k, k] }) });
   const json = {
-    asset: { version: '2.0', generator: 'lk3d' },
+    asset: {
+      version: '2.0',
+      generator: 'lk3d',
+      ...((o.author || o.license) && {
+        copyright: [o.author && '© ' + o.author, o.license].filter(Boolean).join(', '),
+      }),
+    },
     scene: 0,
     scenes: [{ name: o.title || 'lk3d', nodes: [nodes.length - 1] }],
     nodes,
@@ -228,5 +235,13 @@ export function sceneToGLB(spec, o = {}) {
           poses = Array.from({ length: n + 1 }, (_, k) => at({ ...now, [mo.id]: a + ((b - a) * k) / n }));
         return { name: mo.name || mo.id, times: poses.map((_, k) => (secs * k) / n), matrix: (p, k) => poses[k](p) };
       });
-  return toGLB(S, { matrix: at(now), animations, unit: spec.unit, title: spec.title, flatten });
+  return toGLB(S, {
+    matrix: at(now),
+    animations,
+    unit: spec.unit,
+    title: spec.title,
+    author: spec.author,
+    license: spec.license,
+    flatten,
+  });
 }

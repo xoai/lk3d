@@ -14,6 +14,12 @@ export interface Scene {
   h?: number;
   narrow?: string;
   title?: string;
+  /** who made the figure: credited under it (© author) and written into an exported .glb */
+  author?: string;
+  /** the terms the figure is under ("CC BY-NC-ND 4.0"): credited after its author, written into an exported .glb */
+  license?: string;
+  /** where the figure comes from (http or https): the author's name in the credit links to it */
+  url?: string;
   /** a description of the model for screen readers */
   alt?: string;
   /** the first look: drawn (default), realistic, or near-white with thin lines */

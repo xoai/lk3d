@@ -17,7 +17,8 @@ scene.models = {
 scene.parts = [{ id: 'skull', name: 'Skull', shapes: [{ model: 'skull' }] }]; // or { model, node: 'Jaw' }: one node
 ```
 
-Each model is credited under the figure: its title (linked to `url`), author and licence.
+Each model is credited under the figure: its title (linked to `url`), author and licence, after the figure's own
+credit when the scene has an `author` or `license` ("© author, licence. 3D model: …").
 
 ## What is read
 

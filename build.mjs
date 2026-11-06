@@ -19,7 +19,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url)),
 const EXPORTER = path.join(HERE, 'src/export-script.js'),
   MODULE = path.join(HERE, 'src/export.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this without a decision to raise it
-export const BUDGET_KB = 56;
+export const BUDGET_KB = 57;
 
 export const squeeze = (glsl) =>
   glsl
@@ -44,8 +44,12 @@ const glsl = {
     }));
   },
 };
+// the licence's notice, kept at the top of every built file (and so in every copy of it): MIT asks that it stays
+const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
+export const BANNER = `/*! lk3d ${version} | MIT License | Copyright (c) 2026 xoai */`;
 const options = (format, entry) => ({
   entryPoints: [entry],
+  banner: { js: BANNER },
   bundle: true,
   write: false,
   format,

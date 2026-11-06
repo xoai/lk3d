@@ -75,7 +75,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 140 KB   | 55.8 KB |
+| lk3d                                                                                                                              | 141 KB   | 56.1 KB |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
@@ -125,7 +125,7 @@ fig.set({ explode: 1 });
 npm install
 npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # fails if the bundle is over its budget (56 KB gzipped, BUDGET_KB in build.mjs)
+npm run size           # fails if the bundle is over its budget (57 KB gzipped, BUDGET_KB in build.mjs)
 npm run test:visual    # reference scenes compared with stored pictures (stored for Chromium and Firefox on macOS)
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again
@@ -137,4 +137,7 @@ folder with its history, kept in step ([contributing](https://github.com/xoai/lk
 
 ## Licence
 
-MIT.
+MIT: the engine; its notice heads every built file, and stays with every copy of it. A figure you make with it is yours,
+under the terms you choose: give the scene its `author` and `license` (and a `url`), and lk3d credits it under the figure
+("© author, licence") and writes them into an exported .glb as glTF's `copyright`. lk3d's own name sits in the corner of
+every figure it draws, and an exported .glb names it as its `generator`.

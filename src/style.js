@@ -27,6 +27,8 @@ function css() {
 .lk3d-hint{position:absolute; left:10px; bottom:8px; font-size:13px; color:var(--lk3d-muted, #6b6670); background:rgba(247,245,239,.85); padding:1px 7px; border-radius:4px; pointer-events:none; transition:opacity .4s}
 .lk3d-stage[data-look="studio"] .lk3d-hint{color:#c9d1dc; background:rgba(10,12,16,.6)}
 .lk3d-hint.gone{opacity:0}
+.lk3d-mark{position:absolute; left:9px; top:7px; font:700 12px/1.3 system-ui, sans-serif; letter-spacing:.03em; color:var(--lk3d-muted, #6b6670); pointer-events:none}
+.lk3d-stage[data-look="studio"] .lk3d-mark{color:#c9d1dc}
 .lk3d-scale{position:absolute; right:10px; bottom:8px; max-width:62%; text-align:right; line-height:1.25; display:flex; flex-direction:column; align-items:flex-end; gap:2px; pointer-events:none; font-size:13px; color:var(--lk3d-ink, #1d1a1e)}
 .lk3d-bar-line{display:block; width:100px; height:6px; border:1.5px solid currentColor; border-top:0; transform-origin:right center}
 .lk3d-note{background:rgba(247,245,239,.88); padding:1px 7px; border-radius:4px; color:var(--lk3d-warn, #b8352b)}
@@ -34,7 +36,7 @@ function css() {
 .lk3d-stage[data-theme] .lk3d-tag{background:var(--lk3d-paper); color:var(--lk3d-ink); border:1px solid var(--lk3d-line); font-family:system-ui, sans-serif; font-size:12.5px}
 .lk3d-stage[data-theme] .lk3d-tag.on{background:var(--lk3d-highlight); color:var(--lk3d-ink)}
 .lk3d-stage[data-theme] .lk3d-lines line{stroke:var(--lk3d-line); stroke-width:.8} .lk3d-stage[data-theme] .lk3d-lines circle{fill:var(--lk3d-line)}
-.lk3d-stage[data-theme] .lk3d-hint{color:var(--lk3d-muted); background:var(--lk3d-paper)}
+.lk3d-stage[data-theme] .lk3d-hint{color:var(--lk3d-muted); background:var(--lk3d-paper)} .lk3d-stage[data-theme] .lk3d-mark{color:var(--lk3d-muted)}
 .lk3d-stage[data-theme] .lk3d-scale{color:var(--lk3d-ink)} .lk3d-stage[data-theme] .lk3d-note{background:var(--lk3d-paper); color:var(--lk3d-warn)}
 .lk3d-sr{position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 .lk3d-stage.lk3d-kbd{box-shadow:0 0 0 2px var(--lk3d-accent, #2f5fb3)}

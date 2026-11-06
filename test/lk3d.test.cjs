@@ -1022,6 +1022,7 @@ test('the validator finds each planted mistake where it is, and passes a right s
     [{ parts: [part({ shapes: [{ box: [1, 1] }] })] }, 'parts[0].shapes[0].box'], // a box of two sizes
     [{ parts: [part({ shapes: [{ model: 'heart' }] })] }, 'parts[0].shapes[0]'], // a model not listed
     [{ parts: [part()], models: { m: { data: '', url: 'javascript:alert(1)' } } }, 'models.m.url'], // a link that is not a web address
+    [{ parts: [part()], author: 'A', url: 'javascript:alert(1)' }, 'url'], // the figure's own, likewise
     [
       { parts: [part({ handle: { turn: { axis: [1, 0, 0] }, slide: { axis: [0, 1, 0] }, min: 0, max: 1 } })] },
       'parts[0].handle',
@@ -1426,4 +1427,18 @@ test('a bond that joins an atom the molecule lacks is reported where it is, befo
     errs.map((e) => e.path),
     ['parts[0].shapes[0].molecule.bonds[0]'],
   );
+});
+
+test('every built file carries the licence notice at its top (and so does every copy of it)', () => {
+  const fs = require('node:fs'),
+    path = require('node:path'),
+    { version } = require('../package.json');
+  for (const f of ['lk3d.min.js', 'lk3d.mjs', 'lk3d-export.min.js']) {
+    const p = path.join(__dirname, '..', 'dist', f);
+    if (!fs.existsSync(p)) continue; // (not built yet)
+    assert.ok(
+      fs.readFileSync(p, 'utf8').startsWith(`/*! lk3d ${version} | MIT License | Copyright (c) 2026 xoai */`),
+      f,
+    );
+  }
 });

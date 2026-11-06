@@ -101,7 +101,7 @@ environments the engine draws.
 `npm test`: geometry (every shape a closed solid facing outwards, volumes matching their formulas, placement and
 instancing, picking against brute force), glTF reading and writing, handle maths, motions and joints, liquids and gases,
 the validator and the geometry check against planted mistakes, the command line, the skill, the locales. `npm run
-typecheck`: the types. `npm run size`: the 56 KB budget. `npm run test:visual`: 18 reference scenes in their looks
+typecheck`: the types. `npm run size`: the 57 KB budget. `npm run test:visual`: 18 reference scenes in their looks
 (some also in the 2D fallback, a theme or the orthographic camera) and the page API, compared with stored pictures
 (`test/visual/`). Pictures are stored per browser and platform; the repository holds them for Chromium and Firefox on
 macOS only. WebKit runs too where Playwright can drive it (not on macOS 14 or older), and so do Linux runs in CI, but

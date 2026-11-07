@@ -72,12 +72,16 @@ function samples(s) {
   }
   return (s.pts = out);
 }
-// the share of a's points more than eps inside b, with both moved apart by `apart`
+// the share of a's points more than eps inside b, with both moved apart by `apart` (a point outside b's box is not
+// inside b: no rays are cast for it)
 function through(a, b, apart, eps) {
   const pts = samples(a),
     shift = sub(at(a, apart), at(b, apart));
   let hits = 0;
-  for (const q of pts) if (depthIn(b, add(q, shift)) > eps) hits++;
+  for (const q of pts) {
+    const r = add(q, shift);
+    if (inBox(b, r) && depthIn(b, r) > eps) hits++;
+  }
   return pts.length ? hits / pts.length : 0;
 }
 // the share of a's points more than eps inside b, each part placed by its matrix (a motion's): a's points into the

@@ -71,3 +71,29 @@ test('problems and failures: exit codes, stderr, JSON when asked, flags anywhere
   assert.equal(run('--help').status, 0);
   assert.equal(run('nonsense').status, 2);
 });
+
+test('render draws with the engine built from src/, never a dist/ left over from an old build', (t) => {
+  // a copy of lk3d whose dist/ holds a stale "engine" that says so when used (and none of examples/ or test/)
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lk3d-copy-'));
+  for (const f of ['bin', 'src', 'schema', 'build.mjs', 'package.json'])
+    fs.cpSync(path.join(ROOT, f), path.join(dir, f), { recursive: true });
+  fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'dir');
+  fs.mkdirSync(path.join(dir, 'dist'));
+  fs.writeFileSync(
+    path.join(dir, 'dist/lk3d.min.js'),
+    'window.LK3D = { mount(el) { dispatchEvent(new ErrorEvent("error", { message: "drawn with the stale dist/" }));' +
+      ' el.innerHTML = \'<div class="lk3d-stage" style="height:8px"></div>\'; return { ready: Promise.resolve(), set() {} }; } };',
+  );
+  const scene = tmp('box.json', JSON.stringify({ parts: [{ id: 'box', name: 'Box', shapes: [{ box: [1, 1, 1] }] }] }));
+  const out = path.join(dir, 'out'),
+    r = spawnSync(
+      process.execPath,
+      [path.join(dir, 'bin/lk3d.mjs'), 'render', scene, '--looks', 'pen', '--poses', 'rest', '--out', out],
+      { encoding: 'utf8' },
+    );
+  if (r.status === 2 && /needs Playwright/.test(r.stderr)) return t.skip('no Playwright here');
+  assert.doesNotMatch(r.stdout + r.stderr, /stale dist/);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(fs.statSync(path.join(out, 'box-pen-rest.png')).size > 1000, 'a picture of the box');
+  fs.rmSync(dir, { recursive: true, force: true });
+});

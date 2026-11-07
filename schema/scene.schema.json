@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://unpkg.com/lk3d/schema/scene.schema.json",
+  "$id": "https://raw.githubusercontent.com/xoai/lk3d/main/schema/scene.schema.json",
   "title": "lk3d scene",
   "description": "A 3D figure as data: parts made of shapes, each with a name and a note, that the reader turns, takes apart, cuts open and moves. Other fields are allowed (a page's own data).",
   "type": "object",
@@ -82,6 +82,7 @@
         "fov": {
           "type": "number",
           "exclusiveMinimum": 0,
+          "maximum": 120,
           "description": "Field of view, degrees (35)."
         },
         "minZoom": {
@@ -702,6 +703,7 @@
             "turns": {
               "type": "number",
               "exclusiveMinimum": 0,
+              "maximum": 1000,
               "description": "How many times it winds round (8)."
             },
             "wire": {
@@ -743,6 +745,7 @@
             "turns": {
               "type": "integer",
               "minimum": 1,
+              "maximum": 1000,
               "description": "How many turns, stacked one above the other (1)."
             },
             "gap": {
@@ -860,11 +863,13 @@
             "levels": {
               "type": "integer",
               "minimum": 1,
+              "maximum": 8,
               "description": "Levels of branches, the trunk the first (3)."
             },
             "branches": {
               "type": "integer",
               "minimum": 0,
+              "maximum": 8,
               "description": "Branches from each branch (2)."
             },
             "spread": {
@@ -978,6 +983,7 @@
             "pairs": {
               "type": "integer",
               "minimum": 2,
+              "maximum": 2000,
               "description": "How many base pairs (12)."
             },
             "seq": {
@@ -1070,6 +1076,7 @@
             "res": {
               "type": "integer",
               "minimum": 2,
+              "maximum": 512,
               "description": "Grid steps along each side of the top (24)."
             },
             "base": {
@@ -1235,6 +1242,7 @@
             "n": {
               "type": "integer",
               "minimum": 1,
+              "maximum": 10000,
               "description": "How many copies (50)."
             },
             "within": {
@@ -1320,6 +1328,7 @@
             "detail": {
               "type": "number",
               "exclusiveMinimum": 0,
+              "maximum": 8,
               "description": "Each copy's detail as a share of the shape's own (0.5)."
             }
           }
@@ -1354,13 +1363,15 @@
         "detail": {
           "type": "number",
           "exclusiveMinimum": 0,
+          "maximum": 8,
           "description": "More or less detail than the figure's quality: 0.5 for a shape repeated hundreds of times, 2 for a close-up."
         },
         "repeat": {
           "anyOf": [
             {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 1000
             },
             {
               "type": "object",
@@ -1369,7 +1380,8 @@
               "properties": {
                 "n": {
                   "type": "integer",
-                  "minimum": 1
+                  "minimum": 1,
+                  "maximum": 1000
                 },
                 "step": {
                   "type": "number"
@@ -1413,6 +1425,7 @@
         "seg": {
           "type": "integer",
           "minimum": 3,
+          "maximum": 512,
           "description": "lathe, cylinder, sphere: segments around (lathe and cylinder 48, sphere 32; 8 for a tiny bead)."
         },
         "r": {

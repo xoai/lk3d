@@ -160,9 +160,9 @@ const clock = {
     clock.set(clock.now() + ms);
   },
   set(ms) {
-    clock.now();
+    const was = clock.now();
     clockT = +ms || 0;
-    for (const k of awake) k();
+    for (const k of awake) k(was);
   },
 };
 
@@ -282,7 +282,7 @@ function mount(el, spec, opts = {}) {
       const hd = {
         p,
         h,
-        v: h.value ?? HD.hold(h, 0),
+        v: HD.hold(h, h.value ?? 0), // (a first value outside the range: at its end from the start, not on the first drag)
         parts,
         m: h.along ? HD.measure(h.along.path, h.along.closed) : null,
         input: null,
@@ -357,51 +357,56 @@ function mount(el, spec, opts = {}) {
     const mo = v.outlet.valve && motions.find((x) => x.id === v.outlet.valve);
     return mo ? (st.motion[mo.id] - mo.range[0]) / (mo.range[1] - mo.range[0]) : (v.open ?? 0);
   };
-  function fluidStep(dt) {
+  function fluidStep(DT) {
     let busy = false;
-    for (const v of FL.vessels.values()) {
-      const o = v.outlet;
-      if (!o) continue;
-      const L = layersIn(v),
-        open = openOf(v),
-        H = surface(v, L) - o.tip[1], // (the head: from the surface down to where the stream leaves)
-        Q = L.length && open > 0 ? open * FX.outflow(o.radius, H, FL.g, o.cd) : 0,
-        J = jets.get(v.id);
-      v.flow = Q;
-      if (!Q) {
-        if (J) J.clear();
-        continue;
+    // (a long step, the clock stepped by hand, in slices of at most 50 ms: each pours at the head it starts with; the
+    // stream and the bodies are drawn once, after the last)
+    for (let n = Math.min(1200, Math.ceil(DT / 0.05 - 1e-9)) || 1, i = n, dt = DT / n; i--;) {
+      for (const v of FL.vessels.values()) {
+        const o = v.outlet;
+        if (!o) continue;
+        const L = layersIn(v),
+          open = openOf(v),
+          H = surface(v, L) - o.tip[1], // (the head: from the surface down to where the stream leaves)
+          Q = L.length && open > 0 ? open * FX.outflow(o.radius, H, FL.g, o.cd) : 0,
+          J = jets.get(v.id);
+        v.flow = Q;
+        if (!Q) {
+          if (J) J.clear();
+          continue;
+        }
+        busy = true;
+        // the bottom layer goes first, into the liquid it becomes below
+        const from = L[0].l,
+          to = from.into && FL.liquids.find((l) => l.part === from.into),
+          dv = Math.min(from.volume, Q * dt);
+        from.volume -= dv;
+        if (to) to.volume += dv;
+        if (i) continue;
+        // the stream: out of the tip at √(2gH), as wide as the open bore lets it, falling to the surface below
+        const w = to && FL.vessels.get(to.in),
+          pts = FX.jet(
+            o.tip,
+            mulv(norm(o.dir || [0, -1, 0]), Math.sqrt(2 * FL.g * H)),
+            o.radius * Math.sqrt((o.cd ?? 0.6) * open),
+            FL.g,
+            w ? surface(w) : S.lo[1],
+          );
+        const K = J || jets.set(v.id, addLines({ count: 12, color: colourOf(from.part) })).get(v.id);
+        for (let k = 0; k + 1 < pts.length; k++)
+          K.set(k, pts[k].slice(0, 3), pts[k + 1].slice(0, 3), (pts[k][3] + pts[k + 1][3]) / 2);
       }
-      busy = true;
-      // the bottom layer goes first, into the liquid it becomes below
-      const from = L[0].l,
-        to = from.into && FL.liquids.find((l) => l.part === from.into),
-        dv = Math.min(from.volume, Q * dt);
-      from.volume -= dv;
-      if (to) to.volume += dv;
-      // the stream: out of the tip at √(2gH), as wide as the open bore lets it, falling to the surface below
-      const w = to && FL.vessels.get(to.in),
-        pts = FX.jet(
-          o.tip,
-          mulv(norm(o.dir || [0, -1, 0]), Math.sqrt(2 * FL.g * H)),
-          o.radius * Math.sqrt((o.cd ?? 0.6) * open),
-          FL.g,
-          w ? surface(w) : S.lo[1],
-        );
-      const K = J || jets.set(v.id, addLines({ count: 12, color: colourOf(from.part) })).get(v.id);
-      for (let k = 0; k + 1 < pts.length; k++)
-        K.set(k, pts[k].slice(0, 3), pts[k + 1].slice(0, 3), (pts[k][3] + pts[k + 1][3]) / 2);
-    }
-    for (const x of FL.gases) {
-      const v = FL.vessels.get(x.in),
-        to = FX.pistonHeight(v.inside, x.n, x.T, x.p, x.mass, FL.m),
-        h = gasH.get(x.part),
-        // (quasi-static: it eases to where the law puts it, without bouncing)
-        nh = Math.abs(to - h) < 1e-6 * (1 + Math.abs(to)) ? to : h + (to - h) * (1 - Math.exp(-dt / 0.3));
-      if (nh !== to || h !== to) busy = true;
-      gasH.set(x.part, nh);
-      const pp = x.piston && S.parts.find((p) => p.id === x.piston);
-      if (pp) pp.offset = [0, v.at[1] + nh - seat.get(x.part), 0];
+      for (const x of FL.gases) {
+        const v = FL.vessels.get(x.in),
+          to = FX.pistonHeight(v.inside, x.n, x.T, x.p, x.mass, FL.m),
+          h = gasH.get(x.part),
+          // (quasi-static: it eases to where the law puts it, without bouncing)
+          nh = Math.abs(to - h) < 1e-6 * (1 + Math.abs(to)) ? to : h + (to - h) * (1 - Math.exp(-dt / 0.3));
+        if (nh !== to || h !== to) busy = true;
+        gasH.set(x.part, nh);
+        const pp = x.piston && S.parts.find((p) => p.id === x.piston);
+        if (pp) pp.offset = [0, v.at[1] + nh - seat.get(x.part), 0];
+      }
     }
     // the bodies whose shape changed, drawn again
     for (const [id, sh] of FX.bodies(FL, gasH).out) {
@@ -788,7 +793,7 @@ function mount(el, spec, opts = {}) {
     return look;
   }
   const anim = new Set();
-  let pNow = 0;
+  let pNow = null; // (the clock's time when liquids and gases were last moved on; null: nothing to move on from)
   // Things that run along paths (particles, flows, streams): while the clock runs, moved on by each frame's time; while
   // it is stopped, where their speed puts them at the clock's time: the value at an anchor plus speed × time since it.
   // The anchor is time 0 (or the last frame the clock ran), and moves to the last time drawn when the speed or the
@@ -822,9 +827,11 @@ function mount(el, spec, opts = {}) {
       if (a(t)) moving = true;
       else anim.delete(a);
     } // a tick runs while it returns true
-    // particles along paths run at the speed the page gave them (never backwards: a clock set back is not a frame)
-    const pdt = pNow ? Math.max(0, Math.min(0.05, (t - pNow) / 1000)) * st.timeScale : 0,
-      still = !clock.speed;
+    // particles along paths run at the speed the page gave them (never backwards: a clock set back is not a frame).
+    // A clock stepped by hand moves things on by the whole step; one that runs, by at most 50 ms a frame (not a leap
+    // after a hidden tab)
+    const still = !clock.speed,
+      pdt = pNow == null ? 0 : Math.max(0, Math.min(still ? 1e9 : 0.05, (t - pNow) / 1000)) * st.timeScale;
     let flowing = false;
     if (FL && fluidStep(pdt)) flowing = true; // (liquids pour and gases settle by their laws)
     // (all of it stands still for a reader who asked for less motion; a flow with nothing to show does not move; with
@@ -833,7 +840,7 @@ function mount(el, spec, opts = {}) {
       for (const X of particles.concat(flows, streams))
         if (X.go && X.visible && (X.amount ?? X.density ?? 1) > 0 && (X.speed || still) && (X.go(t, pdt) || !still))
           flowing = true;
-    pNow = flowing ? t : 0;
+    pNow = flowing || still ? t : null;
     moving = moving || flowing;
     if ((dirty || moving) && !lost) {
       // adaptive resolution: if moving frames keep coming late, draw fewer pixels until things are still again
@@ -1921,9 +1928,10 @@ function mount(el, spec, opts = {}) {
     const [a, b] = mo.range,
       back = !mo.loop && st.motion[mo.id] >= b; // (at its end: played back to the start)
     if (LK3D.reduce) return mo.loop || setMotion(mo, back ? a : b); // (no movement: straight to where it goes)
-    let last = null;
+    let last = clock.now();
     const step = (now) => {
-      const dt = last == null ? 0 : Math.max(0, Math.min(0.05, (now - last) / 1000)), // (not a leap after a hidden tab)
+      // (the whole of a step of the clock stopped by hand; while it runs, at most 50 ms: not a leap after a hidden tab)
+      const dt = Math.max(0, Math.min(clock.speed ? 0.05 : 1e9, (now - last) / 1000)),
         v = st.motion[mo.id] + (back ? -1 : 1) * (mo.speed ?? b - a) * dt * st.timeScale;
       last = now;
       setMotion(mo, v);
@@ -2011,6 +2019,7 @@ function mount(el, spec, opts = {}) {
         }
       if (o.hide) {
         for (const p of S.parts) p.hidden = p.hidden0 || o.hide.includes(p.id) || o.hide.includes(p.group);
+        reach();
         if (S.parts.find((p) => p.id === st.selected)?.hidden) {
           st.selected = null; // (a part out of sight is not the one chosen)
           info();
@@ -2216,7 +2225,7 @@ function mount(el, spec, opts = {}) {
     },
     destroy() {
       dead = true;
-      awake.delete(kick);
+      awake.delete(woke);
       cancelAnimationFrame(raf);
       raf = 0;
       clearTimeout(idleTimer);
@@ -2283,6 +2292,7 @@ function mount(el, spec, opts = {}) {
         setHandle(hd, HD.hold(h, hd.v + d * step), true);
       });
     r.addEventListener('focus', () => {
+      if (hd.p.hidden) return;
       st.selected = hd.p.id;
       stage.classList.add('lk3d-kbd');
       info('pick');
@@ -2294,6 +2304,14 @@ function mount(el, spec, opts = {}) {
     hd.input = r;
     el.append(r);
   }
+  // a hidden part's handle is out of reach of the keyboard too: out of the Tab order and of what screen readers read
+  function reach() {
+    for (const { p, input: r } of handles) {
+      if (p.hidden) r.blur();
+      r.disabled = r.hidden = !!p.hidden;
+    }
+  }
+  reach();
   const ro = new ResizeObserver(resize);
   ro.observe(stage);
   const wake = () => {
@@ -2317,7 +2335,12 @@ function mount(el, spec, opts = {}) {
     wake();
   };
   document.addEventListener('visibilitychange', onVis);
-  awake.add(kick);
+  // (woken by the clock stepped or set: liquids and gases move on from where it was, if they had not been moving)
+  const woke = (was) => {
+    if (pNow == null && !clock.speed) pNow = was;
+    kick();
+  };
+  awake.add(woke);
   watchDpr();
   resize();
   info();

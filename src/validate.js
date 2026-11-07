@@ -1,6 +1,6 @@
 // Checks a scene before it is drawn, and says what is wrong where: the rules of schema/scene.schema.json (the one
 // description of the format: editors read it too), plus what a schema cannot say: unique part ids, a handle that moves
-// parts that exist, a shape naming a model the scene lists. Not part of the runtime bundle: import 'lk3d/validate'.
+// parts that exist (within its own range, about an axis that has a direction), a shape naming a model the scene lists. Not part of the runtime bundle: import 'lk3d/validate'.
 //   import { validate } from 'lk3d/validate';  validate(scene) → [{ path: 'parts[2].handle', message: '…' }, …]
 //   node src/validate.js < scene.json            prints the problems as JSON lines; exit code 1 if there are any
 import schema from '../schema/scene.schema.json' with { type: 'json' };
@@ -77,9 +77,16 @@ function check(s, v, path, out) {
   out.push(...(own.length && s['x-message'] ? [{ path, message: s['x-message'] }] : own), ...deeper);
 }
 
+// an axis (or a cut's normal) of length 0 has no direction: what it turns or slides would not move, or move by NaN
+const zero = (v) => Array.isArray(v) && v.length === 3 && v.every((x) => x === 0);
+const NO_WAY = 'has no direction: [0, 0, 0] points nowhere';
+
 // the scene's own cross-references
 function links(scene, out) {
   const parts = Array.isArray(scene.parts) ? scene.parts.filter((p) => p && typeof p === 'object') : [];
+  const section = scene.section;
+  if (section && typeof section === 'object' && zero(section.normal))
+    out.push({ path: 'section.normal', message: NO_WAY });
   const names = new Set(parts.flatMap((p) => [p.id, p.group].filter(Boolean))),
     seen = new Set(),
     models = scene.models || {};
@@ -87,7 +94,20 @@ function links(scene, out) {
     if (p.id != null && seen.has(p.id))
       out.push({ path: `parts[${k}].id`, message: `${say(p.id)} is used by two parts` });
     seen.add(p.id);
-    for (const m of (p.handle && Array.isArray(p.handle.moves) && p.handle.moves) || []) {
+    // a handle: an axis with a direction, a range from a value to one no smaller, a first value inside it (else the
+    // part would jump to the range's end the first time it is moved)
+    const h = p.handle && typeof p.handle === 'object' ? p.handle : {};
+    for (const w of ['turn', 'slide'])
+      if (h[w] && zero(h[w].axis)) out.push({ path: `parts[${k}].handle.${w}.axis`, message: NO_WAY });
+    const num = (x) => typeof x === 'number';
+    if (num(h.min) && num(h.max) && h.min > h.max)
+      out.push({ path: `parts[${k}].handle`, message: `its min (${h.min}) is more than its max (${h.max})` });
+    else if (num(h.value) && ((num(h.min) && h.value < h.min) || (num(h.max) && h.value > h.max)))
+      out.push({
+        path: `parts[${k}].handle.value`,
+        message: `${h.value} is outside its range [${h.min ?? '…'}, ${h.max ?? '…'}]`,
+      });
+    for (const m of Array.isArray(h.moves) ? h.moves : []) {
       if (!names.has(m))
         out.push({ path: `parts[${k}].handle.moves`, message: `moves ${say(m)}, which is no part or group` });
     }
@@ -151,6 +171,7 @@ function links(scene, out) {
     if (!j || typeof j !== 'object') return;
     const at = `joints[${i}]`,
       bad = (field, msg) => out.push({ path: `${at}.${field}`, message: msg });
+    for (const w of ['turn', 'slide']) if (j[w] && zero(j[w].axis)) bad(`${w}.axis`, NO_WAY);
     for (const n of Array.isArray(j.parts) ? j.parts : []) {
       if (!names.has(n)) bad('parts', `moves ${say(n)}, which is no part or group`);
       else if (owner.has(n) && owner.get(n) !== j.id)
@@ -198,6 +219,7 @@ function links(scene, out) {
     if (!(b > a)) out.push({ path: `motions[${i}].range`, message: 'runs from a value to a larger one' });
     (Array.isArray(mo.tracks) ? mo.tracks : []).forEach((tr, j) => {
       const at = `motions[${i}].tracks[${j}]`;
+      if (tr && tr.turn && zero(tr.turn.axis)) out.push({ path: `${at}.turn.axis`, message: NO_WAY });
       for (const n of (tr && Array.isArray(tr.parts) && tr.parts) || [])
         if (!names.has(n)) out.push({ path: `${at}.parts`, message: `moves ${say(n)}, which is no part or group` });
       for (const [keys, where] of [

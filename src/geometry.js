@@ -707,11 +707,47 @@ function rigid(m) {
 // shapes whose many small folds are not edges a pen would draw: living and grown forms, models made elsewhere
 const SOFT = ['model', 'blob', 'tree', 'terrain', 'scatter', 'molecule', 'dna'];
 
+// At least how many triangles a shape makes, from its numbers alone (each count below is less than what it builds):
+// a scene that would make too many is refused before any of it is built, rather than holding the page for minutes
+// (seg: 1e8, or a tree of eight levels of eight branches)
+function least(s, q) {
+  if (!s || typeof s !== 'object') return 0;
+  q *= s.detail || 1;
+  const c = s.scatter,
+    a = Math.max(6, Math.round(((s.seg || 0) * q * Math.abs((s.to ?? 360) - (s.from ?? 0))) / 360)), // segments around
+    t = s.terrain && Math.max(6, (s.terrain.res || 0) * q),
+    tr = s.tree || {};
+  if (c) return (c.n || 50) * least(c.shape, q * (c.detail ?? 0.5));
+  return (
+    (s.repeat ? s.repeat.n || s.repeat : 1) *
+    Math.max(
+      12,
+      s.lathe ? 2 * a * (s.lathe.length - 1) : s.cylinder ? 2 * a : s.sphere ? (a * a) / 2 : 0,
+      s.helix ? 150 * q * (s.helix.turns ?? 8) : 0,
+      s.loop ? 48 * (s.loop.turns || 1) : 0,
+      t ? 2 * t * t : 0,
+      s.tree ? 40 * (tr.branches ?? 2) ** ((tr.levels ?? 3) - 1) : 0,
+      s.dna ? 12 * (s.dna.pairs || 12) : 0,
+    )
+  );
+}
+const LIMIT = 'the limit is 2 million';
+
 // A scene: parts, each a list of batches (one geometry, drawn at one or more placements). Shapes of a part that are not
 // repeated are merged into one batch, so a part costs one draw for its plain shapes plus one per repeated shape. Which
 // of a batch's triangles get edges in the pen look: `edgy` (none if false), less the ranges in `soft` (the part's
 // `edges`, else every shape but the soft ones).
 function buildScene(spec, q = 1) {
+  let all = 0;
+  for (const p of spec.parts || []) {
+    const n = (Array.isArray(p.shapes) ? p.shapes : []).reduce((n, s) => n + least(s, q), 0);
+    if (n > 2e6) throw new Error(`lk3d: part ${p.id} would have at least ${Math.round(n)} triangles; ${LIMIT}`);
+    all += n;
+  }
+  if (all > 1e7)
+    throw new Error(
+      `lk3d: the scene would have at least ${Math.round(all)} triangles; ${LIMIT} a part, 10 million in all`,
+    );
   // shapes alike are made once; parts alike (the same shapes, placed elsewhere) share one merged geometry, in the
   // part's own frame and placed by its matrix, so their outlines, crease shading, edges and GPU buffers are made once
   const ctx = { models: spec.models, cache: new Map() },
@@ -771,7 +807,7 @@ function buildScene(spec, q = 1) {
         }
       }
     }
-    if (tris > 2e6) throw new Error(`lk3d: part ${p.id} has ${Math.round(tris)} triangles; the limit is 2 million`);
+    if (tris > 2e6) throw new Error(`lk3d: part ${p.id} has ${Math.round(tris)} triangles; ${LIMIT}`);
     // where its label points: given, or the top of the part near its middle (the centre of a ring is empty space)
     const mid = mulv(add(lo, hi), 0.5);
     for (const b of batches)
@@ -838,4 +874,17 @@ function flatten(part) {
   return g;
 }
 
-export { Geo, SHAPES, buildShape, buildScene, flatten, outlineNormals, edgesOf, isClosed, bounds, MATERIALS, SURFACES };
+export {
+  Geo,
+  SHAPES,
+  buildShape,
+  buildScene,
+  least,
+  flatten,
+  outlineNormals,
+  edgesOf,
+  isClosed,
+  bounds,
+  MATERIALS,
+  SURFACES,
+};

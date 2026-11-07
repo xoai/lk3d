@@ -8,7 +8,8 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 ```html
 <div id="fig"></div>
-<script src="https://unpkg.com/lk3d/dist/lk3d.min.js"></script>
+<script src="lk3d.min.js"></script>
+<!-- (dist/lk3d.min.js, built as "Use it" says: lk3d is not on npm yet) -->
 <script>
   LK3D.mount(document.getElementById('fig'), {
     title: 'A bolt and a nut',
@@ -92,16 +93,25 @@ with hotspots and AR, use [model-viewer](https://modelviewer.dev).
 
 ## Use it
 
+lk3d is not published on npm yet (0.1.0 is unreleased), so `npm install lk3d` and unpkg do not have it. Until they do,
+build it from its repository:
+
 ```sh
-npm install lk3d
+git clone https://github.com/xoai/lk3d.git
+cd lk3d && npm install && npm run build   # dist/lk3d.min.js: the one script a page loads
 ```
 
+A page copies `dist/lk3d.min.js` next to itself and loads it with a script tag (the global `LK3D`), as above. A project
+with a bundler installs the clone (`npm install ../lk3d`) and imports it:
+
 ```js
-import LK3D from 'lk3d'; // or <script src=".../dist/lk3d.min.js"> for the global LK3D
+import LK3D from 'lk3d'; // or <script src="lk3d.min.js"> for the global LK3D
 import { validate } from 'lk3d/validate'; // check a scene's form before showing it (and lk3d/lint: its geometry)
 const fig = LK3D.mount(el, scene, { info: document.querySelector('#info'), onHandle: (id, v) => console.log(id, v) });
 fig.set({ explode: 1 });
 ```
+
+Once it is published, `npm install lk3d` will do, and a page will load `https://unpkg.com/lk3d/dist/lk3d.min.js`.
 
 - [API](docs/api.md): `mount`, its options and the figure's methods.
 - [Scene format](docs/scene-format.md) · [Shapes](docs/shapes.md) · [Handles and lines](docs/handles-and-lines.md) ·

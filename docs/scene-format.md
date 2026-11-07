@@ -81,15 +81,15 @@ Exactly one kind per shape (see [shapes](shapes.md) for each kind's parameters a
 | `rot`    | [x, y, z]                          | Turned (degrees about x, y, z).                                                                                           |
 | `scale`  | [number, number, number] or number | Stretched: [x, y, z], or one number for all three.                                                                        |
 | `color`  | colour "#rrggbb"                   | Its own colour (vertex colours), over the part's; on a textured model, in place of its base colour map (its relief kept). |
-| `detail` | number > 0                         | More or less detail than the figure's quality: 0.5 for a shape repeated hundreds of times, 2 for a close-up.              |
-| `repeat` | integer ≥ 1 or object              | Copies around an axis (x unless axis says): n of them, step degrees apart (360 / n) from start (0).                       |
+| `detail` | number > 0 ≤ 8                     | More or less detail than the figure's quality: 0.5 for a shape repeated hundreds of times, 2 for a close-up.              |
+| `repeat` | integer ≥ 1 ≤ 1000 or object       | Copies around an axis (x unless axis says): n of them, step degrees apart (360 / n) from start (0).                       |
 | `node`   | string                             | With model: one node of the model (and what is under it).                                                                 |
 | `closed` | boolean                            | lathe: a closed outline (a ring; a sector's is closed unless false); tube: a loop.                                        |
 | `mirror` | boolean                            | lathe: flipped along x.                                                                                                   |
 | `smooth` | boolean                            | lathe: normals blended across the profile's corners, for a curved surface (by default its edges stay crisp).              |
 | `from`   | number                             | lathe: the angle about x where a sector starts, degrees (0).                                                              |
 | `to`     | number                             | lathe: the angle about x where a sector ends, degrees (360); its two sides are closed flat.                               |
-| `seg`    | integer ≥ 3                        | lathe, cylinder, sphere: segments around (lathe and cylinder 48, sphere 32; 8 for a tiny bead).                           |
+| `seg`    | integer ≥ 3 ≤ 512                  | lathe, cylinder, sphere: segments around (lathe and cylinder 48, sphere 32; 8 for a tiny bead).                           |
 | `r`      | number > 0                         | tube: its radius (0.02).                                                                                                  |
 
 Kinds: `lathe`, `cylinder`, `box`, `sphere`, `torus`, `tube`, `helix`, `loop`, `ellipsoid`, `capsule`, `blob`, `shell`, `tree`, `molecule`, `dna`, `extrude`, `terrain`, `ring`, `orbit`, `blade`, `scatter`, `model`.
@@ -133,7 +133,7 @@ The first camera.
 | `pitch`        | number                       | Degrees up.                                                                                                  |
 | `dist`         | number > 0                   | Distance from the target (default: to fit).                                                                  |
 | `target`       | [x, y, z]                    | The point looked at (default: the middle).                                                                   |
-| `fov`          | number > 0                   | Field of view, degrees (35).                                                                                 |
+| `fov`          | number > 0 ≤ 120             | Field of view, degrees (35).                                                                                 |
 | `minZoom`      | number > 0                   | How close the reader may zoom, as a share of the distance that fits the whole model (0.02: 50 times closer). |
 | `projection`   | `"perspective"` \| `"ortho"` | perspective (the default) or ortho: parallel lines stay parallel, as in a technical illustration.            |
 | `explodeZoom`  | number                       | How far the camera steps back when the model is taken apart (0.5).                                           |
@@ -246,7 +246,10 @@ const problems = validate(scene); // [{ path: 'parts[2].handle', message: 'a han
 
 From a shell: `node node_modules/lk3d/src/validate.js < scene.json` prints one problem per line and exits with 1 if
 there are any. Editors that understand JSON Schema complete and check scenes as you type with
-`"$schema": "https://unpkg.com/lk3d/schema/scene.schema.json"`.
+`"$schema": "https://raw.githubusercontent.com/xoai/lk3d/main/schema/scene.schema.json"`.
+
+A scene stays small enough to draw: each count has a bound (`seg` 512, `repeat` 1000, `scatter.n` 10000, …), and
+counts that multiply past 2 million triangles in a part (10 million in all) are refused before anything is built.
 
 ## Versions
 

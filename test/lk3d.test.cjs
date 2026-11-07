@@ -1052,6 +1052,122 @@ test('the validator finds each planted mistake where it is, and passes a right s
     assert.ok(at(scene).includes(path), `${JSON.stringify(scene).slice(0, 90)} → ${JSON.stringify(validate(scene))}`);
 });
 
+test('a scene too big to draw is refused in plain words, by the validator and before anything is built', () => {
+  const { validate } = require('../src/validate.js');
+  const part = (o = {}) => ({ id: 'a', shapes: [{ sphere: 1 }], ...o }),
+    one = (shape) => ({ parts: [part({ shapes: [shape] })] }),
+    says = (scene, path, words) => {
+      const e = validate(scene).find((x) => x.path === path);
+      assert.ok(e, `${JSON.stringify(scene).slice(0, 100)} → ${JSON.stringify(validate(scene))}`);
+      assert.match(e.message, words);
+    };
+  // each count past its bound (bounds well above anything a scene uses: seg 72, repeat 42, scatter 120 at most)
+  says(one({ sphere: 1, seg: 1e8 }), 'parts[0].shapes[0].seg', /at most 512/);
+  says(one({ box: [1, 1, 1], repeat: 1e6 }), 'parts[0].shapes[0].repeat', /repeat is a number of copies/);
+  says(one({ box: [1, 1, 1], repeat: { n: 1e6 } }), 'parts[0].shapes[0].repeat', /repeat is a number of copies/);
+  says(one({ scatter: { shape: { sphere: 0.1 }, n: 1e7 } }), 'parts[0].shapes[0].scatter.n', /at most 10000/);
+  says(one({ helix: { r: 1, turns: 1e6 } }), 'parts[0].shapes[0].helix.turns', /at most 1000/);
+  says(one({ loop: { turns: 1e6 } }), 'parts[0].shapes[0].loop.turns', /at most 1000/);
+  says(one({ terrain: { res: 1e5 } }), 'parts[0].shapes[0].terrain.res', /at most 512/);
+  says(one({ tree: { levels: 30 } }), 'parts[0].shapes[0].tree.levels', /at most 8/);
+  says(one({ dna: { pairs: 1e6 } }), 'parts[0].shapes[0].dna.pairs', /at most 2000/);
+  says(one({ sphere: 1, detail: 1e4 }), 'parts[0].shapes[0].detail', /at most 8/);
+  says({ parts: [part()], view: { fov: 400 } }, 'view.fov', /at most 120/);
+  // counts each within its bound that multiply past the limit: refused before building, at once
+  const big = one({ scatter: { n: 10000, shape: { sphere: 1, seg: 512, repeat: 1000 }, detail: 8 } });
+  assert.deepEqual(validate(big), []);
+  const t0 = Date.now();
+  assert.throws(
+    () => LK3D.build(big, 1),
+    /^Error: lk3d: part a would have at least \d+ triangles; the limit is 2 million$/,
+  );
+  assert.throws(() => LK3D.build(one({ tree: { levels: 8, branches: 8 } }), 1), /the limit is 2 million/);
+  // many parts, each within the limit, too many in all
+  const many = {
+    parts: Array.from({ length: 12 }, (_, k) => part({ id: 'p' + k, shapes: [{ sphere: 1, seg: 512, repeat: 7 }] })),
+  };
+  assert.throws(() => LK3D.build(many, 1), /the scene would have at least \d+ triangles; .*10 million in all/);
+  assert.ok(Date.now() - t0 < 1000, 'refused before building, not after');
+  // the estimate is no more than what is built: a scene at its bounds that fits is still drawn
+  const fits = one({ sphere: 1, seg: 512 });
+  assert.ok(LK3D.build(fits, 1).parts[0].tris > 0);
+});
+
+test('an axis has a direction, a handle a range from small to large with its first value inside', () => {
+  const { validate } = require('../src/validate.js');
+  const part = (o = {}) => ({ id: 'a', shapes: [{ sphere: 1 }], ...o }),
+    says = (scene, path, words) => {
+      const e = validate(scene).find((x) => x.path === path);
+      assert.ok(e, `${JSON.stringify(scene).slice(0, 100)} → ${JSON.stringify(validate(scene))}`);
+      assert.match(e.message, words);
+    },
+    O = [0, 0, 0];
+  says({ parts: [part({ handle: { turn: { axis: O } } })] }, 'parts[0].handle.turn.axis', /no direction/);
+  says(
+    { parts: [part({ handle: { slide: { axis: O }, min: 0, max: 1 } })] },
+    'parts[0].handle.slide.axis',
+    /no direction/,
+  );
+  says(
+    { parts: [part()], joints: [{ id: 'j', parts: ['a'], turn: { axis: O } }] },
+    'joints[0].turn.axis',
+    /no direction/,
+  );
+  says(
+    { parts: [part()], joints: [{ id: 'j', parts: ['a'], slide: { axis: O } }] },
+    'joints[0].slide.axis',
+    /no direction/,
+  );
+  says({ parts: [part()], section: { normal: O } }, 'section.normal', /no direction/);
+  says(
+    {
+      parts: [part()],
+      motions: [
+        {
+          id: 'm',
+          range: [0, 1],
+          tracks: [
+            {
+              parts: ['a'],
+              turn: {
+                axis: O,
+                keys: [
+                  [0, 0],
+                  [1, 90],
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    'motions[0].tracks[0].turn.axis',
+    /no direction/,
+  );
+  says(
+    { parts: [part({ handle: { slide: { axis: [1, 0, 0] }, min: 1, max: 0 } })] },
+    'parts[0].handle',
+    /min \(1\) is more than its max \(0\)/,
+  );
+  says(
+    { parts: [part({ handle: { slide: { axis: [1, 0, 0] }, min: 0, max: 1, value: 2 } })] },
+    'parts[0].handle.value',
+    /2 is outside its range \[0, 1\]/,
+  );
+  says(
+    { parts: [part({ handle: { turn: { axis: [0, 1, 0] }, min: 0, value: -10 } })] },
+    'parts[0].handle.value',
+    /outside its range \[0, …\]/,
+  );
+  // right ones pass: an axis of any length but 0, a value at an end, a turn with no stops
+  for (const h of [
+    { turn: { axis: [0, 0, 2] } },
+    { slide: { axis: [1e-3, 0, 0] }, min: 0, max: 1, value: 1 },
+    { turn: { axis: [0, 1, 0] }, value: 720 },
+  ])
+    assert.deepEqual(validate({ parts: [part({ handle: h })] }), [], JSON.stringify(h));
+});
+
 test("a part's words keep only simple formatting: nothing from a scene can run on the page", () => {
   const { safeHTML } = require('../src/index.js');
   assert.equal(safeHTML('H<sub>2</sub>O, <i>a</i> &gt; 0, m&#775;'), 'H<sub>2</sub>O, <i>a</i> &gt; 0, m&#775;');

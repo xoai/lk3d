@@ -134,6 +134,24 @@ test('a hidden handle cannot be grabbed', async ({ page }) => {
   expect(moved).toBe(0);
 });
 
+test("a hidden part's handle is out of the keyboard's reach too, and back when the part is shown", async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const fig = mountIt();
+    await fig.ready;
+    const input = document.querySelector('#g input[type=range]'),
+      state = () => ({ reachable: !input.disabled && input.tabIndex >= 0 && !input.hidden, selected: fig.selected });
+    fig.set({ hide: ['knob'] });
+    input.focus(); // (as Tab would, if it still reached it)
+    const hidden = state();
+    input.blur();
+    fig.set({ hide: [] });
+    input.focus();
+    return { hidden, shown: state() };
+  });
+  expect(r.hidden).toEqual({ reachable: false, selected: null });
+  expect(r.shown).toEqual({ reachable: true, selected: 'knob' });
+});
+
 test('mounting again replaces the figure; destroy leaves the element as it was, and ready settles', async ({
   page,
 }) => {
@@ -291,6 +309,74 @@ test('a funnel pours by Torricelli into a beaker below: volume kept, a stream wh
   expect(r.during.level).toBeLessThan(r.before.level);
   expect(r.shut.flow).toBe(0);
   expect(r.still).toBe(r.shut.up);
+});
+
+test('a clock stopped and stepped: the same time pours as much and plays as far, in small steps or one big one', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const scene = await (await fetch('/test/visual/scenes/pour.json')).json();
+    const frames = () => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+    // a second of the clock's time poured in steps (each drawn, as a tool stepping frame by frame would), from a tap
+    // opened with the clock stopped; `first`: the first step taken before any frame is drawn
+    const pour = async (steps, first) => {
+      LK3D.clock.speed = 1;
+      const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+      await fig.ready;
+      LK3D.clock.speed = 0;
+      const up = fig.liquid('water'),
+        v0 = up.volume;
+      fig.vessel('f').set({ open: 1 });
+      if (!first) await frames();
+      for (const ms of steps) {
+        LK3D.clock.step(ms);
+        await frames();
+      }
+      return v0 - up.volume;
+    };
+    const poured = {
+      small: await pour(Array(30).fill(1000 / 30)),
+      tenths: await pour(Array(10).fill(100)),
+      one: await pour([1000]),
+      first: await pour([1000], true),
+    };
+    // a motion played with the clock stopped: half a second of a range a second, in one step or five
+    const play = async (steps) => {
+      window.scene.motions = [
+        {
+          id: 'lift',
+          range: [0, 1],
+          tracks: [
+            {
+              parts: ['knob'],
+              move: [
+                [0, [0, 0, 0]],
+                [1, [0, 1, 0]],
+              ],
+            },
+          ],
+        },
+      ];
+      const fig = mountIt();
+      await fig.ready;
+      LK3D.clock.speed = 0;
+      const m = fig.motion('lift');
+      m.play();
+      for (const ms of steps) {
+        LK3D.clock.step(ms);
+        await frames();
+      }
+      return m.value;
+    };
+    const played = { one: await play([500]), five: await play(Array(5).fill(100)) };
+    LK3D.clock.speed = 1;
+    return { poured, played };
+  });
+  const { small, tenths, one, first } = r.poured;
+  expect(small).toBeGreaterThan(1); // (a funnel's worth of water flows in a second: cm³)
+  for (const v of [tenths, one, first]) expect(Math.abs(v - small) / small).toBeLessThan(0.01);
+  expect(r.played.one).toBeCloseTo(0.5, 6);
+  expect(r.played.five).toBeCloseTo(0.5, 6);
 });
 
 test('a gas holds its piston where pV = nRT puts it: half as hot again, half as high again', async ({ page }) => {

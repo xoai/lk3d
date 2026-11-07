@@ -121,6 +121,21 @@ for (let k = 0; k < 3; k++) await new Promise((r) => requestAnimationFrame(r));
 window.__ready = { errors, renderer: fig.renderer };
 </script>`;
 
+// the engine render draws with: built from src/ now, in memory (not dist/, which a fresh clone lacks and an old build
+// would leave out of date); only where esbuild is not installed, an installed package without its development tools,
+// the bundle it shipped with (built from the same source when it was packed)
+async function engineScript() {
+  try {
+    return await (await import('../build.mjs')).bundle();
+  } catch (e) {
+    const shipped = path.join(ROOT, 'dist/lk3d.min.js');
+    if (e.code === 'ERR_MODULE_NOT_FOUND' && fs.existsSync(shipped)) return fs.readFileSync(shipped);
+    throw new Error(`could not build the engine from src/ (${e.message.split('\n')[0]}): run npm install in lk3d`, {
+      cause: e,
+    });
+  }
+}
+
 async function render(f) {
   let pw = null;
   for (const name of ['playwright', '@playwright/test'])
@@ -156,7 +171,7 @@ async function render(f) {
   if (odd.length)
     return fail(`no look or pose ${odd.join(', ')} (looks: ${LOOKS.join(', ')}; poses: ${POSES.join(', ')})`);
   const scene = JSON.stringify(data),
-    engine = fs.readFileSync(path.join(ROOT, 'dist/lk3d.min.js')),
+    engine = await engineScript(),
     page = PAGE.replace('WIDTH', String(width));
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x').pathname;

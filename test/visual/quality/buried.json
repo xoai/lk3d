@@ -1,0 +1,25 @@
+{
+  "w": 4,
+  "h": 3,
+  "title": "A block with a ball inside",
+  "alt": "A light block, cut open by a section across it, with a dark ball buried inside it behind the cut.",
+  "ground": false,
+  "view": { "yaw": 0, "pitch": 0 },
+  "section": { "normal": [0, 0, 1], "offset": 0 },
+  "parts": [
+    {
+      "id": "block",
+      "name": "Block",
+      "color": "#e6dccb",
+      "studioColor": "#e6dccb",
+      "shapes": [{ "box": [2.4, 1.6, 1.6] }]
+    },
+    {
+      "id": "ball",
+      "name": "Ball",
+      "color": "#1d2a6b",
+      "studioColor": "#1d2a6b",
+      "shapes": [{ "sphere": 0.45, "at": [0, 0, -0.35] }]
+    }
+  ]
+}

@@ -7,13 +7,13 @@ it, keep the tab in front, press Run).
 
 ## Size
 
-The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 57 KB gzipped: `npm run size` fails past
+The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 60 KB gzipped (57 KB until November 2026; raised when the engine began checking scenes and models itself): `npm run size` fails past
 it, and the CI workflow runs it. The glTF exporter is a script of its own, `dist/lk3d-export.min.js` (3.8 KB, 2.0 KB
 gzipped), outside the budget: a page loads it only to export.
 
 |                                                                                                                                         | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d 0.1.0                                                                                                                              | 141.2 KB | 56.1 KB |
+| lk3d 0.1.0                                                                                                                              | 148.4 KB | 59.3 KB |
 | three.js r187, the smallest page (renderer, camera, box, basic material)                                                                | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, orbit controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
@@ -44,6 +44,32 @@ first picture, and drawn by the GPU. The jet engine's rows were measured again a
 grows with what is drawn: each streak is placed on the CPU every frame it moves (about 0.6 ms for 2000 here), so a page that needs thousands on a
 phone draws fewer (`amount`). On this machine the GPU's cost hides under the 120 Hz frame, so the numbers that
 matter most come from phones.
+
+## On a phone-like device
+
+No phone has been measured yet; these numbers stand in for one. Chromium with its CPU slowed 4 and 6 times (the usual
+stand-ins for a mid-range and a low-end Android phone), a 390 px screen at 2.75 device pixels per CSS pixel, touch,
+the laptop's own GPU (Apple M3 Pro, through Metal, not slowed), 7 November 2026, `node test/bench/phone.mjs`. Times
+are ms from `LK3D.mount`; frame = time between frames while the figure turns a step each frame for 3 s, median / 95th
+percentile, on a 60 Hz screen.
+
+| Scene (reference) | Triangles | CPU | Setup | First picture | Picking ready | Crease shading done | Frame       |
+| ----------------- | --------- | --- | ----- | ------------- | ------------- | ------------------- | ----------- |
+| Generator         | 15 266    | 1×  | 40    | 45            | 91            | 255                 | 16.7 / 16.8 |
+|                   |           | 6×  | 126   | 152           | 243           | 950                 | 16.7 / 16.8 |
+| Animal cell       | 53 016    | 1×  | 36    | 40            | 114           | 832                 | 16.7 / 16.7 |
+|                   |           | 6×  | 217   | 248           | 503           | 4 070               | 16.7 / 16.7 |
+| Jet engine        | 215 974   | 1×  | 39    | 47            | 232           | 670                 | 16.7 / 16.7 |
+|                   |           | 6×  | 235   | 309           | 590           | 2 217               | 16.7 / 16.7 |
+| Solar System      | 11 332    | 6×  | 132   | 154           | 340           | 887                 | 16.7 / 16.7 |
+| Molecules         | 26 856    | 6×  | 224   | 245           | 562           | 6 836               | 16.7 / 16.7 |
+
+The first picture comes within a third of a second even at 6×. The crease shading is the slow part (up to 7 s of
+CPU on the molecules at 6×), but it is done in idle time and waits while the reader turns the figure: turned from
+its first frame for 4 s at 6×, no frame of the cell, the molecules or the jet engine took over 50 ms (the worst 33
+ms), and the shading finished once the figure was still. What this cannot show is a phone's GPU: frames held the
+screen's rate here because the laptop's GPU did the drawing. A real low-end phone (and its browser) is still the
+measurement that matters.
 
 ## Many parts
 

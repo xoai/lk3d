@@ -14,7 +14,8 @@
 // It draws only when something changes, pauses off screen, lowers its resolution while frames are slow and moving,
 // and never reads from the page layout or the GPU while drawing: labels are measured once, picking casts rays on the CPU.
 import { D2R, M, sub, add, mulv, len, norm, cross, dot, rgb } from './math.js';
-import { Geo, buildScene, flatten, buildShape, outlineNormals, edgesOf, bounds } from './geometry.js';
+import { Geo, buildScene, buildFitting, flatten, buildShape, outlineNormals, edgesOf, bounds } from './geometry.js';
+import { guard } from './guard.js';
 import { buildBVH, intersect, aoJob } from './bvh.js';
 import { glRenderer } from './renderer-gl.js';
 import { canvasRenderer } from './renderer-2d.js';
@@ -188,6 +189,7 @@ let warned = false;
 function context(cv, opts) {
   const attrs = {
     antialias: true,
+    stencil: true, // (where a cut's plane lies inside a solid: counted there, so its cap is drawn on the plane)
     alpha: true, // (every pass blends premultiplied colour: the page shows through as it should)
     preserveDrawingBuffer: false,
     powerPreference: 'default', // these scenes do not need to wake a laptop's second GPU
@@ -214,6 +216,10 @@ function context(cv, opts) {
 const VIEWS = { front: [0, 0], side: [-90, 0], top: [0, 83], iso: [-35, 25] };
 
 function mount(el, spec, opts = {}) {
+  // a scene may come from anyone: refused with a sentence naming the place before anything is built or drawn, by the
+  // engine's guard (guard.js), or by the full rules when the page gives them (opts.validate: lk3d/validate's validate)
+  const bad = (opts.validate || guard)(spec)[0];
+  if (bad) throw new Error(`lk3d: ${bad.path || 'the scene'}: ${bad.message}`);
   css();
   if (el.lk3d) el.lk3d.destroy(); // (mounting again on the same element replaces the figure there)
   if (spec.lk3d > FORMAT && !warned && typeof console !== 'undefined') {
@@ -271,8 +277,15 @@ function mount(el, spec, opts = {}) {
   const cv = document.createElement('canvas');
   const gl = context(cv, opts);
   // without WebGL the 2D fallback sorts every triangle on the CPU, so it gets coarser shapes
-  const q = (opts.quality ?? (small ? 0.6 : 1)) * (gl ? 1 : 0.5);
-  const S = buildScene(spec, q);
+  // and at most so many triangles: a million where memory is small (a phone's screen, or what the browser says it has),
+  // so a heavy scene is drawn coarser (down to a quarter of its detail) or refused rather than taking the tab down;
+  // elsewhere 10 million (2 million a part)
+  const S = buildFitting(
+      spec,
+      (opts.quality ?? (small ? 0.6 : 1)) * (gl ? 1 : 0.5),
+      opts.maxTriangles ?? (small || navigator.deviceMemory < 4 ? 1e6 : 1e7),
+    ),
+    q = S.q;
   // handles: parts the reader moves directly (and the parts each one carries with it)
   const handles = [];
   for (const p of S.parts)
@@ -2357,9 +2370,10 @@ const LK3D = {
   // settings for every figure on the page (a site sets them once): locale, strings, buttonClass
   defaults: { locale: 'en', strings: {}, buttonClass: '' },
   reduce: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
-  // for tests and tools: the geometry a scene makes, without a page (each part also as one plain geometry, g)
-  build(spec, q = 1) {
-    const S = buildScene(spec, q);
+  // for tests and tools: the geometry a scene makes, without a page (each part also as one plain geometry, g); most:
+  // the most triangles it may have (10 million)
+  build(spec, q = 1, most) {
+    const S = buildScene(spec, q, most);
     for (const p of S.parts)
       Object.defineProperty(p, 'g', {
         get() {

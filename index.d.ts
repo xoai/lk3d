@@ -441,6 +441,13 @@ export interface MountOptions {
   buttonClass?: string;
   /** shape detail (1; 0.6 on small screens) */
   quality?: number;
+  /** the most triangles the scene may have here (1 million where memory is small: a screen under 700 px a side, or
+   * navigator.deviceMemory under 4 GB; else 10 million, 2 million a part): over it, the scene is built coarser (down to
+   * a quarter of `quality`), else refused with an Error */
+  maxTriangles?: number;
+  /** the full rules to check the scene by before it is built (`validate` from 'lk3d/validate'): its first problem is
+   * thrown as an Error naming the place. Without it, the engine's own guard checks what building needs */
+  validate?: (scene: unknown) => { path: string; message: string }[];
   maxDpr?: number;
   adaptive?: boolean;
   ao?: boolean;
@@ -675,8 +682,8 @@ export interface Defaults {
 }
 
 export function mount(el: HTMLElement, scene: Scene, opts?: MountOptions): Figure;
-/** the geometry a scene makes, without a page (for tests and tools) */
-export function build(scene: Scene, quality?: number): { parts: BuiltPart[] };
+/** the geometry a scene makes, without a page (for tests and tools); maxTriangles: 10 million by default */
+export function build(scene: Scene, quality?: number, maxTriangles?: number): { parts: BuiltPart[] };
 export const locales: Record<string, Strings>;
 export const themes: Record<string, Theme>;
 export const defaults: Defaults;

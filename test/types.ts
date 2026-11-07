@@ -53,6 +53,10 @@ fig.view({ yaw, pitch: pitch + 10 });
 fig.select(fig.selected === 'lens' ? null : 'lens');
 fig.handle('object')?.set(-3);
 const problems: { path: string; message: string }[] = validate(scene);
+// a scene from someone else: the full rules first, and a phone's limit on triangles
+mount(document.body, scene, { validate, maxTriangles: 1e6 });
+// @ts-expect-error validate is a function of the scene, not a switch
+mount(document.body, scene, { validate: true });
 
 // @ts-expect-error a slide handle needs its range
 const bad1: Scene = { parts: [{ id: 'a', shapes: [{ sphere: 1 }], handle: { slide: { axis: [1, 0, 0] } } }] };

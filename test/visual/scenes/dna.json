@@ -1,4 +1,5 @@
 {
+ "check": {"float": ["nuoc-dna"]},
  "w": 16,
  "h": 8,
  "title": "Một đoạn phân tử DNA",

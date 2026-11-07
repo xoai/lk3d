@@ -1,4 +1,5 @@
 {
+ "check": {"float": true},
  "w": 16, "h": 9, "style": "studio", "view": {"yaw": -30, "pitch": 15},
  "models": {"ball": {"file": "assets/ball.glb", "title": "Test ball", "author": "lk3d", "license": "CC0", "source": "artist"}},
  "parts": [

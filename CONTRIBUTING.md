@@ -33,10 +33,11 @@ npm run test:visual    # reference scenes compared with stored pictures
 - **A change to what is drawn** fails the image tests on purpose. Look at the new pictures in `test-results/`, and if
   they are right, make them again with `npm run test:visual -- --update-snapshots` and include them. Pictures differ
   between browsers and platforms, so each keeps its own (`test/visual/baselines/<browser>-<platform>/`). Stored today:
-  Chromium and Firefox on macOS only. WebKit is skipped on macOS 14 and older (Playwright cannot drive its build
-  there). The CI workflow is lessonkit's `.github/workflows/lk3d.yml` (it runs on Linux, in all three browsers); its
-  Linux pictures are not stored yet: run it by hand with "update" ticked, download the "baselines" artifact into
-  `test/visual/baselines/`, look at the pictures and commit them. Until then its image tests fail.
+  Chromium and Firefox on macOS; Chromium, Firefox and WebKit on Linux. WebKit is skipped on macOS 14 and older
+  (Playwright cannot drive its build there). The CI workflow is lessonkit's `.github/workflows/lk3d.yml` (it runs on
+  Linux, in all three browsers). A change that changes pictures changes the Linux ones too: run the workflow by hand
+  with "update" ticked, download the "baselines" artifact into `test/visual/baselines/`, look at the pictures and
+  commit them; until then its image tests fail.
 - **A new shape, material, surface or environment** goes into the schema too (`schema/scene.schema.json`): a test
   checks that the schema names exactly what the engine draws. Then `npm run docs` makes the scene-format reference and
   the shape pictures again.

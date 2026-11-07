@@ -15,7 +15,11 @@ function header(gl2, stage, defs) {
   return h;
 }
 
-// ---- the parts: positions and normals arrive compressed (16 and 8 bit), each instance brings its own matrix
+// ---- the parts: positions and normals arrive compressed (16 and 8 bit), each instance brings its own matrix.
+// The ink look shades a curve made of crisp bands (a lathe's profile segments, each with its own normal) by the normal
+// averaged where the bands meet (aOut, the outline's) when they meet at a small angle (up to about 30 degrees; from 40,
+// where the pen look draws an edge, a crease stays crisp): its hard step from one tone to the next then runs smoothly
+// round the curve instead of stepping band by band, and is blended across about a pixel (fwidth), so it is not jagged.
 const PART_VS = `
 attribute vec4 aPos; attribute vec4 aNrm; attribute vec4 aOut; attribute float aAO; attribute vec4 aCol;
 #if defined(HIFI) || defined(CUTS)
@@ -39,15 +43,25 @@ void main() {
   vUV = aUV;
 #endif
   vec4 w = m * vec4(vO, 1.0);
-  vec3 nm = mat3(m) * aNrm.xyz;
+  vec3 nm = aNrm.xyz;
+#ifdef INK
+  nm = mix(nm, aOut.xyz, smoothstep(0.94, 0.966, dot(normalize(aOut.xyz), normalize(nm))));
+#endif
+  nm = mat3(m) * nm;
   if (uOutline > 0.0) w.xyz += normalize(mat3(m) * aOut.xyz) * uOutline * (uViewD > 0.0 ? uViewD : length(w.xyz - uEye));
   vW = w.xyz; vN = nm; vAO = aAO;
 #ifdef SHADOWS
-  vSh = uLightVP * w;
+  // (looked up a little off the surface, along its normal: about two of the shadow map's texels, which are its width,
+  // 2 / that row's length, over 1024; a surface the light grazes does not shadow itself in specks)
+  vSh = uLightVP * vec4(w.xyz + normalize(nm) * 0.004 / max(length(vec3(uLightVP[0][0], uLightVP[1][0], uLightVP[2][0])), 1e-6), 1.0);
 #endif
   gl_Position = uVP * w;
 }`;
 
+// CAPS: the caps alone (renderer-gl draws them again where the cut's plane lies inside a solid, counted in the stencil),
+// put on the cut's plane instead of the far wall they are drawn with, so whatever lies inside the solid between the two
+// (a blade's root buried in its hub, a hub inside a spinner) is hidden, as the solid would hide it. A five-hundredth of the
+// way back towards the wall: where two parts' sections overlap, the nearer wall's wins, steadily.
 const PART_FS = `
 uniform vec3 uColor; uniform float uAlpha; uniform float uFlat; uniform vec3 uMat;  // (uColor: the outline's)
 uniform vec3 uLight; uniform vec3 uEye; uniform vec4 uPlane; uniform vec3 uCap;
@@ -59,6 +73,8 @@ varying vec3 vW; varying vec3 vN; varying float vAO; varying vec4 vCol; varying 
 uniform samplerCube uEnv; uniform float uEnvMax; uniform float uExposure;
 uniform vec3 uSurf; uniform float uRefr; uniform sampler2D uBack; uniform vec2 uView; uniform mat4 uVP;
 uniform sampler2D uBase; uniform sampler2D uNorm; uniform sampler2D uMR; uniform vec4 uTex; varying vec2 vUV;
+#elif defined(CAPS)
+uniform mat4 uVP;
 #endif
 #ifdef CUTS
 uniform sampler2D uBase; uniform vec4 uTex; varying vec2 vUV;  // (the drawn looks: only a cut-out's shape from its map)
@@ -149,14 +165,24 @@ void main() {
 #else
     vec3 cap = mix(C, uCap, 0.25) * 1.15;
 #endif
-    gl_FragColor = vec4(cap * (0.84 + 0.16 * h), uAlpha); return;
+    gl_FragColor = vec4(cap * (0.84 + 0.16 * h), uAlpha);
+#ifdef CAPS
+    vec4 cp = uVP * vec4(P, 1.0);
+    gl_FragDepth = mix(clamp(cp.z / cp.w * 0.5 + 0.5, 0.0, 1.0), gl_FragCoord.z, 0.002);
+#endif
+    return;
   }
   vec3 N = normalize(gl_FrontFacing ? vN : -vN), L = normalize(uLight), V = normalize(uEye - vW);  // the far side of glass faces us
   float d = dot(N, L), ao = mix(1.0, vAO, uAOk), sh = shadow(), al = uAlpha;
   vec3 col;
 #ifdef INK
   {  // ink: three bands of coloured pencil, hatching in the shade and in creases, paper grain
-    float lit = (d > 0.55 ? 1.0 : d > 0.05 ? 0.82 : 0.64);
+#ifdef GL2
+    float aa = fwidth(d) * 0.7 + 1e-4;
+#else
+    float aa = 1e-4;
+#endif
+    float lit = mix(mix(0.64, 0.82, smoothstep(0.05 - aa, 0.05 + aa, d)), 1.0, smoothstep(0.55 - aa, 0.55 + aa, d));
     lit = min(lit, sh > 0.5 ? 1.0 : 0.72);
     float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
     col = C * lit * mix(0.78, 1.0, smoothstep(0.45, 0.85, ao)) + vec3(0.06) * rim;

@@ -4,6 +4,16 @@ import { D2R, M, sub, add, mulv, dot, cross, len, norm, carry, rgb } from './mat
 import science, { rng, earcut, signedArea } from './science.js';
 import { load as loadModel, parseGLB, bytes } from './gltf.js';
 import { fluidsOf, bodies } from './fluids.js';
+import { guard } from './guard.js';
+
+// vertices and triangles the scene being built may still make (buildScene sets it: three times its triangle limit): a
+// scene that asks for more is refused as it reaches it, whatever the estimate (least) said, before it can take the
+// page's memory
+let room = Infinity,
+  cap = 0;
+const words = (n) => (n >= 1e6 && n % 1e5 === 0 ? n / 1e6 + ' million' : String(n));
+const tooMany = (what, n = cap) =>
+  Object.assign(new Error(`lk3d: ${what}; the limit is ${words(n)}`), { triangles: true });
 
 // A mesh is positions, normals and triangles; every triangle is turned to face the way its normals point, so shapes
 // can be written without minding winding order. Vertices may also carry a colour (c: r, g, b, a per vertex, 0-255):
@@ -21,6 +31,7 @@ class Geo {
     return this.p.length / 3;
   }
   v(p, n) {
+    if (--room < 0) Geo.fits(1);
     this.p.push(p[0], p[1], p[2]);
     this.n.push(n[0], n[1], n[2]);
     if (this.c) this.c.push(0, 0, 0, 0);
@@ -40,8 +51,13 @@ class Geo {
     }
     return this;
   }
+  // n more, or refused past the limit (a model asks before reading its values)
+  static fits(n) {
+    if (n > room) throw tooMany('the scene makes too many triangles');
+  }
   tri(a, b, c) {
     // (scalar arithmetic: this runs for every triangle of every scene)
+    if (--room < 0) Geo.fits(1);
     const P = this.p,
       N = this.n,
       a3 = 3 * a,
@@ -424,8 +440,11 @@ for (const [k, fn] of Object.entries(science({ Geo, lathe, tube, sphere, cylinde
 // One shape of a part: its geometry (in the shape's own frame) and the placements it is drawn at: one, copies around
 // an axis (repeat), or copies scattered at random inside a region (scatter: ribosomes, vesicles, stars). color: paints
 // the shape in its own colour (alpha 255), so one part can hold differently coloured shapes.
+// detail: 0.5 for a shape repeated hundreds of times (blades), 2 for a close-up; at most 16 in all (scatters in scatters
+// would otherwise multiply it past any size)
+const detail = (q, d) => Math.min(16, q * (d || 1));
 function buildShape(s, q, ctx = {}) {
-  if (s.detail) q *= s.detail; // detail: 0.5 for a shape repeated hundreds of times (blades), 2 for a close-up
+  q = detail(q, s.detail);
   if (s.scatter) return scatterShape(s, q, ctx);
   if (s.model != null) return modelShape(s, ctx);
   const kind = Object.keys(SHAPES).find((k) => k in s);
@@ -478,7 +497,7 @@ function modelShape(s, ctx) {
 }
 function scatterShape(s, q, ctx) {
   const o = s.scatter,
-    inner = buildShape(o.shape, q * (o.detail ?? 0.5), ctx),
+    inner = buildShape(o.shape, detail(q, o.detail ?? 0.5), ctx),
     R = rng(o.seed ?? 1),
     place = M.trs(s.at, s.rot, s.scale);
   const w = o.within || { sphere: 1 },
@@ -709,15 +728,18 @@ const SOFT = ['model', 'blob', 'tree', 'terrain', 'scatter', 'molecule', 'dna'];
 
 // At least how many triangles a shape makes, from its numbers alone (each count below is less than what it builds):
 // a scene that would make too many is refused before any of it is built, rather than holding the page for minutes
-// (seg: 1e8, or a tree of eight levels of eight branches)
+// (seg: 1e8, or a tree of eight levels of eight branches, or one branch eight million deep)
 function least(s, q) {
   if (!s || typeof s !== 'object') return 0;
-  q *= s.detail || 1;
+  q = detail(q, s.detail);
   const c = s.scatter,
-    a = Math.max(6, Math.round(((s.seg || 0) * q * Math.abs((s.to ?? 360) - (s.from ?? 0))) / 360)), // segments around
+    turn = (o) => Math.abs((o.to ?? 360) - (o.from ?? 0)) / 360, // (a sector: how much of a turn)
+    a = Math.max(6, Math.round((s.seg || 32) * q * turn(s))), // segments around
     t = s.terrain && Math.max(6, (s.terrain.res || 0) * q),
-    tr = s.tree || {};
-  if (c) return (c.n || 50) * least(c.shape, q * (c.detail ?? 0.5));
+    tr = s.tree || {},
+    b = tr.branches ?? 2,
+    n = (v) => (Array.isArray(v) ? v.length : 0);
+  if (c) return (c.n || 50) * least(c.shape, detail(q, c.detail ?? 0.5));
   return (
     (s.repeat ? s.repeat.n || s.repeat : 1) *
     Math.max(
@@ -726,36 +748,69 @@ function least(s, q) {
       s.helix ? 150 * q * (s.helix.turns ?? 8) : 0,
       s.loop ? 48 * (s.loop.turns || 1) : 0,
       t ? 2 * t * t : 0,
-      s.tree ? 40 * (tr.branches ?? 2) ** ((tr.levels ?? 3) - 1) : 0,
+      s.tree ? 40 * (b === 1 ? (tr.levels ?? 3) : b ** ((tr.levels ?? 3) - 1)) : 0,
       s.dna ? 12 * (s.dna.pairs || 12) : 0,
+      s.tube ? 10 * n(s.tube) : 0,
+      s.shell ? 16 * 48 * q * turn(s.shell) : 0,
+      s.molecule
+        ? 48 * n(s.molecule.atoms) +
+            12 * (Array.isArray(s.molecule.bonds) ? s.molecule.bonds : []).reduce((t, b) => t + (+b?.[2] || 1), 0)
+        : 0,
     )
   );
 }
-const LIMIT = 'the limit is 2 million';
+// what went wrong building at a place in the scene, said there: lk3d's own sentence, or (a scene in a form the guard
+// does not know to refuse) what JavaScript said, with where to look
+const at = (e, where) =>
+  e.triangles
+    ? e
+    : new Error(
+        `lk3d: ${where}: ` +
+          (/^lk3d/.test(e.message)
+            ? e.message.replace(/^lk3d:? /, '')
+            : `cannot be built (${e.message}); validate(scene) from lk3d/validate says what is wrong`),
+      );
 
 // A scene: parts, each a list of batches (one geometry, drawn at one or more placements). Shapes of a part that are not
 // repeated are merged into one batch, so a part costs one draw for its plain shapes plus one per repeated shape. Which
 // of a batch's triangles get edges in the pen look: `edgy` (none if false), less the ranges in `soft` (the part's
-// `edges`, else every shape but the soft ones).
-function buildScene(spec, q = 1) {
+// `edges`, else every shape but the soft ones). max: the most triangles the scene may have (a part, at most 2 million);
+// the guard first refuses a scene not in a form it can build (guard.js).
+function buildScene(spec, q = 1, max = 1e7) {
+  const bad = guard(spec)[0];
+  if (bad) throw new Error(`lk3d: ${bad.path || 'the scene'}: ${bad.message}`);
+  const most = Math.min(2e6, max),
+    limit = `${words(most)}${max > most ? ` a part, ${words(max)} in all` : ''}`;
   let all = 0;
-  for (const p of spec.parts || []) {
-    const n = (Array.isArray(p.shapes) ? p.shapes : []).reduce((n, s) => n + least(s, q), 0);
-    if (n > 2e6) throw new Error(`lk3d: part ${p.id} would have at least ${Math.round(n)} triangles; ${LIMIT}`);
+  for (const p of spec.parts) {
+    const n = (p.shapes || []).reduce((n, s) => n + least(s, q), 0);
+    if (n > most) throw tooMany(`part ${p.id} would have at least ${Math.round(n)} triangles`, most);
     all += n;
   }
-  if (all > 1e7)
-    throw new Error(
-      `lk3d: the scene would have at least ${Math.round(all)} triangles; ${LIMIT} a part, 10 million in all`,
-    );
+  if (all > max) throw tooMany(`the scene would have at least ${Math.round(all)} triangles`, limit);
+  cap = max;
+  room = 3 * max;
+  try {
+    return build(spec, q, max, most);
+  } finally {
+    room = Infinity;
+  }
+}
+function build(spec, q, max, most) {
   // shapes alike are made once; parts alike (the same shapes, placed elsewhere) share one merged geometry, in the
   // part's own frame and placed by its matrix, so their outlines, crease shading, edges and GPU buffers are made once
   const ctx = { models: spec.models, cache: new Map() },
     parts0 = new Map(),
     outs = new WeakMap();
   // liquids and gases (fluids.js): their parts' shapes are their bodies at the start, made from their vessels
-  const fl = spec.liquids || spec.gases ? bodies(fluidsOf(spec)).out : null;
-  const parts = (spec.parts || []).map((given, k) => {
+  let fl = null;
+  try {
+    fl = spec.liquids || spec.gases ? bodies(fluidsOf(spec)).out : null;
+  } catch (e) {
+    throw at(e, 'vessels, liquids and gases');
+  }
+  let all = 0;
+  const parts = spec.parts.map((given, k) => {
     const p =
       fl && fl.has(given.id) ? { ...given, shapes: fl.get(given.id) ? [fl.get(given.id)] : [], fluid: true } : given;
     const place = M.trs(p.at, p.rot, p.scale),
@@ -767,9 +822,17 @@ function buildScene(spec, q = 1) {
       soft = shared ? shared.soft : [],
       batches = [];
     let clear = !!(p.shapes || []).length; // (made only of a model's glass: see-through glass unless it says otherwise)
-    for (const s of p.shapes || []) {
-      const b = buildShape(s, q, ctx),
-        mats = b.mats.map((m) => M.mul(place, m)),
+    for (const [j, s] of (p.shapes || []).entries()) {
+      let b;
+      try {
+        b = buildShape(s, q, ctx);
+      } catch (e) {
+        throw at(e, `parts[${k}].shapes[${j}]`);
+      }
+      // (its triangles counted as it comes, before its copies are baked into the part)
+      if ((all += (b.geo.i.length / 3) * b.mats.length) > max)
+        throw tooMany(`the scene has more than ${words(max)} triangles`);
+      const mats = b.mats.map((m) => M.mul(place, m)),
         edgy = p.edges ?? !SOFT.some((n) => n in s);
       clear = clear && !!b.geo.clear;
       if (b.geo.tex) {
@@ -807,7 +870,7 @@ function buildScene(spec, q = 1) {
         }
       }
     }
-    if (tris > 2e6) throw new Error(`lk3d: part ${p.id} has ${Math.round(tris)} triangles; ${LIMIT}`);
+    if (tris > most) throw tooMany(`part ${p.id} has ${Math.round(tris)} triangles`, most);
     // where its label points: given, or the top of the part near its middle (the centre of a ring is empty space)
     const mid = mulv(add(lo, hi), 0.5);
     for (const b of batches)
@@ -864,7 +927,18 @@ function buildScene(spec, q = 1) {
       lo[a] = Math.min(lo[a], p.lo[a]);
       hi[a] = Math.max(hi[a], p.hi[a]);
     }
-  return { parts, lo, hi, center: mulv(add(lo, hi), 0.5), radius: len(sub(hi, lo)) / 2 || 1 };
+  return { parts, lo, hi, center: mulv(add(lo, hi), 0.5), radius: len(sub(hi, lo)) / 2 || 1, q };
+}
+// A scene built for a device: at the detail asked, else coarser (down to a quarter of it) where that would pass the
+// device's limit, else refused (S.q: the detail it was built at)
+function buildFitting(spec, q, max) {
+  for (;;)
+    try {
+      return buildScene(spec, q, max);
+    } catch (e) {
+      if (!e.triangles || q < 0.3) throw e;
+      q /= 2;
+    }
 }
 
 // For tests and tools: a part as one plain geometry, every instance placed (what v1 drew).
@@ -879,6 +953,7 @@ export {
   SHAPES,
   buildShape,
   buildScene,
+  buildFitting,
   least,
   flatten,
   outlineNormals,

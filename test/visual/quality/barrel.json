@@ -1,0 +1,37 @@
+{
+  "w": 4,
+  "h": 3,
+  "title": "A barrel of crisp bands",
+  "alt": "A barrel turned from a profile of nine straight segments, each band with its own normal.",
+  "style": "ink",
+  "section": false,
+  "ground": false,
+  "view": {
+    "yaw": -20,
+    "pitch": 20
+  },
+  "parts": [
+    {
+      "id": "barrel",
+      "name": "Barrel",
+      "color": "#d8d2c4",
+      "shapes": [
+        {
+          "lathe": [
+            [-1.2, 0],
+            [-1.1276, 0.2736],
+            [-0.9193, 0.5142],
+            [-0.6, 0.6928],
+            [-0.2084, 0.7878],
+            [0.2084, 0.7878],
+            [0.6, 0.6928],
+            [0.9193, 0.5142],
+            [1.1276, 0.2736],
+            [1.2, 0]
+          ],
+          "seg": 96
+        }
+      ]
+    }
+  ]
+}

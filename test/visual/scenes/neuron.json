@@ -1,4 +1,5 @@
 {
+ "check": {"float": ["te-bao-nhan"]},
  "w": 16,
  "h": 8,
  "narrow": "1 / 0.5",
@@ -83,7 +84,7 @@
    "explode": [
     0,
     0.42,
-    0
+    0.3
    ],
    "shapes": [
     {

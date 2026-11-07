@@ -19,7 +19,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url)),
 const EXPORTER = path.join(HERE, 'src/export-script.js'),
   MODULE = path.join(HERE, 'src/export.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this without a decision to raise it
-export const BUDGET_KB = 57;
+// (57 KB until November 2026, raised to 60 for scenes and models checked inside the engine and the cut-face fix)
+export const BUDGET_KB = 60;
 
 export const squeeze = (glsl) =>
   glsl

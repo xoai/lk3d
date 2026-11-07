@@ -1,4 +1,5 @@
 {
+ "check": {"float": true},
  "env": "night",
  "w": 16,
  "h": 9,

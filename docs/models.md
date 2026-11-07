@@ -45,6 +45,20 @@ Not read: skins and animations, morph targets, sparse accessors, KTX2/Basis text
 compression (refused with a message, since they would need a decoder); a material's other extensions (sheen,
 clearcoat, iridescence, emission maps) are left out.
 
+## A file from someone else
+
+A model may come from anyone, and lk3d reads it as such: before it uses what the file says, it checks it. Every index
+into the file's lists must point at an item there; every buffer view and accessor must lie inside the file's binary
+chunk, so a count can be no larger than the bytes behind it (a count of two billion over a few bytes is refused before
+anything is allocated); indices must name the primitive's vertices, three to a triangle; float values must be finite;
+the nodes must form trees (a node reached twice, by a loop or a second parent, is refused, and a chain of nodes however
+deep is walked without recursion); a primitive's triangles are counted against the figure's triangle limit
+([`maxTriangles`](api.md#mountel-scene-options--figure)) before its values are read; and an embedded image must be PNG,
+JPEG or WebP, no larger than 8192 pixels a side by its header. Whatever fails is refused with a sentence, such as
+`lk3d: parts[0].shapes[0]: model: accessors[3] reads past its data`. Nothing is fetched: a buffer or an image in
+another file, or behind a `uri` (a web address or a `data:` URI), is refused. The images are decoded by the browser;
+one it cannot decode leaves the part its colour.
+
 ## Preparing a model
 
 Simplify and quantize it, and write it without compression, with [gltfpack](https://meshoptimizer.org/gltf/):

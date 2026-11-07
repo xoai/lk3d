@@ -1248,7 +1248,7 @@ test('edges: where faces meet at an angle and where a surface ends, never across
     );
   }
   // soft shapes have none, unless the part asks; a part may also refuse them
-  assert.equal(one({ molecule: { atoms: [['O', [0, 0, 0]]] } }), 0);
+  assert.equal(one({ molecule: { atoms: [{ el: 'O', at: [0, 0, 0] }] } }), 0);
   assert.equal(one({ box: [1, 1, 1] }, { edges: false }), 0);
   // a soft shape merged with a hard one: only the hard one's edges
   const m = LK3D.build({ parts: [{ id: 'p', shapes: [{ box: [1, 1, 1] }, { blob: { r: 0.4 }, at: [2, 0, 0] }] }] }, 1)

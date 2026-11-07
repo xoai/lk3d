@@ -1,4 +1,5 @@
 {
+ "check": {"allow": [["co2", "co2-dac"], ["bf3", "bf3-dac"], ["ch4", "ch4-dac"], ["nh3", "nh3-dac"], ["h2o", "h2o-dac"]]},
  "w": 16,
  "h": 10,
  "narrow": "1 / 1",

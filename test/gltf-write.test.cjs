@@ -21,7 +21,12 @@ const SCENE = {
         { sphere: 0.15, at: [0.8, 1.2, 0], color: '#ff0000' },
       ],
     },
-    { id: 'lens', material: 'glass', opacity: 0.35, shapes: [{ cylinder: [0.3, 0.05], at: [-0.6, 0.3, 0] }] },
+    {
+      id: 'lens',
+      material: 'glass',
+      opacity: 0.35,
+      shapes: [{ cylinder: { r: 0.3, x0: -0.025, x1: 0.025 }, at: [-0.6, 0.3, 0] }],
+    },
   ],
   motions: [{ id: 'swing', name: 'Swing', range: [0, 90], speed: 45 }],
   joints: [{ id: 'hinge', parts: ['arm'], turn: { axis: [0, 0, 1], center: [0.8, 0.1, 0] }, drive: 'swing' }],

@@ -1,9 +1,12 @@
 // Checks a scene before it is drawn, and says what is wrong where: the rules of schema/scene.schema.json (the one
 // description of the format: editors read it too), plus what a schema cannot say: unique part ids, a handle that moves
-// parts that exist (within its own range, about an axis that has a direction), a shape naming a model the scene lists. Not part of the runtime bundle: import 'lk3d/validate'.
+// parts that exist (within its own range, about an axis that has a direction), a shape naming a model the scene lists,
+// and the engine's own guard (guard.js: what LK3D.mount refuses whatever the schema says, such as a profile of more
+// points than it triangulates in good time). Not part of the runtime bundle: import 'lk3d/validate'.
 //   import { validate } from 'lk3d/validate';  validate(scene) → [{ path: 'parts[2].handle', message: '…' }, …]
 //   node src/validate.js < scene.json            prints the problems as JSON lines; exit code 1 if there are any
 import schema from '../schema/scene.schema.json' with { type: 'json' };
+import { guard, values } from './guard.js';
 
 // The part of JSON Schema 2020-12 the scene schema uses: type, enum, const, required, properties,
 // additionalProperties, items, prefixItems, minItems, maxItems, minimum, maximum, exclusiveMinimum, minLength, pattern,
@@ -239,9 +242,13 @@ function links(scene, out) {
 }
 
 export function validate(scene) {
-  const out = [];
+  const out = values(scene); // (a scene that holds itself, or is nested past reason: said first, and only that)
+  if (out.length) return out;
   check(schema, scene, '', out);
   if (TYPES.object(scene)) links(scene, out);
+  // (the guard's own word only where the schema said nothing at or around the place)
+  for (const g of guard(scene))
+    if (!out.some((e) => e.path.startsWith(g.path) || g.path.startsWith(e.path))) out.push(g);
   return out;
 }
 export { schema };

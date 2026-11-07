@@ -115,5 +115,13 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
   as a projectile under continuity; a gas holds its piston where pV = nRT puts it; a plume rises and widens as a
   buoyant one does. `lk3d check` catches overfull and overflowing vessels, an inside wider than the glass and a piston
   pushed out ([liquids and gases](docs/fluids.md)).
-- **Small and fast**: 56.1 KB gzipped (141 KB minified), against a budget of 57 KB that `npm run size` enforces;
+- **Small and fast**: 59.3 KB gzipped (148 KB minified), against a budget of 60 KB that `npm run size` enforces;
   draws only on change, pauses off screen, adapts its resolution.
+- **Safe with scenes and models from anyone**: `mount` and `buildScene` check a scene's shape before building
+  (`src/guard.js`; the full validator with `opts.validate`), and the glTF reader refuses loops, out-of-range data,
+  outside links and oversized images before allocating. A small screen or little memory caps a scene at a million
+  triangles (rebuilt at lower detail first; `maxTriangles` to change it). A fuzz suite (`test/trust.test.cjs`) holds
+  this. The budget went from 57 to 60 KB for it and for the cut-face fix below.
+- **Cut faces drawn on the cut plane** (WebGL 2): a part buried inside a cut one no longer shows through its cut face,
+  in every look; the ink look's tones follow curved surfaces without stair steps. Image tests check both
+  (`test/visual/quality.spec.mjs`), and every shipped scene passes `lk3d check` (`test/scenes.test.cjs`).

@@ -249,7 +249,10 @@ there are any. Editors that understand JSON Schema complete and check scenes as 
 `"$schema": "https://raw.githubusercontent.com/xoai/lk3d/main/schema/scene.schema.json"`.
 
 A scene stays small enough to draw: each count has a bound (`seg` 512, `repeat` 1000, `scatter.n` 10000, …), and
-counts that multiply past 2 million triangles in a part (10 million in all) are refused before anything is built.
+counts that multiply past 2 million triangles in a part (10 million in all; 1 million where memory is small, see
+[`maxTriangles`](api.md#mountel-scene-options--figure)) are refused before anything is built. The engine itself also
+refuses lists of more than 100 000 items, profiles and outlines (`lathe`, `extrude.outline`, a vessel's `inside`,
+terrain's `layers`) of more than 1000 points, and anything nested more than 32 deep.
 
 ## Versions
 

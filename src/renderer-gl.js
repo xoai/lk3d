@@ -194,6 +194,11 @@ function glRenderer(gl, scene, opts = {}) {
                 : program(DVS, DFS),
       { optional: true },
     ));
+  // the caps on the cut's plane (WebGL 2, with a stencil buffer): a program for each look
+  const capsOn = gl2 && (gl.getContextAttributes() || {}).stencil,
+    capProg = (kind) =>
+      P['cap' + kind] ||
+      (P['cap' + kind] = program(S.PART_VS, S.PART_FS, ['CAPS', ...cuts, ...[['INK'], [], ['PEN']][kind]]));
   // the pen look: compiled when first needed (its parts take no shadow: only the ground does)
   const penProg = () => P.pen || (P.pen = program(S.PART_VS, S.PART_FS, ['PEN', ...cuts]));
   // the studio look, its environment and the glow: compiled when first needed, or ahead of time in the background once
@@ -726,6 +731,8 @@ function glRenderer(gl, scene, opts = {}) {
         ...(f.streams && f.streams.length ? [lazy('stream'), lazy('copy')] : []),
       ];
       if (kind === 1 && hifi && !env) needs.push(P.envGen, P.envPre);
+      const capped = capsOn && f.cut && f.parts.some((p) => p.cut);
+      if (capped) needs.push(capProg(kind));
       let waiting = false;
       for (const q of needs) if (!ready(q) && !q.failed) waiting = true;
       const can = (name) => P[name] && P[name].ok; // (an optional effect that compiled)
@@ -862,18 +869,24 @@ function glRenderer(gl, scene, opts = {}) {
       else gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       const u = prog.u;
-      common(prog, f);
-      gl.uniform3fv(u.uLight, f.look.light);
-      gl.uniform3fv(u.uCap, f.look.cap);
-      if (u.uHatch) {
-        gl.uniform3fv(u.uFwd, f.fwd);
-        gl.uniform1f(u.uOrtho, f.viewD ? 1 : 0);
-        gl.uniform1f(u.uHatch, f.hatch || 0.02);
-      }
-      gl.uniform1f(u.uDpr, f.dpr);
-      gl.uniform1f(u.uAOk, f.ao ? 1 : 0);
-      if (u.uPaper) gl.uniform3fv(u.uPaper, f.look.paper);
-      if (u.uSolid) gl.uniform3fv(u.uSolid, f.look.solid);
+      // (the look's uniforms: for the parts, and for their caps on the cut's plane)
+      const looks = (q) => {
+        const u = q.u;
+        common(q, f);
+        gl.uniform3fv(u.uLight, f.look.light);
+        gl.uniform3fv(u.uCap, f.look.cap);
+        if (u.uHatch) {
+          gl.uniform3fv(u.uFwd, f.fwd);
+          gl.uniform1f(u.uOrtho, f.viewD ? 1 : 0);
+          gl.uniform1f(u.uHatch, f.hatch || 0.02);
+        }
+        gl.uniform1f(u.uDpr, f.dpr);
+        gl.uniform1f(u.uAOk, f.ao ? 1 : 0);
+        gl.uniform1f(u.uAlpha, 1);
+        if (u.uPaper) gl.uniform3fv(u.uPaper, f.look.paper);
+        if (u.uSolid) gl.uniform3fv(u.uSolid, f.look.solid);
+      };
+      looks(prog);
       if (hifi && kind === 1) {
         if (!env) {
           makeEnv();
@@ -928,6 +941,36 @@ function glRenderer(gl, scene, opts = {}) {
         }
       };
       each(prog, opaque, look, !f.cut);
+      if (capped) {
+        // the caps again, on the cut's plane, where it lies inside their part: there the part's faces beyond it, back
+        // faces counted up and front ones down (whatever hides them), leave a count other than zero in the stencil. Part
+        // by part, so a part buried in another (its back faces nearer than the other's) shows no cap where the plane
+        // passes outside it
+        const C = capProg(kind);
+        looks(C);
+        gl.enable(gl.STENCIL_TEST);
+        gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.DECR_WRAP);
+        gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.INCR_WRAP); // (in the caps too: nonzero stays nonzero)
+        for (const p of opaque)
+          if (p.cut) {
+            gl.clear(gl.STENCIL_BUFFER_BIT);
+            gl.stencilFunc(gl.ALWAYS, 0, 255);
+            gl.colorMask(false, false, false, false);
+            gl.disable(gl.DEPTH_TEST);
+            gl.disable(gl.CULL_FACE);
+            each(C, [p]);
+            // then its caps (back faces), where the count is not zero
+            gl.stencilFunc(gl.NOTEQUAL, 0, 255);
+            gl.colorMask(true, true, true, true);
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+            gl.cullFace(gl.FRONT);
+            each(C, [p]);
+          }
+        gl.disable(gl.CULL_FACE);
+        gl.disable(gl.STENCIL_TEST);
+        gl.useProgram(prog.p);
+      }
       if (f.edges) {
         edgeLines(opaque);
         gl.useProgram(prog.p);

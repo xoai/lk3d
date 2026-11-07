@@ -9,7 +9,9 @@ function css() {
   s.id = 'lk3d-css';
   s.textContent = `
 .lk3d{position:relative; margin:24px 0 6px}
-.lk3d-stage{position:relative; width:100%; overflow:hidden; border-radius:6px; touch-action:none; user-select:none; -webkit-user-select:none}
+.lk3d-stage{position:relative; width:100%; overflow:hidden; border-radius:6px; touch-action:pan-y; user-select:none; -webkit-user-select:none}
+.lk3d-active .lk3d-stage{touch-action:none}
+.lk3d-sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 .lk3d-canvas{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:grab; outline:none}
 .lk3d-canvas:active{cursor:grabbing}
 .lk3d-under{pointer-events:none}

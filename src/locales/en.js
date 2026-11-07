@@ -2,7 +2,9 @@
 // or LK3D.defaults.locale, and changes single entries with `strings`.
 export default {
   model: '3D model',
-  hintTouch: 'Drag to turn · pinch to zoom',
+  hintTouch: 'Drag sideways to turn, tap it to turn any way · pinch to zoom',
+  keys: 'Arrow keys turn it, + and − zoom, Page Down and Page Up go through its parts, Escape lets go.',
+  parts: 'Parts',
   hintMouse: 'Drag to turn · Shift + drag to move · Ctrl + scroll to zoom',
   credit: '3D model: ',
   ai: ' (an illustration made by AI, not a real specimen)',

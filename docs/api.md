@@ -11,8 +11,11 @@ import LK3D, { mount, build, defaults, locales } from 'lk3d';
 ## mount(el, scene, options) → figure
 
 Draws `scene` ([format](scene-format.md)) in the element `el`, with the built-in controls under it, and returns the
-figure. The canvas has `role="img"` and the scene's `alt`; every handle is also a range input for the keyboard and
-screen readers.
+figure. For screen readers the canvas is an application (`role="application"`, described as a 3D model) named by
+the scene's `alt` and described by what its keys do; what the reader chooses is said aloud (a polite live region:
+the part's name and note, not what the pointer passes over), and every named part is listed, with its note, in a
+list after the figure (not drawn on the page). Every handle is also a range input for the keyboard and screen
+readers.
 
 | Option                     | Default                  | Meaning                                                                                                                                                                                                                                                                   |
 | -------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -141,16 +144,17 @@ and the exporter apart: `lk3d/export` (lk3d with `fig.exportGLB()` working, and 
 
 ## The reader's controls
 
-| Reader does                                 | The figure                                                                                                                         |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| drags (mouse, finger or pen)                | turns, with momentum (none under reduced motion); on a part with a handle, moves the handle                                        |
-| Shift-drags, or drags with the right button | pans                                                                                                                               |
-| pinches (two fingers)                       | zooms towards the fingers' middle                                                                                                  |
-| turns the wheel                             | zooms towards the pointer, only with Ctrl held or once the figure has been clicked (a click outside it lets the page scroll again) |
-| taps or clicks a part                       | chooses it (`onPick`): lit, its note shown                                                                                         |
-| presses the arrow keys (canvas focused)     | turns (left and right round the vertical, up and down)                                                                             |
-| presses `+` or `=`, `-`                     | zooms in, out                                                                                                                      |
-| Tabs to a handle                            | reaches its range input: arrow keys, Page Up and Page Down move it                                                                 |
+| Reader does                                 | The figure                                                                                                                                                                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| drags (mouse, finger or pen)                | turns, with momentum (none under reduced motion); on a part with a handle, moves the handle. A finger moved up or down scrolls the page until the figure has been touched (a touch outside it gives the page back its scrolling) |
+| Shift-drags, or drags with the right button | pans                                                                                                                                                                                                                             |
+| pinches (two fingers)                       | zooms towards the fingers' middle                                                                                                                                                                                                |
+| turns the wheel                             | zooms towards the pointer, only with Ctrl held or once the figure has been clicked (a click outside it lets the page scroll again)                                                                                               |
+| taps or clicks a part                       | chooses it (`onPick`): lit, its note shown                                                                                                                                                                                       |
+| presses the arrow keys (canvas focused)     | turns (left and right round the vertical, up and down)                                                                                                                                                                           |
+| presses `+` or `=`, `-`                     | zooms in, out                                                                                                                                                                                                                    |
+| presses Page Down, Page Up (canvas focused) | chooses the next, the previous named part on show (as a click: `onPick`, lit, its note shown and said); Escape lets it go                                                                                                        |
+| Tabs to a handle                            | reaches its range input: arrow keys, Page Up and Page Down move it                                                                                                                                                               |
 
 Zoom stops at `view.minZoom` of the distance that fits the whole model (0.02: 50 times closer) and at three times that
 distance going out. The built-in controls under the figure (each where the scene has a use for it) take it apart (a

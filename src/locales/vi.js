@@ -1,7 +1,9 @@
 // The words lk3d puts on the page, in Vietnamese (decimal comma).
 export default {
   model: 'Mô hình 3D',
-  hintTouch: 'Kéo để xoay · chụm hai ngón để phóng to',
+  hintTouch: 'Kéo ngang để xoay, chạm vào hình để xoay mọi hướng · chụm hai ngón để phóng to',
+  keys: 'Phím mũi tên để xoay, + và − để phóng to hay thu nhỏ, Page Down và Page Up để đi qua từng bộ phận, Esc để bỏ chọn.',
+  parts: 'Các bộ phận',
   hintMouse: 'Kéo để xoay · Shift + kéo để dời · Ctrl + cuộn để phóng to',
   credit: 'Mô hình 3D: ',
   ai: ' (hình minh họa do AI tạo, không phải mẫu thật)',

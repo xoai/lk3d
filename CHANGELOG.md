@@ -122,6 +122,9 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
   outside links and oversized images before allocating. A small screen or little memory caps a scene at a million
   triangles (rebuilt at lower detail first; `maxTriangles` to change it). A fuzz suite (`test/trust.test.cjs`) holds
   this. The budget went from 57 to 60 KB for it and for the cut-face fix below.
+- **Parts by keyboard and screen reader**: Page Down and Page Up go through a figure's named parts (as a click),
+  Escape lets go; what is chosen is said aloud with its note; the parts are listed for screen readers, and the canvas
+  says what its keys do. A finger moved up or down scrolls the page until the figure is touched, as the wheel does.
 - **Cut faces drawn on the cut plane** (WebGL 2): a part buried inside a cut one no longer shows through its cut face,
   in every look; the ink look's tones follow curved surfaces without stair steps. Image tests check both
   (`test/visual/quality.spec.mjs`), and every shipped scene passes `lk3d check` (`test/scenes.test.cjs`).

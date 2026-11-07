@@ -63,7 +63,8 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
   technical illustration; light, dark, blueprint and sepia themes, or the reader's own setting
   ([looks](docs/looks-and-materials.md)).
 - **Honest scale**: a scale bar that keeps its true length as the view zooms, or a note saying what is not to scale.
-- **Accessible**: the figure has a text description, every control works by keyboard, handles are read out, motion
+- **Accessible**: the figure has a text description and lists its parts for screen readers; the keyboard turns it,
+  zooms and goes through its parts (each said aloud with its note); every control works by keyboard, handles are read out, motion
   respects reduced-motion settings, English and Vietnamese words built in (add your own), themed by CSS variables.
 - **Checked**: a JSON Schema for scenes and a validator that says what is wrong where ([format](docs/scene-format.md));
   a geometry check that finds parts running into each other when taken apart, parts hanging in the air and hidden
@@ -120,8 +121,9 @@ Once it is published, `npm install lk3d` will do, and a page will load `https://
 - [Examples](examples/): a generator, a lens bench, a cell, molecules, the Solar System, rock layers, a gauge, a fossil
   skull, the three looks, a circuit, air through a fan. `npm run examples` serves them.
 - Reading a figure: drag to turn it, Shift-drag or right-drag to pan, pinch to zoom; the wheel zooms only with Ctrl
-  held or once the figure has been clicked, so it never takes over the page's scrolling. On the keyboard, the arrow
-  keys turn it and `+` and `-` zoom ([details](docs/api.md#the-readers-controls)).
+  held or once the figure has been clicked, and a finger moved up or down scrolls the page until the figure has been
+  touched, so it never takes over the page's scrolling. On the keyboard, the arrow keys turn it, `+` and `-` zoom,
+  Page Down and Page Up go through its parts and Escape lets go ([details](docs/api.md#the-readers-controls)).
 - From the command line ([details](docs/api.md#the-command-line)):
   - `lk3d check scene.json [--json]`: form and geometry, and the scene's size; exit code 1 on any problem.
   - `lk3d render scene.json [--looks …] [--poses …] [--theme NAME] [--ortho] [--width 640] [--out DIR]`: PNG pictures

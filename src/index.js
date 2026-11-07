@@ -184,7 +184,8 @@ const plainText = (s) => {
 };
 
 const FORMAT = 1; // the version of the scene format this engine reads (a scene's "lk3d" field)
-let warned = false;
+let warned = false,
+  mounted = 0; // figures mounted on the page (ids for their screen-reader text)
 
 function context(cv, opts) {
   const attrs = {
@@ -456,8 +457,31 @@ function mount(el, spec, opts = {}) {
   stage.className = 'lk3d-stage';
   cv.className = 'lk3d-canvas';
   cv.tabIndex = 0;
-  cv.setAttribute('role', 'img');
+  // for screen readers: a figure worked by keys (arrows turn it, Page Down and Up go through its parts), described by
+  // what those keys are; what the reader chooses is said aloud (a live region), and every named part is listed
+  cv.setAttribute('role', 'application');
+  cv.setAttribute('aria-roledescription', T.model);
   cv.setAttribute('aria-label', spec.alt || spec.title || T.model);
+  const sr = (tag, text) => {
+      const e = document.createElement(tag);
+      e.className = 'lk3d-sr';
+      if (text) e.textContent = text;
+      return e;
+    },
+    uid = 'lk3d-' + ++mounted,
+    keys = sr('p', T.keys),
+    said = sr('p'),
+    named = S.parts.filter((p) => p.name);
+  keys.id = uid + '-keys';
+  cv.setAttribute('aria-describedby', keys.id);
+  said.setAttribute('aria-live', 'polite');
+  const list = sr('ul');
+  list.setAttribute('aria-label', T.parts);
+  for (const p of named) {
+    const li = document.createElement('li');
+    li.textContent = plainText(p.name) + (p.note ? ': ' + plainText(p.note) : '');
+    list.append(li);
+  }
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'lk3d-lines');
   const tags = document.createElement('div');
@@ -480,7 +504,7 @@ function mount(el, spec, opts = {}) {
     if (spec.scale.note) scaleEl.querySelector('.lk3d-note').textContent = spec.scale.note;
   }
   stage.append(cv, svg, tags, hint, mark, ...(scaleEl ? [scaleEl] : []));
-  el.append(stage);
+  el.append(stage, keys, said, ...(named.length ? [list] : []));
   // under the figure: whose it is and on what terms (the scene's author and licence), then the models made by others,
   // their authors and licences (CC BY asks for it)
   const credits = Object.entries(spec.models || {}),
@@ -1322,6 +1346,12 @@ function mount(el, spec, opts = {}) {
     moved = 0,
     pinch = 0,
     vel = [0, 0, 0];
+  // active: the reader has taken hold of the figure (clicked or touched it). Until then the wheel and a finger moved up
+  // or down scroll the page (the stage's touch-action, pan-y); then the figure takes every gesture, until a touch elsewhere
+  const setActive = (v) => {
+    active = v;
+    el.classList.toggle('lk3d-active', v);
+  };
   const local = (e) => {
     const r = cv.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top];
@@ -1414,7 +1444,7 @@ function mount(el, spec, opts = {}) {
         capture(e.pointerId);
         cv.style.cursor = 'grabbing';
         hint.classList.add('gone');
-        active = true;
+        setActive(true);
         dragHandle(x, y);
         e.preventDefault();
         return;
@@ -1423,7 +1453,7 @@ function mount(el, spec, opts = {}) {
     capture(e.pointerId);
     pts.set(e.pointerId, [e.clientX, e.clientY]);
     moved = 0;
-    active = true;
+    setActive(true);
     drag = { pan: e.shiftKey || e.button === 2 };
     hint.classList.add('gone');
   });
@@ -1543,7 +1573,7 @@ function mount(el, spec, opts = {}) {
     { passive: false },
   );
   const outside = (e) => {
-    if (!el.contains(e.target)) active = false;
+    if (!el.contains(e.target)) setActive(false);
   };
   document.addEventListener('pointerdown', outside);
   cv.addEventListener('keydown', (e) => {
@@ -1557,6 +1587,17 @@ function mount(el, spec, opts = {}) {
     }
     const z = { '+': 1.15, '=': 1.15, '-': 1 / 1.15 }[e.key];
     if (z) zoom(z);
+    const step = { PageDown: 1, PageUp: -1 }[e.key],
+      shown = named.filter((p) => !p.hidden);
+    if ((step && shown.length) || (e.key === 'Escape' && st.selected)) {
+      const n = shown.length,
+        at = shown.findIndex((p) => p.id === st.selected);
+      // from none: the first (Page Down) or the last (Page Up); then on round
+      st.selected = step ? shown[at < 0 ? (step > 0 ? 0 : n - 1) : (at + step + n) % n].id : null;
+      info('pick');
+      kick();
+      e.preventDefault();
+    }
   });
   // the info box: the part chosen, else the one under the pointer. why: 'pick' (the reader chose a part: onPick),
   // 'hover' (the pointer moved onto or off a part: onHover), or nothing (a page's own select(), the first picture)
@@ -1567,6 +1608,7 @@ function mount(el, spec, opts = {}) {
       opts.info.innerHTML = p
         ? `<b>${safeHTML(p.name)}</b>${p.note ? ' ' + safeHTML(p.note) : ''}`
         : safeHTML(opts.infoIdle);
+    if (why === 'pick') said.textContent = p ? plainText(p.name) + (p.note ? ': ' + plainText(p.note) : '') : '';
     const cb = why === 'pick' ? opts.onPick : why === 'hover' ? opts.onHover : null;
     if (cb) cb(why === 'hover' ? S.parts.find((x) => x.id === st.hover) || null : p || null);
   }

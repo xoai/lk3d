@@ -388,6 +388,10 @@ export interface Strings {
   model: string;
   hintTouch: string;
   hintMouse: string;
+  /** what the keys do, for screen readers (the figure's description) */
+  keys: string;
+  /** the name of the list of parts, for screen readers */
+  parts: string;
   credit: string;
   ai: string;
   apart: string;

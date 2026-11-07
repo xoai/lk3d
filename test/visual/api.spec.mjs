@@ -2,7 +2,7 @@
 // callback, tweens give way to the page and the reader, removed and destroyed things leave nothing behind. Each test
 // mounts a small scene of its own on api.html and drives it as a page would. (Chromium: the wiring is the same
 // everywhere.)
-/* global LK3D, mountIt, until */ // (in the page: the engine, and the helpers beforeEach puts there)
+/* global LK3D, mountIt, until, fig */ // (in the page: the engine, and the helpers beforeEach puts there)
 import { test, expect } from '@playwright/test';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'the wiring is the same in every browser');
@@ -728,4 +728,98 @@ test("lk3d's mark is in the corner of every figure, in view, in every look", asy
     { text: 'lk3d', inside: true, shown: true },
     { text: 'lk3d', inside: true, shown: true },
   ]);
+});
+
+test('the keyboard goes through the parts: Page Down and Up choose each in turn (as a click), Escape lets go', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    const picks = [];
+    const fig = mountIt({ onPick: (p) => picks.push(p && p.id) });
+    await fig.ready;
+    window.fig = fig;
+    return picks;
+  });
+  expect(got).toEqual([]);
+  await page.focus('#g canvas');
+  const step = async (key) => {
+    await page.keyboard.press(key);
+    return page.evaluate(() => [fig.selected, document.querySelector('#g [aria-live]').textContent]);
+  };
+  expect(await step('PageDown')).toEqual(['base', 'Base']);
+  expect(await step('PageDown')).toEqual(['knob', 'Knob']);
+  expect(await step('PageDown')).toEqual(['base', 'Base']); // round again
+  expect(await step('PageUp')).toEqual(['knob', 'Knob']);
+  expect(await step('Escape')).toEqual([null, '']);
+  expect(await step('PageUp')).toEqual(['knob', 'Knob']); // from none, Page Up starts at the last
+  // a hidden part is passed over
+  await page.evaluate(() => fig.set({ hide: ['knob'] }));
+  expect(await step('PageDown')).toEqual(['base', 'Base']);
+  expect(await step('PageDown')).toEqual(['base', 'Base']);
+});
+
+test('for screen readers: a figure worked by keys, which it describes; its parts listed; what is chosen said, not what is pointed at', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    const fig = mountIt();
+    await fig.ready;
+    const g = document.getElementById('g'),
+      cv = g.querySelector('canvas'),
+      described = document.getElementById(cv.getAttribute('aria-describedby')),
+      list = g.querySelector('ul[aria-label]'),
+      live = g.querySelector('[aria-live="polite"]');
+    const r = cv.getBoundingClientRect();
+    let at = null;
+    for (let y = r.height * 0.4; y < r.height && !at; y += 4)
+      for (let x = r.width * 0.2; x < r.width * 0.8 && !at; x += 8) if (fig.pick(x, y) === 'base') at = [x, y];
+    cv.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: r.left + at[0], clientY: r.top + at[1], pointerId: 1, bubbles: true }),
+    );
+    await new Promise((res) => setTimeout(res, 100));
+    return {
+      role: cv.getAttribute('role'),
+      keys: described && described.textContent,
+      listName: list && list.getAttribute('aria-label'),
+      items: list ? [...list.querySelectorAll('li')].map((li) => li.textContent) : [],
+      saidOnHover: live && live.textContent,
+      hidden: getComputedStyle(described).clip,
+      en: LK3D.locales.en,
+    };
+  });
+  expect(got.role).toBe('application');
+  expect(got.keys).toBe(got.en.keys);
+  expect(got.listName).toBe(got.en.parts);
+  expect(got.items).toEqual(['Base', 'Knob']);
+  expect(got.saidOnHover).toBe(''); // pointing is not choosing: nothing said
+  expect(got.hidden).toContain('rect'); // there for screen readers, not drawn on the page
+});
+
+test('touch scrolls the page until the figure is taken hold of; then the figure has every gesture, until a touch elsewhere', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    const fig = mountIt();
+    await fig.ready;
+    const stage = document.querySelector('#g .lk3d-stage'),
+      cv = stage.querySelector('canvas'),
+      r = cv.getBoundingClientRect(),
+      ta = () => getComputedStyle(stage).touchAction;
+    const before = ta();
+    const at = (t, x, y) =>
+      t.dispatchEvent(new PointerEvent('pointerdown', { clientX: x, clientY: y, pointerId: 2, bubbles: true }));
+    at(cv, r.left + r.width / 2, r.top + r.height / 2);
+    cv.dispatchEvent(
+      new PointerEvent('pointerup', {
+        clientX: r.left + r.width / 2,
+        clientY: r.top + r.height / 2,
+        pointerId: 2,
+        bubbles: true,
+      }),
+    );
+    const held = ta();
+    at(document.body, 1, 1);
+    return { before, held, after: ta() };
+  });
+  expect(got).toEqual({ before: 'pan-y', held: 'none', after: 'pan-y' });
 });

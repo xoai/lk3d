@@ -1,0 +1,61 @@
+# Publishes lk3d to npm when a version tag (v0.1.1) is pushed to github.com/xoai/lk3d, then makes the GitHub release
+# from that version's section of CHANGELOG.md. npm takes the package from this workflow by trusted publishing (OIDC):
+# no token or password is stored anywhere, and npm records which commit and workflow built it (provenance). How to
+# release, and the one-time setting on npmjs.com: CONTRIBUTING.md, "Releasing".
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # the GitHub release
+      id-token: write # npm's trusted publishing
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # (to see whether the tag is on main)
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      # (trusted publishing needs npm 11.5.1 or later; this is the version the package was last published with by hand)
+      - run: npm install -g npm@12.2.0
+      - name: The tag is on main, names the package's version, and the docs say it
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          test "$v" = "$(node -p 'require("./package.json").version')" \
+            || { echo "::error::tag $GITHUB_REF_NAME, but package.json says $(node -p 'require("./package.json").version')"; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::$GITHUB_REF_NAME is not on main"; exit 1; }
+          grep -q "^## $v (" CHANGELOG.md || { echo "::error::CHANGELOG.md has no section '## $v (date)'"; exit 1; }
+          for f in README.md docs/api.md; do
+            grep -q "lk3d@$v/" "$f" || { echo "::error::$f does not load lk3d@$v from the CDN"; exit 1; }
+          done
+      - run: npm ci
+      # (npm publish runs prepublishOnly: lint, the unit tests, the types and the size budget; the tests draw with
+      # Chromium. The image tests ran in ci.yml on the push of this same commit to main.)
+      - run: npx playwright install --with-deps chromium
+      - name: Publish to npm
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          if npm view "lk3d@$v" version >/dev/null 2>&1; then
+            echo "lk3d@$v is already on npm (published by hand): only the GitHub release is made"
+          else
+            npm publish --access public --provenance
+          fi
+      - name: The GitHub release, from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v h="## $v (" 'index($0, h) == 1 { on = 1; next } on && /^## / { exit } on' CHANGELOG.md > notes.md
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --verify-tag --title "lk3d $v" --notes-file notes.md

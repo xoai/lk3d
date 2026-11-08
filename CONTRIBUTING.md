@@ -79,3 +79,23 @@ saves bytes; say what a terse one holds in a comment. Read shared things as `c.s
 listeners and timers belong, and its import with the others, in the same order. The sources are type-checked as
 JavaScript (`npm run typecheck`): JSDoc where the checker cannot tell, the scene's types from `scene.d.ts`
 (`/** @param {import('../scene').Scene} spec */`).
+
+## Releasing
+
+Maintainers release from lessonkit. A release is a version tag pushed to github.com/xoai/lk3d:
+`.github/workflows/release.yml` checks it, publishes the package to npm and makes the GitHub release from the
+changelog.
+
+1. In `packages/lk3d`: `npm version X.Y.Z --no-git-tag-version`; a section `## X.Y.Z (day month year)` at the top of
+   `CHANGELOG.md`; the pinned addresses in `README.md` and `docs/api.md` (`lk3d@X.Y.Z`). The workflow refuses a tag
+   whose version any of these does not name. Commit in lessonkit, push both
+   (`git push origin main && git subtree push --prefix=packages/lk3d lk3d main`), and wait for lk3d's CI to pass.
+2. Tag that same commit in lk3d, from lessonkit's root:
+   `git push lk3d "$(git subtree split --prefix=packages/lk3d main)":refs/tags/vX.Y.Z`.
+
+npm takes the package from the workflow by trusted publishing: no npm token is stored in GitHub, and npm shows which
+commit and workflow built each version. This is set once, on npmjs.com, after the first version is there: the
+package's Settings, Trusted publishing, GitHub Actions, with the user `xoai`, the repository `lk3d` and the workflow
+`release.yml` (no environment). Then, in the same settings, require two-factor authentication and disallow tokens, so
+that only this workflow, or a maintainer signed in with two-factor, can publish. A version already published by hand
+is not published again: its tag only makes the GitHub release.

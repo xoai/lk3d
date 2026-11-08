@@ -1,0 +1,46 @@
+# lk3d's own CI, in its public repository (github.com/xoai/lk3d, where this folder is the root; GitHub ignores it inside
+# lessonkit): unit tests (every shipped scene passes lk3d check), types, lint, the size budget and the image tests in
+# three browsers. Pictures differ between platforms, so Linux keeps its own (test/visual/baselines/*-linux). To make or
+# refresh them, run this workflow by hand with "update" ticked, download the "baselines" artifact into
+# test/visual/baselines/, look at the pictures and commit them (in lessonkit's packages/lk3d, then git subtree push).
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      update:
+        description: Make the image tests' Linux pictures again
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    # (a full run takes about 11 minutes; a hang stops here, not at GitHub's six hours)
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # (the browsers first: npm test draws with lk3d render, which needs Chromium)
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run size
+      - run: xvfb-run -a npm run test:visual -- ${{ inputs.update && '--update-snapshots=all' || '' }}
+      - uses: actions/upload-artifact@v7
+        if: ${{ inputs.update }}
+        with:
+          name: baselines
+          path: test/visual/baselines/
+      - uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: image-test-results
+          path: test-results/

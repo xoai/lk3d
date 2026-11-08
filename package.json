@@ -27,7 +27,7 @@
   "main": "./src/index.js",
   "types": "./index.d.ts",
   "bin": {
-    "lk3d": "./bin/lk3d.mjs"
+    "lk3d": "bin/lk3d.mjs"
   },
   "exports": {
     ".": {

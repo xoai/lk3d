@@ -89,6 +89,7 @@ export function makeLoop(c) {
     }
     return true;
   };
+  /** @type {MediaQueryList | null} */
   let dprQuery = null; // a move to a screen of another density changes devicePixelRatio but not the layout
   const watchDpr = () => {
     if (dprQuery) dprQuery.removeEventListener('change', onDpr);
@@ -99,6 +100,7 @@ export function makeLoop(c) {
     watchDpr();
     resize();
   };
+  /** @type {number | null} */
   let movedAt = null; // (the clock's time when liquids, gases and paths were last moved on; null: nothing to move on from)
   // Things that run along paths (particles, flows, streams): while the clock runs, moved on by each frame's time; while
   // it is stopped, where their speed puts them at the clock's time: the value at an anchor plus speed × time since it.
@@ -277,7 +279,7 @@ export function makeLoop(c) {
           c.stats_.firstFrameMs = performance.now() - c.mountedAt_;
           if (c.renderer_.prewarm)
             setTimeout(() => {
-              if (!c.destroyed_) c.renderer_.prewarm();
+              if (!c.destroyed_) c.renderer_.prewarm?.(); // (none if WebGL failed meanwhile)
             }, 200);
         }
         c.findEdges_(); // (if the look shows them: after the first picture, never before it)
@@ -344,7 +346,7 @@ export function makeLoop(c) {
       io.disconnect();
       ro.disconnect();
       document.removeEventListener('visibilitychange', onVis);
-      dprQuery.removeEventListener('change', onDpr);
+      dprQuery?.removeEventListener('change', onDpr);
     });
     watchDpr();
     resize();

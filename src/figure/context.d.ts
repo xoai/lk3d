@@ -168,6 +168,7 @@ export interface Ctx {
   fluids_: any;
   /** each gas's height in its vessel (its piston rides on it) */
   gasHeights_: Map<string, number>;
+  // (the three below are made only with fluids: called after fluids_ is checked)
   layersIn_(v: any): any[];
   openOf_(v: any): number;
   fluidStep_(dt: number): boolean;

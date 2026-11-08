@@ -1,14 +1,14 @@
 {
   // the engine's sources, type-checked as JavaScript (npm run typecheck): JSDoc types, the scene's types from
-  // scene.d.ts, a mounted figure's shared state from src/figure/context.d.ts. Strict but for implicit any and
-  // null checks (a later step: many idiomatic `let x = null` to annotate first)
+  // scene.d.ts, a mounted figure's shared state from src/figure/context.d.ts. Strict, null checks too (a value
+  // set later is typed where it is declared: /** @type {X | null} */), but for implicit any
   "compilerOptions": {
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,
     "strict": true,
     "noImplicitAny": false,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
     "useUnknownInCatchVariables": false,
     "noUnusedLocals": true,
     "noFallthroughCasesInSwitch": true,

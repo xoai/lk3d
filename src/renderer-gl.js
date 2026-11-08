@@ -383,7 +383,12 @@ function glRenderer(gl, scene, opts = {}) {
   const pbuf = gl.createBuffer(),
     uploads = new WeakMap(); // a ball set's buffer, and the version of its positions in it
   let fidx = null; // the flows' triangles, made once for as many streaks as a flow may have
-  let sT = null; // the streams' half-size picture and the solid parts' depth
+  /**
+   * the streams' half-size picture and the solid parts' depth (d, fd: WebGL 2 only)
+   * @type {{ w: number, h: number, key: any[], c?: WebGLTexture, fc?: WebGLFramebuffer, z?: WebGLRenderbuffer,
+   *   d?: WebGLTexture, fd?: WebGLFramebuffer } | null}
+   */
+  let sT = null;
   const sbufs = new WeakMap(); // each stream's hull
   // a texture as the target of a framebuffer
   const target = (t, at) => {
@@ -465,6 +470,7 @@ function glRenderer(gl, scene, opts = {}) {
     gcache = new Map(); // a group's buffer and vertex arrays, kept from frame to frame
   let shapes = 0,
     gFor = [], // (the parts, and their batches, the groups were made of)
+    /** @type {Map<any, any> | null} */
     gOut = null,
     gAll = [];
   const shapeId = (G) => ids.get(G.pos) ?? (ids.set(G.pos, ++shapes), shapes);
@@ -571,7 +577,8 @@ function glRenderer(gl, scene, opts = {}) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return t;
   };
-  let shadow = null;
+  /** @type {{ t: WebGLTexture, f: WebGLFramebuffer } | null} */
+  let shadow = null; // (made when shadowsOn: tested in its place)
   const SHADOW = opts.shadowSize || 1024;
   if (shadowsOn) {
     const t = tex2d(SHADOW, SHADOW, gl.DEPTH_COMPONENT24, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, gl.LINEAR);
@@ -584,6 +591,7 @@ function glRenderer(gl, scene, opts = {}) {
     shadow = { t, f };
   }
   // the studio environment: drawn once into a cube map, each mip level prefiltered for a rougher surface
+  /** @type {{ t: WebGLTexture } | null} */
   let env = null;
   const ENV = 64,
     ENV_LEVELS = 6,
@@ -629,7 +637,9 @@ function glRenderer(gl, scene, opts = {}) {
     gl.enable(gl.DEPTH_TEST);
     env = { t };
   }
+  /** @type {Float32Array | null} */
   let shadowVP = null,
+    /** @type {{ t: WebGLTexture, w: number, h: number } | null} */
     back = null;
   const shadowKey = [];
   // whether what the shadow map (or the streams' depth) was drawn for has changed since: each part (which one, its
@@ -647,6 +657,14 @@ function glRenderer(gl, scene, opts = {}) {
     return changed.end();
   }
   // the glow: emission drawn at half resolution, blurred at a quarter, added onto the picture
+  /**
+   * @typedef {object} GlowTargets
+   * @property {number} w @property {number} h the picture's size
+   * @property {number} hw @property {number} hh @property {number} qw @property {number} qh its half and quarter
+   * @property {WebGLTexture} a @property {WebGLFramebuffer} fa @property {WebGLRenderbuffer} d half size, with depth
+   * @property {WebGLTexture} b @property {WebGLFramebuffer} fb @property {WebGLTexture} c @property {WebGLFramebuffer} fc
+   */
+  /** @type {GlowTargets | null} */
   let glow = null;
   function glowTargets(w, h) {
     const hw = Math.max(1, w >> 1),
@@ -864,11 +882,12 @@ function glRenderer(gl, scene, opts = {}) {
       };
       // 1. the shadow map, from the key light, around what is on screen now. Kept while nothing that casts a shadow
       // moves (turning the camera does not change it): compared on the parts' matrices and the light's frame
+      /** @type {Float32Array | null} */
       let lightVP = null;
       // (the sun every look shades by: one shadow, drawn in each look's own way on the ground)
       const sun = f.look.light;
-      if (shadowsOn && f.shadows && !moved(shadowKey, opaque, f, [...f.bounds.center, ...sun])) lightVP = shadowVP;
-      else if (shadowsOn && f.shadows) {
+      if (shadow && f.shadows && !moved(shadowKey, opaque, f, [...f.bounds.center, ...sun])) lightVP = shadowVP;
+      else if (shadow && f.shadows) {
         const c = f.bounds.center,
           r = f.bounds.radius * 1.05,
           L = norm(sun),
@@ -932,7 +951,7 @@ function glRenderer(gl, scene, opts = {}) {
         gl.uniform1i(u.uNorm, 5);
         gl.uniform1i(u.uMR, 6);
       }
-      if (u.uShadow) {
+      if (shadow && u.uShadow) {
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, shadow.t);
         gl.uniform1i(u.uShadow, 2);
@@ -1021,7 +1040,7 @@ function glRenderer(gl, scene, opts = {}) {
         // pen: a wider, softer shadow, darker on a dark page
         gl.uniform1f(G.u.uBlur, pen ? 7 : 2);
         gl.uniform1f(G.u.uShadowK, pen ? (f.look.dark ? 0.6 : 0.34) : 0.3);
-        if (G.u.uShadow) {
+        if (shadow && G.u.uShadow) {
           gl.activeTexture(gl.TEXTURE2); // (bound here too: the pen look's own program does not sample it)
           gl.bindTexture(gl.TEXTURE_2D, shadow.t);
           gl.activeTexture(gl.TEXTURE0);

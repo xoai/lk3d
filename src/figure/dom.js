@@ -70,14 +70,15 @@ export function makeDom(c) {
   mark.className = 'lk3d-mark';
   mark.textContent = 'lk3d';
   // the scale, honestly: a bar that keeps its true length as the view zooms, and/or a note ("not to scale")
-  const scaleEl = (c.scaleEl_ = c.spec_.scale ? document.createElement('div') : null);
-  if (scaleEl) {
+  const scale = c.spec_.scale,
+    scaleEl = (c.scaleEl_ = scale ? document.createElement('div') : null);
+  if (scale && scaleEl) {
     scaleEl.className = 'lk3d-scale';
-    scaleEl.innerHTML =
-      (c.spec_.scale.bar ? '<span class="lk3d-bar-line"></span><span class="lk3d-bar-label"></span>' : '') +
-      (c.spec_.scale.note ? '<span class="lk3d-note"></span>' : '');
-    if (c.spec_.scale.bar) scaleEl.querySelector('.lk3d-bar-label').textContent = c.spec_.scale.bar.label;
-    if (c.spec_.scale.note) scaleEl.querySelector('.lk3d-note').textContent = c.spec_.scale.note;
+    /** @param {string} className @param {string} [textContent] */
+    const span = (className, textContent = '') =>
+      Object.assign(document.createElement('span'), { className, textContent });
+    if (scale.bar) scaleEl.append(span('lk3d-bar-line'), span('lk3d-bar-label', scale.bar.label));
+    if (scale.note) scaleEl.append(span('lk3d-note', scale.note));
   }
   stage.append(c.canvas_, leaderSvg, tagLayer, hint, mark, ...(scaleEl ? [scaleEl] : []));
   c.host_.append(stage, keys, said, ...(named.length ? [list] : []));
@@ -91,7 +92,7 @@ export function makeDom(c) {
     // (a link only to a web page: not javascript: or data:, whatever the scene says)
     /** @param {string} text @param {string} [url] */
     const link = (text, url) => {
-      const web = /^https?:\/\//i.test(url),
+      const web = url !== undefined && /^https?:\/\//i.test(url),
         a = /** @type {HTMLAnchorElement} */ (document.createElement(web ? 'a' : 'span'));
       a.textContent = text;
       if (web) {

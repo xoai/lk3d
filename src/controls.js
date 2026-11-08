@@ -16,8 +16,10 @@ export function controls({ el, fig, state, words, btnClass, explodable, cuttable
     return b;
   };
 
-  // a slider with its words before it; built element by element, as its words and range may come from the scene
-  const slider = (words, label, min, max, step, value) => {
+  // a slider with its words before it, added to into (if given); built element by element, as its words and range may
+  // come from the scene
+  /** @param {HTMLElement | null} [into] */
+  const slider = (words, label, min, max, step, value, into = bar) => {
     const r = document.createElement('label'),
       s = document.createElement('span'),
       input = document.createElement('input');
@@ -26,13 +28,13 @@ export function controls({ el, fig, state, words, btnClass, explodable, cuttable
     Object.assign(input, { type: 'range', min, max, step, value });
     input.setAttribute('aria-label', label);
     r.append(s, input);
+    if (into) into.append(r);
     return input;
   };
 
   // taking apart: a slider for how far, and a button that goes all the way out or back
-  const apartSlider = slider(words.apart, words.apartLabel, 0, 1, 0.01, 0);
+  const apartSlider = slider(words.apart, words.apartLabel, 0, 1, 0.01, 0, explodable ? bar : null);
   apartSlider.addEventListener('input', () => fig.set({ explode: +apartSlider.value }));
-  if (explodable) bar.append(apartSlider.parentNode);
   const apart = explodable
     ? button(words.takeApart, words.takeApartTitle, () => tweenExplode(state.explode > 0.5 ? 0 : 1))
     : null;
@@ -47,7 +49,6 @@ export function controls({ el, fig, state, words, btnClass, explodable, cuttable
       m.stop();
       m.set(v);
     });
-    bar.append(input.parentNode);
     const b = button(words.play, mo.name, () => (m.playing ? m.stop() : m.play()));
     const sync = () => {
       input.value = m.value;

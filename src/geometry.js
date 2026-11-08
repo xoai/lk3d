@@ -805,6 +805,7 @@ function build(spec, q, max, most) {
     parts0 = new Map(),
     outs = new WeakMap();
   // liquids and gases (fluids.js): their parts' shapes are their bodies at the start, made from their vessels
+  /** @type {Map<string, any> | null} */
   let fl = null;
   try {
     fl = spec.liquids || spec.gases ? bodies(fluidsOf(spec)).out : null;
@@ -858,6 +859,7 @@ function build(spec, q, max, most) {
     let lo = [1e9, 1e9, 1e9],
       hi = [-1e9, -1e9, -1e9],
       tris = 0,
+      /** @type {number[] | null} */
       anchor = null,
       best = -1e9;
     for (const b of batches) {

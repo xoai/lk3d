@@ -341,6 +341,7 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
       pt = (k, a) => S([k * rise, r * Math.cos(a), r * Math.sin(a)]);
     const n = Math.max(2, pairs),
       per = Math.max(3, Math.round(6 * (o.q || 1))),
+      /** @type {number[][][]} */
       strands = [[], []];
     for (let k = 0; k <= (n - 1) * per; k++) {
       const t = k / per,

@@ -140,6 +140,7 @@ export function toGLB(S, o = {}) {
     const times = new Float32Array(an.times),
       channels = [],
       samplers = [];
+    /** @type {number | null} */
     let input = null;
     for (const [p, n] of nodeOf) {
       const poses = an.times.map((_, k) => trs(an.matrix(p, k)));
@@ -221,7 +222,7 @@ export function sceneToGLB(spec, o = {}) {
     const pose = J && solve(J, motions, values, o.joints || {});
     return (p) => {
       let m = M.mul(M.trans(p.offset), motionMatrix(p.tracks, values));
-      if (p.joint) m = M.mul(m, pose.matrix.get(p.joint.id));
+      if (p.joint && pose) m = M.mul(m, pose.matrix.get(p.joint.id));
       return m;
     };
   };

@@ -60,6 +60,7 @@ function buildBVH(g) {
 
 // The nearest hit of the ray o + t·d (0 < t < tmax) on the geometry; any: stop at the first hit (for occlusion).
 // accept(t, triangle) may refuse a hit (a hit on the cut-away side of a section, say).
+/** @param {((t: number, tri: number) => boolean) | null} [accept] */
 function intersect(g, bvh, o, d, tmax = Infinity, any = false, accept = null) {
   if (!bvh.box.length) return null;
   const P = g.p,
@@ -68,9 +69,8 @@ function intersect(g, bvh, o, d, tmax = Infinity, any = false, accept = null) {
     stack = [0];
   let best = tmax,
     hit = -1;
-  while (stack.length) {
-    const nd = stack.pop(),
-      B = bvh.box;
+  for (let nd; (nd = stack.pop()) !== undefined;) {
+    const B = bvh.box;
     let t0 = 0,
       t1 = best;
     for (let a = 0; a < 3; a++) {

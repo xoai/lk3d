@@ -45,6 +45,7 @@ export function makePick(c) {
     const { A, D } = c.rayAt_(px, py),
       plane = c.cutPlane_();
     let best = Infinity,
+      /** @type {string | null} */
       id = null;
     for (const p of c.built_.parts) {
       if (p.drawAlpha < see || rayBox(A, D, p) >= best) continue; // (missed by the ray, or behind a nearer hit)

@@ -177,6 +177,7 @@ export function makeAdditions(c) {
   /** @param {{ count?: number, radius?: number, color?: string, studioColor?: string, glow?: string | null }} [o] */
   c.addLines_ = ({ count = 8, radius = 0.01, color = '#ffcc55', studioColor, glow = null } = {}) => {
     const unit = buildShape({ cylinder: { r: 1, x0: 0, x1: 1 } }, 0.5).geo,
+      /** @type {{ geo: any, mats: (number[] | Float32Array)[], out: any, dynamic: boolean }} */
       b = { geo: unit, mats: [], out: outlineNormals(unit), dynamic: true };
     const part = {
       id: '__lines' + c.lines_.length,

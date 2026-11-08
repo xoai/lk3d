@@ -57,12 +57,14 @@ export function makeStream(o = {}) {
     I = [],
     SEG = 14,
     rings = [];
+  /** @type {number[] | null} */
   let N = null,
+    /** @type {number[] | null} */
     T0 = null;
   for (let k = 0; k + 1 < P.length; k++) {
     // the frame round the path, carried from one segment to the next (so the rings do not twist at a bend)
     const T = norm(sub(P[k + 1], P[k]));
-    const C = N && carry(N, T0, T);
+    const C = N && T0 && carry(N, T0, T);
     N = C ? norm(sub(C, mulv(T, dot(C, T)))) : norm(Math.abs(T[1]) < 0.9 ? cross(T, [0, 1, 0]) : cross(T, [1, 0, 0]));
     T0 = T;
     const B = cross(T, N),

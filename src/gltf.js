@@ -201,8 +201,8 @@ function load(Geo, b64, only) {
     todo = list(scene, 'nodes')
       .map((i) => [i, M.id(), false])
       .reverse();
-  while (todo.length) {
-    const [i, parent, inside] = todo.pop(),
+  for (let next; (next = todo.pop());) {
+    const [i, parent, inside] = next,
       node = item(json, 'nodes', i);
     if (seen.has(i)) fail(`nodes[${i}] is reached twice (a loop, or two parents)`);
     seen.add(i);
@@ -254,10 +254,10 @@ function load(Geo, b64, only) {
     const clear = mat?.extensions?.KHR_materials_transmission?.transmissionFactor > 0,
       bc = (clear && mat.extensions.KHR_materials_volume?.attenuationColor) || pbr.baseColorFactor;
     const tx = (!clear && pbr.baseColorTexture) || mat?.normalTexture;
-    if (tx && at.TEXCOORD_0 != null) {
+    const T = tx && each('TEXCOORD_0');
+    if (T) {
       // texture coordinates, moved by KHR_texture_transform once here
-      const T = each('TEXCOORD_0'),
-        t = tx.extensions?.KHR_texture_transform || {};
+      const t = tx.extensions?.KHR_texture_transform || {};
       const [ox, oy] = nums(t.offset || [0, 0], 2, 'a texture offset'),
         [sx, sy] = nums(t.scale || [1, 1], 2, 'a texture scale'),
         c = Math.cos(t.rotation || 0),

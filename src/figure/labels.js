@@ -61,11 +61,12 @@ export function makeLabels(c) {
   }
   function scaleBar() {
     // the bar's on-screen length: its scene length, projected at the point the camera looks at
-    if (!c.scaleEl_ || !c.spec_.scale.bar) return;
+    const bar = c.spec_.scale?.bar;
+    if (!c.scaleEl_ || !bar) return;
     const target = add(c.state_.target, c.explodeShift_()),
       across = [Math.cos(c.state_.yaw), 0, -Math.sin(c.state_.yaw)]; // (level, across the view)
     const a = c.project_(target),
-      b = c.project_(add(target, mulv(across, c.spec_.scale.bar.length)));
+      b = c.project_(add(target, mulv(across, bar.length)));
     const px = a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : 0;
     /** @type {HTMLElement} */ (c.scaleEl_.firstChild).style.transform = `scaleX(${(px / 100).toFixed(3)})`;
   }
@@ -120,14 +121,12 @@ export function makeLabels(c) {
     const middle = c.project_(add(c.built_.center, c.explodeShift_())) || [W / 2, H / 2];
     const items = [];
     for (const tag of tags) {
-      let on = which !== 'none' && wanted(tag.p),
-        at = null; // (the part's anchor on the stage)
-      if (on) {
-        // (a spinning part's label stays put)
-        at = c.project_(M.pt(tag.p.spin || tag.p.handleOf?.round ? c.baseMatrix_(tag.p) : tag.p.m, tag.p.anchor));
-        if (!at) on = false;
-      }
-      if (!on) {
+      // the part's anchor on the stage, if its label is wanted (a spinning part's label stays put)
+      const at =
+        which !== 'none' &&
+        wanted(tag.p) &&
+        c.project_(M.pt(tag.p.spin || tag.p.handleOf?.round ? c.baseMatrix_(tag.p) : tag.p.m, tag.p.anchor));
+      if (!at) {
         show(tag, false);
         continue;
       }
@@ -154,6 +153,7 @@ export function makeLabels(c) {
       const tag = item.tag,
         w = widthOf(tag),
         x = Math.round(Math.max(2, Math.min(W - w - 2, item.right ? item.x : item.x - w)));
+      /** @type {number | null} */
       let y = null;
       for (const dy of [0, 22, -22, 44, -44]) {
         const tryY = Math.round(Math.max(2, Math.min(H - 22, item.y + dy)));

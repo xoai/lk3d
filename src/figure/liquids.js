@@ -19,15 +19,14 @@ export function makeLiquids(c) {
     drawn = new Map(); // (each body's shape as last drawn: drawn again only when it changes)
   let bodyVersion = 0;
   const shapedFor = []; // (the volumes and the gases' heights the bodies were last shaped for)
-  if (FL) {
-    const { out, heights } = FX.bodies(FL);
-    for (const [id, h] of heights) gasHeights.set(id, h);
-    for (const gas of FL.gases) {
-      const piston = gas.piston && c.part_(gas.piston);
-      if (piston) seat.set(gas.part, piston.lo[1]);
-    }
-    for (const [id, shape] of out) drawn.set(id, JSON.stringify(shape));
+  if (!FL) return; // (no fluids: the rest is never called, as fluids_ is null)
+  const { out, heights } = FX.bodies(FL);
+  for (const [id, h] of heights) gasHeights.set(id, h);
+  for (const gas of FL.gases) {
+    const piston = gas.piston && c.part_(gas.piston);
+    if (piston) seat.set(gas.part, piston.lo[1]);
   }
+  for (const [id, shape] of out) drawn.set(id, JSON.stringify(shape));
   const colourOf = (id) => (c.spec_.parts.find((p) => p.id === id) || {}).color || '#7fb3e4';
   // a liquid's or a gas's body drawn for its new shape: a batch of its own, sent to the GPU again
   function reshape(p, shape) {

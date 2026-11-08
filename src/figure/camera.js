@@ -27,6 +27,7 @@ export function makeCamera(c) {
   // camera. Never closer than the scene's own distance: only ever further, so nothing is cut off
   let fitFor = '',
     fit = 1,
+    /** @type {number[][] | null} */
     outline = null; // (points of the model at rest, at most 20 000: its shape, not its box, which a round model overfills)
   function outlinePoints() {
     let n = 0;
@@ -154,7 +155,7 @@ export function makeCamera(c) {
     c.cancelView_();
     const to = Math.max(baseDist * minZoom, Math.min(baseDist * 3, c.state_.dist / k)),
       ratio = to / c.state_.dist;
-    if (x != null && ratio !== 1) {
+    if (x != null && y != null && ratio !== 1) {
       const { t, A, D } = c.pickHit_(x, y, 0.3),
         target = add(c.state_.target, c.explodeShift_()),
         n = norm(sub(target, c.eye_)),
@@ -168,6 +169,7 @@ export function makeCamera(c) {
   // ---- tweening the camera to a view
   // a named view, [yaw, pitch] (degrees), or {yaw, pitch, dist | zoom, target}: any of them, the rest kept; over
   // o.ms milliseconds (600), or at once (0: a page that places the camera itself every frame)
+  /** @type {((now: number) => boolean) | null} */
   let viewTween = null;
   c.view_ = (name, o = {}) => {
     if (typeof name === 'string' && !VIEWS[name] && name !== 'home') return; // (a view this engine does not know)

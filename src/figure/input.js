@@ -15,6 +15,10 @@ const mod360 = (v) => ((v % 360) + 360) % 360;
 const tilt = (v) => Math.max(-1.45, Math.min(1.45, v));
 
 // ---- pointer: orbit, pan, pinch, wheel (only with Ctrl, or once the figure has been clicked), hover and pick
+/**
+ * @typedef {{ grip: import('./context').Grip, id: number, start: number, acc: number, last: number | null,
+ *   s0: number | null, moved: number }} Grab
+ */
 /** @param {import('./context').Ctx} c @returns {() => void} what makes the range inputs, after the built-in controls */
 export function makeInput(c) {
   // what a screen reader says for a handle: the page's words (opts.handleText(id, value), e.g. "d = 45 cm"), or the value
@@ -35,6 +39,7 @@ export function makeInput(c) {
     if (byReader && c.opts_.onHandle) c.opts_.onHandle(grip.part.id, v);
   };
   const pointers = new Map(); // (each pointer down on the canvas → where it was last)
+  /** @type {{ pan: boolean } | null} */
   let drag = null, // ({ pan }: a drag that turns the view, or pans it)
     active = false,
     lastHover = 0,
@@ -52,9 +57,11 @@ export function makeInput(c) {
     const r = c.canvas_.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top];
   };
+  /** @type {((now: number) => boolean) | null} */
   let momentum = null, // (the view still turning after a flick)
     // the handle taken hold of: { grip, id: the pointer's, start: its value then, acc: the angle turned since, last:
     // the angle last seen, s0: where along a slide it was taken, moved: the pixels moved since }
+    /** @type {Grab | null} */
     grab = null;
   // the handle under a point: the part hit, or (for small handles, on touch) one whose middle is within reach
   function handleAt(x, y) {
@@ -63,6 +70,7 @@ export function makeInput(c) {
       hit = id && c.part_(id); // a handle is grabbed through glass
     if (hit && hit.handleOf) return hit.handleOf;
     // a small handle (a planet, a focal point) is also caught close by, whatever is in front of it: fingers are wide
+    /** @type {import('./context').Grip | null} */
     let best = null,
       bestDist = 1e9;
     for (const grip of c.handles_) {
@@ -81,7 +89,8 @@ export function makeInput(c) {
     }
     return best;
   }
-  function dragHandle(x, y) {
+  /** @param {Grab} grab @param {number} x @param {number} y */
+  function dragHandle(grab, x, y) {
     const grip = grab.grip,
       h = grip.handle,
       { A, D } = c.rayAt_(x, y),
@@ -128,7 +137,7 @@ export function makeInput(c) {
         c.canvas_.style.cursor = 'grabbing';
         c.hint_.classList.add('gone');
         setActive(true);
-        dragHandle(x, y);
+        dragHandle(grab, x, y);
         e.preventDefault();
         return;
       }
@@ -144,7 +153,7 @@ export function makeInput(c) {
     if (grab && e.pointerId === grab.id) {
       const [x, y] = local(e);
       grab.moved += Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0);
-      dragHandle(x, y);
+      dragHandle(grab, x, y);
       return;
     }
     if (pointers.has(e.pointerId)) {
@@ -342,6 +351,7 @@ export function makeInput(c) {
     // a hidden part's handle is out of reach of the keyboard too: out of the Tab order and of what screen readers read
     (c.syncHandleInputs_ = () => {
       for (const { part: p, input } of c.handles_) {
+        if (!input) continue;
         if (p.hidden) input.blur();
         input.disabled = input.hidden = !!p.hidden;
       }

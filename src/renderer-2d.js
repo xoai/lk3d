@@ -7,6 +7,7 @@ function canvasRenderer(cv, scene) {
   const g = cv.getContext('2d');
   // balls, without depth: in the three colour bands of the WebGL renderer, one fill each
   function balls(h, f, VP, W, H) {
+    /** @type {number[][]} */
     const bands = [[], [], []];
     for (let i = 0; i < h.count; i++) {
       const p = [h.pos4[4 * i], h.pos4[4 * i + 1], h.pos4[4 * i + 2]],

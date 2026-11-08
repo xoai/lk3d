@@ -51,7 +51,8 @@ export function openGL(c) {
       c.drawCanvas_ = canvas;
       c.keptPicture_ = null;
       c.contextLost_ = false;
-      let loseExt = null; // (WEBGL_lose_context: how a context is given up and asked back)
+      /** @type {WEBGL_lose_context | null} */
+      let loseExt = null; // (WEBGL_lose_context: how a context is given up and asked back; not in every browser)
       // a canvas under the WebGL one (which keeps receiving the pointer)
       const canvasUnder = () => {
         const u = document.createElement('canvas');
@@ -90,19 +91,21 @@ export function openGL(c) {
       const slot = (c.glSlot_ = {
         seen: 0,
         give() {
+          if (!loseExt) return; // (it cannot be given up here: kept)
           holding.delete(slot);
           if (c.contextLost_) return;
           if (c.drawNow_()) {
             const kept = (c.keptPicture_ = canvasUnder());
             kept.width = c.width_;
             kept.height = c.height_;
-            kept.getContext('2d').drawImage(canvas, 0, 0, c.width_, c.height_);
+            kept.getContext('2d')?.drawImage(canvas, 0, 0, c.width_, c.height_);
           }
           loseExt.loseContext();
         },
       });
       c.claimGL_ = () => {
         if (holding.has(slot) || c.renderer_.kind === '2d') return;
+        /** @type {import('./context').Slot | null} */
         let oldest = null;
         if (holding.size >= MAX_GL)
           for (const other of holding) if (!other.near && !(oldest && oldest.seen < other.seen)) oldest = other;
@@ -138,7 +141,7 @@ export function openGL(c) {
         if (c.renderer_.kind === '2d' || makeGL()) return; // (drawing in 2D already, or now)
         // (the lines' buffers were the old context's)
         for (const L of c.lines_) {
-          c.renderer_.upload(L.part.batches[0]);
+          c.renderer_.upload?.(L.part.batches[0]);
           L.dirty = true;
         }
         c.kick_();

@@ -60,7 +60,7 @@ function mount(el, spec, opts = {}) {
   if (bad) throw new Error(`lk3d: ${bad.path || 'the scene'}: ${bad.message}`);
   css();
   if (el.lk3d) el.lk3d.destroy(); // (mounting again on the same element replaces the figure there)
-  if (spec.lk3d > FORMAT && !warned) {
+  if ((spec.lk3d || 0) > FORMAT && !warned) {
     warned = true;
     console.warn(`lk3d: this scene is written for format ${spec.lk3d}; this engine reads ${FORMAT}`);
   }

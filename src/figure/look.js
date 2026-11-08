@@ -122,7 +122,7 @@ export function makeLook(c) {
           ? darkQuery.matches
             ? 'dark'
             : 'light'
-          : LK3D.themes[c.state_.theme]
+          : c.state_.theme && LK3D.themes[c.state_.theme]
             ? c.state_.theme
             : base.kind === 2
               ? 'light'
@@ -150,7 +150,7 @@ export function makeLook(c) {
         ? 'transparent'
         : theme
           ? theme.bg
-          : (style === 'studio' && BGS[c.spec_.env]) || base.bg;
+          : (style === 'studio' && c.spec_.env && BGS[c.spec_.env]) || base.bg;
       c.stage_.dataset.look = style;
       if (theme) c.stage_.dataset.theme = themeName;
       else delete c.stage_.dataset.theme;

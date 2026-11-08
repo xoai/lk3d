@@ -1,5 +1,6 @@
 // How wide a label is, without asking the page layout: canvas text metrics, measured once per label and cached (the
 // measure-once idea of pretext), so drawing a frame never forces the page to lay itself out.
+/** @type {CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null} */
 let ctx = null;
 const cache = new Map(),
   listeners = new Set();
@@ -7,12 +8,10 @@ function textWidth(text, font) {
   const k = font + '\u0000' + text;
   let w = cache.get(k);
   if (w == null) {
-    ctx =
-      ctx ||
-      (typeof OffscreenCanvas !== 'undefined'
-        ? new OffscreenCanvas(1, 1)
-        : document.createElement('canvas')
-      ).getContext('2d');
+    ctx ||=
+      (typeof OffscreenCanvas !== 'undefined' && new OffscreenCanvas(1, 1).getContext('2d')) ||
+      document.createElement('canvas').getContext('2d');
+    if (!ctx) return 8 * text.length; // (nothing to measure with: about 8 px a letter, not kept)
     ctx.font = font;
     w = ctx.measureText(text).width;
     cache.set(k, w);

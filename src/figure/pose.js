@@ -42,9 +42,10 @@ export function makePose(c) {
   for (const p of c.built_.parts) p.joint = jointOf(joints, p);
   c.poseVersion_ = 0;
   let posed = -1,
+    /** @type {ReturnType<typeof solveJoints> | null} */
     pose = null;
   const jointMatrix = (p) => {
-    if (posed !== c.poseVersion_) {
+    if (!pose || posed !== c.poseVersion_) {
       pose = solveJoints(joints, c.motions_, c.state_.motion, c.state_.joints);
       posed = c.poseVersion_;
     }
@@ -69,6 +70,7 @@ export function makePose(c) {
   };
 
   // ---- taking apart, tweened, or set at once by the page (its own value wins over a running tween)
+  /** @type {((now: number) => boolean) | null} */
   let explodeTween = null;
   const setExplode = (v) => {
     c.state_.explode = Math.max(0, Math.min(1, v));

@@ -10,6 +10,7 @@ import { aoJob } from '../bvh.js';
 /** @param {import('./context').Ctx} c */
 export function makeIdle(c) {
   let aoDone = (c.aoComplete_ = false),
+    /** @type {any[] | null} */
     edgesLeft = null; // (the batches whose edges are still to find; null until the search begins)
   // the figure is complete once its first picture is up, the trees for picking are built, the crease shading is done
   // (there is none in 2D or with ao: false), no texture is still decoding and its edges are found: checked after each
@@ -50,6 +51,7 @@ export function makeIdle(c) {
   if (c.renderer_.kind !== '2d' && c.opts_.ao !== false) {
     const queue = batches.slice(),
       aoByGeo = new Map();
+    /** @type {{ b: any, job: ReturnType<typeof aoJob> } | null} */
     let current = null; // (the batch being shaded, and its job)
     const work = () => {
       if (c.destroyed_) return;
@@ -112,7 +114,7 @@ export function makeIdle(c) {
         const b = todo.shift();
         b.lines = edgesByGeo.get(b.geo) || edgesOf(b.geo, 40, b.soft);
         edgesByGeo.set(b.geo, b.lines);
-        if (b.gl) c.renderer_.edges(b);
+        if (b.gl && c.renderer_.edges) c.renderer_.edges(b); // (none if WebGL failed meanwhile: drawn in 2D)
       }
       c.kick_();
       if (todo.length) setTimeout(work, 16);

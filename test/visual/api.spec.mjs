@@ -904,6 +904,72 @@ test('a page of 24 figures: each draws when scrolled to, at most 8 hold a WebGL 
   expect(said.filter((t) => /too many active webgl contexts|drawing in 2D/i.test(t))).toEqual([]);
 });
 
+test('a browser that cannot give a context up (no WEBGL_lose_context): past the most, the next figure still draws', async ({
+  page,
+}) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.evaluate(() => {
+    for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
+      const get = C.prototype.getExtension;
+      C.prototype.getExtension = function (name) {
+        return name === 'WEBGL_lose_context' ? null : get.call(this, name);
+      };
+    }
+    window.els = [];
+    window.figs = [];
+    for (let k = 0; k < 10; k++) {
+      const d = document.createElement('div');
+      d.style.cssText = 'width: 480px; margin-bottom: 240px';
+      document.body.append(d);
+      els.push(d);
+      figs.push(LK3D.mount(d, window.scene, { controls: false }));
+    }
+  });
+  const drawn = await page.evaluate(async () => {
+    for (const [k, d] of els.entries()) {
+      d.scrollIntoView();
+      await until(() => figs[k].stats().firstFrameMs != null);
+    }
+    return figs.map((f) => f.stats().firstFrameMs != null);
+  });
+  expect(errors).toEqual([]);
+  expect(drawn).toEqual(Array(10).fill(true));
+});
+
+test('WebGL failing while the pen look still finds its edges: the figure goes on in 2D, nothing thrown', async ({
+  page,
+}) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  const got = await page.evaluate(async () => {
+    // many shapes, each its own (edges found shape by shape, in slices after the first picture)
+    window.scene = {
+      parts: Array.from({ length: 300 }, (_, k) => ({
+        id: 'p' + k,
+        shapes: [{ sphere: 0.02 + k * 0.0001 }],
+        at: [(k % 20) * 0.1 - 1, Math.floor(k / 20) * 0.1, 0],
+      })),
+    };
+    const fig = mountIt({ style: 'pen', ao: false });
+    let ready = false;
+    fig.ready.then(() => (ready = true));
+    await until(() => fig.stats().firstFrameMs != null); // (the edges' search begins after the first picture)
+    for (const C of [WebGLRenderingContext, WebGL2RenderingContext])
+      for (const f of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced'])
+        if (C.prototype[f])
+          C.prototype[f] = () => {
+            throw new Error('a draw this GPU refuses');
+          };
+    fig.set({ explode: 0.5 });
+    fig.drawNow();
+    await until(() => ready);
+    return { renderer: fig.renderer, ready };
+  });
+  expect(got).toEqual({ renderer: '2d', ready: true });
+  expect(errors).toEqual([]);
+});
+
 test('turning the camera works nothing out again: no part placed again, nothing sent to the GPU, nothing stringified', async ({
   page,
 }) => {

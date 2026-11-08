@@ -1,9 +1,8 @@
 # API
 
 ```js
-// a page: one script tag, the global LK3D (dist/lk3d.min.js, built from the repository: lk3d is not on npm yet, see
-// the README's "Use it"; once published, https://unpkg.com/lk3d/dist/lk3d.min.js)
-<script src="lk3d.min.js"></script>;
+// a page: one script tag, the global LK3D (https://unpkg.com/lk3d@0.1.0/dist/lk3d.min.js, or a copy of dist/lk3d.min.js)
+<script src="https://unpkg.com/lk3d@0.1.0/dist/lk3d.min.js"></script>;
 // or a module
 import LK3D, { mount, build, defaults, locales } from 'lk3d';
 ```

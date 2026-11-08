@@ -3,7 +3,7 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
-## 0.1.0 (unreleased)
+## 0.1.0 (8 November 2026)
 
 The first release as its own package, after it grew as the 3D engine of lessonkit.
 

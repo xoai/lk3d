@@ -8,7 +8,9 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..'),
-  run = (...args) => spawnSync(process.execPath, [path.join(ROOT, 'bin/lk3d.mjs'), ...args], { encoding: 'utf8' }),
+  // (a time limit on each run: a CLI that never exits fails the test rather than holding a CI job for hours)
+  LIMIT = { encoding: 'utf8', timeout: 120000, killSignal: 'SIGKILL' },
+  run = (...args) => spawnSync(process.execPath, [path.join(ROOT, 'bin/lk3d.mjs'), ...args], LIMIT),
   tmp = (name, text) => {
     const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lk3d-')), name);
     fs.writeFileSync(f, text);
@@ -89,11 +91,32 @@ test('render draws with the engine built from src/, never a dist/ left over from
     r = spawnSync(
       process.execPath,
       [path.join(dir, 'bin/lk3d.mjs'), 'render', scene, '--looks', 'pen', '--poses', 'rest', '--out', out],
-      { encoding: 'utf8' },
+      LIMIT,
     );
+  assert.ok(!r.error, `render did not finish: ${r.error}`);
   if (r.status === 2 && /needs Playwright/.test(r.stderr)) return t.skip('no Playwright here');
   assert.doesNotMatch(r.stdout + r.stderr, /stale dist/);
   assert.equal(r.status, 0, r.stderr);
   assert.ok(fs.statSync(path.join(out, 'box-pen-rest.png')).size > 1000, 'a picture of the box');
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('render with Playwright but no browser says so and ends, never waits forever', (t) => {
+  // planted: a browser that is not installed (CI ran npm test before installing one, and render hung six hours)
+  try {
+    require.resolve('playwright');
+  } catch {
+    return t.skip('no Playwright here');
+  }
+  const none = fs.mkdtempSync(path.join(os.tmpdir(), 'lk3d-no-browsers-')),
+    scene = tmp('ball.json', JSON.stringify({ parts: [{ id: 'ball', shapes: [{ sphere: 1 }] }] })),
+    r = spawnSync(process.execPath, [path.join(ROOT, 'bin/lk3d.mjs'), 'render', scene, '--out', none], {
+      ...LIMIT,
+      timeout: 30000,
+      env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: none },
+    });
+  fs.rmSync(none, { recursive: true, force: true });
+  assert.ok(!r.error, `render did not end: ${r.error}`);
+  assert.equal(r.status, 2, r.stderr);
+  assert.match(r.stderr, /needs Playwright's Chromium: npx playwright install chromium/);
 });

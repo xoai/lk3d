@@ -148,3 +148,5 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
 - **Built for ES2020** (from ES2018): Chrome and Edge 80, Firefox 74, Safari 13.1 (iOS 13.4) and Samsung Internet 13 or
   later, as lessonkit's pages already need; `?.` and `??` stay as written, about 0.9 KB smaller gzipped. The type check
   allows only what ES2020 has.
+- **`lk3d render` without a browser ends**: with Playwright installed but not its Chromium, it says what to install
+  and exits with code 2; before, its page server stayed open and it never exited.

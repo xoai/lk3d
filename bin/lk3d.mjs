@@ -191,10 +191,23 @@ async function render(f) {
     theme = flag('theme', ''),
     ortho = flag('ortho', false);
   fs.mkdirSync(out, { recursive: true });
-  const browser = await pw.chromium.launch(),
-    tab = await browser.newPage({ deviceScaleFactor: 2 });
+  // the browser started inside the guard that closes the server: an error left it listening, and Node waited forever
+  // (a CI job with Playwright but no browser yet hung six hours)
+  let browser;
+  try {
+    browser = await pw.chromium.launch();
+  } catch (e) {
+    server.close();
+    console.error(
+      "lk3d render needs Playwright's Chromium: npx playwright install chromium\n" +
+        `(${String(e.message).split('\n')[0]})\nnot checked visually: nothing was drawn`,
+    );
+    process.exitCode = 2;
+    return;
+  }
   let bad = 0;
   try {
+    const tab = await browser.newPage({ deviceScaleFactor: 2 });
     for (const look of looks)
       for (const pose of poses) {
         await tab.goto(`${base}?look=${look}&pose=${pose}${theme ? '&theme=' + theme : ''}${ortho ? '&ortho=1' : ''}`);

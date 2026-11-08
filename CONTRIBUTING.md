@@ -9,8 +9,23 @@ backend), so we can agree on the design before you write it.
 lk3d is developed in the lessonkit repository (github.com/xoai/lessonkit) and published from `packages/lk3d`. Its
 own repository, github.com/xoai/lk3d, is that folder with its history, kept in step from lessonkit after each change
 there (`git remote add lk3d git@github.com:xoai/lk3d.git` once; then, from lessonkit's root,
-`git push origin main && git subtree push --prefix=packages/lk3d lk3d main`). Make changes in lessonkit, not in lk3d's
-repository: a commit made there would not come back.
+`git push origin main && git subtree push --prefix=packages/lk3d lk3d main`). Maintainers make changes in lessonkit, not
+in lk3d's repository: a commit made there would not come back, and the next push would be refused.
+
+Pull requests to github.com/xoai/lk3d are welcome all the same. Base them on its `main`; they are reviewed there but not
+merged with GitHub's button. A maintainer brings each one through lessonkit, so its lessons check it too, and pushes it
+back; its own commits reach lk3d's `main` unchanged, and GitHub marks it merged. From lessonkit's root:
+
+```sh
+git fetch lk3d pull/N/head                                   # the pull request, N its number
+git subtree merge --prefix=packages/lk3d FETCH_HEAD -m "lk3d: pull request #N (title)"
+# check it as any change here (npm test, the image tests, ./lk test --templates, the lessons), then
+git push origin main && git subtree push --prefix=packages/lk3d lk3d main
+```
+
+The first time, `git subtree merge` refuses ("unrelated histories"): lessonkit's history does not yet record which of
+its commits lk3d's are. Record it once with `git subtree split --prefix=packages/lk3d --rejoin` (one empty merge
+commit in lessonkit; lk3d itself does not change), then merge.
 
 To work on it:
 

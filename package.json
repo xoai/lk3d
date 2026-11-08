@@ -15,6 +15,14 @@
   ],
   "license": "MIT",
   "author": "xoai",
+  "homepage": "https://github.com/xoai/lk3d#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xoai/lk3d.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xoai/lk3d/issues"
+  },
   "type": "module",
   "main": "./src/index.js",
   "types": "./index.d.ts",

@@ -1,5 +1,7 @@
 # lk3d
 
+[![ci](https://github.com/xoai/lk3d/actions/workflows/ci.yml/badge.svg)](https://github.com/xoai/lk3d/actions/workflows/ci.yml)
+
 A small engine for **explorable, accessible 3D diagrams built from data**: a machine, a cell, a molecule, an optical
 bench, a fossil. Readers turn it, take it apart, cut it open, point at a part to read about it, and move parts by hand.
 The scene is plain data (JSON), so it can be written, reviewed and checked like text.
@@ -141,7 +143,7 @@ npm install
 npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
 npm run size           # fails if the bundle is over its budget (65 KB gzipped, BUDGET_KB in build.mjs)
-npm run test:visual    # reference scenes compared with stored pictures (stored for Chromium and Firefox on macOS)
+npm run test:visual    # reference scenes compared with stored pictures (Chromium and Firefox on macOS; all three on Linux, in CI)
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again
 ```

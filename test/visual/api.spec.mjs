@@ -2,7 +2,7 @@
 // callback, tweens give way to the page and the reader, removed and destroyed things leave nothing behind. Each test
 // mounts a small scene of its own on api.html and drives it as a page would. (Chromium: the wiring is the same
 // everywhere.)
-/* global LK3D, mountIt, until, fig */ // (in the page: the engine, and the helpers beforeEach puts there)
+/* global LK3D, mountIt, until, fig, els, figs */ // (in the page: the engine, and the helpers beforeEach puts there)
 import { test, expect } from '@playwright/test';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'the wiring is the same in every browser');
@@ -822,4 +822,149 @@ test('touch scrolls the page until the figure is taken hold of; then the figure 
     return { before, held, after: ta() };
   });
   expect(got).toEqual({ before: 'pan-y', held: 'none', after: 'pan-y' });
+});
+
+for (const style of ['pen', 'ink', 'studio'])
+  test(`a lost WebGL context comes back drawing the same picture, with no GL error (${style})`, async ({ page }) => {
+    await page.evaluate(async (style) => {
+      window.fig = mountIt({ style });
+      await fig.ready;
+      fig.drawNow();
+    }, style);
+    const stage = page.locator('#g .lk3d-stage'),
+      before = await stage.screenshot();
+    const got = await page.evaluate(async () => {
+      const cv = document.querySelector('#g canvas[tabindex]'),
+        gl = cv.getContext('webgl2'),
+        x = gl.getExtension('WEBGL_lose_context');
+      let gone = false,
+        back = false;
+      cv.addEventListener('webglcontextlost', () => (gone = true));
+      cv.addEventListener('webglcontextrestored', () => (back = true));
+      x.loseContext();
+      await until(() => gone);
+      const whileLost = fig.drawNow(); // (nothing can be drawn: false, and no error)
+      x.restoreContext();
+      await until(() => back);
+      await until(() => fig.drawNow());
+      return { whileLost, renderer: fig.renderer, lost: gl.isContextLost(), error: gl.getError() };
+    });
+    expect(got).toEqual({ whileLost: false, renderer: 'webgl2', lost: false, error: 0 });
+    expect((await stage.screenshot()).equals(before)).toBe(true);
+  });
+
+test('a page of 24 figures: each draws when scrolled to, at most 8 hold a WebGL context, none falls back to 2D or ends blank', async ({
+  page,
+}) => {
+  const said = [];
+  page.on('console', (m) => said.push(m.text()));
+  await page.evaluate(() => {
+    window.els = [];
+    window.figs = [];
+    for (let k = 0; k < 24; k++) {
+      const d = document.createElement('div');
+      d.style.cssText = 'width: 480px; margin-bottom: 240px';
+      document.body.append(d);
+      els.push(d);
+      figs.push(LK3D.mount(d, window.scene, { controls: false }));
+    }
+  });
+  await page.evaluate(() => until(() => figs[0].stats().firstFrameMs != null));
+  const first = await page.locator('.lk3d-stage').first().screenshot();
+  await page.evaluate(async () => {
+    for (const [k, d] of els.entries()) {
+      d.scrollIntoView();
+      await until(() => figs[k].stats().firstFrameMs != null);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+  });
+  // what holds a context now, and what the first figure (scrolled far past) shows
+  const got = await page.evaluate(() => {
+    const live = figs.filter(
+      (f, k) => f.renderer && !els[k].querySelector('canvas[tabindex]').getContext(f.renderer).isContextLost(),
+    );
+    const kept = els[0].querySelector('canvas.lk3d-under'),
+      px = kept && kept.getContext('2d').getImageData(0, 0, kept.width, kept.height).data;
+    let painted = 0;
+    if (px) for (let i = 3; i < px.length; i += 4) if (px[i]) painted++;
+    return { live: live.length, renderers: [...new Set(figs.map((f) => f.renderer))], painted };
+  });
+  expect(got.live).toBeLessThanOrEqual(8);
+  expect(got.renderers).toEqual(['webgl2']);
+  expect(got.painted).toBeGreaterThan(1000); // (its last picture kept while its context is given up)
+  // back to the first: its context again, the same picture as when it was first drawn
+  const back = await page.evaluate(async () => {
+    els[0].scrollIntoView();
+    await until(() => !els[0].querySelector('canvas.lk3d-under'));
+    const gl = els[0].querySelector('canvas[tabindex]').getContext('webgl2');
+    return { lost: gl.isContextLost(), kept: !!els[0].querySelector('canvas.lk3d-under'), error: gl.getError() };
+  });
+  expect(back).toEqual({ lost: false, kept: false, error: 0 });
+  expect((await page.locator('.lk3d-stage').first().screenshot()).equals(first)).toBe(true);
+  expect(said.filter((t) => /too many active webgl contexts|drawing in 2D/i.test(t))).toEqual([]);
+});
+
+test('turning the camera works nothing out again: no part placed again, nothing sent to the GPU, nothing stringified', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    const bolt = { shapes: [{ cylinder: { r: 0.05, x0: 0, x1: 0.2 }, rot: [0, 0, 90] }] }; // (parts alike: one group)
+    window.scene = {
+      parts: [
+        { id: 'base', name: 'Base', shapes: [{ box: [2, 0.2, 2] }] },
+        { id: 'arm', name: 'Arm', shapes: [{ box: [1, 0.1, 0.1] }], at: [0.5, 0.3, 0] },
+        { id: 'b1', ...bolt, at: [-0.6, 0.1, 0.6] },
+        { id: 'b2', ...bolt, at: [0.6, 0.1, 0.6] },
+      ],
+      motions: [
+        {
+          id: 'swing',
+          range: [0, 90],
+          tracks: [
+            {
+              parts: ['b2'],
+              move: [
+                [0, [0, 0, 0]],
+                [90, [0, 0.3, 0]],
+              ],
+            },
+          ],
+        },
+      ],
+      joints: [{ id: 'hinge', parts: ['arm'], turn: { axis: [0, 1, 0], center: [0, 0.3, 0] }, drive: 'swing' }],
+    };
+    // (and a figure with a gas under a piston, at rest: its body is not shaped again)
+    const gas = await (await fetch('/test/visual/scenes/piston.json')).json();
+    const count = async (spec) => {
+      const fig = LK3D.mount(document.getElementById('g'), spec, { controls: false });
+      await fig.ready;
+      fig.drawNow();
+      const gl = document.querySelector('#g canvas[tabindex]').getContext('webgl2'),
+        was = fig.parts.map((p) => p.m),
+        bd = gl.bufferData,
+        js = JSON.stringify;
+      let sent = 0,
+        strung = 0;
+      gl.bufferData = function (...a) {
+        sent++;
+        return bd.apply(this, a);
+      };
+      JSON.stringify = (...a) => (strung++, js(...a));
+      for (let k = 1; k <= 5; k++) {
+        fig.view({ yaw: k * 10 }, { ms: 0 });
+        fig.drawNow();
+      }
+      const kept = fig.parts.every((p, k) => p.m === was[k]);
+      gl.bufferData = bd;
+      JSON.stringify = js;
+      return { fig, was, kept, sent, strung };
+    };
+    const a = await count(window.scene);
+    a.fig.motion('swing').set(45);
+    a.fig.drawNow();
+    const moved = a.fig.parts.map((p, k) => p.m !== a.was[k]);
+    const b = await count(gas);
+    return { kept: a.kept, sent: a.sent, strung: a.strung, moved, gas: [b.kept, b.sent, b.strung] };
+  });
+  expect(got).toEqual({ kept: true, sent: 0, strung: 0, moved: [false, true, false, true], gas: [true, 0, 0] });
 });

@@ -115,16 +115,36 @@ or zoom, target } })` places it at once; `set({ labels: [ids or groups] })` show
   as a projectile under continuity; a gas holds its piston where pV = nRT puts it; a plume rises and widens as a
   buoyant one does. `lk3d check` catches overfull and overflowing vessels, an inside wider than the glass and a piston
   pushed out ([liquids and gases](docs/fluids.md)).
-- **Small and fast**: 59.3 KB gzipped (148 KB minified), against a budget of 60 KB that `npm run size` enforces;
+- **Small and fast**: 59.2 KB gzipped (148 KB minified), against a budget of 65 KB that `npm run size` enforces;
   draws only on change, pauses off screen, adapts its resolution.
 - **Safe with scenes and models from anyone**: `mount` and `buildScene` check a scene's shape before building
   (`src/guard.js`; the full validator with `opts.validate`), and the glTF reader refuses loops, out-of-range data,
   outside links and oversized images before allocating. A small screen or little memory caps a scene at a million
   triangles (rebuilt at lower detail first; `maxTriangles` to change it). A fuzz suite (`test/trust.test.cjs`) holds
-  this. The budget went from 57 to 60 KB for it and for the cut-face fix below.
+  this. The budget went from 57 to 60 KB for it and for the cut-face fix below, then to 65 KB for room to grow.
 - **Parts by keyboard and screen reader**: Page Down and Page Up go through a figure's named parts (as a click),
   Escape lets go; what is chosen is said aloud with its note; the parts are listed for screen readers, and the canvas
   says what its keys do. A finger moved up or down scrolls the page until the figure is touched, as the wheel does.
 - **Cut faces drawn on the cut plane** (WebGL 2): a part buried inside a cut one no longer shows through its cut face,
   in every look; the ink look's tones follow curved surfaces without stair steps. Image tests check both
   (`test/visual/quality.spec.mjs`), and every shipped scene passes `lk3d check` (`test/scenes.test.cjs`).
+- **Only what changed, each frame**: a part's matrix is worked out again only when what places it changes, groups of
+  parts alike send to the GPU only the copies that moved, joints are solved once per change of a value and liquids
+  shaped again only when a volume or height changes: turning the camera over 3 000 parts costs 1.0 ms a frame, not
+  3.1 (`test/bench/parts.mjs`).
+- **Many figures on a page**: they hold at most 8 WebGL contexts between them (browsers lose the oldest past 16); a
+  figure far off screen makes its context when it comes near, and the one seen least recently gives its context up,
+  keeping its last picture until it is back. A context the browser loses waits to be restored, never drawn in 2D.
+- **Readable inside**: `mount()`, one 2 200-line closure, is now a part per subsystem in `src/figure/` (camera, frame
+  loop, renderer and contexts, picking, labels, input, …) sharing one context object, and the sources are
+  type-checked as JavaScript (`npm run typecheck`). Nothing changes for pages, pictures or size.
+- **A misspelt field is caught**: every object in the scene format is closed, so `lk3d check`, `validate` and
+  lessonkit refuse a field the format does not have, at the field itself and with the name it is nearest to
+  (`parts[2].handle.mine: is not a field here (min?)`); a shape's field written on its part is said to belong on a
+  shape. A page's own data goes under `extras`, on the scene or on a part (as in glTF), which lk3d keeps and does not
+  read. Before, unknown fields were allowed anywhere but in shapes.
+- **Leader lines updated in place**: each label's line and dot are made once and moved, not rebuilt as SVG every frame
+  a label moves.
+- **Built for ES2020** (from ES2018): Chrome and Edge 80, Firefox 74, Safari 13.1 (iOS 13.4) and Samsung Internet 13 or
+  later, as lessonkit's pages already need; `?.` and `??` stay as written, about 0.9 KB smaller gzipped. The type check
+  allows only what ES2020 has.

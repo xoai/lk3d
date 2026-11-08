@@ -4,6 +4,7 @@
 import * as S from './shaders.js';
 import { M, sub, len, mulv, add, norm, dot } from './math.js';
 import { flowIndices, STRIDE, MAX } from './flow.js';
+import * as changed from './changed.js';
 
 // (uViewD: in ortho, the distance every point is drawn as from; 0 in perspective, where nearer points are larger)
 const PVS = `attribute vec4 aPos; uniform mat4 uVP; uniform float uSize; uniform vec3 uEye; uniform float uViewD;
@@ -146,7 +147,7 @@ function glRenderer(gl, scene, opts = {}) {
       const log = gl.getShaderInfoLog(prog.f) || gl.getShaderInfoLog(prog.v) || gl.getProgramInfoLog(prog.p);
       if (!prog.optional) throw new Error('lk3d shader: ' + log);
       prog.failed = true;
-      if (typeof console !== 'undefined') console.warn('lk3d: an effect is left out on this device: ' + log);
+      console.warn('lk3d: an effect is left out on this device: ' + log);
       return false;
     }
     const p = prog.p,
@@ -226,10 +227,15 @@ function glRenderer(gl, scene, opts = {}) {
     return b;
   };
   const byGeo = new WeakMap(); // a geometry's buffers, shared by every batch that draws it (parts alike)
+  // a batch's placements, 16 numbers each, in one array
+  const packed = (b) => {
+    const im = new Float32Array(b.mats.length * 16);
+    b.mats.forEach((m, i) => im.set(m, 16 * i));
+    return im;
+  };
   function upload(b) {
     const g = b.geo,
-      im0 = new Float32Array(b.mats.length * 16);
-    b.mats.forEach((m, i) => im0.set(m, 16 * i));
+      im0 = packed(b);
     const base = byGeo.get(g);
     if (base) {
       b.gl = {
@@ -326,7 +332,6 @@ function glRenderer(gl, scene, opts = {}) {
           .finally(() => pending--);
       }
   }
-  for (const part of scene.parts) for (const b of part.batches) upload(b);
   // a batch's edges (geometry.js edgesOf, found after the first picture): two triangles a segment, each corner its end
   // and side (aPos: x, y, z, ±1), the segment's direction (aDir) and the normal of its faces (aFace)
   function edges(b) {
@@ -356,13 +361,24 @@ function glRenderer(gl, scene, opts = {}) {
   }
   // a batch whose placements change (lines: rays, field lines): its matrices again, in place
   function instances(b) {
-    const im = new Float32Array(b.mats.length * 16);
-    b.mats.forEach((m, i) => im.set(m, 16 * i));
     gl.bindBuffer(gl.ARRAY_BUFFER, b.gl.inst);
-    gl.bufferData(gl.ARRAY_BUFFER, im, gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, packed(b), gl.DYNAMIC_DRAW);
     b.gl.count = b.mats.length;
     b.ver = (b.ver || 0) + 1; // (what casts a shadow has moved)
   }
+  // the scene's batches (again, with their crease shading and edges, when a lost context comes back)
+  function setAO(b) {
+    if (b.gl && b.ao) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, b.gl.ao);
+      gl.bufferData(gl.ARRAY_BUFFER, b.ao, gl.STATIC_DRAW);
+    }
+  }
+  for (const part of scene.parts)
+    for (const b of part.batches) {
+      upload(b);
+      setAO(b);
+      if (b.lines) edges(b);
+    }
   const quad = buf(new Float32Array([-1, -1, 0, 1, 1, -1, 0, 1, 1, 1, 0, 1, -1, -1, 0, 1, 1, 1, 0, 1, -1, 1, 0, 1]));
   const pbuf = gl.createBuffer(),
     uploads = new WeakMap(); // a ball set's buffer, and the version of its positions in it
@@ -444,13 +460,60 @@ function glRenderer(gl, scene, opts = {}) {
   // buffers and this one, so a group is drawn as one batch
   const STRIDE_G = 96,
     ID = M.id(),
+    tmp = M.id(),
     ids = new WeakMap(), // (a number for each shape's buffers, for the groups' keys)
     gcache = new Map(); // a group's buffer and vertex arrays, kept from frame to frame
-  let shapes = 0;
+  let shapes = 0,
+    gFor = [], // (the parts, and their batches, the groups were made of)
+    gOut = null,
+    gAll = [];
   const shapeId = (G) => ids.get(G.pos) ?? (ids.set(G.pos, ++shapes), shapes);
   // this frame's groups: batch → its group. A part joins only when every batch of it is in a group of two or more
-  // (a part drawn half alone and half with others would be drawn twice)
-  function groupsOf(solid, kind, flags, colour) {
+  // (a part drawn half alone and half with others would be drawn twice). Kept while the same parts are drawn; a copy
+  // is written again only when its part's matrix or state changed (parts' matrices are new objects only when they
+  // move), and a group is sent to the GPU only when one of its copies was: turning the camera sends nothing
+  function groupsOf(solid, flags, colour) {
+    changed.start(gFor);
+    for (const p of solid) {
+      changed.put(p);
+      changed.put(p.batches);
+    }
+    if (changed.end() || !gOut) gOut = groupsNew(solid);
+    for (const g of gAll) {
+      const c = g.c;
+      let o = 0,
+        sent = g.sent;
+      for (const w of g.members) {
+        const [p, b] = w,
+          col = colour(p),
+          fl = flags(p);
+        changed.start(w, 2); // (what its copies were written for: kept after the part and the batch)
+        changed.put(p.m);
+        changed.put(col);
+        changed.put(p.tint);
+        changed.put(p.emit);
+        changed.put(fl);
+        if (changed.any) {
+          sent = false;
+          for (let k = 0; k < b.mats.length; k++) {
+            c.data.set(M.mul(p.m, b.mats[k], tmp), o + 24 * k);
+            c.data.set(col, o + 24 * k + 16);
+            c.data[o + 24 * k + 19] = p.tint ?? 1;
+            c.data.set(p.emit, o + 24 * k + 20);
+            c.data[o + 24 * k + 23] = fl;
+          }
+        }
+        o += 24 * b.mats.length;
+      }
+      if (!sent) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, c.buf);
+        gl.bufferData(gl.ARRAY_BUFFER, c.data.subarray(0, o), gl.DYNAMIC_DRAW);
+        g.sent = true;
+      }
+    }
+    return gOut;
+  }
+  function groupsNew(solid) {
     const key = (p, b) => {
       const G = b.gl;
       if (!G || b.dynamic || b.geo.twoSided || G.uv || G.tex.base || G.tex.normal || G.tex.mr) return null; // (lines; models)
@@ -486,26 +549,10 @@ function glRenderer(gl, scene, opts = {}) {
     for (const g of found.values()) {
       const c = g.c;
       if (c.data.length < g.count * 24) c.data = new Float32Array(g.count * 24 * 1.5);
-      let o = 0;
-      for (const [p, b] of g.members) {
-        const col = colour(p),
-          fl = flags(p);
-        for (const m of b.mats) {
-          c.data.set(M.mul(p.m, m), o);
-          c.data.set(col, o + 16);
-          c.data[o + 19] = p.tint ?? 1;
-          c.data.set(p.emit, o + 20);
-          c.data[o + 23] = fl;
-          o += 24;
-        }
-      }
-      gl.bindBuffer(gl.ARRAY_BUFFER, c.buf);
-      gl.bufferData(gl.ARRAY_BUFFER, c.data.subarray(0, o), gl.DYNAMIC_DRAW);
       // drawn as a batch of its own: the shape's buffers, the group's copies
       g.batch = { gl: { ...c.G, vao: c.vao, count: g.count } };
-      if (c.G.edge && !c.evao) c.evao = vao(c.G, c.buf, STRIDE_G, true);
-      g.edges = c.evao && c.G.edge ? { vao: c.evao, en: c.G.en, count: g.count } : null;
     }
+    gAll = [...found.values()];
     return out;
   }
   function unbind() {
@@ -582,38 +629,23 @@ function glRenderer(gl, scene, opts = {}) {
     gl.enable(gl.DEPTH_TEST);
     env = { t };
   }
-  let shadowKeep = null,
+  let shadowVP = null,
     back = null;
-  // what the shadow map depends on: each part (which one, where, whether cut, its placements' version), the section's
-  // plane, the bounds and the light. Written into the one of two arrays not holding the kept key (no garbage a frame)
-  // (slot 0: the shadow map's, kept in shadowKeep; slot 1: the streams' depth, kept in sT)
-  const keys = [
-    [new Float32Array(0), new Float32Array(0)],
-    [new Float32Array(0), new Float32Array(0)],
-  ];
-  function partsKey(slot, parts, f, extra) {
-    const n = parts.length * 19 + 8 + extra.length,
-      kept = slot ? sT?.key : shadowKeep?.key,
-      two = keys[slot],
-      i0 = two[0] === kept ? 1 : 0;
-    if (two[i0].length !== n) two[i0] = new Float32Array(n);
-    const k = two[i0];
-    parts.forEach((p, i) => {
-      k[19 * i] = p.index ?? -1; // (which part: its index in the scene, not a search, so thousands of parts cost little)
-      k.set(p.m, 19 * i + 1);
-      k[19 * i + 17] = f.cut && p.cut ? 1 : 0;
-      k[19 * i + 18] = p.batches.reduce((a, b) => a + (b.ver || 0), 0);
-    });
-    k.set(f.plane || [0, 0, 0, 0], parts.length * 19);
-    k.set([f.bounds.radius, f.cut ? 1 : 0, loaded, 0], parts.length * 19 + 4);
-    k.set(extra, parts.length * 19 + 8);
-    return k;
+  const shadowKey = [];
+  // whether what the shadow map (or the streams' depth) was drawn for has changed since: each part (which one, its
+  // matrix, a new object only when the part moves; whether cut, its placements' version), the section's plane, the
+  // bounds and the light (or the camera). Compared value by value with the key kept, and kept instead: no garbage
+  function moved(key, parts, f, extra) {
+    changed.start(key);
+    for (const p of parts) {
+      changed.put(p);
+      changed.put(p.m);
+      changed.put(f.cut && p.cut);
+      changed.put(p.batches.reduce((a, b) => a + (b.ver || 0), 0));
+    }
+    for (const x of [...f.plane, f.bounds.radius, f.cut, loaded, ...extra]) changed.put(x);
+    return changed.end();
   }
-  const sameKey = (a, b) => {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-    return true;
-  };
   // the glow: emission drawn at half resolution, blurred at a quarter, added onto the picture
   let glow = null;
   function glowTargets(w, h) {
@@ -702,12 +734,7 @@ function glRenderer(gl, scene, opts = {}) {
     get pending() {
       return pending;
     },
-    setAO(b) {
-      if (b.gl && b.ao) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, b.gl.ao);
-        gl.bufferData(gl.ARRAY_BUFFER, b.ao, gl.STATIC_DRAW);
-      }
-    },
+    setAO,
     draw(f) {
       const kind = f.look.kind, // 0 ink, 1 studio, 2 pen
         ink = kind === 0,
@@ -752,8 +779,8 @@ function glRenderer(gl, scene, opts = {}) {
       };
       // parts alike drawn together: the batches of one shape (buffers shared) on solid parts of one material, every
       // copy's matrix and the part's state in one buffer, so a pass draws them in one call (bolts, a scene of
-      // thousands of parts alike). Made again each frame drawn; only the passes over every solid part use them
-      const groupOf = groupsOf(opaque, kind, flags, colour);
+      // thousands of parts alike). Only the passes over every solid part use them
+      const groupOf = groupsOf(opaque, flags, colour);
       // cull: back faces are being culled in this pass, so a two-sided batch is drawn with culling off
       const each = (prog, list, set, cull = false) => {
         last.clear();
@@ -810,13 +837,14 @@ function glRenderer(gl, scene, opts = {}) {
         for (const p of list) {
           if (together && p.batches.every((b) => groupOf.has(b))) {
             for (const b of p.batches) {
-              const g = groupOf.get(b).edges;
-              if (!g || done.has(g.vao)) continue;
-              done.add(g.vao);
+              const g = groupOf.get(b),
+                c = g.c;
+              if (!c.G.edge || done.has(c)) continue; // (a shape's edges come after the first picture)
+              done.add(c);
               gl.uniformMatrix4fv(Q.u.uModel, false, ID);
               gl.uniform1f(Q.u.uAlpha, 1);
-              vx.bind(g.vao);
-              inst.arrays(gl.TRIANGLES, g.en, g.count);
+              vx.bind(c.evao || (c.evao = vao(c.G, c.buf, STRIDE_G, true)));
+              inst.arrays(gl.TRIANGLES, c.G.en, g.count);
             }
             continue;
           }
@@ -838,10 +866,9 @@ function glRenderer(gl, scene, opts = {}) {
       // moves (turning the camera does not change it): compared on the parts' matrices and the light's frame
       let lightVP = null;
       // (the sun every look shades by: one shadow, drawn in each look's own way on the ground)
-      const sun = f.look.light,
-        key = shadowsOn && f.shadows ? partsKey(0, opaque, f, [...f.bounds.center, ...sun]) : null;
-      if (key && shadowKeep && sameKey(key, shadowKeep.key)) lightVP = shadowKeep.vp;
-      else if (key) {
+      const sun = f.look.light;
+      if (shadowsOn && f.shadows && !moved(shadowKey, opaque, f, [...f.bounds.center, ...sun])) lightVP = shadowVP;
+      else if (shadowsOn && f.shadows) {
         const c = f.bounds.center,
           r = f.bounds.radius * 1.05,
           L = norm(sun),
@@ -860,7 +887,7 @@ function glRenderer(gl, scene, opts = {}) {
         each(P.depth, opaque, null, true);
         gl.colorMask(true, true, true, true);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        shadowKeep = { key, vp: lightVP };
+        shadowVP = lightVP;
       }
       gl.viewport(0, 0, W, H);
       // a theme's page is a plain colour: drawn here, opaque, so whatever is blended later blends over it exactly
@@ -1135,7 +1162,7 @@ function glRenderer(gl, scene, opts = {}) {
               gl.deleteFramebuffer(sT.fd);
             }
           }
-          sT = { w: W, h: H };
+          sT = { w: W, h: H, key: [] };
           [sT.c, sT.fc] = target(
             tex2d(hw, hh, gl2 ? gl.RGBA8 : gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE),
             gl.COLOR_ATTACHMENT0,
@@ -1154,9 +1181,7 @@ function glRenderer(gl, scene, opts = {}) {
             );
         }
         // the solid parts' depth, drawn again only when they or the camera moved (a stream alone moving keeps it)
-        const dk = sT.d && partsKey(1, opaque, f, f.VP);
-        if (dk && !sameKey(dk, sT.key || [])) {
-          sT.key = dk;
+        if (sT.d && moved(sT.key, opaque, f, f.VP)) {
           gl.bindFramebuffer(gl.FRAMEBUFFER, sT.fd);
           gl.viewport(0, 0, W, H);
           gl.clear(gl.DEPTH_BUFFER_BIT);

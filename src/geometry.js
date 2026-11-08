@@ -11,9 +11,11 @@ import { guard } from './guard.js';
 // page's memory
 let room = Infinity,
   cap = 0;
+/** @param {number} n */
 const words = (n) => (n >= 1e6 && n % 1e5 === 0 ? n / 1e6 + ' million' : String(n));
+/** @param {string} what @param {number | string} [n] the limit, or the limit already in words (words passes it on) */
 const tooMany = (what, n = cap) =>
-  Object.assign(new Error(`lk3d: ${what}; the limit is ${words(n)}`), { triangles: true });
+  Object.assign(new Error(`lk3d: ${what}; the limit is ${words(/** @type {number} */ (n))}`), { triangles: true });
 
 // A mesh is positions, normals and triangles; every triangle is turned to face the way its normals point, so shapes
 // can be written without minding winding order. Vertices may also carry a colour (c: r, g, b, a per vertex, 0-255):

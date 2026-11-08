@@ -154,7 +154,7 @@
       ]
     }
   ],
-  "test:stream": [
+  "extras": { "streams": [
     {
       "path": [
         [
@@ -223,5 +223,5 @@
       "ramp": "cool",
       "density": 0.8
     }
-  ]
+  ] }
 }

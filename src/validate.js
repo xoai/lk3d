@@ -20,16 +20,20 @@ const TYPES = {
   boolean: (v) => typeof v === 'boolean',
 };
 const say = (v) => JSON.stringify(v);
+// a schema with its local $ref filled in
+const resolve = (s) =>
+  s.$ref
+    ? {
+        ...s.$ref
+          .split('/')
+          .slice(1)
+          .reduce((o, k) => o[k], schema),
+        ...s,
+        $ref: undefined,
+      }
+    : s;
 function check(s, v, path, out) {
-  if (s.$ref)
-    s = {
-      ...s.$ref
-        .split('/')
-        .slice(1)
-        .reduce((o, k) => o[k], schema),
-      ...s,
-      $ref: undefined,
-    };
+  s = resolve(s);
   const errs = [],
     add = (message) => errs.push({ path, message });
   if (s.type && !TYPES[s.type](v))
@@ -62,7 +66,7 @@ function check(s, v, path, out) {
         if (p) check(p, x, path ? `${path}.${k}` : k, errs);
         else if (ap && typeof ap === 'object') check(ap, x, path ? `${path}.${k}` : k, errs);
         // (said at the field itself, so a one-sentence x-message about the object does not hide which field it is)
-        else if (ap === false) errs.push({ path: path ? `${path}.${k}` : k, message: 'is not a field here' });
+        else if (ap === false) errs.push({ path: path ? `${path}.${k}` : k, message: unknown(k, s) });
       }
       for (const [k, d] of Object.entries(s.dependentSchemas || {})) if (k in v) check(d, v, path, errs);
     }
@@ -71,13 +75,46 @@ function check(s, v, path, out) {
       check(sub, v, path, e);
       return !e.length;
     };
-    if (s.anyOf && !s.anyOf.some(ok)) add('is not any of the allowed forms');
+    if (s.anyOf && !s.anyOf.some(ok)) {
+      // when the value's type fits one form only (an object where the other form is false), what is wrong inside that
+      // form is said, at its own field, rather than only that no form fits
+      const same = s.anyOf.filter((f) => (f = resolve(f)).type && TYPES[f.type](v));
+      if (same.length === 1) check(same[0], v, path, errs);
+      else add('is not any of the allowed forms');
+    }
     if (s.oneOf && s.oneOf.filter(ok).length !== 1) add('should match exactly one of the allowed forms');
   }
   // "x-message" says in one sentence what this field should be; errors deeper inside keep their own place and words
   const own = errs.filter((e) => e.path === path),
     deeper = errs.filter((e) => e.path !== path);
   out.push(...(own.length && s['x-message'] ? [{ path, message: s['x-message'] }] : own), ...deeper);
+}
+
+// A field the format does not have is most often a misspelt one ("mine" for min, "colour" for color), so the nearest
+// name is offered when it is a letter or two away (a third of the word's length); a shape's field (at, rot…) written on
+// the part that holds the shape is said to belong on the shape.
+function unknown(k, s) {
+  const names = Object.keys(s.properties || {}),
+    shape = schema.$defs.shape.properties;
+  if (s.properties?.shapes && k in shape) return `is not a field of the part: it goes on one of its shapes`;
+  let best = '',
+    most = Math.max(1, Math.floor(k.length / 3));
+  for (const n of names) {
+    const d = edits(k.toLowerCase(), n.toLowerCase());
+    if (d <= most) [best, most] = [n, d - 1];
+  }
+  return `is not a field here${best ? ` (${best}?)` : ''}`;
+}
+// the fewest letters to add, remove or change to turn a into b (Levenshtein)
+function edits(a, b) {
+  let row = [...Array(b.length + 1).keys()];
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++)
+      next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    row = next;
+  }
+  return row[b.length];
 }
 
 // an axis (or a cut's normal) of length 0 has no direction: what it turns or slides would not move, or move by NaN

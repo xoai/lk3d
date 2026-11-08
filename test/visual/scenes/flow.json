@@ -154,7 +154,7 @@
    ]
   }
  ],
- "test:flow": [
+ "extras": { "flows": [
   {
    "paths": [
     [
@@ -656,5 +656,5 @@
    "length": 0.1,
    "width": 1.8
   }
- ]
+ ] }
 }

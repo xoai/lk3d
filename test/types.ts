@@ -1,5 +1,25 @@
 // Type check of the declarations (npm run typecheck): a page's use of lk3d must compile, and mistakes must not.
-import LK3D, { mount, type Scene, type Figure } from 'lk3d';
+import LK3D, {
+  mount,
+  type Scene,
+  type Figure,
+  type Vec3,
+  type Color,
+  type Look,
+  type ThemeName,
+  type Theme,
+  type Model,
+  type Material,
+  type Part,
+  type Handle,
+  type Shape,
+  type Motion,
+  type Scaled,
+  type Joint,
+  type Vessel,
+  type Liquid,
+  type Gas,
+} from 'lk3d';
 import { validate } from 'lk3d/validate';
 import LK3DX, { sceneToGLB } from 'lk3d/export';
 
@@ -143,3 +163,22 @@ void glb;
 void sameEngine;
 // @ts-expect-error  a scene's motions are numbers
 sceneToGLB(scene, { motion: { lift: 'up' } });
+
+// the scene's types, generated from the schema (scene.d.ts), keep the names pages use
+type Names = [Vec3, Color, Look, ThemeName, Theme, Model, Material, Part, Handle, Shape, Motion, Scaled, Joint];
+type Fluids = [Vessel, Liquid, Gas];
+const gear: Joint = { id: 'gear', parts: ['a'], turn: { axis: [0, 0, 1] }, follow: { joint: 'crank', ratio: -2 } };
+const scaled: Scaled = { ratio: 2, keys: [[0, 1]] };
+const skull: Model = { file: 'skull.glb', source: 'scan' };
+void [gear, scaled, skull, {} as Names, {} as Fluids];
+// @ts-expect-error a shape is exactly one kind
+const bad7: Shape = { sphere: 1, box: [1, 1, 1] };
+// @ts-expect-error a joint turns or slides, not both
+const bad8: Joint = { id: 'j', parts: ['a'], turn: { axis: [1, 0, 0] }, slide: { axis: [1, 0, 0] } };
+// @ts-expect-error a model needs its .glb: data or file
+const bad9: Model = { title: 'skull' };
+// @ts-expect-error a track moves or turns its parts
+const bad10: Motion = { id: 'm', range: [0, 1], tracks: [{ parts: ['a'] }] };
+// @ts-expect-error scale is a bar and/or a note
+const bad11: Scene = { parts: [], scale: {} };
+void [bad7, bad8, bad9, bad10, bad11];

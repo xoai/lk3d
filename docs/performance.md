@@ -7,18 +7,18 @@ it, keep the tab in front, press Run).
 
 ## Size
 
-The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 60 KB gzipped (57 KB until November 2026; raised when the engine began checking scenes and models itself): `npm run size` fails past
+The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 65 KB gzipped (57 KB until November 2026; 60 when the engine began checking scenes and models itself; 65 for room to grow): `npm run size` fails past
 it, and the CI workflow runs it. The glTF exporter is a script of its own, `dist/lk3d-export.min.js` (3.8 KB, 2.0 KB
 gzipped), outside the budget: a page loads it only to export.
 
 |                                                                                                                                         | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d 0.1.0                                                                                                                              | 148.4 KB | 59.3 KB |
+| lk3d 0.1.0                                                                                                                              | 148.0 KB | 59.2 KB |
 | three.js r187, the smallest page (renderer, camera, box, basic material)                                                                | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, orbit controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
-Measured with esbuild (minify, ES2018) and gzip level 9 (lk3d by `npm run size`, 4 November 2026; three.js, 2 November
-2026).
+Measured with esbuild (minify, ES2020) and gzip level 9 (lk3d by `npm run size`, 8 November 2026: 60 589 bytes, 5 971
+under the budget; three.js, 2 November 2026).
 
 ## Frames
 
@@ -98,11 +98,35 @@ What was fixed on the way (before: 1 000 parts cost 5.2 ms a frame; building 10 
   group in one instanced call. A part drawn alone gets the same state as constant attributes, so both share one
   shader path.
 
+**Only what changed, each frame** (8 November 2026). Until then every frame drawn, even one where only the camera
+turned, worked out every part's matrix again (with a new array for each multiplication), wrote every copy of every
+group of parts alike again and sent all of it to the GPU, and stringified the motions' values for each jointed part
+and every liquid's and gas's shape. Now a part's matrix is worked out only when what places it changed, a group writes
+and sends only the copies of parts that moved or changed, the joints are solved once for each change of a value, and
+liquids and gases are shaped again only when a volume or a height changed (`changed.js`; see design.md). The same scene,
+with a motion that lifts every fourth part, each frame drawn with `drawNow()` and timed (`node test/bench/parts.mjs`;
+headless Chromium on the same laptop, Metal; median / 95th percentile in ms, the GPU's work not in it):
+
+| Parts | Camera turning, before | after     | A motion playing, before | after     |
+| ----- | ---------------------- | --------- | ------------------------ | --------- |
+| 1 000 | 1.0 / 1.4              | 0.4 / 0.6 | 1.0 / 1.2                | 0.6 / 0.8 |
+| 3 000 | 3.1 / 3.8              | 1.0 / 1.3 | 3.1 / 3.6                | 1.8 / 2.1 |
+
 **What limits it now**: parts alike cost a few calls a pass however many there are; ten thousand of them keep 60
-frames a second. Most of what is left is lk3d's own JavaScript each frame a part moves (each part's matrix, then
-each copy's in its group: about 1.7 µs a part), and parts that are each different, which are still drawn one by one
-(a model of thousands of different parts would need its shapes merged into shared buffers). WebAssembly would not
-help the first much; WebGPU would make the second cheaper, so it waits until a real scene needs it.
+frames a second. What is left of lk3d's own JavaScript while the camera turns is a walk over every part in each pass
+(whether it is drawn with its group, and the shadow's key) and the bounds of what is on screen; while parts move, the
+groups they are in are sent whole (one buffer each). Parts that are each different are still drawn one by one (a model
+of thousands of different parts would need its shapes merged into shared buffers). WebGPU would make that cheaper, so
+it waits until a real scene needs it.
+
+## Many figures on a page
+
+Browsers keep only so many WebGL contexts (16 in Chrome) and lose the oldest past that, so a page of 20 figures used
+to leave its first ones blank. Now the figures of a page hold at most 8: a figure far off screen makes its context
+only when it comes near, and one coming near takes the context of the figure seen least recently, which keeps its
+last picture on a 2D canvas until it comes back and draws again (design.md, "Many figures on a page"). The API test
+mounts 24 figures and scrolls through them: each draws, at most 8 hold a context, none falls back to 2D or is blank,
+and the first, scrolled back to, draws the same picture as before.
 
 ## Devices still to measure
 

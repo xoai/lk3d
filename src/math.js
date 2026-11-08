@@ -29,8 +29,8 @@ const M = {
     m[0] = m[5] = m[10] = m[15] = 1;
     return m;
   },
-  mul(a, b) {
-    const o = new Float32Array(16);
+  // (into o when given: a matrix reused, no garbage)
+  mul(a, b, o = new Float32Array(16)) {
     for (let c = 0; c < 4; c++)
       for (let r = 0; r < 4; r++) {
         o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];

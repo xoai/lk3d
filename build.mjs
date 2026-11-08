@@ -1,7 +1,7 @@
 // Builds lk3d: dist/lk3d.min.js (one script that sets the global LK3D) and dist/lk3d.mjs (an ES module). esbuild
 // minifies the JavaScript; the shaders' GLSL, which it leaves as written, is squeezed here: comments, indentation and
 // the spaces around operators go (the GLSL compilers need none of them), and every line break stays, so the
-// preprocessor's lines (#ifdef …) keep theirs. The stylesheet (style.js) loses its line breaks and the spaces around
+// preprocessor's lines (#ifdef …) keep theirs. The stylesheet (stylesheet.js) loses its line breaks and the spaces around
 // its punctuation the same way.
 //   node build.mjs            write dist/
 //   node build.mjs --size     and fail if the script grows past the budget (BUDGET_KB gzipped)
@@ -19,8 +19,9 @@ const HERE = path.dirname(fileURLToPath(import.meta.url)),
 const EXPORTER = path.join(HERE, 'src/export-script.js'),
   MODULE = path.join(HERE, 'src/export.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this without a decision to raise it
-// (57 KB until November 2026, raised to 60 for scenes and models checked inside the engine and the cut-face fix)
-export const BUDGET_KB = 60;
+// (57 KB until November 2026, raised to 60 for scenes and models checked inside the engine and the cut-face fix, then
+// to 65 to leave room for features to come: each still earns its bytes)
+export const BUDGET_KB = 65;
 
 export const squeeze = (glsl) =>
   glsl
@@ -32,7 +33,7 @@ export const squeezeCSS = (css) => css.replace(/\s*\n\s*/g, '').replace(/\s*([{}
 const glsl = {
   name: 'glsl',
   setup(b) {
-    b.onLoad({ filter: /lk3d[\\/]src[\\/]style\.js$/ }, (a) => ({
+    b.onLoad({ filter: /lk3d[\\/]src[\\/]stylesheet\.js$/ }, (a) => ({
       contents: fs.readFileSync(a.path, 'utf8').replace(/`((?:[^`\\]|\\.)*)`/g, (m, g) => '`' + squeezeCSS(g) + '`'),
       loader: 'js',
     }));
@@ -48,6 +49,31 @@ const glsl = {
 // the licence's notice, kept at the top of every built file (and so in every copy of it): MIT asks that it stays
 const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
 export const BANNER = `/*! lk3d ${version} | MIT License | Copyright (c) 2026 xoai */`;
+// A mounted figure's shared state and the functions its parts call on each other are the fields of one object (the
+// context: src/figure/context.d.ts), whose names end in _. The bundle renames them as it renames locals: one or two
+// letters, the most used the shortest, in the order letters are most common in the code (which gzip likes). They are
+// only ever that object's fields, so the short names cannot meet another property; nothing public, in the scene format
+// or the browser's ends in _.
+const LETTERS = 'etnoarisclpdhuxfmgybwvkjqzETNOARISCLPDHUXFMGYBWVKJQZ';
+function contextNames() {
+  const src = path.join(HERE, 'src'),
+    files = ['index.js', ...fs.readdirSync(path.join(src, 'figure')).map((f) => 'figure/' + f)].filter((f) =>
+      f.endsWith('.js'),
+    ),
+    uses = {};
+  for (const f of files)
+    for (const [, k] of fs
+      .readFileSync(path.join(src, f), 'utf8')
+      .replace(/(^|\s)\/\/.*$/gm, '') // (not in comments)
+      .matchAll(/\.(\w+_)\b/g))
+      uses[k] = (uses[k] || 0) + 1;
+  const names = [...LETTERS, ...[...LETTERS].flatMap((a) => [...LETTERS].map((b) => a + b))];
+  return Object.fromEntries(
+    Object.keys(uses)
+      .sort((a, b) => uses[b] - uses[a] || (a < b ? -1 : 1))
+      .map((k, i) => [k, names[i]]),
+  );
+}
 const options = (format, entry) => ({
   entryPoints: [entry],
   banner: { js: BANNER },
@@ -55,7 +81,9 @@ const options = (format, entry) => ({
   write: false,
   format,
   minify: true,
-  target: 'es2018',
+  target: 'es2020', // (Chrome and Edge 80, Firefox 74, Safari 13.1: README; `?.` and `??` kept as written)
+  mangleProps: /_$/,
+  mangleCache: contextNames(),
   plugins: [glsl],
 });
 

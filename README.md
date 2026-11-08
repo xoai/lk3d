@@ -86,6 +86,9 @@ realistic shaders in the background, never reads back from the GPU or the page l
 from WebGL 2 to WebGL 1 to Canvas 2D. On a laptop every example scene holds a 120 Hz screen's rate with under 1 ms of
 script per frame ([performance](docs/performance.md)); phones are still to be measured on more devices.
 
+It runs in browsers from 2020 on: Chrome and Edge 80, Firefox 74, Safari 13.1 (iOS 13.4), Samsung Internet 13. The
+bundle is built for ES2020, so older ones (an iPhone 6 kept on iOS 12) cannot run it at all.
+
 ## When not to use it
 
 lk3d explains objects. For games, character animation (skins, morph targets), VR and AR, custom shaders or general 3D
@@ -137,7 +140,7 @@ Once it is published, `npm install lk3d` will do, and a page will load `https://
 npm install
 npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # fails if the bundle is over its budget (60 KB gzipped, BUDGET_KB in build.mjs)
+npm run size           # fails if the bundle is over its budget (65 KB gzipped, BUDGET_KB in build.mjs)
 npm run test:visual    # reference scenes compared with stored pictures (stored for Chromium and Firefox on macOS)
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again

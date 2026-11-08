@@ -1,6 +1,7 @@
 // Handles: parts the reader moves directly with the pointer, held to a rule (as one turns a focus ring, pushes a
 // piston, carries a planet along its orbit). The maths here is pure (a pointer ray in, a value out) so it is tested
-// without a browser; index.js wires it to the pointer, the keyboard and the page.
+// without a browser; figure/pose.js places the parts by it, and figure/input.js wires it to the pointer, the keyboard
+// and the page.
 //
 //   handle: {turn: {axis, center}, min, max, snap, value}   degrees about an axis through center
 //   handle: {slide: {axis}, min, max, snap, value}          a distance along an axis from where the part is drawn

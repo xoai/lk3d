@@ -1,9 +1,10 @@
 // The built-in controls under a figure: take apart (a slider and a button), cut open, see through, show all labels,
 // go round the looks, and the four views. They act through the figure's own API (fig.set, fig.view), so a page that
 // passes `controls: false` and builds its own buttons gets exactly the same behaviour.
-export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeThrough, tweenExplode, motions }) {
+export function controls({ el, fig, state, words, btnClass, explodable, cuttable, seeThrough, tweenExplode, motions }) {
   const bar = document.createElement('div');
   bar.className = 'lk3d-bar';
+  /** @param {string} label @param {string} title @param {() => void} fn @param {HTMLElement} [into] */
   const button = (label, title, fn, into = bar) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -29,10 +30,12 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
   };
 
   // taking apart: a slider for how far, and a button that goes all the way out or back
-  const exIn = slider(T.apart, T.apartLabel, 0, 1, 0.01, 0);
-  exIn.addEventListener('input', () => fig.set({ explode: +exIn.value }));
-  if (explodable) bar.append(exIn.parentNode);
-  const apart = explodable ? button(T.takeApart, T.takeApartTitle, () => tweenExplode(st.explode > 0.5 ? 0 : 1)) : null;
+  const apartSlider = slider(words.apart, words.apartLabel, 0, 1, 0.01, 0);
+  apartSlider.addEventListener('input', () => fig.set({ explode: +apartSlider.value }));
+  if (explodable) bar.append(apartSlider.parentNode);
+  const apart = explodable
+    ? button(words.takeApart, words.takeApartTitle, () => tweenExplode(state.explode > 0.5 ? 0 : 1))
+    : null;
 
   // each named motion: a slider along its range, and a button that plays it or stops it
   const moves = motions.map((mo) => {
@@ -45,10 +48,10 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
       m.set(v);
     });
     bar.append(input.parentNode);
-    const b = button(T.play, mo.name, () => (m.playing ? m.stop() : m.play()));
+    const b = button(words.play, mo.name, () => (m.playing ? m.stop() : m.play()));
     const sync = () => {
       input.value = m.value;
-      b.textContent = m.playing ? T.pause : T.play;
+      b.textContent = m.playing ? words.pause : words.play;
     };
     sync();
     return [mo.id, sync];
@@ -67,33 +70,33 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
   };
   if (cuttable)
     toggle(
-      T.cut,
-      T.cutTitle,
-      () => fig.set({ cut: !st.cut }),
-      () => st.cut,
+      words.cut,
+      words.cutTitle,
+      () => fig.set({ cut: !state.cut }),
+      () => state.cut,
     );
   if (seeThrough)
     toggle(
-      T.xray,
-      T.xrayTitle,
-      () => fig.set({ xray: !st.xray }),
-      () => st.xray,
+      words.xray,
+      words.xrayTitle,
+      () => fig.set({ xray: !state.xray }),
+      () => state.xray,
     );
   toggle(
-    T.labels,
-    T.labelsTitle,
-    () => fig.set({ labels: st.labels === 'all' ? 'auto' : 'all' }),
-    () => st.labels === 'all',
+    words.labels,
+    words.labelsTitle,
+    () => fig.set({ labels: state.labels === 'all' ? 'auto' : 'all' }),
+    () => state.labels === 'all',
   );
   // the look: one button that goes round the three, naming the one it goes to next
   const LOOKS = ['pen', 'studio', 'ink'],
-    next = () => LOOKS[(LOOKS.indexOf(st.style) + 1) % LOOKS.length];
-  const look = button(T[next()], T.styleTitle, () => fig.set({ style: next() }));
+    next = () => LOOKS[(LOOKS.indexOf(state.style) + 1) % LOOKS.length];
+  const look = button(words[next()], words.styleTitle, () => fig.set({ style: next() }));
 
   // the views
   const views = document.createElement('span');
   views.className = 'lk3d-views';
-  for (const n of ['front', 'side', 'top', 'home']) button(T[n], '', () => fig.view(n), views);
+  for (const n of ['front', 'side', 'top', 'home']) button(words[n], '', () => fig.view(n), views);
   bar.append(views);
   el.append(bar);
 
@@ -103,11 +106,11 @@ export function controls({ el, fig, st, T, btnClass, explodable, cuttable, seeTh
       for (const [k, sync] of moves) if (k === id) sync();
     },
     explode(v) {
-      exIn.value = v;
-      if (apart) apart.textContent = v > 0.5 ? T.putTogether : T.takeApart;
+      apartSlider.value = v;
+      if (apart) apart.textContent = v > 0.5 ? words.putTogether : words.takeApart;
     },
     style() {
-      look.textContent = T[next()];
+      look.textContent = words[next()];
       for (const s of toggles) s();
     },
   };

@@ -24,7 +24,7 @@ npx playwright install chromium firefox webkit   # for the image tests
 
 ```sh
 npm test               # geometry, models, handles, motions, joints, fluids, the checks, the CLI, the skill, locales
-npm run typecheck      # the TypeScript types (update index.d.ts with the API)
+npm run typecheck      # the sources (checkJs: tsconfig.json), the TypeScript types, and the scenes against them
 npm run size           # fails if the bundle is over its budget (BUDGET_KB in build.mjs, gzipped)
 npm run lint           # ESLint and Prettier (npm run format fixes the formatting)
 npm run test:visual    # reference scenes compared with stored pictures
@@ -40,8 +40,9 @@ npm run test:visual    # reference scenes compared with stored pictures
   commit them; until then its image tests fail.
 - **A new shape, material, surface or environment** goes into the schema too (`schema/scene.schema.json`): a test
   checks that the schema names exactly what the engine draws. Then `npm run docs` makes the scene-format reference and
-  the shape pictures again.
-- **A new option or method** goes into `index.d.ts` and `docs/api.md`.
+  the shape pictures again, and `npm run types` the scene's TypeScript types (`scene.d.ts`, generated from the schema:
+  never edit it by hand; a test fails when it is out of date).
+- **A new option or method** goes into `index.d.ts` (the page API, written by hand) and `docs/api.md`.
 - **Words on the screen** go into every locale (`src/locales/`); a test checks they have the same keys.
 - **Speed**: for anything on the drawing path, run the benchmark before and after (lessonkit's
   `node lessonkit/js/bench.cjs`) and say what it measured.
@@ -51,3 +52,15 @@ npm run test:visual    # reference scenes compared with stored pictures
 ## Style
 
 Plain JavaScript (ES modules), no runtime dependencies. Comments say why, in plain English. Names say what things are.
+Each module starts with a line or two saying what it owns and what it reads from others.
+
+A mounted figure is made of parts in `src/figure/` (the map: `docs/design.md`, "A mounted figure"), each a function
+`makeX(c)` given the figure's context `c`: what only a part uses stays in its closure; what others read or call goes on
+`c`, as a field whose name ends in `_` (declared in `src/figure/context.d.ts`), and nothing else may end in `_`
+(`build.mjs` renames those fields short). So, like locals, they cost nothing: name them plainly (`c.renderer_`, not
+`c.R_`). The properties of parts, batches, frames and other objects are kept as written, so there a short name still
+saves bytes; say what a terse one holds in a comment. Read shared things as `c.state_.x`, `c.built_.parts`,
+`c.kick_()`, not through local copies: the bundle gzips smaller so. A new part goes into `mount()` (`src/index.js`) where its elements,
+listeners and timers belong, and its import with the others, in the same order. The sources are type-checked as
+JavaScript (`npm run typecheck`): JSDoc where the checker cannot tell, the scene's types from `scene.d.ts`
+(`/** @param {import('../scene').Scene} spec */`).

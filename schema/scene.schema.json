@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/xoai/lk3d/main/schema/scene.schema.json",
   "title": "lk3d scene",
-  "description": "A 3D figure as data: parts made of shapes, each with a name and a note, that the reader turns, takes apart, cuts open and moves. Other fields are allowed (a page's own data).",
+  "description": "A 3D figure as data: parts made of shapes, each with a name and a note, that the reader turns, takes apart, cuts open and moves. Every field is one of the format's, so a misspelt one is caught; a page's own data goes under extras.",
   "type": "object",
   "required": ["parts"],
   "properties": {
@@ -102,7 +102,8 @@
           "$ref": "#/$defs/vec3",
           "description": "Where the view moves when the model is taken apart."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "edges": {
       "type": "boolean",
@@ -165,7 +166,8 @@
             "offset": {
               "type": "number"
             }
-          }
+          },
+          "additionalProperties": false
         }
       ]
     },
@@ -200,7 +202,8 @@
               "minLength": 1
             }
           },
-          "x-message": "a scale bar needs its length (scene units) and label (\"5 cm\")"
+          "x-message": "a scale bar needs its length (scene units) and label (\"5 cm\")",
+          "additionalProperties": false
         },
         "note": {
           "type": "string",
@@ -215,7 +218,8 @@
           "required": ["note"]
         }
       ],
-      "x-message": "scale is a bar ({bar: {length, label}}) and/or a note ({note: \"not to scale\"})"
+      "x-message": "scale is a bar ({bar: {length, label}}) and/or a note ({note: \"not to scale\"})",
+      "additionalProperties": false
     },
     "models": {
       "type": "object",
@@ -248,6 +252,10 @@
       "items": {
         "$ref": "#/$defs/gas"
       }
+    },
+    "extras": {
+      "type": "object",
+      "description": "The page's own data about the figure (as glTF's extras): lk3d keeps it and does not read it."
     },
     "parts": {
       "type": "array",
@@ -325,7 +333,8 @@
           "required": ["file"]
         }
       ],
-      "x-message": "a model needs its .glb: data (base64) or file (a path)"
+      "x-message": "a model needs its .glb: data (base64) or file (a path)",
+      "additionalProperties": false
     },
     "handle": {
       "type": "object",
@@ -342,7 +351,8 @@
               "$ref": "#/$defs/vec3"
             }
           },
-          "description": "Degrees about an axis through center; without min and max it goes round and round."
+          "description": "Degrees about an axis through center; without min and max it goes round and round.",
+          "additionalProperties": false
         },
         "slide": {
           "type": "object",
@@ -352,7 +362,8 @@
               "$ref": "#/$defs/vec3"
             }
           },
-          "description": "A distance along an axis from where the part is drawn."
+          "description": "A distance along an axis from where the part is drawn.",
+          "additionalProperties": false
         },
         "along": {
           "type": "object",
@@ -370,7 +381,8 @@
               "type": "boolean"
             }
           },
-          "description": "A place on a path, 0 at its start to 1 at its end."
+          "description": "A place on a path, 0 at its start to 1 at its end.",
+          "additionalProperties": false
         },
         "min": {
           "type": "number",
@@ -416,7 +428,8 @@
           "required": ["along"]
         }
       ],
-      "x-message": "a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}"
+      "x-message": "a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}",
+      "additionalProperties": false
     },
     "part": {
       "type": "object",
@@ -542,7 +555,8 @@
               "$ref": "#/$defs/vec3"
             }
           },
-          "description": "Turns with the figure's spin angle, set({spin}): about an axis through center, ratio times as fast."
+          "description": "Turns with the figure's spin angle, set({spin}): about an axis through center, ratio times as fast.",
+          "additionalProperties": false
         },
         "handle": {
           "$ref": "#/$defs/handle",
@@ -565,7 +579,8 @@
             }
           },
           "x-message": "surface is {kind: brushed|knurl|ribs|grain|skin|cast, scale, strength} (positive numbers)",
-          "description": "Fine surface detail in the studio look (WebGL 2): kind, bumps per unit, strength (0.3 to 1)."
+          "description": "Fine surface detail in the studio look (WebGL 2): kind, bumps per unit, strength (0.3 to 1).",
+          "additionalProperties": false
         },
         "refract": {
           "type": "number",
@@ -581,6 +596,10 @@
           "minItems": 1,
           "x-message": "a part needs its shapes (a list of one or more)",
           "description": "What the part is made of: one or more shapes. (none for a liquid's or a gas's part: lk3d makes its body)"
+        },
+        "extras": {
+          "type": "object",
+          "description": "The page's own data about this part (as glTF's extras): lk3d keeps it and does not read it."
         }
       },
       "dependentSchemas": {
@@ -593,7 +612,8 @@
           },
           "x-message": "refract is for a glass part (material: glass)"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "shape": {
       "type": "object",
@@ -1941,5 +1961,6 @@
       ],
       "x-message": "a joint turns its parts (turn) or slides them (slide)"
     }
-  }
+  },
+  "additionalProperties": false
 }

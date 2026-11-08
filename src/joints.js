@@ -20,16 +20,7 @@ import { M, sub, mulv, dot, cross, norm } from './math.js';
 import { rotAxis } from './handles.js';
 import { between } from './motion.js';
 
-const pt = (m, p) => [
-  m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12],
-  m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13],
-  m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14],
-];
-const dir = (m, v) => [
-  m[0] * v[0] + m[4] * v[1] + m[8] * v[2],
-  m[1] * v[0] + m[5] * v[1] + m[9] * v[2],
-  m[2] * v[0] + m[6] * v[1] + m[10] * v[2],
-];
+const { pt, dir } = M; // (a point, and a direction, through a matrix)
 // the joints a joint reads: its parent and the one its value comes from
 const reads = (j) =>
   [j.parent, j.follow && j.follow.joint, j.rod && j.rod.joint, j.aim && j.aim.joint].filter((x) => x != null);

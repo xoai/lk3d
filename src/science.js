@@ -392,6 +392,8 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
   // terrain: {size: [x, z], res, base, height: {amp, freq, seed}, layers: [{thick, color}], top, tilt}: a block of
   // ground whose top is a smooth landscape and whose sides show its rock layers (top layer first, the last one to the
   // bottom); tilt (degrees) dips the layers along x
+  /** @param {{ size?: number[], res?: number, base?: number, height?: { amp?: number, freq?: number, seed?: number },
+   *   layers?: { thick: number, color: string }[], top?: string, tilt?: number }} t @param {any} o */
   function terrain({ size = [2, 2], res = 24, base = 0.6, height = {}, layers = [], top = '#7a9a55', tilt = 0 }, o) {
     const g = new Geo(),
       n = Math.max(6, Math.round(res * (o.q || 1))),
@@ -546,10 +548,10 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
           d = b + m;
         tris.push([a, b, d], [a, d, c]);
       }
-    for (const [s, flip] of [
+    for (const [s, flip] of /** @type {[number, boolean][]} */ ([
       [0, true],
       [ns, false],
-    ]) {
+    ])) {
       // root and tip, closed by a fan from the section's middle
       const cIdx = pos.length,
         base = s * m;

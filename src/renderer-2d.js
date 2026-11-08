@@ -18,7 +18,7 @@ function canvasRenderer(cv, scene) {
     }
     bands.forEach((b, k) => {
       const c = h.ramp[k];
-      g.fillStyle = `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`;
+      g.fillStyle = css(c);
       g.beginPath();
       for (let j = 0; j < b.length; j += 3) {
         g.moveTo(b[j] + b[j + 2], b[j + 1]);

@@ -1009,7 +1009,7 @@ test('the validator finds each planted mistake where it is, and passes a right s
     lk3d: 1,
     view: { projection: 'ortho' },
     edges: true,
-    extra: "a page's own field",
+    extras: { note: "a page's own data" },
   };
   assert.deepEqual(validate(good), []);
   const at = (scene) => validate(scene).map((e) => e.path);
@@ -1064,7 +1064,7 @@ test('a scene too big to draw is refused in plain words, by the validator and be
   // each count past its bound (bounds well above anything a scene uses: seg 72, repeat 42, scatter 120 at most)
   says(one({ sphere: 1, seg: 1e8 }), 'parts[0].shapes[0].seg', /at most 512/);
   says(one({ box: [1, 1, 1], repeat: 1e6 }), 'parts[0].shapes[0].repeat', /repeat is a number of copies/);
-  says(one({ box: [1, 1, 1], repeat: { n: 1e6 } }), 'parts[0].shapes[0].repeat', /repeat is a number of copies/);
+  says(one({ box: [1, 1, 1], repeat: { n: 1e6 } }), 'parts[0].shapes[0].repeat.n', /at most 1000/);
   says(one({ scatter: { shape: { sphere: 0.1 }, n: 1e7 } }), 'parts[0].shapes[0].scatter.n', /at most 10000/);
   says(one({ helix: { r: 1, turns: 1e6 } }), 'parts[0].shapes[0].helix.turns', /at most 1000/);
   says(one({ loop: { turns: 1e6 } }), 'parts[0].shapes[0].loop.turns', /at most 1000/);
@@ -1442,7 +1442,7 @@ test('the validator refuses a shape with a field it does not have, or a field of
       'parts[0].shapes[0].segments',
     ],
     [scene({ sphere: 1, colour: '#fff' }), 'parts[0].shapes[0].colour'],
-    [scene({ box: [1, 1, 1], repeat: { n: 3, axes: 'y' } }), 'parts[0].shapes[0].repeat'],
+    [scene({ box: [1, 1, 1], repeat: { n: 3, axes: 'y' } }), 'parts[0].shapes[0].repeat.axes'],
     [scene({ orbit: { a: 1, e: 1.2 } }), 'parts[0].shapes[0].orbit.e'],
     [
       scene({ molecule: { atoms: [{ el: 'C', at: [0, 0, 0] }], bonds: [[0, 0, 4]] } }),
@@ -1557,4 +1557,46 @@ test('every built file carries the licence notice at its top (and so does every 
       f,
     );
   }
+});
+
+test('every field is one of the format’s: a misspelt one is caught and the nearest name offered', () => {
+  const { validate } = require('../src/validate.js');
+  const part = (o = {}) => ({ id: 'a', shapes: [{ sphere: 1 }], ...o }),
+    says = (scene, path, words) => {
+      const e = validate(scene).find((x) => x.path === path);
+      assert.ok(e, `${JSON.stringify(scene).slice(0, 100)} → ${JSON.stringify(validate(scene))}`);
+      assert.match(e.message, words);
+    };
+  // planted: a misspelling in each object the format had left open (the scene, the view, a part, a handle and its
+  // rule, a spin, a surface, a model, the scale, the cut), each refused at the field itself
+  says(
+    { parts: [part({ handle: { turn: { axis: [0, 0, 1] }, mine: 0, max: 1 } })] },
+    'parts[0].handle.mine',
+    /\(min\?\)/,
+  );
+  says({ parts: [part({ colour: '#fff' })] }, 'parts[0].colour', /\(color\?\)/);
+  says({ parts: [part({ explod: [0, 1, 0] })] }, 'parts[0].explod', /\(explode\?\)/);
+  says({ parts: [part()], veiw: { yaw: 10 } }, 'veiw', /not a field here/);
+  says({ parts: [part()], view: { yaw: 10, zom: 2 } }, 'view.zom', /not a field here/);
+  says(
+    { parts: [part({ handle: { turn: { axis: [0, 0, 1], centre: [0, 0, 0] } } })] },
+    'parts[0].handle.turn.centre',
+    /\(center\?\)/,
+  );
+  says({ parts: [part({ spin: { axis: [0, 1, 0], speed: 2 } })] }, 'parts[0].spin.speed', /not a field here/);
+  says({ parts: [part({ surface: { kind: 'knurl', scal: 4 } })] }, 'parts[0].surface.scal', /\(scale\?\)/);
+  says({ parts: [part()], models: { m: { file: 'm.glb', licence: 'CC0' } } }, 'models.m.licence', /\(license\?\)/);
+  says(
+    { parts: [part()], scale: { note: 'n', bar: { length: 1, label: '1 m', unit: 'm' } } },
+    'scale.bar.unit',
+    /not a field/,
+  );
+  says({ parts: [part()], section: { normal: [0, 0, 1], ofset: 0 } }, 'section.ofset', /\(offset\?\)/);
+  // a shape's field written on its part is said to belong on the shape
+  says({ parts: [part({ detail: 2 })] }, 'parts[0].detail', /goes on one of its shapes/);
+  // a page's own data has its place, on the scene and on a part, and is not looked into
+  assert.deepEqual(
+    validate({ parts: [part({ extras: { claim: 'c1', x: [1] } })], extras: { planets: [{ R: 1 }] } }),
+    [],
+  );
 });

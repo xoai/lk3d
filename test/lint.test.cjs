@@ -93,7 +93,7 @@ test('a part made of solids meeting edge to edge is still solid to the check (tw
       },
     },
     1,
-  ).geo;
+  ).mesh;
   assert.ok(isClosed(co2), 'ball-and-stick: closed');
   const open = buildShape(
     {
@@ -103,7 +103,7 @@ test('a part made of solids meeting edge to edge is still solid to the check (tw
       ],
     },
     1,
-  ).geo; // (a tube with no ends)
+  ).mesh; // (a tube with no ends)
   assert.ok(!isClosed(open), 'an open surface is not');
 });
 

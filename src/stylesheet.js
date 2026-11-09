@@ -5,9 +5,9 @@
 // A theme (LK3D.themes) sets these on the stage itself, so the words on a themed figure follow its theme.
 function css() {
   if (document.getElementById('lk3d-css')) return;
-  const s = document.createElement('style');
-  s.id = 'lk3d-css';
-  s.textContent = `
+  const style = document.createElement('style');
+  style.id = 'lk3d-css';
+  style.textContent = `
 .lk3d{position:relative; margin:24px 0 6px}
 .lk3d-stage{position:relative; width:100%; overflow:hidden; border-radius:6px; touch-action:pan-y; user-select:none; -webkit-user-select:none}
 .lk3d-active .lk3d-stage{touch-action:none}
@@ -51,6 +51,6 @@ function css() {
 .lk3d-range input{width:120px; accent-color:var(--lk3d-ink, #1d1a1e)}
 .lk3d-views{display:inline-flex; gap:6px; flex-wrap:wrap}
 @media (max-width:520px){.lk3d-tag{font-size:12px; line-height:17px; padding:0 5px} .lk3d-scale{font-size:11.5px; top:6px; bottom:auto; right:6px}}`;
-  document.head.append(s);
+  document.head.append(style);
 }
 export { css };

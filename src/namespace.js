@@ -21,18 +21,18 @@ const LK3D = {
   // settings for every figure on the page (a site sets them once): locale, strings, buttonClass
   defaults: { locale: 'en', strings: {}, buttonClass: '' },
   reduce: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
-  // for tests and tools: the geometry a scene makes, without a page (each part also as one plain geometry, g); most:
-  // the most triangles it may have (10 million)
-  /** @param {import('../scene').Scene} spec @param {number} [q] @param {number} [most] */
-  build(spec, q = 1, most) {
-    const S = buildScene(spec, q, most);
-    for (const p of S.parts)
-      Object.defineProperty(p, 'g', {
+  // for tests and tools: the geometry a scene makes, without a page (each part also as one plain geometry, g);
+  // maxTriangles: the most triangles it may have (10 million)
+  /** @param {import('../scene').Scene} spec @param {number} [quality] @param {number} [maxTriangles] */
+  build(spec, quality = 1, maxTriangles) {
+    const built = buildScene(spec, quality, maxTriangles);
+    for (const part of built.parts)
+      Object.defineProperty(part, 'g', {
         get() {
-          return this._g || (this._g = flatten(this));
+          return this._flat || (this._flat = flatten(this));
         },
       });
-    return S;
+    return built;
   },
   safeHTML,
   version: 2, // (the page API's version: it goes up when a page's own code must change)

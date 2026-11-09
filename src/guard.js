@@ -13,23 +13,24 @@ const POINTS = /^(lathe|outline|inside|layers)$/; // (a lathe's profile, an outl
 
 export function values(scene) {
   const out = [],
-    on = new Set(),
+    walking = new Set(), // (the objects on the path from the scene down to here)
     bad = (path, message) => out.push({ path, message });
-  let n = 0;
-  const walk = (v, path, key, depth) => {
-    const t = typeof v;
-    if (++n > LIMITS.values) return n === LIMITS.values + 1 && bad('', 'has more than a million values');
-    if (t === 'number') Number.isFinite(v) || bad(path, `is ${v}, not a finite number`);
-    else if (t === 'object' && v) {
-      const list = Array.isArray(v),
+  let count = 0;
+  const walk = (value, path, key, depth) => {
+    const type = typeof value;
+    if (++count > LIMITS.values) return count === LIMITS.values + 1 && bad('', 'has more than a million values');
+    if (type === 'number') Number.isFinite(value) || bad(path, `is ${value}, not a finite number`);
+    else if (type === 'object' && value) {
+      const isList = Array.isArray(value),
         most = POINTS.test(key) ? LIMITS.points : LIMITS.items;
-      if (on.has(v)) return bad(path, 'holds itself (a loop)');
+      if (walking.has(value)) return bad(path, 'holds itself (a loop)');
       if (depth > LIMITS.depth) return bad(path, `is nested more than ${LIMITS.depth} deep`);
-      if (list && v.length > most) return bad(path, `has ${v.length} items; at most ${most}`);
-      on.add(v);
-      for (const k of Object.keys(v)) walk(v[k], list ? `${path}[${k}]` : path ? `${path}.${k}` : k, k, depth + 1);
-      on.delete(v);
-    } else if (t !== 'string' && t !== 'boolean' && v != null) bad(path, `is a ${t}, not data`);
+      if (isList && value.length > most) return bad(path, `has ${value.length} items; at most ${most}`);
+      walking.add(value);
+      for (const k of Object.keys(value))
+        walk(value[k], isList ? `${path}[${k}]` : path ? `${path}.${k}` : k, k, depth + 1);
+      walking.delete(value);
+    } else if (type !== 'string' && type !== 'boolean' && value != null) bad(path, `is a ${type}, not data`);
   };
   walk(scene, '', '', 0);
   return out;
@@ -37,12 +38,14 @@ export function values(scene) {
 
 export function guard(scene) {
   const out = values(scene),
-    obj = (v) => v && typeof v === 'object' && !Array.isArray(v),
-    objs = (l, path, what) =>
-      (Array.isArray(l) && [...l].every(obj)) || out.push({ path, message: 'should be a list of ' + what }); // (holes too)
+    isObject = (value) => value && typeof value === 'object' && !Array.isArray(value),
+    listOfObjects = (list, path, what) =>
+      (Array.isArray(list) && [...list].every(isObject)) || out.push({ path, message: 'should be a list of ' + what }); // (holes too)
   if (out.length) return out;
-  if (!obj(scene)) return [{ path: '', message: 'should be an object (a scene)' }];
-  if (objs(scene.parts, 'parts', 'parts') === true)
-    scene.parts.forEach((p, k) => p.shapes === undefined || objs(p.shapes, `parts[${k}].shapes`, 'shapes'));
+  if (!isObject(scene)) return [{ path: '', message: 'should be an object (a scene)' }];
+  if (listOfObjects(scene.parts, 'parts', 'parts') === true)
+    scene.parts.forEach(
+      (part, index) => part.shapes === undefined || listOfObjects(part.shapes, `parts[${index}].shapes`, 'shapes'),
+    );
   return out;
 }

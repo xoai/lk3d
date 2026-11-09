@@ -3,16 +3,16 @@
 // look), so a page that only shows the hand-drawn look never compiles the heavier studio lighting. On WebGL 2 the HIFI path adds physically based shading (the lighting
 // model of Google's Filament), light from a generated studio environment, shadows and tone mapping.
 
-function header(gl2, stage, defs) {
-  let h = gl2 ? '#version 300 es\n#define GL2 1\n' : '';
-  for (const d of defs) h += `#define ${d} 1\n`;
-  if (stage === 'vs') h += gl2 ? '#define attribute in\n#define varying out\n' : '';
+function header(gl2, stage, defines) {
+  let text = gl2 ? '#version 300 es\n#define GL2 1\n' : '';
+  for (const define of defines) text += `#define ${define} 1\n`;
+  if (stage === 'vs') text += gl2 ? '#define attribute in\n#define varying out\n' : '';
   else {
-    h += gl2
+    text += gl2
       ? 'precision highp float;\nprecision highp sampler2DShadow;\n#define varying in\nout vec4 fragColor;\n#define gl_FragColor fragColor\n#define texture2D texture\n#define textureCube texture\n'
       : '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n';
   }
-  return h;
+  return text;
 }
 
 // ---- the parts: positions and normals arrive compressed (16 and 8 bit), each instance brings its own matrix.

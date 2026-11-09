@@ -1,188 +1,223 @@
 // The fallback where there is no WebGL: Canvas 2D, flat shading in the same bands, triangles sorted far to near.
 // Same interface as the WebGL renderer; it draws the coarser geometry the scene was built with for it.
 import { M, sub, cross, dot, norm } from './math.js';
-import { rampAt, PTS, STRIDE } from './flow.js';
+import { rampAt, STREAK_POINTS, STRIDE } from './flow.js';
 
-function canvasRenderer(cv, scene) {
-  const g = cv.getContext('2d');
+function canvasRenderer(canvas, scene) {
+  const context = canvas.getContext('2d');
   // balls, without depth: in the three colour bands of the WebGL renderer, one fill each
-  function balls(h, f, VP, W, H) {
+  function balls(particleSet, frame, viewProjection, width, height) {
     /** @type {number[][]} */
     const bands = [[], [], []];
-    for (let i = 0; i < h.count; i++) {
-      const p = [h.pos4[4 * i], h.pos4[4 * i + 1], h.pos4[4 * i + 2]],
-        s = M.project(VP, p, W, H);
-      if (!s) continue;
-      const d = Math.hypot(p[0] - f.eye[0], p[1] - f.eye[1], p[2] - f.eye[2]);
-      const w = h.pos4[4 * i + 3];
-      bands[w < 0.35 ? 0 : w < 0.65 ? 1 : 2].push(s[0], s[1], Math.max(1, (h.radius * f.pxPerUnit) / d));
+    for (let i = 0; i < particleSet.count; i++) {
+      const position = [
+          particleSet.positionsAndColors[4 * i],
+          particleSet.positionsAndColors[4 * i + 1],
+          particleSet.positionsAndColors[4 * i + 2],
+        ],
+        screen = M.project(viewProjection, position, width, height);
+      if (!screen) continue;
+      const distance = Math.hypot(position[0] - frame.eye[0], position[1] - frame.eye[1], position[2] - frame.eye[2]);
+      const tone = particleSet.positionsAndColors[4 * i + 3];
+      bands[tone < 0.35 ? 0 : tone < 0.65 ? 1 : 2].push(
+        screen[0],
+        screen[1],
+        Math.max(1, (particleSet.radius * frame.pxPerUnit) / distance),
+      );
     }
-    bands.forEach((b, k) => {
-      const c = h.ramp[k];
-      g.fillStyle = css(c);
-      g.beginPath();
-      for (let j = 0; j < b.length; j += 3) {
-        g.moveTo(b[j] + b[j + 2], b[j + 1]);
-        g.arc(b[j], b[j + 1], b[j + 2], 0, 6.3);
+    bands.forEach((band, bandIndex) => {
+      const color = particleSet.ramp[bandIndex];
+      context.fillStyle = css(color);
+      context.beginPath();
+      for (let j = 0; j < band.length; j += 3) {
+        context.moveTo(band[j] + band[j + 2], band[j + 1]);
+        context.arc(band[j], band[j + 1], band[j + 2], 0, 6.3);
       }
-      g.fill();
+      context.fill();
     });
   }
   // flow streaks: each one stroke from head to tail, in the ramp's colour at its head
-  const css = (c) => `rgb(${c.map((v) => Math.round(v * 255)).join(',')})`;
-  function streaks(F, f, VP, W, H) {
-    const V = F.verts;
-    g.lineWidth = Math.max(1.25, F.width) * f.dpr;
-    g.lineCap = 'round';
-    g.globalCompositeOperation = f.look.dark ? 'lighter' : 'source-over';
-    for (let i = 0; i < F.n; i++) {
-      const o = i * PTS * 2 * STRIDE;
-      g.globalAlpha = F.opacity * V[o + 8] * 0.6;
-      g.strokeStyle = css(rampAt(F.colors, V[o + 7]));
-      g.beginPath();
-      for (let k = 0; k < PTS; k++) {
-        const s = M.project(VP, [V[o + 2 * k * STRIDE], V[o + 2 * k * STRIDE + 1], V[o + 2 * k * STRIDE + 2]], W, H);
-        if (s) g.lineTo(s[0], s[1]);
+  const css = (color) => `rgb(${color.map((channel) => Math.round(channel * 255)).join(',')})`;
+  function streaks(flow, frame, viewProjection, width, height) {
+    const vertices = flow.vertices;
+    context.lineWidth = Math.max(1.25, flow.width) * frame.dpr;
+    context.lineCap = 'round';
+    context.globalCompositeOperation = frame.look.dark ? 'lighter' : 'source-over';
+    for (let i = 0; i < flow.drawnCount; i++) {
+      const offset = i * STREAK_POINTS * 2 * STRIDE;
+      context.globalAlpha = flow.opacity * vertices[offset + 8] * 0.6;
+      context.strokeStyle = css(rampAt(flow.colors, vertices[offset + 7]));
+      context.beginPath();
+      for (let k = 0; k < STREAK_POINTS; k++) {
+        const screen = M.project(
+          viewProjection,
+          [
+            vertices[offset + 2 * k * STRIDE],
+            vertices[offset + 2 * k * STRIDE + 1],
+            vertices[offset + 2 * k * STRIDE + 2],
+          ],
+          width,
+          height,
+        );
+        if (screen) context.lineTo(screen[0], screen[1]);
       }
-      g.stroke();
+      context.stroke();
     }
-    g.globalAlpha = 1;
-    g.globalCompositeOperation = 'source-over';
+    context.globalAlpha = 1;
+    context.globalCompositeOperation = 'source-over';
   }
   return {
     kind: '2d',
     hifi: false,
     shadows: false,
     setAO() {},
-    draw(f) {
-      g.setTransform(1, 0, 0, 1, 0, 0);
-      g.clearRect(0, 0, cv.width, cv.height);
-      if (f.look.fill) {
-        g.fillStyle = css(f.look.fill);
-        g.fillRect(0, 0, cv.width, cv.height);
+    draw(frame) {
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      if (frame.look.fill) {
+        context.fillStyle = css(frame.look.fill);
+        context.fillRect(0, 0, canvas.width, canvas.height);
       }
-      const tris = [],
-        kind = f.look.kind,
-        L = f.look.light,
-        VP = f.VP,
-        W = cv.width,
-        H = cv.height;
-      for (const p of f.parts) {
-        if (p.drawAlpha < 0.05) continue;
+      const triangles = [],
+        kind = frame.look.kind,
+        light = frame.look.light,
+        viewProjection = frame.viewProjection,
+        width = canvas.width,
+        height = canvas.height;
+      for (const part of frame.parts) {
+        if (part.drawAlpha < 0.05) continue;
         // pen: the part's colour mixed into the near-white solid (all of it for an accent part)
-        const base =
+        const baseColor =
             kind === 1
-              ? p.studioColor
+              ? part.studioColor
               : kind === 2
-                ? f.look.solid.map((v, i) => v + (p.color[i] - v) * p.tint)
-                : p.color,
-          hi = p.id === f.hover || p.id === f.selected;
-        for (const b of p.batches)
-          for (const im of b.mats) {
-            const m = M.mul(p.m, im),
-              P = b.geo.p,
-              I = b.geo.i,
-              n = b.geo.count,
-              scr = new Float32Array(n * 3),
-              wp = new Float32Array(n * 3);
-            for (let k = 0; k < n; k++) {
-              const w = M.pt(m, [P[3 * k], P[3 * k + 1], P[3 * k + 2]]);
-              wp[3 * k] = w[0];
-              wp[3 * k + 1] = w[1];
-              wp[3 * k + 2] = w[2];
-              const s = M.project(VP, w, W, H) || [0, 0, -1];
-              scr[3 * k] = s[0];
-              scr[3 * k + 1] = s[1];
-              scr[3 * k + 2] = s[2];
+                ? frame.look.solid.map((channel, i) => channel + (part.color[i] - channel) * part.tint)
+                : part.color,
+          highlighted = part.id === frame.hover || part.id === frame.selected;
+        for (const batch of part.batches)
+          for (const placement of batch.placements) {
+            const matrix = M.mul(part.matrix, placement),
+              positions = batch.mesh.positions,
+              indices = batch.mesh.indices,
+              vertexCount = batch.mesh.count,
+              screenPoints = new Float32Array(vertexCount * 3),
+              worldPoints = new Float32Array(vertexCount * 3);
+            for (let k = 0; k < vertexCount; k++) {
+              const world = M.pt(matrix, [positions[3 * k], positions[3 * k + 1], positions[3 * k + 2]]);
+              worldPoints[3 * k] = world[0];
+              worldPoints[3 * k + 1] = world[1];
+              worldPoints[3 * k + 2] = world[2];
+              const screen = M.project(viewProjection, world, width, height) || [0, 0, -1];
+              screenPoints[3 * k] = screen[0];
+              screenPoints[3 * k + 1] = screen[1];
+              screenPoints[3 * k + 2] = screen[2];
             }
-            for (let t = 0; t < I.length; t += 3) {
-              const a = I[t],
-                b2 = I[t + 1],
-                c = I[t + 2];
-              if (scr[3 * a + 2] <= 0 || scr[3 * b2 + 2] <= 0 || scr[3 * c + 2] <= 0) continue;
+            for (let first = 0; first < indices.length; first += 3) {
+              const a = indices[first],
+                b = indices[first + 1],
+                c = indices[first + 2];
+              if (screenPoints[3 * a + 2] <= 0 || screenPoints[3 * b + 2] <= 0 || screenPoints[3 * c + 2] <= 0)
+                continue;
               const away =
-                (scr[3 * b2] - scr[3 * a]) * (scr[3 * c + 1] - scr[3 * a + 1]) -
-                  (scr[3 * b2 + 1] - scr[3 * a + 1]) * (scr[3 * c] - scr[3 * a]) >=
+                (screenPoints[3 * b] - screenPoints[3 * a]) * (screenPoints[3 * c + 1] - screenPoints[3 * a + 1]) -
+                  (screenPoints[3 * b + 1] - screenPoints[3 * a + 1]) * (screenPoints[3 * c] - screenPoints[3 * a]) >=
                 0;
-              if (away && !b.geo.twoSided) continue; // facing away (a two-sided surface shows its other face)
-              const A = [wp[3 * a], wp[3 * a + 1], wp[3 * a + 2]];
-              const nrm = norm(
+              if (away && !batch.mesh.twoSided) continue; // facing away (a two-sided surface shows its other face)
+              const cornerA = [worldPoints[3 * a], worldPoints[3 * a + 1], worldPoints[3 * a + 2]];
+              const normal = norm(
                   cross(
-                    sub([wp[3 * b2], wp[3 * b2 + 1], wp[3 * b2 + 2]], A),
-                    sub([wp[3 * c], wp[3 * c + 1], wp[3 * c + 2]], A),
+                    sub([worldPoints[3 * b], worldPoints[3 * b + 1], worldPoints[3 * b + 2]], cornerA),
+                    sub([worldPoints[3 * c], worldPoints[3 * c + 1], worldPoints[3 * c + 2]], cornerA),
                   ),
                 ),
-                d = away ? -dot(nrm, L) : dot(nrm, L);
+                facing = away ? -dot(normal, light) : dot(normal, light);
               // the shaders' light: ink's three bands; pen's smooth ramp, deeper than on the GPU (here no outline
               // or edge shows the shape); studio's smooth light
-              const x = Math.max(0, Math.min(1, (d + 0.3) / 1)),
-                lit =
+              const level = Math.max(0, Math.min(1, (facing + 0.3) / 1)),
+                brightness =
                   kind === 1
-                    ? 0.35 + 0.65 * Math.max(0, d)
+                    ? 0.35 + 0.65 * Math.max(0, facing)
                     : kind
-                      ? 0.7 + 0.3 * x * x * (3 - 2 * x)
-                      : d > 0.55
+                      ? 0.7 + 0.3 * level * level * (3 - 2 * level)
+                      : facing > 0.55
                         ? 1
-                        : d > 0.05
+                        : facing > 0.05
                           ? 0.82
                           : 0.64;
-              const C = b.geo.c,
+              const vertexColors = batch.mesh.colors,
                 // vertex colours, averaged (in pen, at most half of theirs unless the part is coloured in full)
-                al = C
-                  ? ((C[4 * a + 3] + C[4 * b2 + 3] + C[4 * c + 3]) / 765) * (kind === 2 ? Math.max(p.tint, 0.7) : 1)
+                vertexAlpha = vertexColors
+                  ? ((vertexColors[4 * a + 3] + vertexColors[4 * b + 3] + vertexColors[4 * c + 3]) / 765) *
+                    (kind === 2 ? Math.max(part.tint, 0.7) : 1)
                   : 0;
-              const own = al
-                ? base.map((v, i) => v * (1 - al) + ((C[4 * a + i] + C[4 * b2 + i] + C[4 * c + i]) / 765) * al)
-                : base;
-              const col = own.map((v, i) => Math.round(Math.min(1, v * lit + p.emit[i] * 0.3 + (hi ? 0.12 : 0)) * 255));
-              tris.push([
-                scr[3 * a],
-                scr[3 * a + 1],
-                scr[3 * b2],
-                scr[3 * b2 + 1],
-                scr[3 * c],
-                scr[3 * c + 1],
-                (scr[3 * a + 2] + scr[3 * b2 + 2] + scr[3 * c + 2]) / 3,
-                `rgb(${col.join(',')})`,
-                p.drawAlpha,
+              const ownColor = vertexAlpha
+                ? baseColor.map(
+                    (channel, i) =>
+                      channel * (1 - vertexAlpha) +
+                      ((vertexColors[4 * a + i] + vertexColors[4 * b + i] + vertexColors[4 * c + i]) / 765) *
+                        vertexAlpha,
+                  )
+                : baseColor;
+              const rgb = ownColor.map((channel, i) =>
+                Math.round(Math.min(1, channel * brightness + part.emission[i] * 0.3 + (highlighted ? 0.12 : 0)) * 255),
+              );
+              triangles.push([
+                screenPoints[3 * a],
+                screenPoints[3 * a + 1],
+                screenPoints[3 * b],
+                screenPoints[3 * b + 1],
+                screenPoints[3 * c],
+                screenPoints[3 * c + 1],
+                (screenPoints[3 * a + 2] + screenPoints[3 * b + 2] + screenPoints[3 * c + 2]) / 3,
+                `rgb(${rgb.join(',')})`,
+                part.drawAlpha,
               ]);
             }
           }
       }
-      tris.sort((u, v) => v[6] - u[6]);
-      g.lineJoin = 'round';
-      for (const t of tris) {
-        g.globalAlpha = t[8];
-        g.beginPath();
-        g.moveTo(t[0], t[1]);
-        g.lineTo(t[2], t[3]);
-        g.lineTo(t[4], t[5]);
-        g.closePath();
-        g.fillStyle = t[7];
-        g.fill();
-        g.strokeStyle = t[7];
-        g.lineWidth = 0.6;
-        g.stroke();
+      triangles.sort((a, b) => b[6] - a[6]);
+      context.lineJoin = 'round';
+      for (const triangle of triangles) {
+        context.globalAlpha = triangle[8];
+        context.beginPath();
+        context.moveTo(triangle[0], triangle[1]);
+        context.lineTo(triangle[2], triangle[3]);
+        context.lineTo(triangle[4], triangle[5]);
+        context.closePath();
+        context.fillStyle = triangle[7];
+        context.fill();
+        context.strokeStyle = triangle[7];
+        context.lineWidth = 0.6;
+        context.stroke();
       }
-      g.globalAlpha = 1;
-      for (const h of f.particles) {
-        if (!h.visible) continue;
-        h.update();
-        if (h.solid) {
-          balls(h, f, VP, W, H);
+      context.globalAlpha = 1;
+      for (const particleSet of frame.particles) {
+        if (!particleSet.visible) continue;
+        particleSet.update();
+        if (particleSet.solid) {
+          balls(particleSet, frame, viewProjection, width, height);
           continue;
         }
-        g.fillStyle = css(h.color);
-        for (let i = 0; i < h.count; i++) {
-          const s = M.project(VP, [h.pos4[4 * i], h.pos4[4 * i + 1], h.pos4[4 * i + 2]], W, H);
-          if (s) {
-            g.beginPath();
-            g.arc(s[0], s[1], 2.5 * f.dpr, 0, 6.3);
-            g.fill();
+        context.fillStyle = css(particleSet.color);
+        for (let i = 0; i < particleSet.count; i++) {
+          const screen = M.project(
+            viewProjection,
+            [
+              particleSet.positionsAndColors[4 * i],
+              particleSet.positionsAndColors[4 * i + 1],
+              particleSet.positionsAndColors[4 * i + 2],
+            ],
+            width,
+            height,
+          );
+          if (screen) {
+            context.beginPath();
+            context.arc(screen[0], screen[1], 2.5 * frame.dpr, 0, 6.3);
+            context.fill();
           }
         }
       }
-      for (const F of f.flows || []) streaks(F, f, VP, W, H);
+      for (const flow of frame.flows || []) streaks(flow, frame, viewProjection, width, height);
     },
     dispose() {},
   };

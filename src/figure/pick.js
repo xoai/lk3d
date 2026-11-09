@@ -8,69 +8,74 @@ import { buildBVH, intersect } from '../bvh.js';
 /** @param {import('./context').Ctx} c */
 export function makePick(c) {
   const trees = new WeakMap(); // (per geometry: parts alike share one tree)
-  c.bvhOf_ = (b) => {
-    if (!b.bvh) {
-      if (!trees.has(b.geo)) trees.set(b.geo, buildBVH(b.geo));
-      b.bvh = trees.get(b.geo);
+  c.bvhOf_ = (batch) => {
+    if (!batch.bvh) {
+      if (!trees.has(batch.mesh)) trees.set(batch.mesh, buildBVH(batch.mesh));
+      batch.bvh = trees.get(batch.mesh);
     }
-    return b.bvh;
+    return batch.bvh;
   };
-  // where the ray A + D t enters a part's box as it is now (its box at rest, moved by its matrix), or Infinity
-  function rayBox(A, D, p) {
+  // where the ray origin + direction t enters a part's box as it is now (its box at rest, moved by its matrix), or
+  // Infinity
+  function rayBox(origin, direction, part) {
     const lo = [Infinity, Infinity, Infinity],
       hi = [-Infinity, -Infinity, -Infinity];
-    for (let k = 0; k < 8; k++) {
-      const w = M.pt(p.m, [k & 1 ? p.hi[0] : p.lo[0], k & 2 ? p.hi[1] : p.lo[1], k & 4 ? p.hi[2] : p.lo[2]]);
-      for (let a = 0; a < 3; a++) {
-        lo[a] = Math.min(lo[a], w[a]);
-        hi[a] = Math.max(hi[a], w[a]);
+    for (let corner = 0; corner < 8; corner++) {
+      const world = M.pt(part.matrix, [
+        corner & 1 ? part.max[0] : part.min[0],
+        corner & 2 ? part.max[1] : part.min[1],
+        corner & 4 ? part.max[2] : part.min[2],
+      ]);
+      for (let axis = 0; axis < 3; axis++) {
+        lo[axis] = Math.min(lo[axis], world[axis]);
+        hi[axis] = Math.max(hi[axis], world[axis]);
       }
     }
-    let t0 = 0,
-      t1 = Infinity;
-    for (let a = 0; a < 3; a++) {
-      if (!D[a]) {
-        if (A[a] < lo[a] || A[a] > hi[a]) return Infinity; // (parallel to this side, and outside it)
+    let enter = 0,
+      leave = Infinity;
+    for (let axis = 0; axis < 3; axis++) {
+      if (!direction[axis]) {
+        if (origin[axis] < lo[axis] || origin[axis] > hi[axis]) return Infinity; // (parallel to this side, and outside it)
         continue;
       }
-      const u = (lo[a] - A[a]) / D[a],
-        v = (hi[a] - A[a]) / D[a];
-      t0 = Math.max(t0, Math.min(u, v));
-      t1 = Math.min(t1, Math.max(u, v));
+      const toLo = (lo[axis] - origin[axis]) / direction[axis],
+        toHi = (hi[axis] - origin[axis]) / direction[axis];
+      enter = Math.max(enter, Math.min(toLo, toHi));
+      leave = Math.min(leave, Math.max(toLo, toHi));
     }
-    return t0 <= t1 ? t0 : Infinity;
+    return enter <= leave ? enter : Infinity;
   }
-  c.pickHit_ = (px, py, see = 0.3) => {
-    // parts fainter than `see` let the ray through; the part hit, and where along the ray (A + D t)
-    const { A, D } = c.rayAt_(px, py),
+  c.pickHit_ = (x, y, minAlpha = 0.3) => {
+    // parts fainter than minAlpha let the ray through; the part hit, and where along the ray (A + D t)
+    const { origin, direction } = c.rayAt_(x, y),
       plane = c.cutPlane_();
     let best = Infinity,
       /** @type {string | null} */
       id = null;
-    for (const p of c.built_.parts) {
-      if (p.drawAlpha < see || rayBox(A, D, p) >= best) continue; // (missed by the ray, or behind a nearer hit)
-      for (const b of p.batches)
-        for (const placed of b.mats) {
+    for (const part of c.built_.parts) {
+      if (part.drawAlpha < minAlpha || rayBox(origin, direction, part) >= best) continue; // (missed by the ray, or behind a nearer hit)
+      for (const batch of part.batches)
+        for (const placed of batch.placements) {
           // (the ray into the shape's own frame: the tree is built there)
-          const toShape = M.invert(M.mul(p.m, placed)),
-            o = M.pt(toShape, A),
-            d = M.dir(toShape, D);
+          const toShape = M.invert(M.mul(part.matrix, placed)),
+            shapeOrigin = M.pt(toShape, origin),
+            shapeDirection = M.dir(toShape, direction);
           // (a hit on the side the cut takes away does not count)
           const accept =
-            c.state_.cut && p.cut
+            c.state_.cut && part.cut
               ? (t) => {
-                  const w = add(A, mulv(D, t));
-                  return plane[0] * w[0] + plane[1] * w[1] + plane[2] * w[2] + plane[3] <= 0;
+                  const point = add(origin, mulv(direction, t));
+                  return plane[0] * point[0] + plane[1] * point[1] + plane[2] * point[2] + plane[3] <= 0;
                 }
               : null;
-          const hit = intersect(b.geo, c.bvhOf_(b), o, d, best, false, accept);
+          const hit = intersect(batch.mesh, c.bvhOf_(batch), shapeOrigin, shapeDirection, best, false, accept);
           if (hit && hit.t < best) {
             best = hit.t;
-            id = p.id;
+            id = part.id;
           }
         }
     }
-    return { id, t: best, A, D };
+    return { id, t: best, origin, direction };
   };
-  c.pickAt_ = (px, py, see) => c.pickHit_(px, py, see).id;
+  c.pickAt_ = (x, y, minAlpha) => c.pickHit_(x, y, minAlpha).id;
 }

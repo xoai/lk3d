@@ -119,10 +119,10 @@ export interface BuiltPart {
   name: string;
   note: string;
   group: string;
-  lo: Vec3;
-  hi: Vec3;
+  min: Vec3;
+  max: Vec3;
   center: Vec3;
-  tris: number;
+  triangleCount: number;
   [k: string]: unknown;
 }
 
@@ -135,9 +135,9 @@ export interface Particles {
   visible: boolean;
   remove(): void;
 }
-/** balls the page places (x, y, z and a colour band in pos4); add one to version after moving them */
+/** balls the page places (x, y, z and a colour band in positionsAndColors); add one to version after moving them */
 export interface Balls {
-  pos4: Float32Array;
+  positionsAndColors: Float32Array;
   count: number;
   radius: number;
   version: number;

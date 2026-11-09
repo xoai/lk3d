@@ -11,86 +11,86 @@ import { guard } from './guard.js';
 // page's memory
 let room = Infinity,
   cap = 0;
-/** @param {number} n */
-const words = (n) => (n >= 1e6 && n % 1e5 === 0 ? n / 1e6 + ' million' : String(n));
-/** @param {string} what @param {number | string} [n] the limit, or the limit already in words (words passes it on) */
-const tooMany = (what, n = cap) =>
-  Object.assign(new Error(`lk3d: ${what}; the limit is ${words(/** @type {number} */ (n))}`), { triangles: true });
+/** @param {number} count */
+const words = (count) => (count >= 1e6 && count % 1e5 === 0 ? count / 1e6 + ' million' : String(count));
+/** @param {string} what @param {number | string} [limit] the limit, or the limit already in words (words passes it on) */
+const tooMany = (what, limit = cap) =>
+  Object.assign(new Error(`lk3d: ${what}; the limit is ${words(/** @type {number} */ (limit))}`), { triangles: true });
 
 // A mesh is positions, normals and triangles; every triangle is turned to face the way its normals point, so shapes
-// can be written without minding winding order. Vertices may also carry a colour (c: r, g, b, a per vertex, 0-255):
+// can be written without minding winding order. Vertices may also carry a colour (colors: r, g, b, a per vertex, 0-255):
 // alpha 255 is the vertex's own colour (an atom, a rock layer), alpha 0 takes the part's colour.
-class Geo {
+class Mesh {
   constructor() {
-    this.p = [];
-    this.n = [];
-    this.i = [];
-    this.c = null;
+    this.positions = [];
+    this.normals = [];
+    this.indices = [];
+    this.colors = null;
     this.uv = null;
-    this.tex = null;
-  } // uv, tex: a textured model's
+    this.textures = null;
+  } // uv, textures: a textured model's
   get count() {
-    return this.p.length / 3;
+    return this.positions.length / 3;
   }
-  v(p, n) {
-    if (--room < 0) Geo.fits(1);
-    this.p.push(p[0], p[1], p[2]);
-    this.n.push(n[0], n[1], n[2]);
-    if (this.c) this.c.push(0, 0, 0, 0);
+  vertex(position, normal) {
+    if (--room < 0) Mesh.fits(1);
+    this.positions.push(position[0], position[1], position[2]);
+    this.normals.push(normal[0], normal[1], normal[2]);
+    if (this.colors) this.colors.push(0, 0, 0, 0);
     if (this.uv) this.uv.push(0, 0);
     return this.count - 1;
   }
   // colour the vertices from `from` on (all, by default)
   paint(hex, from = 0) {
-    const [r, g, b] = rgb(hex).map((v) => Math.round(v * 255));
-    if (!this.c) this.c = new Array(this.count * 4).fill(0);
-    const c = this.c;
+    const [r, g, b] = rgb(hex).map((channel) => Math.round(channel * 255));
+    if (!this.colors) this.colors = new Array(this.count * 4).fill(0);
+    const colors = this.colors;
     for (let k = from; k < this.count; k++) {
-      c[4 * k] = r;
-      c[4 * k + 1] = g;
-      c[4 * k + 2] = b;
-      c[4 * k + 3] = 255;
+      colors[4 * k] = r;
+      colors[4 * k + 1] = g;
+      colors[4 * k + 2] = b;
+      colors[4 * k + 3] = 255;
     }
     return this;
   }
-  // n more, or refused past the limit (a model asks before reading its values)
-  static fits(n) {
-    if (n > room) throw tooMany('the scene makes too many triangles');
+  // count more, or refused past the limit (a model asks before reading its values)
+  static fits(count) {
+    if (count > room) throw tooMany('the scene makes too many triangles');
   }
-  tri(a, b, c) {
+  triangle(a, b, c) {
     // (scalar arithmetic: this runs for every triangle of every scene)
-    if (--room < 0) Geo.fits(1);
-    const P = this.p,
-      N = this.n,
+    if (--room < 0) Mesh.fits(1);
+    const positions = this.positions,
+      normals = this.normals,
       a3 = 3 * a,
       b3 = 3 * b,
       c3 = 3 * c;
-    const ux = P[b3] - P[a3],
-      uy = P[b3 + 1] - P[a3 + 1],
-      uz = P[b3 + 2] - P[a3 + 2],
-      vx = P[c3] - P[a3],
-      vy = P[c3 + 1] - P[a3 + 1],
-      vz = P[c3 + 2] - P[a3 + 2];
-    const fx = uy * vz - uz * vy,
-      fy = uz * vx - ux * vz,
-      fz = ux * vy - uy * vx;
-    const d =
-      fx * (N[a3] + N[b3] + N[c3]) +
-      fy * (N[a3 + 1] + N[b3 + 1] + N[c3 + 1]) +
-      fz * (N[a3 + 2] + N[b3 + 2] + N[c3 + 2]);
-    if (d < 0) this.i.push(a, c, b);
-    else this.i.push(a, b, c);
+    const ux = positions[b3] - positions[a3],
+      uy = positions[b3 + 1] - positions[a3 + 1],
+      uz = positions[b3 + 2] - positions[a3 + 2],
+      vx = positions[c3] - positions[a3],
+      vy = positions[c3 + 1] - positions[a3 + 1],
+      vz = positions[c3 + 2] - positions[a3 + 2];
+    const faceX = uy * vz - uz * vy,
+      faceY = uz * vx - ux * vz,
+      faceZ = ux * vy - uy * vx;
+    const facing =
+      faceX * (normals[a3] + normals[b3] + normals[c3]) +
+      faceY * (normals[a3 + 1] + normals[b3 + 1] + normals[c3 + 1]) +
+      faceZ * (normals[a3 + 2] + normals[b3 + 2] + normals[c3 + 2]);
+    if (facing < 0) this.indices.push(a, c, b);
+    else this.indices.push(a, b, c);
   }
   quad(a, b, c, d) {
-    this.tri(a, b, c);
-    this.tri(a, c, d);
+    this.triangle(a, b, c);
+    this.triangle(a, c, d);
   }
-  // g placed by m. Normals go through the cofactor matrix (the inverse transpose, up to scale), so they stay
+  // mesh placed by m. Normals go through the cofactor matrix (the inverse transpose, up to scale), so they stay
   // perpendicular under a stretch; a mirror (det < 0) also turns the triangles round, so faces still point out.
-  add(g, m) {
+  add(mesh, m) {
     const base = this.count,
-      P = g.p,
-      N = g.n;
+      positions = mesh.positions,
+      normals = mesh.normals;
     const c0 = m[5] * m[10] - m[6] * m[9],
       c1 = m[6] * m[8] - m[4] * m[10],
       c2 = m[4] * m[9] - m[5] * m[8]; // c1 × c2
@@ -101,42 +101,44 @@ class Geo {
       e1 = m[2] * m[4] - m[0] * m[6],
       e2 = m[0] * m[5] - m[1] * m[4]; // c0 × c1
     const det = m[0] * c0 + m[1] * c1 + m[2] * c2,
-      s = det < 0 ? -1 : 1;
-    for (let k = 0; k < g.count; k++) {
-      const x = P[3 * k],
-        y = P[3 * k + 1],
-        z = P[3 * k + 2],
-        a = N[3 * k],
-        b = N[3 * k + 1],
-        c = N[3 * k + 2];
-      const nx = s * (c0 * a + d0 * b + e0 * c),
-        ny = s * (c1 * a + d1 * b + e1 * c),
-        nz = s * (c2 * a + d2 * b + e2 * c),
-        l = Math.hypot(nx, ny, nz) || 1;
-      this.p.push(
+      sign = det < 0 ? -1 : 1;
+    for (let k = 0; k < mesh.count; k++) {
+      const x = positions[3 * k],
+        y = positions[3 * k + 1],
+        z = positions[3 * k + 2],
+        normalX = normals[3 * k],
+        normalY = normals[3 * k + 1],
+        normalZ = normals[3 * k + 2];
+      const nx = sign * (c0 * normalX + d0 * normalY + e0 * normalZ),
+        ny = sign * (c1 * normalX + d1 * normalY + e1 * normalZ),
+        nz = sign * (c2 * normalX + d2 * normalY + e2 * normalZ),
+        length = Math.hypot(nx, ny, nz) || 1;
+      this.positions.push(
         m[0] * x + m[4] * y + m[8] * z + m[12],
         m[1] * x + m[5] * y + m[9] * z + m[13],
         m[2] * x + m[6] * y + m[10] * z + m[14],
       );
-      this.n.push(nx / l, ny / l, nz / l);
+      this.normals.push(nx / length, ny / length, nz / length);
     }
-    if (g.c || this.c) {
+    if (mesh.colors || this.colors) {
       // colours: keep both sides' (alpha 0 where a side had none)
-      if (!this.c) this.c = new Array(base * 4).fill(0);
-      if (g.c) for (const v of g.c) this.c.push(v);
-      else for (let k = 0; k < g.count * 4; k++) this.c.push(0);
+      if (!this.colors) this.colors = new Array(base * 4).fill(0);
+      if (mesh.colors) for (const v of mesh.colors) this.colors.push(v);
+      else for (let k = 0; k < mesh.count * 4; k++) this.colors.push(0);
     }
-    if (g.uv || this.uv) {
+    if (mesh.uv || this.uv) {
       // texture coordinates likewise (0 where a side had none), and the maps they belong to
       if (!this.uv) this.uv = new Array(base * 2).fill(0);
-      if (g.uv) for (const v of g.uv) this.uv.push(v);
-      else for (let k = 0; k < g.count * 2; k++) this.uv.push(0);
-      this.tex = this.tex || g.tex;
+      if (mesh.uv) for (const v of mesh.uv) this.uv.push(v);
+      else for (let k = 0; k < mesh.count * 2; k++) this.uv.push(0);
+      this.textures = this.textures || mesh.textures;
     }
-    if (g.twoSided) this.twoSided = true; // (drawn with both faces: a model's double-sided surface)
-    const I = g.i;
-    if (s > 0) for (const k of I) this.i.push(base + k);
-    else for (let t = 0; t < I.length; t += 3) this.i.push(base + I[t], base + I[t + 2], base + I[t + 1]);
+    if (mesh.twoSided) this.twoSided = true; // (drawn with both faces: a model's double-sided surface)
+    const indices = mesh.indices;
+    if (sign > 0) for (const k of indices) this.indices.push(base + k);
+    else
+      for (let t = 0; t < indices.length; t += 3)
+        this.indices.push(base + indices[t], base + indices[t + 2], base + indices[t + 1]);
     return this;
   }
 }
@@ -144,117 +146,123 @@ class Geo {
 // Revolve a profile of [x, r] points around the x axis. Each profile segment gets its own normals, so the edges
 // between segments stay crisp (machined parts); smooth: true blends them (spheres, tori). from/to (degrees) make a
 // sector, closed with flat sides (the profile must then be a closed outline; it may be concave, a cowl's thin wall).
-function lathe(profile, o = {}) {
+function lathe(profile, options = {}) {
   // (a sector given backwards, from 90 to -90, is the same sector: from the smaller angle round to the larger)
-  let from = o.from ?? 0,
-    to = o.to ?? 360;
+  let from = options.from ?? 0,
+    to = options.to ?? 360;
   if (to < from) [from, to] = [to, from];
-  const g = new Geo(),
-    seg = Math.max(6, Math.round(((o.seg || 48) * (o.q || 1) * (to - from)) / 360));
-  const a0 = from * D2R,
-    a1 = to * D2R,
-    full = Math.abs(a1 - a0 - 2 * Math.PI) < 1e-6;
-  const raw = o.mirror ? profile.map(([x, r]) => [-x, r]).reverse() : profile;
-  const closed = o.closed ?? (!full && raw.length > 2);
+  const mesh = new Mesh(),
+    segments = Math.max(6, Math.round(((options.seg || 48) * (options.q || 1) * (to - from)) / 360));
+  const startAngle = from * D2R,
+    endAngle = to * D2R,
+    full = Math.abs(endAngle - startAngle - 2 * Math.PI) < 1e-6;
+  const raw = options.mirror ? profile.map(([x, r]) => [-x, r]).reverse() : profile;
+  const closed = options.closed ?? (!full && raw.length > 2);
   // long straight stretches get points along them, so shading computed per vertex (ambient occlusion) has somewhere to
   // vary: a long wall would otherwise have vertices only at its two ends
-  let ext = 0;
-  for (const a of raw) for (const b of raw) ext = Math.max(ext, Math.hypot(a[0] - b[0], a[1] - b[1]));
-  const maxSeg = o.maxSeg || ((o.q ?? 1) < 0.75 ? Infinity : ext / 5),
-    pts = []; // not for the coarse 2D or phone geometry
+  let extent = 0;
+  for (const a of raw) for (const b of raw) extent = Math.max(extent, Math.hypot(a[0] - b[0], a[1] - b[1]));
+  const maxLength = options.maxSeg || ((options.q ?? 1) < 0.75 ? Infinity : extent / 5),
+    points = []; // not for the coarse 2D or phone geometry
   for (let k = 0; k < raw.length; k++) {
     const a = raw[k],
       b = raw[(k + 1) % raw.length];
-    pts.push(a);
+    points.push(a);
     if (k + 1 === raw.length && !closed) break;
-    const n = Math.floor(Math.hypot(b[0] - a[0], b[1] - a[1]) / maxSeg);
-    for (let j = 1; j <= n && !o.smooth; j++) {
-      const t = j / (n + 1);
-      pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+    const inserted = Math.floor(Math.hypot(b[0] - a[0], b[1] - a[1]) / maxLength);
+    for (let j = 1; j <= inserted && !options.smooth; j++) {
+      const t = j / (inserted + 1);
+      points.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
     }
   }
-  const segs = [];
-  for (let k = 0; k + 1 < pts.length + (closed ? 1 : 0); k++) segs.push([pts[k], pts[(k + 1) % pts.length]]);
-  const at = (x, r, a) => [x, r * Math.cos(a), r * Math.sin(a)];
+  const pieces = [];
+  for (let k = 0; k + 1 < points.length + (closed ? 1 : 0); k++)
+    pieces.push([points[k], points[(k + 1) % points.length]]);
+  const revolved = (x, r, angle) => [x, r * Math.cos(angle), r * Math.sin(angle)];
   // normals point out of the solid whichever way round the profile was written: a profile traced counter-clockwise in
   // the (x, r) plane (closed along the axis if it is open) has them flipped
   let area = 0;
-  for (let k = 0; k < pts.length; k++) {
-    const a = pts[k],
-      b = pts[(k + 1) % pts.length];
+  for (let k = 0; k < points.length; k++) {
+    const a = points[k],
+      b = points[(k + 1) % points.length];
     area += a[0] * b[1] - b[0] * a[1];
   }
-  const sgn = area > 0 ? -1 : 1;
-  const segN = segs.map(([p, q]) => {
+  const orientation = area > 0 ? -1 : 1;
+  const pieceNormals = pieces.map(([p, q]) => {
     const dx = q[0] - p[0],
       dr = q[1] - p[1],
-      l = Math.hypot(dx, dr) || 1;
-    return [(-dr / l) * sgn, (dx / l) * sgn];
+      length = Math.hypot(dx, dr) || 1;
+    return [(-dr / length) * orientation, (dx / length) * orientation];
   });
-  segs.forEach(([p, q], s) => {
-    let n0 = segN[s],
-      n1 = segN[s];
-    if (o.smooth) {
-      const prev = segN[(s - 1 + segs.length) % segs.length],
-        next = segN[(s + 1) % segs.length];
-      if (s > 0 || closed) n0 = [n0[0] + prev[0], n0[1] + prev[1]];
-      if (s < segs.length - 1 || closed) n1 = [n1[0] + next[0], n1[1] + next[1]];
+  pieces.forEach(([p, q], index) => {
+    let profileNormalStart = pieceNormals[index],
+      profileNormalEnd = pieceNormals[index];
+    if (options.smooth) {
+      const previous = pieceNormals[(index - 1 + pieces.length) % pieces.length],
+        next = pieceNormals[(index + 1) % pieces.length];
+      if (index > 0 || closed)
+        profileNormalStart = [profileNormalStart[0] + previous[0], profileNormalStart[1] + previous[1]];
+      if (index < pieces.length - 1 || closed)
+        profileNormalEnd = [profileNormalEnd[0] + next[0], profileNormalEnd[1] + next[1]];
     }
     const ring = [];
-    for (let k = 0; k <= seg; k++) {
-      const a = a0 + ((a1 - a0) * k) / seg,
-        c = Math.cos(a),
-        sn = Math.sin(a);
-      const N0 = norm([n0[0], n0[1] * c, n0[1] * sn]),
-        N1 = norm([n1[0], n1[1] * c, n1[1] * sn]);
-      ring.push([g.v(at(p[0], p[1], a), N0), g.v(at(q[0], q[1], a), N1)]);
+    for (let k = 0; k <= segments; k++) {
+      const angle = startAngle + ((endAngle - startAngle) * k) / segments,
+        cos = Math.cos(angle),
+        sin = Math.sin(angle);
+      const normalStart = norm([profileNormalStart[0], profileNormalStart[1] * cos, profileNormalStart[1] * sin]),
+        normalEnd = norm([profileNormalEnd[0], profileNormalEnd[1] * cos, profileNormalEnd[1] * sin]);
+      ring.push([
+        mesh.vertex(revolved(p[0], p[1], angle), normalStart),
+        mesh.vertex(revolved(q[0], q[1], angle), normalEnd),
+      ]);
     }
-    for (let k = 0; k < seg; k++) {
+    for (let k = 0; k < segments; k++) {
       const [a, b] = ring[k],
         [c, d] = ring[k + 1];
       if (p[1] < 1e-9 && q[1] < 1e-9) continue;
-      g.quad(a, b, d, c);
+      mesh.quad(a, b, d, c);
     }
   });
   if (!full)
-    for (const [ang, sgn] of [
-      [a0, -1],
-      [a1, 1],
+    for (const [angle, side] of [
+      [startAngle, -1],
+      [endAngle, 1],
     ]) {
       // the two flat sides of a sector: the profile's outline, triangulated (it may be concave)
-      const n = [0, -Math.sin(ang) * sgn, Math.cos(ang) * sgn],
-        Q = signedArea(pts) < 0 ? pts.slice().reverse() : pts,
-        ids = Q.map(([x, r]) => g.v(at(x, r, ang), n));
-      for (const [a, b, c] of earcut(Q)) g.tri(ids[a], ids[b], ids[c]);
+      const normal = [0, -Math.sin(angle) * side, Math.cos(angle) * side],
+        outline = signedArea(points) < 0 ? points.slice().reverse() : points,
+        vertexIds = outline.map(([x, r]) => mesh.vertex(revolved(x, r, angle), normal));
+      for (const [a, b, c] of earcut(outline)) mesh.triangle(vertexIds[a], vertexIds[b], vertexIds[c]);
     }
-  return g;
+  return mesh;
 }
-function cylinder({ r, x0 = -0.5, x1 = 0.5, ri = 0, r1 }, o) {
-  const R1 = r1 ?? r;
+function cylinder({ r, x0 = -0.5, x1 = 0.5, ri = 0, r1 }, options) {
+  const endRadius = r1 ?? r;
   return ri > 0
     ? lathe(
         [
           [x0, ri],
           [x0, r],
-          [x1, R1],
+          [x1, endRadius],
           [x1, ri],
         ],
-        { ...o, closed: true },
+        { ...options, closed: true },
       )
     : lathe(
         [
           [x0, 0],
           [x0, r],
-          [x1, R1],
+          [x1, endRadius],
           [x1, 0],
         ],
-        o,
+        options,
       );
 }
-function box(s) {
-  const g = new Geo(),
-    [a, b, c] = s.map((v) => v / 2);
-  const F = [
+function box(size) {
+  const mesh = new Mesh(),
+    [a, b, c] = size.map((v) => v / 2);
+  const faces = [
     [
       [1, 0, 0],
       [
@@ -310,363 +318,400 @@ function box(s) {
       ],
     ],
   ];
-  for (const [n, vs] of F) {
-    const ids = vs.map((p) => g.v(p, n));
-    g.quad(ids[0], ids[1], ids[2], ids[3]);
+  for (const [normal, corners] of faces) {
+    const vertexIds = corners.map((corner) => mesh.vertex(corner, normal));
+    mesh.quad(vertexIds[0], vertexIds[1], vertexIds[2], vertexIds[3]);
   }
-  return g;
+  return mesh;
 }
-function sphere(r, o) {
-  // o.seg: segments around (32 by default; 8 for a tiny bead repeated hundreds of times)
-  const seg = o.seg || 32,
-    n = Math.max(4, Math.round((seg / 2) * (o.q || 1))),
-    prof = [];
-  for (let k = 0; k <= n; k++) {
-    const t = (Math.PI * k) / n;
-    prof.push([-r * Math.cos(t), r * Math.sin(t)]);
+function sphere(r, options) {
+  // options.seg: segments around (32 by default; 8 for a tiny bead repeated hundreds of times)
+  const segments = options.seg || 32,
+    steps = Math.max(4, Math.round((segments / 2) * (options.q || 1))),
+    profile = [];
+  for (let k = 0; k <= steps; k++) {
+    const angle = (Math.PI * k) / steps;
+    profile.push([-r * Math.cos(angle), r * Math.sin(angle)]);
   }
-  return lathe(prof, { ...o, smooth: true, seg });
+  return lathe(profile, { ...options, smooth: true, seg: segments });
 }
-function torus([R, r], o) {
-  const n = Math.max(6, Math.round(12 * (o.q || 1))),
-    prof = [];
-  for (let k = 0; k < n; k++) {
-    const t = (2 * Math.PI * k) / n;
-    prof.push([r * Math.cos(t), R + r * Math.sin(t)]);
+function torus([major, minor], options) {
+  const steps = Math.max(6, Math.round(12 * (options.q || 1))),
+    profile = [];
+  for (let k = 0; k < steps; k++) {
+    const angle = (2 * Math.PI * k) / steps;
+    profile.push([minor * Math.cos(angle), major + minor * Math.sin(angle)]);
   }
-  return lathe(prof, { ...o, smooth: true, closed: true });
+  return lathe(profile, { ...options, smooth: true, closed: true });
 }
 // A round tube along a path (parallel-transported frames, so it does not twist). r: a radius, or one per point
 // (a tapering branch).
-function tube(path, r, o = {}) {
-  const g = new Geo(),
-    rs = Math.max(5, Math.round(8 * (o.q || 1))),
-    closed = !!o.closed;
+function tube(path, radius, options = {}) {
+  const mesh = new Mesh(),
+    sides = Math.max(5, Math.round(8 * (options.q || 1))),
+    closed = !!options.closed;
   // (a point repeated adds nothing and has no direction: left out, with its radius)
   const keep = path.map((p, k) => k === 0 || len(sub(p, path[k - 1])) > 1e-9);
-  const P = path.filter((_, k) => keep[k]),
-    R = Array.isArray(r) ? r.filter((_, k) => keep[k]) : null,
-    n = P.length;
-  if (n < 2) return g;
+  const points = path.filter((_, k) => keep[k]),
+    radii = Array.isArray(radius) ? radius.filter((_, k) => keep[k]) : null,
+    count = points.length;
+  if (count < 2) return mesh;
   // the direction at each point: across its two neighbours, or along its one segment where those cancel (a hairpin)
-  const T = P.map((_, k) => {
-    const a = P[closed ? (k - 1 + n) % n : Math.max(k - 1, 0)],
-      b = P[closed ? (k + 1) % n : Math.min(k + 1, n - 1)],
-      d = sub(b, a);
-    return norm(len(d) > 1e-9 ? d : sub(b, P[k]));
+  const tangents = points.map((_, k) => {
+    const before = points[closed ? (k - 1 + count) % count : Math.max(k - 1, 0)],
+      after = points[closed ? (k + 1) % count : Math.min(k + 1, count - 1)],
+      across = sub(after, before);
+    return norm(len(across) > 1e-9 ? across : sub(after, points[k]));
   });
-  let u = Math.abs(T[0][0]) < 0.9 ? norm(cross(T[0], [1, 0, 0])) : norm(cross(T[0], [0, 1, 0]));
+  let normal =
+    Math.abs(tangents[0][0]) < 0.9 ? norm(cross(tangents[0], [1, 0, 0])) : norm(cross(tangents[0], [0, 1, 0]));
   const rings = [];
-  for (let k = 0; k < n; k++) {
+  for (let k = 0; k < count; k++) {
     if (k > 0) {
-      const c = carry(u, T[k - 1], T[k]);
-      u = norm(sub(c, mulv(T[k], dot(c, T[k]))));
+      const carried = carry(normal, tangents[k - 1], tangents[k]);
+      normal = norm(sub(carried, mulv(tangents[k], dot(carried, tangents[k]))));
     }
-    const w = cross(T[k], u),
+    const binormal = cross(tangents[k], normal),
       ring = [];
-    for (let j = 0; j <= rs; j++) {
-      const a = (2 * Math.PI * j) / rs,
-        d = add(mulv(u, Math.cos(a)), mulv(w, Math.sin(a)));
-      ring.push(g.v(add(P[k], mulv(d, R ? R[k] : r)), d));
+    for (let j = 0; j <= sides; j++) {
+      const angle = (2 * Math.PI * j) / sides,
+        direction = add(mulv(normal, Math.cos(angle)), mulv(binormal, Math.sin(angle)));
+      ring.push(mesh.vertex(add(points[k], mulv(direction, radii ? radii[k] : radius)), direction));
     }
     rings.push(ring);
   }
-  for (let k = 0; k < n - 1 + (closed ? 1 : 0); k++) {
-    const A = rings[k],
-      B = rings[(k + 1) % n];
-    for (let j = 0; j < rs; j++) g.quad(A[j], A[j + 1], B[j + 1], B[j]);
+  for (let k = 0; k < count - 1 + (closed ? 1 : 0); k++) {
+    const ring0 = rings[k],
+      ring1 = rings[(k + 1) % count];
+    for (let j = 0; j < sides; j++) mesh.quad(ring0[j], ring0[j + 1], ring1[j + 1], ring1[j]);
   }
   if (!closed)
-    for (const [k, s] of [
+    for (const [k, sign] of [
       [0, -1],
-      [n - 1, 1],
+      [count - 1, 1],
     ]) {
       // flat ends
-      const c = g.v(P[k], mulv(T[k], s)),
-        ids = rings[k].map((_, j) =>
-          g.v([g.p[3 * rings[k][j]], g.p[3 * rings[k][j] + 1], g.p[3 * rings[k][j] + 2]], mulv(T[k], s)),
+      const center = mesh.vertex(points[k], mulv(tangents[k], sign)),
+        capIds = rings[k].map((_, j) =>
+          mesh.vertex(
+            [mesh.positions[3 * rings[k][j]], mesh.positions[3 * rings[k][j] + 1], mesh.positions[3 * rings[k][j] + 2]],
+            mulv(tangents[k], sign),
+          ),
         );
-      for (let j = 0; j < rs; j++) g.tri(c, ids[j], ids[j + 1]);
+      for (let j = 0; j < sides; j++) mesh.triangle(center, capIds[j], capIds[j + 1]);
     }
-  return g;
+  return mesh;
 }
-function helix({ r, x0 = -0.5, x1 = 0.5, turns = 8, wire = 0.02 }, o) {
-  const n = Math.max(24, Math.round(turns * 16 * (o.q || 1))),
+function helix({ r, x0 = -0.5, x1 = 0.5, turns = 8, wire = 0.02 }, options) {
+  const steps = Math.max(24, Math.round(turns * 16 * (options.q || 1))),
     path = [];
-  for (let k = 0; k <= n; k++) {
-    const t = k / n,
-      a = 2 * Math.PI * turns * t;
-    path.push([x0 + (x1 - x0) * t, r * Math.cos(a), r * Math.sin(a)]);
+  for (let k = 0; k <= steps; k++) {
+    const t = k / steps,
+      angle = 2 * Math.PI * turns * t;
+    path.push([x0 + (x1 - x0) * t, r * Math.cos(angle), r * Math.sin(angle)]);
   }
-  return tube(path, wire, o);
+  return tube(path, wire, options);
 }
 // A rounded rectangular loop of wire lying in the x-z plane at height y = R: a coil around a stator tooth.
-function loop({ a = 0.8, b = 0.12, R = 0.4, wire = 0.02, corner = 0.03, turns = 1, gap = 0 }, o) {
-  const g = new Geo(),
-    cs = 5;
-  for (let t = 0; t < turns; t++) {
+function loop(
+  { a: length = 0.8, b: width = 0.12, R: height = 0.4, wire = 0.02, corner = 0.03, turns = 1, gap = 0 },
+  options,
+) {
+  const mesh = new Mesh(),
+    cornerSteps = 5;
+  for (let turn = 0; turn < turns; turn++) {
     // turns stack outwards from the axis, like the layers of a winding
-    const A = a / 2,
-      B = b / 2,
-      c = Math.min(corner, A, B),
-      y = R + t * gap,
+    const halfLength = length / 2,
+      halfWidth = width / 2,
+      cornerRadius = Math.min(corner, halfLength, halfWidth),
+      y = height + turn * gap,
       path = [];
-    const arc = (cx, cz, a0) => {
-      for (let k = 0; k <= cs; k++) {
-        const ang = a0 + ((Math.PI / 2) * k) / cs;
-        path.push([cx + c * Math.cos(ang), y, cz + c * Math.sin(ang)]);
+    const arc = (centerX, centerZ, startAngle) => {
+      for (let k = 0; k <= cornerSteps; k++) {
+        const angle = startAngle + ((Math.PI / 2) * k) / cornerSteps;
+        path.push([centerX + cornerRadius * Math.cos(angle), y, centerZ + cornerRadius * Math.sin(angle)]);
       }
     };
-    arc(A - c, B - c, 0);
-    arc(-A + c, B - c, Math.PI / 2);
-    arc(-A + c, -B + c, Math.PI);
-    arc(A - c, -B + c, 1.5 * Math.PI);
-    g.add(tube(path, wire, { ...o, closed: true }), M.id());
+    arc(halfLength - cornerRadius, halfWidth - cornerRadius, 0);
+    arc(-halfLength + cornerRadius, halfWidth - cornerRadius, Math.PI / 2);
+    arc(-halfLength + cornerRadius, -halfWidth + cornerRadius, Math.PI);
+    arc(halfLength - cornerRadius, -halfWidth + cornerRadius, 1.5 * Math.PI);
+    mesh.add(tube(path, wire, { ...options, closed: true }), M.id());
   }
-  return g;
+  return mesh;
 }
 const SHAPES = {
-  lathe: (v, s, o) =>
-    lathe(v, { ...o, seg: s.seg, from: s.from, to: s.to, smooth: s.smooth, closed: s.closed, mirror: s.mirror }),
-  cylinder: (v, s, o) => cylinder(v, { ...o, seg: s.seg }),
-  box: (v) => box(v),
-  sphere: (v, s, o) => sphere(v, { ...o, seg: s.seg }),
-  torus: (v, s, o) => torus(v, o),
-  tube: (v, s, o) => tube(v, s.r || 0.02, { ...o, closed: s.closed }),
-  helix: (v, s, o) => helix(v, o),
-  loop: (v, s, o) => loop(v, o),
+  lathe: (value, shape, options) =>
+    lathe(value, {
+      ...options,
+      seg: shape.seg,
+      from: shape.from,
+      to: shape.to,
+      smooth: shape.smooth,
+      closed: shape.closed,
+      mirror: shape.mirror,
+    }),
+  cylinder: (value, shape, options) => cylinder(value, { ...options, seg: shape.seg }),
+  box: (value) => box(value),
+  sphere: (value, shape, options) => sphere(value, { ...options, seg: shape.seg }),
+  torus: (value, shape, options) => torus(value, options),
+  tube: (value, shape, options) => tube(value, shape.r || 0.02, { ...options, closed: shape.closed }),
+  helix: (value, shape, options) => helix(value, options),
+  loop: (value, shape, options) => loop(value, options),
 };
 // cells, molecules, rock, planets, blades: each takes its parameters and the build options (quality q)
-for (const [k, fn] of Object.entries(science({ Geo, lathe, tube, sphere, cylinder })))
-  SHAPES[k] = (v, s, o) => fn(v, o);
+for (const [name, make] of Object.entries(science({ Mesh, lathe, tube, sphere, cylinder })))
+  SHAPES[name] = (value, shape, options) => make(value, options);
 // One shape of a part: its geometry (in the shape's own frame) and the placements it is drawn at: one, copies around
 // an axis (repeat), or copies scattered at random inside a region (scatter: ribosomes, vesicles, stars). color: paints
 // the shape in its own colour (alpha 255), so one part can hold differently coloured shapes.
 // detail: 0.5 for a shape repeated hundreds of times (blades), 2 for a close-up; at most 16 in all (scatters in scatters
 // would otherwise multiply it past any size)
-const detail = (q, d) => Math.min(16, q * (d || 1));
-function buildShape(s, q, ctx = {}) {
-  q = detail(q, s.detail);
-  if (s.scatter) return scatterShape(s, q, ctx);
-  if (s.model != null) return modelShape(s, ctx);
-  const kind = Object.keys(SHAPES).find((k) => k in s);
+const detail = (quality, factor) => Math.min(16, quality * (factor || 1));
+function buildShape(shape, quality, context = {}) {
+  quality = detail(quality, shape.detail);
+  if (shape.scatter) return scatterShape(shape, quality, context);
+  if (shape.model != null) return modelShape(shape, context);
+  const kind = Object.keys(SHAPES).find((k) => k in shape);
   if (!kind)
     throw new Error(
-      'lk3d: a shape needs one of ' + Object.keys(SHAPES).join(', ') + ', scatter: ' + JSON.stringify(s).slice(0, 80),
+      'lk3d: a shape needs one of ' +
+        Object.keys(SHAPES).join(', ') +
+        ', scatter: ' +
+        JSON.stringify(shape).slice(0, 80),
     );
   // the geometry depends only on the shape's own numbers: made once for every shape alike in a scene (bolts, blades,
   // the same part a thousand times), placed by its matrices
-  const key = ctx.cache && JSON.stringify({ ...s, at: 0, rot: 0, scale: 0, repeat: 0, q });
-  let geo = key && ctx.cache.get(key);
-  if (!geo) {
-    geo = SHAPES[kind](s[kind], s, { q });
-    if (s.color) geo.paint(s.color);
-    if (key) ctx.cache.set(key, geo);
+  const key = context.cache && JSON.stringify({ ...shape, at: 0, rot: 0, scale: 0, repeat: 0, q: quality });
+  let mesh = key && context.cache.get(key);
+  if (!mesh) {
+    mesh = SHAPES[kind](shape[kind], shape, { q: quality });
+    if (shape.color) mesh.paint(shape.color);
+    if (key) context.cache.set(key, mesh);
   }
-  const place = M.trs(s.at, s.rot, s.scale),
-    rep = s.repeat ? (typeof s.repeat === 'number' ? { n: s.repeat } : s.repeat) : { n: 1 },
-    axis = rep.axis || 'x',
-    rot = axis === 'x' ? M.rotX : axis === 'y' ? M.rotY : M.rotZ,
-    mats = [];
-  for (let k = 0; k < rep.n; k++)
-    mats.push(M.mul(rot(((rep.start || 0) + (rep.step ?? 360 / rep.n) * k) * D2R), place));
-  return { geo, mats };
+  const placement = M.trs(shape.at, shape.rot, shape.scale),
+    repeat = shape.repeat ? (typeof shape.repeat === 'number' ? { n: shape.repeat } : shape.repeat) : { n: 1 },
+    axis = repeat.axis || 'x',
+    turn = axis === 'x' ? M.rotX : axis === 'y' ? M.rotY : M.rotZ,
+    matrices = [];
+  for (let k = 0; k < repeat.n; k++)
+    matrices.push(M.mul(turn(((repeat.start || 0) + (repeat.step ?? 360 / repeat.n) * k) * D2R), placement));
+  return { mesh, placements: matrices };
 }
 // scatter: {shape: {…a shape…}, n, within: {sphere: r} | {shell: [ri, r]} | {box: [x, y, z]}, avoid: [{sphere: r, at}],
 // size: [min, max], seed}. Each copy turned at random and scaled evenly, so all are drawn by instancing.
 // model: a model the scene lists under `models` (models: {heart: {data: the .glb as base64}}), or one node of it:
 // {model: heart, node: …}; color: its own colour in place of its base colour map (a glass eye's white film, a stain
 // that misleads)
-function modelShape(s, ctx) {
-  const m = (ctx.models || {})[s.model];
-  if (!m || !m.data)
-    throw new Error(`lk3d: no model "${s.model}" in the scene's models (each needs its .glb as base64 in data)`);
+function modelShape(shape, context) {
+  const model = (context.models || {})[shape.model];
+  if (!model || !model.data)
+    throw new Error(`lk3d: no model "${shape.model}" in the scene's models (each needs its .glb as base64 in data)`);
   // (a model is read once a scene, and each node of it, in each colour, made once: a model split into many parts, or
   // used many times, costs one decode)
-  const files = (ctx.files ??= new Map()),
-    key = 'model\u0000' + JSON.stringify([s.model, s.node, s.color]);
-  let geo = ctx.cache && ctx.cache.get(key);
-  if (!geo) {
-    if (!files.has(s.model)) files.set(s.model, parseGLB(bytes(m.data)));
-    geo = loadModel(Geo, files.get(s.model), s.node);
-    if (s.color) {
-      geo.paint(s.color);
-      if (geo.tex) geo.tex = { ...geo.tex, base: null }; // (its colour in place of the base colour map; relief kept)
+  const files = (context.files ??= new Map()),
+    key = 'model\u0000' + JSON.stringify([shape.model, shape.node, shape.color]);
+  let mesh = context.cache && context.cache.get(key);
+  if (!mesh) {
+    if (!files.has(shape.model)) files.set(shape.model, parseGLB(bytes(model.data)));
+    mesh = loadModel(Mesh, files.get(shape.model), shape.node);
+    if (shape.color) {
+      mesh.paint(shape.color);
+      if (mesh.textures) mesh.textures = { ...mesh.textures, base: null }; // (its colour in place of the base colour map; relief kept)
     }
-    if (ctx.cache) ctx.cache.set(key, geo);
+    if (context.cache) context.cache.set(key, mesh);
   }
-  return { geo, mats: [M.trs(s.at, s.rot, s.scale)] };
+  return { mesh, placements: [M.trs(shape.at, shape.rot, shape.scale)] };
 }
-function scatterShape(s, q, ctx) {
-  const o = s.scatter,
-    inner = buildShape(o.shape, detail(q, o.detail ?? 0.5), ctx),
-    R = rng(o.seed ?? 1),
-    place = M.trs(s.at, s.rot, s.scale);
-  const w = o.within || { sphere: 1 },
-    [s0, s1] = o.size || [1, 1],
-    mats = [];
-  const inside = (p) =>
-    w.box ? true : Math.hypot(...p) <= (w.sphere ?? w.shell[1]) && (!w.shell || Math.hypot(...p) >= w.shell[0]);
-  const avoided = (p) =>
-    (o.avoid || []).some(
-      (a) =>
-        Math.hypot(p[0] - (a.at || [0, 0, 0])[0], p[1] - (a.at || [0, 0, 0])[1], p[2] - (a.at || [0, 0, 0])[2]) <
-        a.sphere,
+function scatterShape(shape, quality, context) {
+  const scatter = shape.scatter,
+    inner = buildShape(scatter.shape, detail(quality, scatter.detail ?? 0.5), context),
+    random = rng(scatter.seed ?? 1),
+    placement = M.trs(shape.at, shape.rot, shape.scale);
+  const within = scatter.within || { sphere: 1 },
+    [minSize, maxSize] = scatter.size || [1, 1],
+    matrices = [];
+  const inside = (point) =>
+    within.box
+      ? true
+      : Math.hypot(...point) <= (within.sphere ?? within.shell[1]) &&
+        (!within.shell || Math.hypot(...point) >= within.shell[0]);
+  const avoided = (point) =>
+    (scatter.avoid || []).some(
+      (zone) =>
+        Math.hypot(
+          point[0] - (zone.at || [0, 0, 0])[0],
+          point[1] - (zone.at || [0, 0, 0])[1],
+          point[2] - (zone.at || [0, 0, 0])[2],
+        ) < zone.sphere,
     );
-  const span = w.box ? w.box : [2, 2, 2].map((k) => k * (w.sphere ?? w.shell[1]));
-  for (let tries = 0; mats.length < (o.n || 50) && tries < (o.n || 50) * 60; tries++) {
-    const p = span.map((d) => (R() - 0.5) * d);
-    if (!inside(p) || avoided(p)) continue;
-    const k = s0 + (s1 - s0) * R(),
-      m = M.mul(M.trs(p, [R() * 360, R() * 360, R() * 360], [k, k, k]), inner.mats[0]);
-    mats.push(M.mul(place, m));
+  const span = within.box ? within.box : [2, 2, 2].map((factor) => factor * (within.sphere ?? within.shell[1]));
+  for (let tries = 0; matrices.length < (scatter.n || 50) && tries < (scatter.n || 50) * 60; tries++) {
+    const point = span.map((extent) => (random() - 0.5) * extent);
+    if (!inside(point) || avoided(point)) continue;
+    const size = minSize + (maxSize - minSize) * random(),
+      matrix = M.mul(
+        M.trs(point, [random() * 360, random() * 360, random() * 360], [size, size, size]),
+        inner.placements[0],
+      );
+    matrices.push(M.mul(placement, matrix));
   }
-  return { geo: inner.geo, mats };
+  return { mesh: inner.mesh, placements: matrices };
 }
 
-// Positions welded: rep[k] is the first vertex at k's place (rounded coordinates, hashed, the match checked exactly),
+// Positions welded: firstAt[k] is the first vertex at k's place (rounded coordinates, hashed, the match checked exactly),
 // so a shape's own seams (a crease's two normals, a colour's two sides) are one place.
-function weld(g, k = 1e4) {
-  const n = g.count,
-    P = g.p,
-    q = new Int32Array(n * 3),
-    rep = new Int32Array(n),
+function weld(mesh, scale = 1e4) {
+  const count = mesh.count,
+    positions = mesh.positions,
+    rounded = new Int32Array(count * 3),
+    firstAt = new Int32Array(count),
     buckets = new Map();
-  for (let i = 0; i < n; i++) {
-    const x = (q[3 * i] = Math.round(P[3 * i] * k)),
-      y = (q[3 * i + 1] = Math.round(P[3 * i + 1] * k)),
-      z = (q[3 * i + 2] = Math.round(P[3 * i + 2] * k));
-    const h = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) | 0;
-    let list = buckets.get(h),
-      r = -1;
+  for (let i = 0; i < count; i++) {
+    const x = (rounded[3 * i] = Math.round(positions[3 * i] * scale)),
+      y = (rounded[3 * i + 1] = Math.round(positions[3 * i + 1] * scale)),
+      z = (rounded[3 * i + 2] = Math.round(positions[3 * i + 2] * scale));
+    const hash = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) | 0;
+    let list = buckets.get(hash),
+      match = -1;
     if (list)
       for (const j of list)
-        if (q[3 * j] === x && q[3 * j + 1] === y && q[3 * j + 2] === z) {
-          r = j;
+        if (rounded[3 * j] === x && rounded[3 * j + 1] === y && rounded[3 * j + 2] === z) {
+          match = j;
           break;
         }
-    if (r < 0) {
-      r = i;
+    if (match < 0) {
+      match = i;
       if (list) list.push(i);
-      else buckets.set(h, [i]);
+      else buckets.set(hash, [i]);
     }
-    rep[i] = r;
+    firstAt[i] = match;
   }
-  return rep;
+  return firstAt;
 }
 
 // Whether a shape is closed, a solid with an inside: every edge of its surface (welded finely, for its size, so a thin
 // blade's two sides stay apart) used as often in one direction as in the other. Two solids meeting along an edge, a
 // molecule's two half-rods at their middle, are closed; a surface that ends anywhere, or faces turned the wrong way, is
 // not.
-function isClosed(g) {
-  if (!g.count) return false;
-  const { lo, hi } = bounds(g),
-    size = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], 1e-9),
-    far = Math.max(...lo.map(Math.abs), ...hi.map(Math.abs), 1e-9),
-    rep = weld(g, Math.min(1e6 / size, 2e9 / far)),
-    I = g.i,
-    n = g.count,
-    use = new Map();
-  for (let t = 0; t < I.length; t += 3) {
-    const v = [rep[I[t]], rep[I[t + 1]], rep[I[t + 2]]];
-    if (v[0] === v[1] || v[1] === v[2] || v[0] === v[2]) continue; // (a sliver: no face)
-    for (let e = 0; e < 3; e++) {
-      const a = v[e],
-        b = v[(e + 1) % 3],
-        key = a < b ? a * n + b : b * n + a;
-      use.set(key, (use.get(key) || 0) + (a < b ? 1 : -1));
+function isClosed(mesh) {
+  if (!mesh.count) return false;
+  const { min, max } = bounds(mesh),
+    size = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2], 1e-9),
+    far = Math.max(...min.map(Math.abs), ...max.map(Math.abs), 1e-9),
+    firstAt = weld(mesh, Math.min(1e6 / size, 2e9 / far)),
+    indices = mesh.indices,
+    count = mesh.count,
+    balance = new Map();
+  for (let t = 0; t < indices.length; t += 3) {
+    const corners = [firstAt[indices[t]], firstAt[indices[t + 1]], firstAt[indices[t + 2]]];
+    if (corners[0] === corners[1] || corners[1] === corners[2] || corners[0] === corners[2]) continue; // (a sliver: no face)
+    for (let side = 0; side < 3; side++) {
+      const a = corners[side],
+        b = corners[(side + 1) % 3],
+        key = a < b ? a * count + b : b * count + a;
+      balance.set(key, (balance.get(key) || 0) + (a < b ? 1 : -1));
     }
   }
-  if (!use.size) return false;
-  for (const c of use.values()) if (c !== 0) return false;
+  if (!balance.size) return false;
+  for (const net of balance.values()) if (net !== 0) return false;
   return true;
 }
 
 // Normals for the outline: the average at each position, so the inked silhouette has no gaps at sharp edges.
-function outlineNormals(g) {
-  const n = g.count,
-    Nn = g.n,
-    rep = weld(g),
-    acc = new Float32Array(n * 3),
-    out = new Float32Array(n * 3);
-  for (let k = 0; k < n; k++) {
-    const r = rep[k];
-    acc[3 * r] += Nn[3 * k];
-    acc[3 * r + 1] += Nn[3 * k + 1];
-    acc[3 * r + 2] += Nn[3 * k + 2];
+function outlineNormals(mesh) {
+  const count = mesh.count,
+    normals = mesh.normals,
+    firstAt = weld(mesh),
+    sums = new Float32Array(count * 3),
+    out = new Float32Array(count * 3);
+  for (let k = 0; k < count; k++) {
+    const first = firstAt[k];
+    sums[3 * first] += normals[3 * k];
+    sums[3 * first + 1] += normals[3 * k + 1];
+    sums[3 * first + 2] += normals[3 * k + 2];
   }
-  for (let k = 0; k < n; k++) {
-    const r = rep[k],
-      x = acc[3 * r],
-      y = acc[3 * r + 1],
-      z = acc[3 * r + 2],
-      l = Math.hypot(x, y, z) || 1;
-    out[3 * k] = x / l;
-    out[3 * k + 1] = y / l;
-    out[3 * k + 2] = z / l;
+  for (let k = 0; k < count; k++) {
+    const first = firstAt[k],
+      x = sums[3 * first],
+      y = sums[3 * first + 1],
+      z = sums[3 * first + 2],
+      length = Math.hypot(x, y, z) || 1;
+    out[3 * k] = x / length;
+    out[3 * k + 1] = y / length;
+    out[3 * k + 2] = z / length;
   }
   return out;
 }
 
 // The edges the pen look draws on a shape, as segments (x0, y0, z0, x1, y1, z1, and the mean normal of the faces that
 // meet there nx, ny, nz, so an edge facing the light can be drawn lighter, …): where two faces meet at more than
-// `deg` degrees (a box's corners, a step in a lathe's profile, a blade's rim) and where a surface ends (an open tube's
+// `angle` degrees (a box's corners, a step in a lathe's profile, a blade's rim) and where a surface ends (an open tube's
 // rim). A curved surface is many faces at small angles, so it has none; a sphere has none at all. Triangles in the
 // index ranges `soft` are left out.
-function edgesOf(g, deg = 40, soft = []) {
-  const rep = weld(g),
-    P = g.p,
-    I = g.i,
-    lim = Math.cos(deg * D2R),
+function edgesOf(mesh, angle = 40, soft = []) {
+  const firstAt = weld(mesh),
+    positions = mesh.positions,
+    indices = mesh.indices,
+    cosLimit = Math.cos(angle * D2R),
     seen = new Map(), // an edge (its two welded ends) → [the first face's normal, how many faces, sharp]
     out = [];
-  for (let t = 0; t < I.length; t += 3) {
-    if (soft.some(([a, b]) => t >= a && t < b)) continue; // (triangles of soft shapes: no edges)
-    const v = [rep[I[t]], rep[I[t + 1]], rep[I[t + 2]]];
-    if (v[0] === v[1] || v[1] === v[2] || v[0] === v[2]) continue; // a sliver at a pole: no face
-    const A = [P[3 * v[0]], P[3 * v[0] + 1], P[3 * v[0] + 2]],
-      n = cross(
-        sub([P[3 * v[1]], P[3 * v[1] + 1], P[3 * v[1] + 2]], A),
-        sub([P[3 * v[2]], P[3 * v[2] + 1], P[3 * v[2] + 2]], A),
+  for (let t = 0; t < indices.length; t += 3) {
+    if (soft.some(([start, end]) => t >= start && t < end)) continue; // (triangles of soft shapes: no edges)
+    const corners = [firstAt[indices[t]], firstAt[indices[t + 1]], firstAt[indices[t + 2]]];
+    if (corners[0] === corners[1] || corners[1] === corners[2] || corners[0] === corners[2]) continue; // a sliver at a pole: no face
+    const corner0 = [positions[3 * corners[0]], positions[3 * corners[0] + 1], positions[3 * corners[0] + 2]],
+      normal = cross(
+        sub([positions[3 * corners[1]], positions[3 * corners[1] + 1], positions[3 * corners[1] + 2]], corner0),
+        sub([positions[3 * corners[2]], positions[3 * corners[2] + 1], positions[3 * corners[2] + 2]], corner0),
       ),
-      l = len(n);
-    if (l < 1e-12) continue;
+      length = len(normal);
+    if (length < 1e-12) continue;
     for (let j = 0; j < 3; j++) {
-      const a = v[j],
-        b = v[(j + 1) % 3],
+      const a = corners[j],
+        b = corners[(j + 1) % 3],
         key = a < b ? a * 4294967296 + b : b * 4294967296 + a,
-        e = seen.get(key),
-        u = mulv(n, 1 / l);
-      if (!e) seen.set(key, [u, 1, false, u]);
+        entry = seen.get(key),
+        unit = mulv(normal, 1 / length);
+      if (!entry) seen.set(key, [unit, 1, false, unit]);
       else {
-        e[1]++;
-        if (dot(e[0], u) < lim) e[2] = true;
-        e[3] = add(e[3], u);
+        entry[1]++;
+        if (dot(entry[0], unit) < cosLimit) entry[2] = true;
+        entry[3] = add(entry[3], unit);
       }
     }
   }
-  for (const [key, e] of seen)
-    if (e[1] !== 2 || e[2]) {
+  for (const [key, entry] of seen)
+    if (entry[1] !== 2 || entry[2]) {
       const a = Math.floor(key / 4294967296),
         b = key - a * 4294967296;
-      out.push(P[3 * a], P[3 * a + 1], P[3 * a + 2], P[3 * b], P[3 * b + 1], P[3 * b + 2], ...norm(e[3]));
+      out.push(
+        positions[3 * a],
+        positions[3 * a + 1],
+        positions[3 * a + 2],
+        positions[3 * b],
+        positions[3 * b + 1],
+        positions[3 * b + 2],
+        ...norm(entry[3]),
+      );
     }
   return new Float32Array(out);
 }
 
 // The bounding box of a geometry seen through a matrix.
-function bounds(g, m) {
-  const lo = [1e9, 1e9, 1e9],
-    hi = [-1e9, -1e9, -1e9];
-  for (let k = 0; k < g.count; k++) {
-    const p = m ? M.pt(m, [g.p[3 * k], g.p[3 * k + 1], g.p[3 * k + 2]]) : [g.p[3 * k], g.p[3 * k + 1], g.p[3 * k + 2]];
-    for (let a = 0; a < 3; a++) {
-      if (p[a] < lo[a]) lo[a] = p[a];
-      if (p[a] > hi[a]) hi[a] = p[a];
+function bounds(mesh, m) {
+  const min = [1e9, 1e9, 1e9],
+    max = [-1e9, -1e9, -1e9];
+  for (let k = 0; k < mesh.count; k++) {
+    const point = m
+      ? M.pt(m, [mesh.positions[3 * k], mesh.positions[3 * k + 1], mesh.positions[3 * k + 2]])
+      : [mesh.positions[3 * k], mesh.positions[3 * k + 1], mesh.positions[3 * k + 2]];
+    for (let axis = 0; axis < 3; axis++) {
+      if (point[axis] < min[axis]) min[axis] = point[axis];
+      if (point[axis] > max[axis]) max[axis] = point[axis];
     }
   }
-  return { lo, hi };
+  return { min, max };
 }
 
 const MATERIALS = {
@@ -695,32 +740,34 @@ const MATERIALS = {
 // fine surface detail drawn by the studio look (WebGL 2), in the part's own coordinates: kind, and its default scale
 // (bumps per unit) and strength
 const SURFACES = { brushed: [1, 40], knurl: [2, 60], ribs: [3, 80], grain: [4, 6], skin: [5, 30], cast: [6, 25] };
-const surface = (s) =>
-  s && SURFACES[s.kind] ? [SURFACES[s.kind][0], s.scale ?? SURFACES[s.kind][1], s.strength ?? 0.5] : [0, 0, 0];
+const surface = (spec) =>
+  spec && SURFACES[spec.kind]
+    ? [SURFACES[spec.kind][0], spec.scale ?? SURFACES[spec.kind][1], spec.strength ?? 0.5]
+    : [0, 0, 0];
 
 // a rotation with a uniform scale (and a translation): det > 0 and three columns of one length, at right angles
 function rigid(m) {
-  const c = [
+  const columns = [
       [m[0], m[1], m[2]],
       [m[4], m[5], m[6]],
       [m[8], m[9], m[10]],
     ],
-    l = Math.hypot(...c[0]),
-    tol = 1e-6 * l;
+    length = Math.hypot(...columns[0]),
+    tolerance = 1e-6 * length;
   const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
   return (
-    Math.abs(Math.hypot(...c[1]) - l) < tol &&
-    Math.abs(Math.hypot(...c[2]) - l) < tol &&
-    Math.abs(dot(c[0], c[1])) < tol * l &&
-    Math.abs(dot(c[1], c[2])) < tol * l &&
-    Math.abs(dot(c[0], c[2])) < tol * l &&
+    Math.abs(Math.hypot(...columns[1]) - length) < tolerance &&
+    Math.abs(Math.hypot(...columns[2]) - length) < tolerance &&
+    Math.abs(dot(columns[0], columns[1])) < tolerance * length &&
+    Math.abs(dot(columns[1], columns[2])) < tolerance * length &&
+    Math.abs(dot(columns[0], columns[2])) < tolerance * length &&
     dot(
       [
-        c[0][1] * c[1][2] - c[0][2] * c[1][1],
-        c[0][2] * c[1][0] - c[0][0] * c[1][2],
-        c[0][0] * c[1][1] - c[0][1] * c[1][0],
+        columns[0][1] * columns[1][2] - columns[0][2] * columns[1][1],
+        columns[0][2] * columns[1][0] - columns[0][0] * columns[1][2],
+        columns[0][0] * columns[1][1] - columns[0][1] * columns[1][0],
       ],
-      c[2],
+      columns[2],
     ) > 0
   );
 }
@@ -731,229 +778,254 @@ const SOFT = ['model', 'blob', 'tree', 'terrain', 'scatter', 'molecule', 'dna'];
 // At least how many triangles a shape makes, from its numbers alone (each count below is less than what it builds):
 // a scene that would make too many is refused before any of it is built, rather than holding the page for minutes
 // (seg: 1e8, or a tree of eight levels of eight branches, or one branch eight million deep)
-function least(s, q) {
-  if (!s || typeof s !== 'object') return 0;
-  q = detail(q, s.detail);
-  const c = s.scatter,
-    turn = (o) => Math.abs((o.to ?? 360) - (o.from ?? 0)) / 360, // (a sector: how much of a turn)
-    a = Math.max(6, Math.round((s.seg || 32) * q * turn(s))), // segments around
-    t = s.terrain && Math.max(6, (s.terrain.res || 0) * q),
-    tr = s.tree || {},
-    b = tr.branches ?? 2,
-    n = (v) => (Array.isArray(v) ? v.length : 0);
-  if (c) return (c.n || 50) * least(c.shape, detail(q, c.detail ?? 0.5));
+function least(shape, quality) {
+  if (!shape || typeof shape !== 'object') return 0;
+  quality = detail(quality, shape.detail);
+  const scatter = shape.scatter,
+    turn = (spec) => Math.abs((spec.to ?? 360) - (spec.from ?? 0)) / 360, // (a sector: how much of a turn)
+    around = Math.max(6, Math.round((shape.seg || 32) * quality * turn(shape))), // segments around
+    terrain = shape.terrain && Math.max(6, (shape.terrain.res || 0) * quality),
+    tree = shape.tree || {},
+    branches = tree.branches ?? 2,
+    countOf = (v) => (Array.isArray(v) ? v.length : 0);
+  if (scatter) return (scatter.n || 50) * least(scatter.shape, detail(quality, scatter.detail ?? 0.5));
   return (
-    (s.repeat ? s.repeat.n || s.repeat : 1) *
+    (shape.repeat ? shape.repeat.n || shape.repeat : 1) *
     Math.max(
       12,
-      s.lathe ? 2 * a * (s.lathe.length - 1) : s.cylinder ? 2 * a : s.sphere ? (a * a) / 2 : 0,
-      s.helix ? 150 * q * (s.helix.turns ?? 8) : 0,
-      s.loop ? 48 * (s.loop.turns || 1) : 0,
-      t ? 2 * t * t : 0,
-      s.tree ? 40 * (b === 1 ? (tr.levels ?? 3) : b ** ((tr.levels ?? 3) - 1)) : 0,
-      s.dna ? 12 * (s.dna.pairs || 12) : 0,
-      s.tube ? 10 * n(s.tube) : 0,
-      s.shell ? 16 * 48 * q * turn(s.shell) : 0,
-      s.molecule
-        ? 48 * n(s.molecule.atoms) +
-            12 * (Array.isArray(s.molecule.bonds) ? s.molecule.bonds : []).reduce((t, b) => t + (+b?.[2] || 1), 0)
+      shape.lathe
+        ? 2 * around * (shape.lathe.length - 1)
+        : shape.cylinder
+          ? 2 * around
+          : shape.sphere
+            ? (around * around) / 2
+            : 0,
+      shape.helix ? 150 * quality * (shape.helix.turns ?? 8) : 0,
+      shape.loop ? 48 * (shape.loop.turns || 1) : 0,
+      terrain ? 2 * terrain * terrain : 0,
+      shape.tree ? 40 * (branches === 1 ? (tree.levels ?? 3) : branches ** ((tree.levels ?? 3) - 1)) : 0,
+      shape.dna ? 12 * (shape.dna.pairs || 12) : 0,
+      shape.tube ? 10 * countOf(shape.tube) : 0,
+      shape.shell ? 16 * 48 * quality * turn(shape.shell) : 0,
+      shape.molecule
+        ? 48 * countOf(shape.molecule.atoms) +
+            12 *
+              (Array.isArray(shape.molecule.bonds) ? shape.molecule.bonds : []).reduce(
+                (sum, bond) => sum + (+bond?.[2] || 1),
+                0,
+              )
         : 0,
     )
   );
 }
 // what went wrong building at a place in the scene, said there: lk3d's own sentence, or (a scene in a form the guard
 // does not know to refuse) what JavaScript said, with where to look
-const at = (e, where) =>
-  e.triangles
-    ? e
+const failedAt = (error, where) =>
+  error.triangles
+    ? error
     : new Error(
         `lk3d: ${where}: ` +
-          (/^lk3d/.test(e.message)
-            ? e.message.replace(/^lk3d:? /, '')
-            : `cannot be built (${e.message}); validate(scene) from lk3d/validate says what is wrong`),
+          (/^lk3d/.test(error.message)
+            ? error.message.replace(/^lk3d:? /, '')
+            : `cannot be built (${error.message}); validate(scene) from lk3d/validate says what is wrong`),
       );
 
 // A scene: parts, each a list of batches (one geometry, drawn at one or more placements). Shapes of a part that are not
 // repeated are merged into one batch, so a part costs one draw for its plain shapes plus one per repeated shape. Which
-// of a batch's triangles get edges in the pen look: `edgy` (none if false), less the ranges in `soft` (the part's
+// of a batch's triangles get edges in the pen look: `drawsEdges` (none if false), less the ranges in `soft` (the part's
 // `edges`, else every shape but the soft ones). max: the most triangles the scene may have (a part, at most 2 million);
 // the guard first refuses a scene not in a form it can build (guard.js).
-function buildScene(spec, q = 1, max = 1e7) {
-  const bad = guard(spec)[0];
-  if (bad) throw new Error(`lk3d: ${bad.path || 'the scene'}: ${bad.message}`);
-  const most = Math.min(2e6, max),
-    limit = `${words(most)}${max > most ? ` a part, ${words(max)} in all` : ''}`;
-  let all = 0;
-  for (const p of spec.parts) {
-    const n = (p.shapes || []).reduce((n, s) => n + least(s, q), 0);
-    if (n > most) throw tooMany(`part ${p.id} would have at least ${Math.round(n)} triangles`, most);
-    all += n;
+function buildScene(spec, quality = 1, max = 1e7) {
+  const problem = guard(spec)[0];
+  if (problem) throw new Error(`lk3d: ${problem.path || 'the scene'}: ${problem.message}`);
+  const partMax = Math.min(2e6, max),
+    limit = `${words(partMax)}${max > partMax ? ` a part, ${words(max)} in all` : ''}`;
+  let total = 0;
+  for (const part of spec.parts) {
+    const count = (part.shapes || []).reduce((sum, shape) => sum + least(shape, quality), 0);
+    if (count > partMax) throw tooMany(`part ${part.id} would have at least ${Math.round(count)} triangles`, partMax);
+    total += count;
   }
-  if (all > max) throw tooMany(`the scene would have at least ${Math.round(all)} triangles`, limit);
+  if (total > max) throw tooMany(`the scene would have at least ${Math.round(total)} triangles`, limit);
   cap = max;
   room = 3 * max;
   try {
-    return build(spec, q, max, most);
+    return build(spec, quality, max, partMax);
   } finally {
     room = Infinity;
   }
 }
-function build(spec, q, max, most) {
+function build(spec, quality, max, partMax) {
   // shapes alike are made once; parts alike (the same shapes, placed elsewhere) share one merged geometry, in the
   // part's own frame and placed by its matrix, so their outlines, crease shading, edges and GPU buffers are made once
-  const ctx = { models: spec.models, cache: new Map() },
-    parts0 = new Map(),
-    outs = new WeakMap();
+  const context = { models: spec.models, cache: new Map() },
+    sharedParts = new Map(),
+    outlines = new WeakMap();
   // liquids and gases (fluids.js): their parts' shapes are their bodies at the start, made from their vessels
   /** @type {Map<string, any> | null} */
-  let fl = null;
+  let fluidShapes = null;
   try {
-    fl = spec.liquids || spec.gases ? bodies(fluidsOf(spec)).out : null;
+    fluidShapes = spec.liquids || spec.gases ? bodies(fluidsOf(spec)).shapes : null;
   } catch (e) {
-    throw at(e, 'vessels, liquids and gases');
+    throw failedAt(e, 'vessels, liquids and gases');
   }
-  let all = 0;
-  const parts = spec.parts.map((given, k) => {
-    const p =
-      fl && fl.has(given.id) ? { ...given, shapes: fl.get(given.id) ? [fl.get(given.id)] : [], fluid: true } : given;
-    const place = M.trs(p.at, p.rot, p.scale),
-      own = rigid(place), // (a stretched or mirrored part is baked, as its shapes are)
-      local = own ? M.id() : place,
-      key = own && !p.fluid && JSON.stringify([p.shapes, p.edges]),
-      shared = key && parts0.get(key),
-      merged = shared ? shared.geo : new Geo(),
+  let total = 0;
+  const parts = spec.parts.map((given, partIndex) => {
+    const part =
+      fluidShapes && fluidShapes.has(given.id)
+        ? { ...given, shapes: fluidShapes.get(given.id) ? [fluidShapes.get(given.id)] : [], fluid: true }
+        : given;
+    const placement = M.trs(part.at, part.rot, part.scale),
+      keepsPlacement = rigid(placement), // (a stretched or mirrored part is baked, as its shapes are)
+      baked = keepsPlacement ? M.id() : placement,
+      key = keepsPlacement && !part.fluid && JSON.stringify([part.shapes, part.edges]),
+      shared = key && sharedParts.get(key),
+      merged = shared ? shared.mesh : new Mesh(),
       soft = shared ? shared.soft : [],
       batches = [];
-    let clear = !!(p.shapes || []).length; // (made only of a model's glass: see-through glass unless it says otherwise)
-    for (const [j, s] of (p.shapes || []).entries()) {
-      let b;
+    let glass = !!(part.shapes || []).length; // (made only of a model's glass: see-through glass unless it says otherwise)
+    for (const [shapeIndex, shape] of (part.shapes || []).entries()) {
+      let built;
       try {
-        b = buildShape(s, q, ctx);
+        built = buildShape(shape, quality, context);
       } catch (e) {
-        throw at(e, `parts[${k}].shapes[${j}]`);
+        throw failedAt(e, `parts[${partIndex}].shapes[${shapeIndex}]`);
       }
       // (its triangles counted as it comes, before its copies are baked into the part)
-      if ((all += (b.geo.i.length / 3) * b.mats.length) > max)
+      if ((total += (built.mesh.indices.length / 3) * built.placements.length) > max)
         throw tooMany(`the scene has more than ${words(max)} triangles`);
-      const mats = b.mats.map((m) => M.mul(place, m)),
-        edgy = p.edges ?? !SOFT.some((n) => n in s);
-      clear = clear && !!b.geo.clear;
-      if (b.geo.tex) {
-        const g = new Geo();
-        for (const m of mats) g.add(b.geo, m);
-        batches.push({ geo: g, mats: [M.id()], edgy });
+      const matrices = built.placements.map((m) => M.mul(placement, m)),
+        drawsEdges = part.edges ?? !SOFT.some((kind) => kind in shape);
+      glass = glass && !!built.mesh.glass;
+      if (built.mesh.textures) {
+        const mesh = new Mesh();
+        for (const m of matrices) mesh.add(built.mesh, m);
+        batches.push({ mesh, placements: [M.id()], drawsEdges });
         continue;
       } // a textured model: a batch of its own
       // copies are drawn by the GPU only when each is a rotation and a uniform scale (its shader turns normals by the
       // matrix itself); a mirrored or stretched copy is baked into the part's own geometry instead
-      if (mats.length === 1 || !mats.every(rigid)) {
+      if (matrices.length === 1 || !matrices.every(rigid)) {
         if (shared) continue;
-        const from = merged.i.length;
-        for (const m of b.mats) merged.add(b.geo, M.mul(local, m));
-        if (!edgy) soft.push([from, merged.i.length]);
-      } else batches.push({ geo: b.geo, mats, edgy });
+        const from = merged.indices.length;
+        for (const m of built.placements) merged.add(built.mesh, M.mul(baked, m));
+        if (!drawsEdges) soft.push([from, merged.indices.length]);
+      } else batches.push({ mesh: built.mesh, placements: matrices, drawsEdges });
     }
-    if (key && !shared) parts0.set(key, { geo: merged, soft });
+    if (key && !shared) sharedParts.set(key, { mesh: merged, soft });
     if (merged.count)
-      batches.unshift({ geo: merged, mats: [own ? place : M.id()], edgy: true, soft, dynamic: p.fluid || undefined });
-    let lo = [1e9, 1e9, 1e9],
-      hi = [-1e9, -1e9, -1e9],
-      tris = 0,
+      batches.unshift({
+        mesh: merged,
+        placements: [keepsPlacement ? placement : M.id()],
+        drawsEdges: true,
+        soft,
+        dynamic: part.fluid || undefined,
+      });
+    let low = [1e9, 1e9, 1e9],
+      high = [-1e9, -1e9, -1e9],
+      triangleCount = 0,
       /** @type {number[] | null} */
       anchor = null,
       best = -1e9;
-    for (const b of batches) {
-      if (!outs.has(b.geo)) outs.set(b.geo, outlineNormals(b.geo));
-      b.out = outs.get(b.geo);
-      tris += (b.geo.i.length / 3) * b.mats.length;
-      for (const m of b.mats) {
-        const bb = bounds(b.geo, m);
-        for (let a = 0; a < 3; a++) {
-          lo[a] = Math.min(lo[a], bb.lo[a]);
-          hi[a] = Math.max(hi[a], bb.hi[a]);
+    for (const batch of batches) {
+      if (!outlines.has(batch.mesh)) outlines.set(batch.mesh, outlineNormals(batch.mesh));
+      batch.outlineNormals = outlines.get(batch.mesh);
+      triangleCount += (batch.mesh.indices.length / 3) * batch.placements.length;
+      for (const m of batch.placements) {
+        const box = bounds(batch.mesh, m);
+        for (let axis = 0; axis < 3; axis++) {
+          low[axis] = Math.min(low[axis], box.min[axis]);
+          high[axis] = Math.max(high[axis], box.max[axis]);
         }
       }
     }
-    if (tris > most) throw tooMany(`part ${p.id} has ${Math.round(tris)} triangles`, most);
+    if (triangleCount > partMax) throw tooMany(`part ${part.id} has ${Math.round(triangleCount)} triangles`, partMax);
     // where its label points: given, or the top of the part near its middle (the centre of a ring is empty space)
-    const mid = mulv(add(lo, hi), 0.5);
-    for (const b of batches)
-      for (const m of b.mats) {
-        const g = b.geo,
-          step = Math.max(1, Math.floor(g.count / 4000));
-        for (let v = 0; v < g.count; v += step) {
-          const w = M.pt(m, [g.p[3 * v], g.p[3 * v + 1], g.p[3 * v + 2]]),
-            score = w[1] - 0.35 * Math.abs(w[0] - mid[0]) - 0.35 * Math.abs(w[2] - mid[2]);
+    const middle = mulv(add(low, high), 0.5);
+    for (const batch of batches)
+      for (const m of batch.placements) {
+        const mesh = batch.mesh,
+          step = Math.max(1, Math.floor(mesh.count / 4000));
+        for (let v = 0; v < mesh.count; v += step) {
+          const world = M.pt(m, [mesh.positions[3 * v], mesh.positions[3 * v + 1], mesh.positions[3 * v + 2]]),
+            score = world[1] - 0.35 * Math.abs(world[0] - middle[0]) - 0.35 * Math.abs(world[2] - middle[2]);
           if (score > best) {
             best = score;
-            anchor = w;
+            anchor = world;
           }
         }
       }
     return {
-      id: p.id || 'p' + k,
-      name: p.name || '',
-      note: p.note || '',
-      group: p.group || '',
-      label: p.label,
-      spin: p.spin || null,
-      handle: p.handle || null,
-      color: rgb(p.color),
-      studioColor: rgb(p.studioColor || p.color),
-      mat: [...(MATERIALS[p.material || (clear ? 'glass' : 'paint')] || MATERIALS.paint), 0].slice(0, 3),
-      material: p.material || (clear ? 'glass' : 'paint'),
-      surf: surface(p.surface),
-      refract: p.refract || 0,
-      alpha: p.opacity ?? (clear ? 0.35 : 1),
-      xray: !!p.xray,
-      accent: !!p.accent,
-      cut: p.cut !== false, // (false: whole when the model is cut open: a stand, a frame)
-      explode: p.explode || [0, 0, 0],
+      id: part.id || 'p' + partIndex,
+      name: part.name || '',
+      note: part.note || '',
+      group: part.group || '',
+      label: part.label,
+      spin: part.spin || null,
+      handle: part.handle || null,
+      color: rgb(part.color),
+      studioColor: rgb(part.studioColor || part.color),
+      metalRoughness: [...(MATERIALS[part.material || (glass ? 'glass' : 'paint')] || MATERIALS.paint), 0].slice(0, 3),
+      material: part.material || (glass ? 'glass' : 'paint'),
+      surfaceDetail: surface(part.surface),
+      refract: part.refract || 0,
+      alpha: part.opacity ?? (glass ? 0.35 : 1),
+      xray: !!part.xray,
+      accent: !!part.accent,
+      cut: part.cut !== false, // (false: whole when the model is cut open: a stand, a frame)
+      explode: part.explode || [0, 0, 0],
       offset: [0, 0, 0],
       batches,
-      lo,
-      hi,
-      center: mid,
-      tris,
-      anchor: Array.isArray(p.label) ? p.label : anchor || mid,
-      hidden: !!p.hidden,
-      hidden0: !!p.hidden, // (what the scene itself hides: set({hide}) adds to it)
-      fluid: !!p.fluid, // (a liquid's or a gas's body: its shape changes as it flows, drains or is heated)
-      emit: [0, 0, 0],
-      glowColor: rgb(p.glow || '#ffcf6a'),
-      index: k,
+      min: low,
+      max: high,
+      center: middle,
+      triangleCount,
+      anchor: Array.isArray(part.label) ? part.label : anchor || middle,
+      hidden: !!part.hidden,
+      hiddenByScene: !!part.hidden, // (what the scene itself hides: set({hide}) adds to it)
+      fluid: !!part.fluid, // (a liquid's or a gas's body: its shape changes as it flows, drains or is heated)
+      emission: [0, 0, 0],
+      glowColor: rgb(part.glow || '#ffcf6a'),
+      index: partIndex,
     };
   });
-  let lo = [1e9, 1e9, 1e9],
-    hi = [-1e9, -1e9, -1e9];
-  for (const p of parts)
-    for (let a = 0; a < 3; a++) {
-      lo[a] = Math.min(lo[a], p.lo[a]);
-      hi[a] = Math.max(hi[a], p.hi[a]);
+  let low = [1e9, 1e9, 1e9],
+    high = [-1e9, -1e9, -1e9];
+  for (const part of parts)
+    for (let axis = 0; axis < 3; axis++) {
+      low[axis] = Math.min(low[axis], part.min[axis]);
+      high[axis] = Math.max(high[axis], part.max[axis]);
     }
-  return { parts, lo, hi, center: mulv(add(lo, hi), 0.5), radius: len(sub(hi, lo)) / 2 || 1, q };
+  return {
+    parts,
+    min: low,
+    max: high,
+    center: mulv(add(low, high), 0.5),
+    radius: len(sub(high, low)) / 2 || 1,
+    quality,
+  };
 }
 // A scene built for a device: at the detail asked, else coarser (down to a quarter of it) where that would pass the
-// device's limit, else refused (S.q: the detail it was built at)
-function buildFitting(spec, q, max) {
+// device's limit, else refused (its quality: the detail it was built at)
+function buildFitting(spec, quality, max) {
   for (;;)
     try {
-      return buildScene(spec, q, max);
+      return buildScene(spec, quality, max);
     } catch (e) {
-      if (!e.triangles || q < 0.3) throw e;
-      q /= 2;
+      if (!e.triangles || quality < 0.3) throw e;
+      quality /= 2;
     }
 }
 
 // For tests and tools: a part as one plain geometry, every instance placed (what v1 drew).
 function flatten(part) {
-  const g = new Geo();
-  for (const b of part.batches) for (const m of b.mats) g.add(b.geo, m);
-  return g;
+  const mesh = new Mesh();
+  for (const batch of part.batches) for (const m of batch.placements) mesh.add(batch.mesh, m);
+  return mesh;
 }
 
 export {
-  Geo,
+  Mesh,
   SHAPES,
   buildShape,
   buildScene,

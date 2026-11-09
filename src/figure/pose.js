@@ -14,57 +14,60 @@ import LK3D from '../namespace.js';
 export function makePose(c) {
   // handles: parts the reader moves directly (and the parts each one carries with it), each kept as a grip
   const handles = (c.handles_ = []);
-  for (const p of c.built_.parts)
-    if (p.handle) {
-      const h = p.handle,
+  for (const part of c.built_.parts)
+    if (part.handle) {
+      const handle = part.handle,
         parts = [
-          p,
-          ...c.built_.parts.filter((q) => q !== p && (h.moves || []).some((k) => k === q.id || k === q.group)),
+          part,
+          ...c.built_.parts.filter(
+            (other) =>
+              other !== part && (handle.moves || []).some((moved) => moved === other.id || moved === other.group),
+          ),
         ];
       const grip = {
-        part: p,
-        handle: h,
-        value: HD.hold(h, h.value ?? 0), // (a first value outside the range: at its end from the start, not on the first drag)
+        part,
+        handle,
+        value: HD.hold(handle, handle.value ?? 0), // (a first value outside the range: at its end from the start, not on the first drag)
         parts,
-        path: h.along ? HD.measure(h.along.path, h.along.closed) : null,
+        path: handle.along ? HD.measure(handle.along.path, handle.along.closed) : null,
         input: null,
-        round: !!h.turn && h.min == null && h.max == null, // (a turn with no stops, a rotor: it goes round and round)
+        round: !!handle.turn && handle.min == null && handle.max == null, // (a turn with no stops, a rotor: it goes round and round)
       };
       handles.push(grip);
-      for (const q of parts) q.handleOf = grip;
+      for (const carried of parts) carried.handleOf = grip;
     }
   // motions: what moves each part, and where each motion starts
-  for (const mo of c.motions_) c.state_.motion[mo.id] = startOf(mo);
-  for (const p of c.built_.parts) p.tracks = tracksOf(c.motions_, p);
+  for (const motion of c.motions_) c.state_.motion[motion.id] = startOf(motion);
+  for (const part of c.built_.parts) part.tracks = tracksOf(c.motions_, part);
   // joints (joints.js): parts posed by how they are joined; their matrices worked out once for each set of values:
   // again only when a motion's or a joint's value changed (poseVersion_, counted up where they are set)
   const joints = jointsOf(c.spec_);
-  for (const p of c.built_.parts) p.joint = jointOf(joints, p);
+  for (const part of c.built_.parts) part.joint = jointOf(joints, part);
   c.poseVersion_ = 0;
-  let posed = -1,
+  let posedVersion = -1,
     /** @type {ReturnType<typeof solveJoints> | null} */
     pose = null;
-  const jointMatrix = (p) => {
-    if (!pose || posed !== c.poseVersion_) {
+  const jointMatrix = (part) => {
+    if (!pose || posedVersion !== c.poseVersion_) {
       pose = solveJoints(joints, c.motions_, c.state_.motion, c.state_.joints);
-      posed = c.poseVersion_;
+      posedVersion = c.poseVersion_;
     }
-    return pose.matrix.get(p.joint.id);
+    return pose.matrix.get(part.joint.id);
   };
 
   // where taking apart and the page's offset put a part (a move), and its frame there
-  c.offsetOf_ = (p) => add(mulv(p.explode, c.state_.explode), p.offset);
-  c.baseMatrix_ = (p) => M.trans(c.offsetOf_(p));
-  c.modelMatrix_ = (p) => {
-    let m = c.baseMatrix_(p);
-    if (p.tracks.length) m = M.mul(m, motionMatrix(p.tracks, c.state_.motion));
-    if (p.joint) m = M.mul(m, jointMatrix(p));
-    if (p.handleOf) m = M.mul(m, HD.matrix(p.handleOf.handle, p.handleOf.value, p.handleOf.path));
-    if (p.spin) {
-      const a = c.state_.spin * D2R * (p.spin.ratio ?? 1),
-        o = p.spin.center || [0, 0, 0];
-      const r = p.spin.axis === 'y' ? M.rotY(a) : p.spin.axis === 'z' ? M.rotZ(a) : M.rotX(a);
-      m = M.mul(m, M.mul(M.trans(o), M.mul(r, M.trans(mulv(o, -1)))));
+  c.offsetOf_ = (part) => add(mulv(part.explode, c.state_.explode), part.offset);
+  c.baseMatrix_ = (part) => M.trans(c.offsetOf_(part));
+  c.modelMatrix_ = (part) => {
+    let m = c.baseMatrix_(part);
+    if (part.tracks.length) m = M.mul(m, motionMatrix(part.tracks, c.state_.motion));
+    if (part.joint) m = M.mul(m, jointMatrix(part));
+    if (part.handleOf) m = M.mul(m, HD.matrix(part.handleOf.handle, part.handleOf.value, part.handleOf.path));
+    if (part.spin) {
+      const angle = c.state_.spin * D2R * (part.spin.ratio ?? 1),
+        center = part.spin.center || [0, 0, 0];
+      const rotation = part.spin.axis === 'y' ? M.rotY(angle) : part.spin.axis === 'z' ? M.rotZ(angle) : M.rotX(angle);
+      m = M.mul(m, M.mul(M.trans(center), M.mul(rotation, M.trans(mulv(center, -1)))));
     }
     return m;
   };
@@ -72,25 +75,25 @@ export function makePose(c) {
   // ---- taking apart, tweened, or set at once by the page (its own value wins over a running tween)
   /** @type {((now: number) => boolean) | null} */
   let explodeTween = null;
-  const setExplode = (v) => {
-    c.state_.explode = Math.max(0, Math.min(1, v));
+  const setExplode = (amount) => {
+    c.state_.explode = Math.max(0, Math.min(1, amount));
     if (c.controls_.explode) c.controls_.explode(c.state_.explode);
   };
-  c.explodeNow_ = (v) => {
+  c.explodeNow_ = (amount) => {
     if (explodeTween) c.animations_.delete(explodeTween);
     explodeTween = null;
-    setExplode(v);
+    setExplode(amount);
   };
   c.tweenExplode_ = (to) => {
     const from = c.state_.explode,
-      t0 = clock.now(),
+      start = clock.now(),
       ms = LK3D.reduce ? 1 : 900;
     const tween = (now) => {
-      const u = Math.max(0, Math.min(1, (now - t0) / ms)),
-        e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
-      setExplode(from + (to - from) * e);
+      const progress = Math.max(0, Math.min(1, (now - start) / ms)),
+        eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      setExplode(from + (to - from) * eased);
       c.markDirty_();
-      if (u >= 1) {
+      if (progress >= 1) {
         c.animations_.delete(tween);
         explodeTween = null;
         return false;
@@ -106,36 +109,38 @@ export function makePose(c) {
   // ---- motions (motion.js): a value set by the page or the reader, or played: on along its range at its speed (a
   // second a range by default), round again if it loops, else to its end and back the next time it is played
   const playing = (c.playing_ = new Map()); // a motion's id → its step in the frame loop
-  c.setMotion_ = (mo, v) => {
-    const [a, b] = mo.range;
-    c.state_.motion[mo.id] = mo.loop ? a + ((((v - a) % (b - a)) + (b - a)) % (b - a)) : Math.max(a, Math.min(b, v));
+  c.setMotion_ = (motion, value) => {
+    const [low, high] = motion.range;
+    c.state_.motion[motion.id] = motion.loop
+      ? low + ((((value - low) % (high - low)) + (high - low)) % (high - low))
+      : Math.max(low, Math.min(high, value));
     c.poseVersion_++;
-    if (c.controls_.motion) c.controls_.motion(mo.id);
+    if (c.controls_.motion) c.controls_.motion(motion.id);
     c.kick_();
   };
-  c.stopMotion_ = (mo) => {
-    c.animations_.delete(playing.get(mo.id));
-    playing.delete(mo.id);
-    if (c.controls_.motion) c.controls_.motion(mo.id);
+  c.stopMotion_ = (motion) => {
+    c.animations_.delete(playing.get(motion.id));
+    playing.delete(motion.id);
+    if (c.controls_.motion) c.controls_.motion(motion.id);
   };
-  c.playMotion_ = (mo) => {
-    c.stopMotion_(mo);
-    const [a, b] = mo.range,
-      back = !mo.loop && c.state_.motion[mo.id] >= b; // (at its end: played back to the start)
-    if (LK3D.reduce) return mo.loop || c.setMotion_(mo, back ? a : b); // (no movement: straight to where it goes)
+  c.playMotion_ = (motion) => {
+    c.stopMotion_(motion);
+    const [low, high] = motion.range,
+      back = !motion.loop && c.state_.motion[motion.id] >= high; // (at its end: played back to the start)
+    if (LK3D.reduce) return motion.loop || c.setMotion_(motion, back ? low : high); // (no movement: straight to where it goes)
     let last = clock.now();
     const step = (now) => {
       // (the whole of a step of the clock stopped by hand; while it runs, at most 50 ms: not a leap after a hidden tab)
       const dt = Math.max(0, Math.min(clock.speed ? 0.05 : 1e9, (now - last) / 1000)),
-        v = c.state_.motion[mo.id] + (back ? -1 : 1) * (mo.speed ?? b - a) * dt * c.state_.timeScale;
+        value = c.state_.motion[motion.id] + (back ? -1 : 1) * (motion.speed ?? high - low) * dt * c.state_.timeScale;
       last = now;
-      c.setMotion_(mo, v);
-      if (!mo.loop && (back ? v <= a : v >= b)) return (c.stopMotion_(mo), false);
+      c.setMotion_(motion, value);
+      if (!motion.loop && (back ? value <= low : value >= high)) return (c.stopMotion_(motion), false);
       return true;
     };
-    playing.set(mo.id, step);
+    playing.set(motion.id, step);
     c.animations_.add(step);
-    if (c.controls_.motion) c.controls_.motion(mo.id);
+    if (c.controls_.motion) c.controls_.motion(motion.id);
     c.kick_();
   };
 }

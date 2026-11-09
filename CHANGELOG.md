@@ -9,7 +9,9 @@ The first release as its own package, after it grew as the 3D engine of lessonki
 
 **Moving from lessonkit's copy:** `set({ spin })` now takes degrees, like every other angle in lk3d (views, handles,
 `camera()`); multiply a radian angle by `180 / Math.PI`. A part's name and note keep only simple formatting (`b i em
-strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time, which runs with `LK3D.clock`.
+strong sub sup br`); other HTML shows as text. `tick(fn)` gets the clock's time, which runs with `LK3D.clock`. A built
+part's `lo hi tris` (the part `onPick` and `onHover` hand the page) are now `min max triangleCount`, and solid balls'
+`pos4` is now `positionsAndColors`.
 
 - **Scenes as data**: parts made of shapes, each with a name and a note; a JSON Schema
   (`schema/scene.schema.json`) and a validator (`lk3d/validate`) that says what is wrong where; TypeScript types.

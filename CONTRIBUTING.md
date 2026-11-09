@@ -66,19 +66,26 @@ npm run test:visual    # reference scenes compared with stored pictures
 
 ## Style
 
-Plain JavaScript (ES modules), no runtime dependencies. Comments say why, in plain English. Names say what things are.
-Each module starts with a line or two saying what it owns and what it reads from others.
+Plain JavaScript (ES modules), no runtime dependencies. Comments say why, in plain English. Each module starts with a
+line or two saying what it owns and what it reads from others.
+
+Names say what things are, in words: `positions`, `edgeCount`, `uniforms`, `partIndex`, not `P`, `en`, `u`, `k2`. Do
+not shorten a name to save bytes: the minifier renames locals, and the longer property names this costs were measured
+at about 2 KB gzipped for the whole engine, which the budget allows for. Short names stay only where they are the
+convention and clearer than a word: `x y z`, `i j k` as indices in a short loop, `a b c` for a triangle's corners, `gl`
+for the WebGL context, `m` for a matrix in matrix maths, and the symbols of a formula a comment states. If a comment is
+needed to say what a name holds, the name is too short.
 
 A mounted figure is made of parts in `src/figure/` (the map: `docs/design.md`, "A mounted figure"), each a function
 `makeX(c)` given the figure's context `c`: what only a part uses stays in its closure; what others read or call goes on
 `c`, as a field whose name ends in `_` (declared in `src/figure/context.d.ts`), and nothing else may end in `_`
 (`build.mjs` renames those fields short). So, like locals, they cost nothing: name them plainly (`c.renderer_`, not
-`c.R_`). The properties of parts, batches, frames and other objects are kept as written, so there a short name still
-saves bytes; say what a terse one holds in a comment. Read shared things as `c.state_.x`, `c.built_.parts`,
-`c.kick_()`, not through local copies: the bundle gzips smaller so. A new part goes into `mount()` (`src/index.js`) where its elements,
-listeners and timers belong, and its import with the others, in the same order. The sources are type-checked as
-JavaScript (`npm run typecheck`): JSDoc where the checker cannot tell, the scene's types from `scene.d.ts`
-(`/** @param {import('../scene').Scene} spec */`).
+`c.R_`). The properties of parts, batches, frames and other objects keep their names in the bundle, and are named in
+words all the same. Read shared things as `c.state_.x`, `c.built_.parts`, `c.kick_()`, not through local copies: the
+bundle gzips smaller so. A new part goes into `mount()` (`src/index.js`) where its elements, listeners and timers
+belong, and its import with the others, in the same order. The sources are type-checked as JavaScript (`npm run
+typecheck`): JSDoc where the checker cannot tell, the scene's types from `scene.d.ts` (`/** @param
+{import('../scene').Scene} spec */`).
 
 ## Releasing
 

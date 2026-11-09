@@ -32,7 +32,7 @@ test('liquids in one vessel settle with the densest at the bottom', () => {
     { id: 'water', volume: Math.PI * 3, density: 1 },
   ]);
   assert.deepEqual(
-    s.map((x) => [x.l.id, +x.h0.toFixed(9), +x.h1.toFixed(9)]),
+    s.map((x) => [x.liquid.id, +x.bottom.toFixed(9), +x.top.toFixed(9)]),
     [
       ['water', 0, 3],
       ['oil', 3, 5],

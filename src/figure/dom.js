@@ -6,20 +6,20 @@
 
 // a part's name and note as HTML: plain text, keeping only bare b, i, em, strong, sub, sup and br (scenes may come
 // from anyone; character references are kept, they cannot run anything)
-/** @param {unknown} s */
-export const safeHTML = (s) =>
-  String(s ?? '')
+/** @param {unknown} text */
+export const safeHTML = (text) =>
+  String(text ?? '')
     .replace(/&(?!#?\w+;)/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/&lt;(\/?)(b|i|em|strong|sub|sup|br) ?\/?&gt;/gi, '<$1$2>');
 
 // the same as plain text (what a label is measured by and a screen reader names)
-/** @param {unknown} s */
-export const plainText = (s) => {
-  const d = document.createElement('div');
-  d.innerHTML = safeHTML(s);
-  return d.textContent;
+/** @param {unknown} text */
+export const plainText = (text) => {
+  const holder = document.createElement('div');
+  holder.innerHTML = safeHTML(text);
+  return holder.textContent;
 };
 
 let mounted = 0; // figures mounted on the page (ids for their screen-reader text)
@@ -39,24 +39,24 @@ export function makeDom(c) {
   c.canvas_.setAttribute('aria-label', c.spec_.alt || c.spec_.title || c.words_.model);
   /** @param {string} tag @param {string} [text] */
   const forReaders = (tag, text) => {
-      const e = document.createElement(tag);
-      e.className = 'lk3d-sr';
-      if (text) e.textContent = text;
-      return e;
+      const element = document.createElement(tag);
+      element.className = 'lk3d-sr';
+      if (text) element.textContent = text;
+      return element;
     },
     uid = 'lk3d-' + ++mounted,
     keys = forReaders('p', c.words_.keys),
     said = forReaders('p'),
-    named = (c.namedParts_ = c.built_.parts.filter((p) => p.name));
+    named = (c.namedParts_ = c.built_.parts.filter((part) => part.name));
   keys.id = uid + '-keys';
   c.canvas_.setAttribute('aria-describedby', keys.id);
   said.setAttribute('aria-live', 'polite');
   const list = forReaders('ul');
   list.setAttribute('aria-label', c.words_.parts);
-  for (const p of named) {
-    const li = document.createElement('li');
-    li.textContent = plainText(p.name) + (p.note ? ': ' + plainText(p.note) : '');
-    list.append(li);
+  for (const part of named) {
+    const item = document.createElement('li');
+    item.textContent = plainText(part.name) + (part.note ? ': ' + plainText(part.note) : '');
+    list.append(item);
   }
   const leaderSvg = (c.leaderSvg_ = document.createElementNS('http://www.w3.org/2000/svg', 'svg'));
   leaderSvg.setAttribute('class', 'lk3d-lines');
@@ -93,24 +93,24 @@ export function makeDom(c) {
     /** @param {string} text @param {string} [url] */
     const link = (text, url) => {
       const web = url !== undefined && /^https?:\/\//i.test(url),
-        a = /** @type {HTMLAnchorElement} */ (document.createElement(web ? 'a' : 'span'));
-      a.textContent = text;
+        anchor = /** @type {HTMLAnchorElement} */ (document.createElement(web ? 'a' : 'span'));
+      anchor.textContent = text;
       if (web) {
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener';
+        anchor.href = url;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener';
       }
-      return a;
+      return anchor;
     };
     if (c.spec_.author) credit.append('© ', link(c.spec_.author, c.spec_.url));
     if (c.spec_.license) credit.append((c.spec_.author ? ', ' : '') + c.spec_.license);
     if (whose && models.length) credit.append('. ');
     if (models.length) credit.append(c.words_.credit);
-    models.forEach(([name, m], k) => {
-      if (k) credit.append('; ');
+    models.forEach(([name, model], index) => {
+      if (index) credit.append('; ');
       credit.append(
-        link(m.title || name, m.url),
-        `, ${m.author}, ${m.license}` + (m.source === 'ai' ? c.words_.ai : ''),
+        link(model.title || name, model.url),
+        `, ${model.author}, ${model.license}` + (model.source === 'ai' ? c.words_.ai : ''),
       );
     });
     c.host_.append(credit);
@@ -120,13 +120,14 @@ export function makeDom(c) {
   // 'hover' (the pointer moved onto or off a part: onHover), or nothing (a page's own select(), the first picture)
   c.showInfo_ = (why) => {
     const id = c.state_.selected || c.state_.hover,
-      p = c.part_(id);
+      part = c.part_(id);
     if (c.opts_.info)
-      c.opts_.info.innerHTML = p
-        ? `<b>${safeHTML(p.name)}</b>${p.note ? ' ' + safeHTML(p.note) : ''}`
+      c.opts_.info.innerHTML = part
+        ? `<b>${safeHTML(part.name)}</b>${part.note ? ' ' + safeHTML(part.note) : ''}`
         : safeHTML(c.opts_.infoIdle);
-    if (why === 'pick') said.textContent = p ? plainText(p.name) + (p.note ? ': ' + plainText(p.note) : '') : '';
+    if (why === 'pick')
+      said.textContent = part ? plainText(part.name) + (part.note ? ': ' + plainText(part.note) : '') : '';
     const callback = why === 'pick' ? c.opts_.onPick : why === 'hover' ? c.opts_.onHover : null;
-    if (callback) callback(why === 'hover' ? c.part_(c.state_.hover) || null : p || null);
+    if (callback) callback(why === 'hover' ? c.part_(c.state_.hover) || null : part || null);
   };
 }

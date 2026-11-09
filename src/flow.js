@@ -4,39 +4,39 @@
 // screen and blends them. pathOf() is also what particles along a path use.
 import { sub, mulv, len, rgb } from './math.js';
 
-// a polyline measured by its length: at(s) is the point s along it; into(s, out, o) writes it into out[o..o+2]
-// (without making an array: thousands of streaks are placed every frame)
+// a polyline measured by its length: at(distance) is the point that far along it; into(distance, out, offset) writes
+// it into out[offset..offset+2] (without making an array: thousands of streaks are placed every frame)
 export function pathOf(points, closed = false) {
-  const P = points.length > 1 ? points : [points[0], points[0]],
-    segs = [];
+  const path = points.length > 1 ? points : [points[0], points[0]],
+    segments = [];
   let total = 0;
-  for (let k = 0; k + 1 < P.length + (closed ? 1 : 0); k++) {
-    const a = P[k],
-      b = P[(k + 1) % P.length],
-      l = len(sub(b, a));
-    segs.push([a, b, l, total]);
-    total += l;
+  for (let k = 0; k + 1 < path.length + (closed ? 1 : 0); k++) {
+    const start = path[k],
+      end = path[(k + 1) % path.length],
+      length = len(sub(end, start));
+    segments.push([start, end, length, total]);
+    total += length;
   }
-  const into = (s, out, o) => {
-    // the segment s falls in: the last that starts at or before s (halving: a field line may have hundreds)
+  const into = (distance, out, offset) => {
+    // the segment the distance falls in: the last that starts at or before it (halving: a field line may have hundreds)
     let k = 0,
-      hi = segs.length - 1;
-    while (k < hi) {
-      const m = (k + hi + 1) >> 1;
-      if (segs[m][3] <= s) k = m;
-      else hi = m - 1;
+      last = segments.length - 1;
+    while (k < last) {
+      const middle = (k + last + 1) >> 1;
+      if (segments[middle][3] <= distance) k = middle;
+      else last = middle - 1;
     }
-    const [a, b, l, s0] = segs[k],
-      t = l ? Math.max(0, Math.min(1, (s - s0) / l)) : 0;
-    for (let j = 0; j < 3; j++) out[o + j] = a[j] + (b[j] - a[j]) * t;
+    const [start, end, length, startDistance] = segments[k],
+      t = length ? Math.max(0, Math.min(1, (distance - startDistance) / length)) : 0;
+    for (let j = 0; j < 3; j++) out[offset + j] = start[j] + (end[j] - start[j]) * t;
   };
   return {
     total,
     into,
-    at(s) {
-      const p = [0, 0, 0];
-      into(s, p, 0);
-      return p;
+    at(distance) {
+      const point = [0, 0, 0];
+      into(distance, point, 0);
+      return point;
     },
   };
 }
@@ -54,131 +54,137 @@ const RAMPS = {
   ],
 };
 // a ramp (a preset's name, one colour or a list of them) as four evenly spaced colours, for a light or a dark page
-export function ramp(r, dark) {
+export function ramp(given, dark) {
   const stops =
-    typeof r === 'string' && RAMPS[r] ? RAMPS[r][dark ? 1 : 0] : r ? [].concat(r) : RAMPS.cool[dark ? 1 : 0];
-  const c = stops.map(rgb);
+    typeof given === 'string' && RAMPS[given]
+      ? RAMPS[given][dark ? 1 : 0]
+      : given
+        ? [].concat(given)
+        : RAMPS.cool[dark ? 1 : 0];
+  const colors = stops.map(rgb);
   return [0, 1, 2, 3].map((i) => {
-    const x = (i / 3) * (c.length - 1),
-      k = Math.min(Math.max(0, c.length - 2), Math.floor(x)),
-      f = x - k,
-      a = c[k],
-      b = c[Math.min(c.length - 1, k + 1)];
-    return a.map((v, j) => v + (b[j] - v) * f);
+    const position = (i / 3) * (colors.length - 1),
+      k = Math.min(Math.max(0, colors.length - 2), Math.floor(position)),
+      fraction = position - k,
+      lower = colors[k],
+      upper = colors[Math.min(colors.length - 1, k + 1)];
+    return lower.map((value, j) => value + (upper[j] - value) * fraction);
   });
 }
 // the colour a ramp gives at t (0: the path's start, 1: its end), as the shader works it out
-export function rampAt(r4, t) {
-  const x = Math.max(0, Math.min(1, t)) * 3,
-    k = Math.min(2, Math.floor(x)),
-    f = x - k;
-  return r4[k].map((v, j) => v + (r4[k + 1][j] - v) * f);
+export function rampAt(colors, t) {
+  const position = Math.max(0, Math.min(1, t)) * 3,
+    k = Math.min(2, Math.floor(position)),
+    fraction = position - k;
+  return colors[k].map((value, j) => value + (colors[k + 1][j] - value) * fraction);
 }
 
 // a streak's fixed random numbers (the same every time: pictures can be compared)
-const rnd = (i, k) => {
-  const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+const random = (streak, which) => {
+  const x = Math.sin(streak * 12.9898 + which * 78.233) * 43758.5453;
   return x - Math.floor(x);
 };
-const unit = (i, k) => {
-  const v = [rnd(i, k) - 0.5, rnd(i, k + 1) - 0.5, rnd(i, k + 2) - 0.5],
-    l = len(v) || 1;
-  return mulv(v, 1 / l);
+const unit = (streak, which) => {
+  const vector = [random(streak, which) - 0.5, random(streak, which + 1) - 0.5, random(streak, which + 2) - 0.5],
+    length = len(vector) || 1;
+  return mulv(vector, 1 / length);
 };
-export const PTS = 4; // points along a streak: three segments, enough to bend round a curve
+export const STREAK_POINTS = 4; // points along a streak: three segments, enough to bend round a curve
 export const STRIDE = 9; // floats a vertex: x, y, z, side (±1); a direction along the streak, t on the ramp; alpha
-export const MAX = 8000; // streaks in one flow (their vertices fit 16-bit indices)
+export const MAX_STREAKS = 8000; // streaks in one flow (their vertices fit 16-bit indices)
 
-// A flow's state and geometry. update(m) writes the first n streaks (n = count × amount) into verts, placed by the
+// A flow's state and geometry. update(m) writes the first drawnCount streaks (count × amount) into vertices, placed by the
 // matrix m of the part that carries them (or none); step(dt) moves them on.
-export function makeFlow(o = {}) {
-  const lines = o.paths || (o.path ? [o.path] : []);
+export function makeFlow(options = {}) {
+  const lines = options.paths || (options.path ? [options.path] : []);
   if (!lines.length || !lines[0].length) throw new Error('lk3d: a flow needs a path');
-  const paths = lines.map((p) => pathOf(p, !!o.closed)),
-    count = Math.max(1, Math.min(MAX, Math.round(o.count ?? 300)));
-  const F = {
+  const paths = lines.map((line) => pathOf(line, !!options.closed)),
+    count = Math.max(1, Math.min(MAX_STREAKS, Math.round(options.count ?? 300)));
+  const flow = {
     count,
-    closed: !!o.closed,
-    speed: o.speed ?? 0,
-    amount: o.amount ?? 1,
-    length: o.length ?? 0.12,
-    width: o.width ?? 1.6,
-    spread: o.spread ?? 0,
-    opacity: o.opacity ?? 0.85,
-    ramp: o.ramp,
+    closed: !!options.closed,
+    speed: options.speed ?? 0,
+    amount: options.amount ?? 1,
+    length: options.length ?? 0.12,
+    width: options.width ?? 1.6,
+    spread: options.spread ?? 0,
+    opacity: options.opacity ?? 0.85,
+    ramp: options.ramp,
     visible: true,
-    dist: 0,
-    n: 0,
-    verts: new Float32Array(count * PTS * 2 * STRIDE),
+    travelled: 0,
+    drawnCount: 0,
+    vertices: new Float32Array(count * STREAK_POINTS * 2 * STRIDE),
     // each streak: its path, where it starts, how fast it goes, and how it wanders round the path
     seeds: Array.from({ length: count }, (_, i) => ({
       path: paths[i % paths.length],
-      u: rnd(i, 1),
-      pace: 0.8 + 0.4 * rnd(i, 2),
-      off: mulv(unit(i, 3), Math.sqrt(rnd(i, 6))),
-      wob: mulv(unit(i, 7), 0.5),
-      phase: rnd(i, 10) * 6.2832,
-      turns: 1 + 2 * rnd(i, 11),
+      start: random(i, 1),
+      pace: 0.8 + 0.4 * random(i, 2),
+      offset: mulv(unit(i, 3), Math.sqrt(random(i, 6))),
+      wobble: mulv(unit(i, 7), 0.5),
+      phase: random(i, 10) * 6.2832,
+      turns: 1 + 2 * random(i, 11),
     })),
     step(dt) {
-      F.dist += F.speed * dt;
+      flow.travelled += flow.speed * dt;
     },
     update(m) {
-      const n = (F.n = Math.round(F.count * Math.max(0, Math.min(1, F.amount)))),
-        V = F.verts,
-        P = new Float64Array(PTS * 3), // (one small array a frame: nothing a streak)
-        p = new Float64Array(3);
-      for (let i = 0; i < n; i++) {
-        const S = F.seeds[i],
-          T = S.path.total,
-          L = F.length * T,
-          head = T ? (((S.u * T + F.dist * S.pace) % T) + T) % T : 0;
-        for (let k = 0; k < PTS; k++) {
-          let s = head - (L * k) / (PTS - 1);
-          if (F.closed) s = ((s % T) + T) % T;
-          else s = Math.max(0, s);
-          const u = T ? s / T : 0,
-            wave = Math.sin(S.phase + 6.2832 * S.turns * u),
+      const drawnCount = (flow.drawnCount = Math.round(flow.count * Math.max(0, Math.min(1, flow.amount)))),
+        vertices = flow.vertices,
+        points = new Float64Array(STREAK_POINTS * 3), // (one small array a frame: nothing a streak)
+        point = new Float64Array(3);
+      for (let i = 0; i < drawnCount; i++) {
+        const seed = flow.seeds[i],
+          pathLength = seed.path.total,
+          streakLength = flow.length * pathLength,
+          head = pathLength
+            ? (((seed.start * pathLength + flow.travelled * seed.pace) % pathLength) + pathLength) % pathLength
+            : 0;
+        for (let k = 0; k < STREAK_POINTS; k++) {
+          let distance = head - (streakLength * k) / (STREAK_POINTS - 1);
+          if (flow.closed) distance = ((distance % pathLength) + pathLength) % pathLength;
+          else distance = Math.max(0, distance);
+          const along = pathLength ? distance / pathLength : 0,
+            wave = Math.sin(seed.phase + 6.2832 * seed.turns * along),
             // fading from head to tail, and in and out at an open path's ends (no streak pops into or out of sight)
-            ends = F.closed ? 1 : Math.max(0, Math.min(1, u / 0.06, (1 - u) / 0.06));
-          S.path.into(s, p, 0);
-          for (let j = 0; j < 3; j++) p[j] += (S.off[j] + S.wob[j] * wave) * F.spread;
+            ends = flow.closed ? 1 : Math.max(0, Math.min(1, along / 0.06, (1 - along) / 0.06));
+          seed.path.into(distance, point, 0);
+          for (let j = 0; j < 3; j++) point[j] += (seed.offset[j] + seed.wobble[j] * wave) * flow.spread;
           for (let j = 0; j < 3; j++)
-            P[3 * k + j] = m ? m[j] * p[0] + m[4 + j] * p[1] + m[8 + j] * p[2] + m[12 + j] : p[j];
+            points[3 * k + j] = m ? m[j] * point[0] + m[4 + j] * point[1] + m[8 + j] * point[2] + m[12 + j] : point[j];
           for (let side = 0; side < 2; side++) {
-            const o = ((i * PTS + k) * 2 + side) * STRIDE;
-            V[o + 3] = side ? 1 : -1;
-            V[o + 7] = u;
-            V[o + 8] = (1 - k / (PTS - 1)) * ends;
+            const vertex = ((i * STREAK_POINTS + k) * 2 + side) * STRIDE;
+            vertices[vertex + 3] = side ? 1 : -1;
+            vertices[vertex + 7] = along;
+            vertices[vertex + 8] = (1 - k / (STREAK_POINTS - 1)) * ends;
           }
         }
         // each point's place, and the streak's direction there (towards the head)
-        for (let k = 0; k < PTS; k++) {
-          const a = 3 * Math.max(0, k - 1),
-            b = 3 * Math.min(PTS - 1, k + 1);
+        for (let k = 0; k < STREAK_POINTS; k++) {
+          const behind = 3 * Math.max(0, k - 1),
+            ahead = 3 * Math.min(STREAK_POINTS - 1, k + 1);
           for (let side = 0; side < 2; side++) {
-            const o = ((i * PTS + k) * 2 + side) * STRIDE;
+            const vertex = ((i * STREAK_POINTS + k) * 2 + side) * STRIDE;
             for (let j = 0; j < 3; j++) {
-              V[o + j] = P[3 * k + j];
-              V[o + 4 + j] = P[a + j] - P[b + j];
+              vertices[vertex + j] = points[3 * k + j];
+              vertices[vertex + 4 + j] = points[behind + j] - points[ahead + j];
             }
           }
         }
       }
     },
   };
-  return F;
+  return flow;
 }
 
-// the triangles of n streaks: two a segment
-export function flowIndices(n) {
-  const I = new Uint16Array(n * (PTS - 1) * 6);
-  let j = 0;
-  for (let i = 0; i < n; i++)
-    for (let k = 0; k < PTS - 1; k++) {
-      const v = (i * PTS + k) * 2;
-      I.set([v, v + 1, v + 2, v + 1, v + 3, v + 2], j);
-      j += 6;
+// the triangles of that many streaks: two a segment
+export function flowIndices(streakCount) {
+  const indices = new Uint16Array(streakCount * (STREAK_POINTS - 1) * 6);
+  let offset = 0;
+  for (let i = 0; i < streakCount; i++)
+    for (let k = 0; k < STREAK_POINTS - 1; k++) {
+      const first = (i * STREAK_POINTS + k) * 2;
+      indices.set([first, first + 1, first + 2, first + 1, first + 3, first + 2], offset);
+      offset += 6;
     }
-  return I;
+  return indices;
 }

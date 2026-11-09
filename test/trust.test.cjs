@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const LK3D = require('../src/index.js');
-const { Geo, buildFitting } = require('../src/geometry.js');
+const { Mesh, buildFitting } = require('../src/geometry.js');
 const { load, parseGLB, dims } = require('../src/gltf.js');
 const { validate } = require('../src/validate.js');
 
@@ -76,7 +76,7 @@ const triangle = (change = (j) => j) =>
     ],
     buffers: [{ byteLength: 44 }],
   });
-const readModel = (json, bin = TRI) => load(Geo, glb(json, bin));
+const readModel = (json, bin = TRI) => load(Mesh, glb(json, bin));
 
 test('a scene in a form the engine cannot build is refused, naming the place', () => {
   const loop = one({ box: [1, 1, 1] });
@@ -144,7 +144,7 @@ test('what a scene asks to be built is counted: refused at once, or as it reache
   // a detail multiplied in scatters inside scatters stops at 16: no path of a billion points
   let s = { orbit: { a: 1 } };
   for (let k = 0; k < 6; k++) s = { scatter: { shape: s, n: 1, detail: 8 }, detail: 8 };
-  assert.ok(LK3D.build(one(s), 1).parts[0].tris < 1e6);
+  assert.ok(LK3D.build(one(s), 1).parts[0].triangleCount < 1e6);
   // not foreseen by the estimate: stopped as the limit is reached, with the same sentence
   const t = Date.now();
   refused(
@@ -191,10 +191,10 @@ test('a device with little memory gets a lower limit: coarser where that fits, e
   const heavy = {
     parts: Array.from({ length: 6 }, (_, k) => ({ id: 'p' + k, at: [k, 0, 0], shapes: [{ sphere: 0.4, seg: 512 }] })),
   };
-  assert.ok(LK3D.build(heavy, 1).parts.reduce((n, p) => n + p.tris, 0) > 1e6);
+  assert.ok(LK3D.build(heavy, 1).parts.reduce((n, p) => n + p.triangleCount, 0) > 1e6);
   const S = buildFitting(heavy, 1, 1e6);
-  assert.equal(S.q, 0.5);
-  assert.ok(S.parts.reduce((n, p) => n + p.tris, 0) <= 1e6);
+  assert.equal(S.quality, 0.5);
+  assert.ok(S.parts.reduce((n, p) => n + p.triangleCount, 0) <= 1e6);
   assert.throws(
     () => buildFitting(heavy, 1, 2e4),
     (e) => plain(e) && /the limit is 20000/.test(e.message),
@@ -204,7 +204,7 @@ test('a device with little memory gets a lower limit: coarser where that fits, e
     for (const f of fs.readdirSync(path.join(HERE, d))) {
       const scene = JSON.parse(fs.readFileSync(path.join(HERE, d, f), 'utf8'));
       for (const m of Object.values(scene.models || {})) if (m.file) m.data = CARD;
-      assert.equal(buildFitting(scene, 0.6, 1e6).q, 0.6, `${d}/${f}`);
+      assert.equal(buildFitting(scene, 0.6, 1e6).quality, 0.6, `${d}/${f}`);
     }
 });
 
@@ -280,11 +280,11 @@ test('a hostile .glb is refused with a sentence, at once, before any large alloc
     '%%%% not base64 %%%%',
   ])
     try {
-      load(Geo, data);
+      load(Mesh, data);
     } catch (e) {
       plain(e, /^lk3d model: \S/);
     }
-  assert.throws(() => load(Geo, '%%%% not base64 %%%%'), /lk3d model: its data should be the .glb as base64/);
+  assert.throws(() => load(Mesh, '%%%% not base64 %%%%'), /lk3d model: its data should be the .glb as base64/);
   // (a scene's model data that is not text: said at its shape)
   assert.throws(
     () => LK3D.build({ models: { m: { data: 42 } }, parts: [{ id: 'p', shapes: [{ model: 'm' }] }] }),
@@ -355,7 +355,7 @@ test('embedded images: PNG, JPEG or WebP only, and no bigger than the page can d
       bin,
     );
   };
-  assert.equal(textured(png(1024, 1024)).tex.base.mime, 'image/png');
+  assert.equal(textured(png(1024, 1024)).textures.base.mime, 'image/png');
   for (const [img, mime] of [
     [png(100000, 100000), 'image/png'],
     [jpeg(9000, 100), 'image/jpeg'],
@@ -530,7 +530,7 @@ test('fuzz: every reference model, its JSON and its bytes changed at random, is 
         data = b.toString('base64');
       }
     }
-    const r = outcome(() => load(Geo, data));
+    const r = outcome(() => load(Mesh, data));
     slowest = Math.max(slowest, r.ms);
     if (r.ok) read++;
     else plain(r.e, /^lk3d model: \S/);

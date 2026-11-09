@@ -20,360 +20,412 @@ const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -
 // a part as one geometry in scene coordinates (moved apart by `apart`, 0 at rest), its bounds, a tree for rays, and
 // whether it is closed (a solid that has an inside: no surface ends anywhere)
 const closedOf = new WeakMap(); // (per geometry: parts alike share theirs)
-function solid(p) {
-  const g = flatten(p),
-    closed = p.batches.every((b) => {
-      if (!closedOf.has(b.geo)) closedOf.set(b.geo, isClosed(b.geo));
-      return closedOf.get(b.geo);
+function solidOf(part) {
+  const mesh = flatten(part),
+    closed = part.batches.every((batch) => {
+      if (!closedOf.has(batch.mesh)) closedOf.set(batch.mesh, isClosed(batch.mesh));
+      return closedOf.get(batch.mesh);
     });
-  return { p, g, bvh: buildBVH(g), closed };
+  return { part, mesh, bvh: buildBVH(mesh), closed };
 }
-const at = (s, apart) => mulv(s.p.explode, apart);
+const offsetAt = (solid, apart) => mulv(solid.part.explode, apart);
 
 // how deep a point is inside a closed part (0: outside): the nearest hit of each of three rays must be the back of a
 // face, so the point is enclosed; its depth is the nearest of those hits
-function depthIn(s, q) {
+function depthIn(solid, point) {
   let inside = 0,
     depth = Infinity;
-  for (const d of RAYS) {
-    const h = intersect(s.g, s.bvh, q, d);
-    if (!h) continue;
-    const I = s.g.i,
-      P = s.g.p,
-      v = (k) => [P[3 * I[3 * h.tri + k]], P[3 * I[3 * h.tri + k] + 1], P[3 * I[3 * h.tri + k] + 2]],
-      n = cross(sub(v(1), v(0)), sub(v(2), v(0)));
-    if (dot(n, d) > 0) {
+  for (const ray of RAYS) {
+    const hit = intersect(solid.mesh, solid.bvh, point, ray);
+    if (!hit) continue;
+    const indices = solid.mesh.indices,
+      positions = solid.mesh.positions,
+      corner = (k) => [
+        positions[3 * indices[3 * hit.triangle + k]],
+        positions[3 * indices[3 * hit.triangle + k] + 1],
+        positions[3 * indices[3 * hit.triangle + k] + 2],
+      ],
+      normal = cross(sub(corner(1), corner(0)), sub(corner(2), corner(0)));
+    if (dot(normal, ray) > 0) {
       inside++;
-      depth = Math.min(depth, h.t);
+      depth = Math.min(depth, hit.t);
     }
   }
   return inside >= 2 ? depth : 0;
 }
 // points on a part's surface, to test against another: 600, spread evenly by area (a thin plate cutting across a post
 // has no vertex inside it, but some of the post's surface is), the same every run
-function samples(s) {
-  if (s.pts) return s.pts;
-  const P = s.g.p,
-    I = s.g.i,
-    t = I.length / 3,
-    cum = new Float64Array(t),
-    v = (k, j) => [P[3 * I[3 * k + j]], P[3 * I[3 * k + j] + 1], P[3 * I[3 * k + j] + 2]];
+function samples(solid) {
+  if (solid.surfacePoints) return solid.surfacePoints;
+  const positions = solid.mesh.positions,
+    indices = solid.mesh.indices,
+    triangleCount = indices.length / 3,
+    cumulativeArea = new Float64Array(triangleCount),
+    corner = (triangle, j) => [
+      positions[3 * indices[3 * triangle + j]],
+      positions[3 * indices[3 * triangle + j] + 1],
+      positions[3 * indices[3 * triangle + j] + 2],
+    ];
   let total = 0;
-  for (let k = 0; k < t; k++) cum[k] = total += len(cross(sub(v(k, 1), v(k, 0)), sub(v(k, 2), v(k, 0))));
-  const out = [];
-  for (let n = 0, k = 0; n < 600 && total > 0; n++) {
-    const want = ((n + 0.5) / 600) * total;
-    while (k < t - 1 && cum[k] < want) k++;
-    let x = (n * 0.618034) % 1,
-      y = (n * 0.754878) % 1;
+  for (let k = 0; k < triangleCount; k++)
+    cumulativeArea[k] = total += len(cross(sub(corner(k, 1), corner(k, 0)), sub(corner(k, 2), corner(k, 0))));
+  const points = [];
+  for (let sample = 0, triangle = 0; sample < 600 && total > 0; sample++) {
+    const target = ((sample + 0.5) / 600) * total;
+    while (triangle < triangleCount - 1 && cumulativeArea[triangle] < target) triangle++;
+    let x = (sample * 0.618034) % 1,
+      y = (sample * 0.754878) % 1;
     if (x + y > 1) [x, y] = [1 - x, 1 - y];
-    const A = v(k, 0);
-    out.push(add(A, add(mulv(sub(v(k, 1), A), x), mulv(sub(v(k, 2), A), y))));
+    const first = corner(triangle, 0);
+    points.push(add(first, add(mulv(sub(corner(triangle, 1), first), x), mulv(sub(corner(triangle, 2), first), y))));
   }
-  return (s.pts = out);
+  return (solid.surfacePoints = points);
 }
-// the share of a's points more than eps inside b, with both moved apart by `apart` (a point outside b's box is not
-// inside b: no rays are cast for it)
-function through(a, b, apart, eps) {
-  const pts = samples(a),
-    shift = sub(at(a, apart), at(b, apart));
+// the share of a's points more than `tolerance` inside b, with both moved apart by `apart` (a point outside b's box is
+// not inside b: no rays are cast for it)
+function through(a, b, apart, tolerance) {
+  const points = samples(a),
+    shift = sub(offsetAt(a, apart), offsetAt(b, apart));
   let hits = 0;
-  for (const q of pts) {
-    const r = add(q, shift);
-    if (inBox(b, r) && depthIn(b, r) > eps) hits++;
+  for (const point of points) {
+    const moved = add(point, shift);
+    if (inBox(b, moved) && depthIn(b, moved) > tolerance) hits++;
   }
-  return pts.length ? hits / pts.length : 0;
+  return points.length ? hits / points.length : 0;
 }
-// the share of a's points more than eps inside b, each part placed by its matrix (a motion's): a's points into the
-// scene by Ma, then into b's own frame at rest by the inverse of Mb
-function throughM(a, Ma, b, Mb, eps) {
-  const pts = samples(a),
-    to = M.mul(M.invert(Mb), Ma);
+// the share of a's points more than `tolerance` inside b, each part placed by its matrix (a motion's): a's points into
+// the scene by matrixA, then into b's own frame at rest by the inverse of matrixB
+function throughMatrices(a, matrixA, b, matrixB, tolerance) {
+  const points = samples(a),
+    aToB = M.mul(M.invert(matrixB), matrixA);
   let hits = 0;
-  for (const q of pts) {
-    const r = M.pt(to, q);
-    if (inBox(b, r) && depthIn(b, r) > eps) hits++;
+  for (const point of points) {
+    const moved = M.pt(aToB, point);
+    if (inBox(b, moved) && depthIn(b, moved) > tolerance) hits++;
   }
-  return pts.length ? hits / pts.length : 0;
+  return points.length ? hits / points.length : 0;
 }
 // a part's box placed by a matrix (its eight corners, moved)
-function boxAt(s, m) {
-  const lo = [Infinity, Infinity, Infinity],
-    hi = [-Infinity, -Infinity, -Infinity];
-  for (let c = 0; c < 8; c++) {
-    const w = M.pt(
+function boxAt(solid, m) {
+  const low = [Infinity, Infinity, Infinity],
+    high = [-Infinity, -Infinity, -Infinity];
+  for (let corner = 0; corner < 8; corner++) {
+    const moved = M.pt(
       m,
-      [0, 1, 2].map((a) => ((c >> a) & 1 ? s.p.hi[a] : s.p.lo[a])),
+      [0, 1, 2].map((axis) => ((corner >> axis) & 1 ? solid.part.max[axis] : solid.part.min[axis])),
     );
-    for (let a = 0; a < 3; a++) {
-      lo[a] = Math.min(lo[a], w[a]);
-      hi[a] = Math.max(hi[a], w[a]);
+    for (let axis = 0; axis < 3; axis++) {
+      low[axis] = Math.min(low[axis], moved[axis]);
+      high[axis] = Math.max(high[axis], moved[axis]);
     }
   }
-  return [lo, hi];
+  return [low, high];
 }
 // is the point within the part's bounds at rest? (a cheap test before casting rays)
-const inBox = (s, q) => [0, 1, 2].every((k) => q[k] >= s.p.lo[k] && q[k] <= s.p.hi[k]);
-// do the bounds of a and b (moved apart by `apart`) overlap, give or take eps?
-function near(a, b, apart, eps) {
-  const oa = at(a, apart),
-    ob = at(b, apart);
+const inBox = (solid, point) =>
+  [0, 1, 2].every((axis) => point[axis] >= solid.part.min[axis] && point[axis] <= solid.part.max[axis]);
+// do the bounds of a and b (moved apart by `apart`) overlap, give or take `tolerance`?
+function near(a, b, apart, tolerance) {
+  const offsetA = offsetAt(a, apart),
+    offsetB = offsetAt(b, apart);
   for (let k = 0; k < 3; k++)
-    if (a.p.lo[k] + oa[k] > b.p.hi[k] + ob[k] + eps || b.p.lo[k] + ob[k] > a.p.hi[k] + oa[k] + eps) return false;
+    if (
+      a.part.min[k] + offsetA[k] > b.part.max[k] + offsetB[k] + tolerance ||
+      b.part.min[k] + offsetB[k] > a.part.max[k] + offsetA[k] + tolerance
+    )
+      return false;
   return true;
 }
 
-// the stretch of the way apart (from 0 to 1) in which a's and b's boxes overlap, give or take eps; null if never. Each
-// box moves along its own explode, so on each axis the overlap holds between two amounts
-function when(a, b, eps) {
+// the stretch of the way apart (from 0 to 1) in which a's and b's boxes overlap, give or take `tolerance`; null if
+// never. Each box moves along its own explode, so on each axis the overlap holds between two amounts
+function when(a, b, tolerance) {
   let t0 = 0,
     t1 = 1;
   for (let k = 0; k < 3; k++) {
-    // a.lo + t·ea ≤ b.hi + t·eb + eps and b.lo + t·eb ≤ a.hi + t·ea + eps, as d·t ≤ c twice
-    const d = a.p.explode[k] - b.p.explode[k];
-    for (const [c, s] of [
-      [b.p.hi[k] + eps - a.p.lo[k], d],
-      [a.p.hi[k] + eps - b.p.lo[k], -d],
+    // a.min + t·ea ≤ b.max + t·eb + tolerance and b.min + t·eb ≤ a.max + t·ea + tolerance, as rate·t ≤ limit twice
+    const relative = a.part.explode[k] - b.part.explode[k];
+    for (const [limit, rate] of [
+      [b.part.max[k] + tolerance - a.part.min[k], relative],
+      [a.part.max[k] + tolerance - b.part.min[k], -relative],
     ]) {
-      if (Math.abs(s) < 1e-12) {
-        if (c < 0) return null;
-      } else if (s > 0) t1 = Math.min(t1, c / s);
-      else t0 = Math.max(t0, c / s);
+      if (Math.abs(rate) < 1e-12) {
+        if (limit < 0) return null;
+      } else if (rate > 0) t1 = Math.min(t1, limit / rate);
+      else t0 = Math.max(t0, limit / rate);
     }
   }
   return t0 <= t1 ? [t0, t1] : null;
 }
 // the amounts apart at which to test a pair: within the stretch they overlap, in steps that move one part against the
 // other by less than half the thinner one (a pin sent through a thin plate is caught), at most 32
-function amounts(a, b, eps) {
-  const w = when(a, b, -eps);
-  if (!w) return [];
-  const rel = len(sub(a.p.explode, b.p.explode)),
+function amounts(a, b, tolerance) {
+  const stretch = when(a, b, -tolerance);
+  if (!stretch) return [];
+  const relative = len(sub(a.part.explode, b.part.explode)),
     thin = Math.max(
-      eps,
-      Math.min(...[0, 1, 2].map((k) => a.p.hi[k] - a.p.lo[k]), ...[0, 1, 2].map((k) => b.p.hi[k] - b.p.lo[k])),
+      tolerance,
+      Math.min(
+        ...[0, 1, 2].map((k) => a.part.max[k] - a.part.min[k]),
+        ...[0, 1, 2].map((k) => b.part.max[k] - b.part.min[k]),
+      ),
     ),
-    n = Math.min(32, Math.max(4, Math.ceil(((w[1] - w[0]) * rel) / (thin / 2)))),
-    out = [];
-  for (let k = 0; k <= n; k++) if (w[0] + ((w[1] - w[0]) * k) / n > 0) out.push(w[0] + ((w[1] - w[0]) * k) / n);
-  return out;
+    steps = Math.min(32, Math.max(4, Math.ceil(((stretch[1] - stretch[0]) * relative) / (thin / 2)))),
+    list = [];
+  for (let k = 0; k <= steps; k++)
+    if (stretch[0] + ((stretch[1] - stretch[0]) * k) / steps > 0)
+      list.push(stretch[0] + ((stretch[1] - stretch[0]) * k) / steps);
+  return list;
 }
 
-// the pairs of parts worth testing: those whose boxes, swept along their way apart and grown by eps, share a cell of
-// a grid (a part that spans a great many cells, a casing, is paired with every part): a model of thousands of parts
-// is not tested pair by pair
-function candidates(parts, eps) {
-  const n = parts.length,
-    boxes = parts.map(({ p }) => {
-      const lo = p.lo.slice(),
-        hi = p.hi.slice();
-      for (let a = 0; a < 3; a++) {
-        lo[a] += Math.min(0, p.explode[a]) - eps;
-        hi[a] += Math.max(0, p.explode[a]) + eps;
+// the pairs of parts worth testing: those whose boxes, swept along their way apart and grown by `tolerance`, share a
+// cell of a grid (a part that spans a great many cells, a casing, is paired with every part): a model of thousands of
+// parts is not tested pair by pair
+function candidates(solids, tolerance) {
+  const count = solids.length,
+    boxes = solids.map(({ part }) => {
+      const low = part.min.slice(),
+        high = part.max.slice();
+      for (let axis = 0; axis < 3; axis++) {
+        low[axis] += Math.min(0, part.explode[axis]) - tolerance;
+        high[axis] += Math.max(0, part.explode[axis]) + tolerance;
       }
-      return [lo, hi];
+      return [low, high];
     }),
-    sizes = boxes.map(([lo, hi]) => Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2])).sort((a, b) => a - b),
-    cell = Math.max(1e-6, (sizes[n >> 1] || 1) * 2),
+    sizes = boxes
+      .map(([low, high]) => Math.max(high[0] - low[0], high[1] - low[1], high[2] - low[2]))
+      .sort((a, b) => a - b),
+    cellSize = Math.max(1e-6, (sizes[count >> 1] || 1) * 2),
     grid = new Map(),
     big = [],
-    out = new Set();
-  boxes.forEach(([lo, hi], i) => {
-    const c0 = lo.map((v) => Math.floor(v / cell)),
-      c1 = hi.map((v) => Math.floor(v / cell));
-    if ((c1[0] - c0[0] + 1) * (c1[1] - c0[1] + 1) * (c1[2] - c0[2] + 1) > 512) return big.push(i);
-    for (let x = c0[0]; x <= c1[0]; x++)
-      for (let y = c0[1]; y <= c1[1]; y++)
-        for (let z = c0[2]; z <= c1[2]; z++) {
-          const k = x + ',' + y + ',' + z,
-            list = grid.get(k) || [];
-          for (const j of list) out.add(j * n + i);
+    pairKeys = new Set();
+  boxes.forEach(([low, high], i) => {
+    const firstCell = low.map((value) => Math.floor(value / cellSize)),
+      lastCell = high.map((value) => Math.floor(value / cellSize));
+    if ((lastCell[0] - firstCell[0] + 1) * (lastCell[1] - firstCell[1] + 1) * (lastCell[2] - firstCell[2] + 1) > 512)
+      return big.push(i);
+    for (let x = firstCell[0]; x <= lastCell[0]; x++)
+      for (let y = firstCell[1]; y <= lastCell[1]; y++)
+        for (let z = firstCell[2]; z <= lastCell[2]; z++) {
+          const key = x + ',' + y + ',' + z,
+            list = grid.get(key) || [];
+          for (const j of list) pairKeys.add(j * count + i);
           list.push(i);
-          grid.set(k, list);
+          grid.set(key, list);
         }
   });
-  for (const i of big) for (let j = 0; j < n; j++) if (j !== i) out.add(Math.min(i, j) * n + Math.max(i, j));
-  return [...out].map((k) => [Math.floor(k / n), k % n]);
+  for (const i of big)
+    for (let j = 0; j < count; j++) if (j !== i) pairKeys.add(Math.min(i, j) * count + Math.max(i, j));
+  return [...pairKeys].map((key) => [Math.floor(key / count), key % count]);
 }
 
-export function lint(scene, o = {}) {
-  const S = buildScene(scene, o.quality ?? 0.5),
-    eps = S.radius * 0.005, // half a percent of the model: closer than this is touching
+export function lint(scene, options = {}) {
+  const built = buildScene(scene, options.quality ?? 0.5),
+    tolerance = built.radius * 0.005, // half a percent of the model: closer than this is touching
     check = scene.check || {},
-    pair = (a, b) => (check.allow || []).some(([x, y]) => (x === a && y === b) || (x === b && y === a)),
-    named = (p, list) => list === true || (list || []).some((k) => k === p.id || k === p.group),
-    index = new Map((scene.parts || []).map((p, k) => [p.id, k])),
-    path = (p) => `parts[${index.get(p.id) ?? p.index}]`,
+    allowed = (a, b) =>
+      (check.allow || []).some(([first, second]) => (first === a && second === b) || (first === b && second === a)),
+    named = (part, list) => list === true || (list || []).some((name) => name === part.id || name === part.group),
+    indexById = new Map((scene.parts || []).map((part, k) => [part.id, k])),
+    path = (part) => `parts[${indexById.get(part.id) ?? part.index}]`,
     problems = [],
-    parts = S.parts.filter((p) => p.tris > 0).map(solid);
+    solids = built.parts.filter((part) => part.triangleCount > 0).map(solidOf);
   // parts that make nothing to draw, or a shape whose numbers are not numbers (NaN): the rest of the check is blind there
-  for (const p of S.parts)
-    if ((!p.tris && !p.fluid) || p.batches.some((b) => !b.geo.p.every(Number.isFinite)))
+  for (const part of built.parts)
+    if (
+      (!part.triangleCount && !part.fluid) ||
+      part.batches.some((batch) => !batch.mesh.positions.every(Number.isFinite))
+    )
       // (an empty vessel's liquid: none)
       problems.push({
-        path: path(p),
-        message: p.tris
-          ? `${p.id} has a shape whose size or place is not a number: check its fields`
-          : `${p.id} makes no triangles: check its shapes (an empty outline, a radius of 0, a node the model lacks)`,
+        path: path(part),
+        message: part.triangleCount
+          ? `${part.id} has a shape whose size or place is not a number: check its fields`
+          : `${part.id} makes no triangles: check its shapes (an empty outline, a radius of 0, a node the model lacks)`,
       });
   // parts that run into each other on the way apart (wherever their boxes meet on it): more of one inside the other
   // than at rest
-  const near0 = parts.map(() => false), // (whether each part touches another at rest: for the check below)
-    pairs = candidates(parts, eps);
+  const touchesAtRest = solids.map(() => false), // (whether each part touches another at rest: for the check below)
+    pairs = candidates(solids, tolerance);
   for (const [i, j] of pairs) {
-    const a = parts[i],
-      b = parts[j];
-    if (near(a, b, 0, eps)) near0[i] = near0[j] = true;
-    if (pair(a.p.id, b.p.id) || (!a.closed && !b.closed)) continue;
+    const a = solids[i],
+      b = solids[j];
+    if (near(a, b, 0, tolerance)) touchesAtRest[i] = touchesAtRest[j] = true;
+    if (allowed(a.part.id, b.part.id) || (!a.closed && !b.closed)) continue;
     {
       const share = (apart) =>
-        near(a, b, apart, -eps)
-          ? Math.max(b.closed ? through(a, b, apart, eps) : 0, a.closed ? through(b, a, apart, eps) : 0)
+        near(a, b, apart, -tolerance)
+          ? Math.max(b.closed ? through(a, b, apart, tolerance) : 0, a.closed ? through(b, a, apart, tolerance) : 0)
           : 0;
       const rest = share(0),
-        worst = Math.max(0, ...amounts(a, b, eps).map(share));
+        worst = Math.max(0, ...amounts(a, b, tolerance).map(share));
       if (worst > rest + 0.03)
         problems.push({
-          path: path(a.p),
-          message: `${a.p.id} and ${b.p.id} run into each other when taken apart (${Math.round(worst * 100)} % of one inside the other, ${Math.round(rest * 100)} % at rest): move them apart along other paths`,
+          path: path(a.part),
+          message: `${a.part.id} and ${b.part.id} run into each other when taken apart (${Math.round(worst * 100)} % of one inside the other, ${Math.round(rest * 100)} % at rest): move them apart along other paths`,
         });
     }
   }
   // parts that run into each other as a motion goes through its range (the others at their start): more of one inside
   // the other than with every motion at its start
   // (a part on a joint is posed by it too: moved by the motion when the joint's value comes from it)
-  const J = jointsOf(scene),
-    joint = parts.map((s) => jointOf(J, s.p)),
+  const sceneJoints = jointsOf(scene),
+    jointFor = solids.map((solid) => jointOf(sceneJoints, solid.part)),
     poses = new Map(),
-    jointAt = (i, v) => {
-      if (!joint[i]) return M.id();
-      const k = JSON.stringify(v);
-      if (!poses.has(k)) poses.set(k, solveJoints(J, scene.motions, v));
-      return poses.get(k).matrix.get(joint[i].id);
+    jointAt = (i, values) => {
+      if (!jointFor[i]) return M.id();
+      const key = JSON.stringify(values);
+      if (!poses.has(key)) poses.set(key, solveJoints(sceneJoints, scene.motions, values));
+      return poses.get(key).matrix.get(jointFor[i].id);
     };
-  for (const mo of scene.motions || []) {
-    const [a0, a1] = mo.range,
-      keys = (mo.tracks || []).reduce((n, tr) => n + (tr.move || (tr.turn && tr.turn.keys) || []).length, 0),
-      n = Math.min(64, Math.max(16, keys * 4, joint.some((j) => j && motionsOf(J, j).has(mo.id)) ? 48 : 0)),
-      tracks = parts.map((s) => tracksOf(scene.motions, s.p)),
-      movers = parts
-        .map((s, i) => i)
-        .filter((i) => tracks[i].some((x) => x.mo === mo) || (joint[i] && motionsOf(J, joint[i]).has(mo.id)));
-    const at = (i, v) => M.mul(motionMatrix(tracks[i], v), jointAt(i, v)),
-      rest = parts.map((s, i) => at(i, {}));
+  for (const motion of scene.motions || []) {
+    const [start, end] = motion.range,
+      keyCount = (motion.tracks || []).reduce(
+        (count, track) => count + (track.move || (track.turn && track.turn.keys) || []).length,
+        0,
+      ),
+      steps = Math.min(
+        64,
+        Math.max(
+          16,
+          keyCount * 4,
+          jointFor.some((joint) => joint && motionsOf(sceneJoints, joint).has(motion.id)) ? 48 : 0,
+        ),
+      ),
+      tracks = solids.map((solid) => tracksOf(scene.motions, solid.part)),
+      movers = solids
+        .map((solid, i) => i)
+        .filter(
+          (i) =>
+            tracks[i].some((entry) => entry.motion === motion) ||
+            (jointFor[i] && motionsOf(sceneJoints, jointFor[i]).has(motion.id)),
+        );
+    const matrixAt = (i, values) => M.mul(motionMatrix(tracks[i], values), jointAt(i, values)),
+      restMatrices = solids.map((solid, i) => matrixAt(i, {}));
     for (const i of movers)
-      for (const [j, b] of parts.entries()) {
-        if (j === i || (movers.includes(j) && j < i) || pair(parts[i].p.id, b.p.id)) continue;
-        const a = parts[i];
+      for (const [j, b] of solids.entries()) {
+        if (j === i || (movers.includes(j) && j < i) || allowed(solids[i].part.id, b.part.id)) continue;
+        const a = solids[i];
         if (!a.closed && !b.closed) continue;
-        const share = (Ma, Mb) => {
-          const [la, ha] = boxAt(a, Ma),
-            [lb, hb] = boxAt(b, Mb);
-          if ([0, 1, 2].some((k) => la[k] > hb[k] - eps || lb[k] > ha[k] - eps)) return 0;
-          return Math.max(b.closed ? throughM(a, Ma, b, Mb, eps) : 0, a.closed ? throughM(b, Mb, a, Ma, eps) : 0);
+        const share = (matrixA, matrixB) => {
+          const [lowA, highA] = boxAt(a, matrixA),
+            [lowB, highB] = boxAt(b, matrixB);
+          if ([0, 1, 2].some((k) => lowA[k] > highB[k] - tolerance || lowB[k] > highA[k] - tolerance)) return 0;
+          return Math.max(
+            b.closed ? throughMatrices(a, matrixA, b, matrixB, tolerance) : 0,
+            a.closed ? throughMatrices(b, matrixB, a, matrixA, tolerance) : 0,
+          );
         };
-        const at0 = share(rest[i], rest[j]);
+        const atStart = share(restMatrices[i], restMatrices[j]);
         let worst = 0;
-        for (let k = 0; k <= n; k++) {
-          const v = { [mo.id]: a0 + ((a1 - a0) * k) / n };
-          worst = Math.max(worst, share(at(i, v), at(j, v)));
+        for (let k = 0; k <= steps; k++) {
+          const values = { [motion.id]: start + ((end - start) * k) / steps };
+          worst = Math.max(worst, share(matrixAt(i, values), matrixAt(j, values)));
         }
-        if (worst > at0 + 0.03)
+        if (worst > atStart + 0.03)
           problems.push({
-            path: path(a.p),
-            message: `${a.p.id} and ${b.p.id} run into each other as ${mo.id} moves (${Math.round(worst * 100)} % of one inside the other, ${Math.round(at0 * 100)} % at its start): change the motion's keys or joints`,
+            path: path(a.part),
+            message: `${a.part.id} and ${b.part.id} run into each other as ${motion.id} moves (${Math.round(worst * 100)} % of one inside the other, ${Math.round(atStart * 100)} % at its start): change the motion's keys or joints`,
           });
       }
   }
   // liquids and gases (fluids.js): what each vessel holds, and where a pour or a heated gas would take it
   if (scene.liquids || scene.gases) {
-    const F = FX.fluidsOf(scene),
-      at = (v) => `vessels[${(scene.vessels || []).indexOf(scene.vessels.find((x) => x.id === v.id))}]`,
-      held = (v) => F.liquids.filter((l) => l.in === v.id).reduce((n, l) => n + l.volume, 0);
-    for (const v of F.vessels.values()) {
-      const cap = FX.capacity(v.inside),
+    const fluids = FX.fluidsOf(scene),
+      vesselPath = (vessel) =>
+        `vessels[${(scene.vessels || []).indexOf(scene.vessels.find((other) => other.id === vessel.id))}]`,
+      held = (vessel) =>
+        fluids.liquids.filter((liquid) => liquid.in === vessel.id).reduce((sum, liquid) => sum + liquid.volume, 0);
+    for (const vessel of fluids.vessels.values()) {
+      const capacity = FX.capacity(vessel.inside),
         // (everything that can pour into it, from the liquids that become one of its own)
-        poured = F.liquids
-          .filter((l) => l.into && F.liquids.find((x) => x.part === l.into)?.in === v.id)
-          .reduce((n, l) => n + l.volume, 0);
-      if (held(v) > cap * 1.0001)
+        poured = fluids.liquids
+          .filter(
+            (liquid) => liquid.into && fluids.liquids.find((other) => other.part === liquid.into)?.in === vessel.id,
+          )
+          .reduce((sum, liquid) => sum + liquid.volume, 0);
+      if (held(vessel) > capacity * 1.0001)
         problems.push({
-          path: at(v),
-          message: `${v.id} holds ${+held(v).toFixed(3)} but its inside takes ${+cap.toFixed(3)}: less liquid, or a larger inside`,
+          path: vesselPath(vessel),
+          message: `${vessel.id} holds ${+held(vessel).toFixed(3)} but its inside takes ${+capacity.toFixed(3)}: less liquid, or a larger inside`,
         });
-      else if (poured && held(v) + poured > cap * 1.0001)
+      else if (poured && held(vessel) + poured > capacity * 1.0001)
         problems.push({
-          path: at(v),
-          message: `${v.id} would overflow if all that pours into it came (${+(held(v) + poured).toFixed(3)}; it takes ${+cap.toFixed(3)})`,
+          path: vesselPath(vessel),
+          message: `${vessel.id} would overflow if all that pours into it came (${+(held(vessel) + poured).toFixed(3)}; it takes ${+capacity.toFixed(3)})`,
         });
       // its inside, filled to the brim, against its own walls: a profile wider than the vessel goes through the glass
-      const wall = parts.find((x) => x.p.id === v.part);
+      const wall = solids.find((solid) => solid.part.id === vessel.part);
       if (wall && wall.closed) {
         // (both ways: a liquid through the glass, or the glass inside a liquid wider than the vessel; from a hair above
         // its floor, which a liquid rests on)
-        const [h0, h1] = [v.inside[0][0], v.inside.at(-1)[0]],
-          full = solid(
-            buildScene({ parts: [{ id: v.id, shapes: [FX.shapeOf(v, h0 + (h1 - h0) * 0.01, h1)] }] }, 0.5).parts[0],
+        const [h0, h1] = [vessel.inside[0][0], vessel.inside.at(-1)[0]],
+          full = solidOf(
+            buildScene({ parts: [{ id: vessel.id, shapes: [FX.shapeOf(vessel, h0 + (h1 - h0) * 0.01, h1)] }] }, 0.5)
+              .parts[0],
           ),
-          out = Math.max(through(full, wall, 0, eps), through(wall, full, 0, eps));
-        if (out > 0.03)
+          crossing = Math.max(through(full, wall, 0, tolerance), through(wall, full, 0, tolerance));
+        if (crossing > 0.03)
           problems.push({
-            path: at(v),
-            message: `the inside given for ${v.id} goes through the walls of ${v.part} (${Math.round(out * 100)} % of one in the other): give its radius at each height inside the glass`,
+            path: vesselPath(vessel),
+            message: `the inside given for ${vessel.id} goes through the walls of ${vessel.part} (${Math.round(crossing * 100)} % of one in the other): give its radius at each height inside the glass`,
           });
       }
     }
-    for (const [i, x] of F.gases.entries()) {
-      const v = F.vessels.get(x.in),
-        h = FX.pistonHeight(v.inside, x.n, x.T, x.p, x.mass, F.m);
-      if (h >= v.inside[v.inside.length - 1][0] - 1e-9)
+    for (const [i, gas] of fluids.gases.entries()) {
+      const vessel = fluids.vessels.get(gas.in),
+        height = FX.pistonHeight(vessel.inside, gas.n, gas.T, gas.p, gas.mass, fluids.unitsPerMetre);
+      if (height >= vessel.inside[vessel.inside.length - 1][0] - 1e-9)
         problems.push({
           path: `gases[${i}]`,
-          message: `the gas in ${v.id} would push its piston out of it: fewer moles, a lower temperature, or a taller vessel`,
+          message: `the gas in ${vessel.id} would push its piston out of it: fewer moles, a lower temperature, or a taller vessel`,
         });
     }
   }
   // parts that rest on nothing: touching no other part and above the ground
   if (check.float !== true)
-    for (const [i, a] of parts.entries()) {
-      if (named(a.p, check.float) || a.p.lo[1] <= S.lo[1] + eps) continue;
-      if (!near0[i])
+    for (const [i, solid] of solids.entries()) {
+      if (named(solid.part, check.float) || solid.part.min[1] <= built.min[1] + tolerance) continue;
+      if (!touchesAtRest[i])
         problems.push({
-          path: path(a.p),
-          message: `${a.p.id} touches no other part and hangs in the air: rest it on another part, or list it under check.float`,
+          path: path(solid.part),
+          message: `${solid.part.id} touches no other part and hangs in the air: rest it on another part, or list it under check.float`,
         });
     }
   // labels that point inside another (opaque) part once taken apart, when labels show by themselves
-  for (const a of parts) {
-    if (!a.p.name || a.p.label === false) continue;
-    const q = add(a.p.anchor, at(a, 1)),
-      hid = parts.find(
+  for (const a of solids) {
+    if (!a.part.name || a.part.label === false) continue;
+    const labelPoint = add(a.part.anchor, offsetAt(a, 1)),
+      hiding = solids.find(
         (b) =>
           b !== a &&
           b.closed &&
-          !b.p.xray &&
-          b.p.alpha >= 0.99 &&
-          !pair(a.p.id, b.p.id) &&
-          inBox(b, sub(q, at(b, 1))) &&
-          depthIn(b, sub(q, at(b, 1))) > eps,
+          !b.part.xray &&
+          b.part.alpha >= 0.99 &&
+          !allowed(a.part.id, b.part.id) &&
+          inBox(b, sub(labelPoint, offsetAt(b, 1))) &&
+          depthIn(b, sub(labelPoint, offsetAt(b, 1))) > tolerance,
       );
-    if (hid)
+    if (hiding)
       problems.push({
-        path: path(a.p),
-        message: `the label of ${a.p.id} points inside ${hid.p.id} when taken apart, where no one sees it: give the part a label point ("label": [x, y, z]) on its visible surface`,
+        path: path(a.part),
+        message: `the label of ${a.part.id} points inside ${hiding.part.id} when taken apart, where no one sees it: give the part a label point ("label": [x, y, z]) on its visible surface`,
       });
   }
-  const shapes = (scene.parts || []).reduce((n, p) => n + (p.shapes || []).length, 0);
+  const shapes = (scene.parts || []).reduce((count, part) => count + (part.shapes || []).length, 0);
   return {
     problems,
     summary: {
-      parts: S.parts.length,
+      parts: built.parts.length,
       shapes,
-      placed: S.parts.reduce((n, p) => n + p.batches.reduce((m, b) => m + b.mats.length, 0), 0),
-      triangles: Math.round(S.parts.reduce((n, p) => n + p.tris, 0)),
-      accents: S.parts.filter((p) => p.accent).length,
-      named: S.parts.filter((p) => p.name).length,
-      size: parts.length ? S.radius * 2 : 0,
+      placed: built.parts.reduce(
+        (count, part) => count + part.batches.reduce((partCount, batch) => partCount + batch.placements.length, 0),
+        0,
+      ),
+      triangles: Math.round(built.parts.reduce((count, part) => count + part.triangleCount, 0)),
+      accents: built.parts.filter((part) => part.accent).length,
+      named: built.parts.filter((part) => part.name).length,
+      size: solids.length ? built.radius * 2 : 0,
     },
   };
 }
@@ -388,11 +440,11 @@ const direct =
 if (direct) {
   let text = '';
   process.stdin.setEncoding('utf8');
-  process.stdin.on('data', (d) => (text += d));
+  process.stdin.on('data', (chunk) => (text += chunk));
   process.stdin.on('end', () => {
-    const r = lint(JSON.parse(text));
-    console.log(JSON.stringify(r.summary));
-    for (const e of r.problems) console.log(JSON.stringify(e));
-    process.exitCode = r.problems.length ? 1 : 0;
+    const result = lint(JSON.parse(text));
+    console.log(JSON.stringify(result.summary));
+    for (const problem of result.problems) console.log(JSON.stringify(problem));
+    process.exitCode = result.problems.length ? 1 : 0;
   });
 }

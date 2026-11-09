@@ -12,98 +12,110 @@ import { guard, values } from './guard.js';
 // additionalProperties, items, prefixItems, minItems, maxItems, minimum, maximum, exclusiveMinimum, minLength, pattern,
 // anyOf, oneOf, dependentSchemas and local $ref. "x-message" on a schema replaces its own errors with one sentence.
 const TYPES = {
-  object: (v) => v !== null && typeof v === 'object' && !Array.isArray(v),
+  object: (value) => value !== null && typeof value === 'object' && !Array.isArray(value),
   array: Array.isArray,
-  string: (v) => typeof v === 'string',
-  number: (v) => typeof v === 'number' && Number.isFinite(v),
-  integer: (v) => Number.isInteger(v),
-  boolean: (v) => typeof v === 'boolean',
+  string: (value) => typeof value === 'string',
+  number: (value) => typeof value === 'number' && Number.isFinite(value),
+  integer: (value) => Number.isInteger(value),
+  boolean: (value) => typeof value === 'boolean',
 };
-const say = (v) => JSON.stringify(v);
+const say = (value) => JSON.stringify(value);
 // a schema with its local $ref filled in
-const resolve = (s) =>
-  s.$ref
+const resolve = (subschema) =>
+  subschema.$ref
     ? {
-        ...s.$ref
+        ...subschema.$ref
           .split('/')
           .slice(1)
-          .reduce((o, k) => o[k], schema),
-        ...s,
+          .reduce((node, key) => node[key], schema),
+        ...subschema,
         $ref: undefined,
       }
-    : s;
-function check(s, v, path, out) {
-  s = resolve(s);
-  const errs = [],
-    add = (message) => errs.push({ path, message });
-  if (s.type && !TYPES[s.type](v))
-    add(`should be ${s.type === 'array' ? 'a list' : s.type === 'object' ? 'an object' : 'a ' + s.type}`);
+    : subschema;
+function check(subschema, value, path, out) {
+  subschema = resolve(subschema);
+  const errors = [],
+    add = (message) => errors.push({ path, message });
+  if (subschema.type && !TYPES[subschema.type](value))
+    add(
+      `should be ${subschema.type === 'array' ? 'a list' : subschema.type === 'object' ? 'an object' : 'a ' + subschema.type}`,
+    );
   else {
-    if (s.enum && !s.enum.includes(v)) add(`should be one of ${s.enum.join(', ')}, not ${say(v)}`);
-    if ('const' in s && v !== s.const) add(`should be ${say(s.const)}`);
-    if (typeof v === 'number') {
-      if (s.minimum != null && v < s.minimum) add(`should be at least ${s.minimum}`);
-      if (s.maximum != null && v > s.maximum) add(`should be at most ${s.maximum}`);
-      if (s.exclusiveMinimum != null && v <= s.exclusiveMinimum) add(`should be more than ${s.exclusiveMinimum}`);
+    if (subschema.enum && !subschema.enum.includes(value))
+      add(`should be one of ${subschema.enum.join(', ')}, not ${say(value)}`);
+    if ('const' in subschema && value !== subschema.const) add(`should be ${say(subschema.const)}`);
+    if (typeof value === 'number') {
+      if (subschema.minimum != null && value < subschema.minimum) add(`should be at least ${subschema.minimum}`);
+      if (subschema.maximum != null && value > subschema.maximum) add(`should be at most ${subschema.maximum}`);
+      if (subschema.exclusiveMinimum != null && value <= subschema.exclusiveMinimum)
+        add(`should be more than ${subschema.exclusiveMinimum}`);
     }
-    if (typeof v === 'string') {
-      if (s.minLength && v.length < s.minLength) add('should not be empty');
-      if (s.pattern && !new RegExp(s.pattern).test(v)) add(`${say(v)} does not have the right form`);
+    if (typeof value === 'string') {
+      if (subschema.minLength && value.length < subschema.minLength) add('should not be empty');
+      if (subschema.pattern && !new RegExp(subschema.pattern).test(value))
+        add(`${say(value)} does not have the right form`);
     }
-    if (Array.isArray(v)) {
-      if (s.minItems != null && v.length < s.minItems) add(`should have at least ${s.minItems} items`);
-      if (s.maxItems != null && v.length > s.maxItems) add(`should have at most ${s.maxItems} items`);
-      v.forEach((x, k) => {
-        const it = (s.prefixItems && s.prefixItems[k]) || s.items;
-        if (it) check(it, x, `${path}[${k}]`, errs);
+    if (Array.isArray(value)) {
+      if (subschema.minItems != null && value.length < subschema.minItems)
+        add(`should have at least ${subschema.minItems} items`);
+      if (subschema.maxItems != null && value.length > subschema.maxItems)
+        add(`should have at most ${subschema.maxItems} items`);
+      value.forEach((item, index) => {
+        const itemSchema = (subschema.prefixItems && subschema.prefixItems[index]) || subschema.items;
+        if (itemSchema) check(itemSchema, item, `${path}[${index}]`, errors);
       });
     }
-    if (TYPES.object(v)) {
-      for (const k of s.required || []) if (!(k in v)) add(`needs ${k}`);
-      for (const [k, x] of Object.entries(v)) {
-        const p = s.properties && s.properties[k],
-          ap = s.additionalProperties;
-        if (p) check(p, x, path ? `${path}.${k}` : k, errs);
-        else if (ap && typeof ap === 'object') check(ap, x, path ? `${path}.${k}` : k, errs);
+    if (TYPES.object(value)) {
+      for (const field of subschema.required || []) if (!(field in value)) add(`needs ${field}`);
+      for (const [field, fieldValue] of Object.entries(value)) {
+        const fieldSchema = subschema.properties && subschema.properties[field],
+          additional = subschema.additionalProperties;
+        if (fieldSchema) check(fieldSchema, fieldValue, path ? `${path}.${field}` : field, errors);
+        else if (additional && typeof additional === 'object')
+          check(additional, fieldValue, path ? `${path}.${field}` : field, errors);
         // (said at the field itself, so a one-sentence x-message about the object does not hide which field it is)
-        else if (ap === false) errs.push({ path: path ? `${path}.${k}` : k, message: unknown(k, s) });
+        else if (additional === false)
+          errors.push({ path: path ? `${path}.${field}` : field, message: unknown(field, subschema) });
       }
-      for (const [k, d] of Object.entries(s.dependentSchemas || {})) if (k in v) check(d, v, path, errs);
+      for (const [field, dependent] of Object.entries(subschema.dependentSchemas || {}))
+        if (field in value) check(dependent, value, path, errors);
     }
-    const ok = (sub) => {
-      const e = [];
-      check(sub, v, path, e);
-      return !e.length;
+    const fits = (form) => {
+      const formErrors = [];
+      check(form, value, path, formErrors);
+      return !formErrors.length;
     };
-    if (s.anyOf && !s.anyOf.some(ok)) {
+    if (subschema.anyOf && !subschema.anyOf.some(fits)) {
       // when the value's type fits one form only (an object where the other form is false), what is wrong inside that
       // form is said, at its own field, rather than only that no form fits
-      const same = s.anyOf.filter((f) => (f = resolve(f)).type && TYPES[f.type](v));
-      if (same.length === 1) check(same[0], v, path, errs);
+      const sameType = subschema.anyOf.filter((form) => (form = resolve(form)).type && TYPES[form.type](value));
+      if (sameType.length === 1) check(sameType[0], value, path, errors);
       else add('is not any of the allowed forms');
     }
-    if (s.oneOf && s.oneOf.filter(ok).length !== 1) add('should match exactly one of the allowed forms');
+    if (subschema.oneOf && subschema.oneOf.filter(fits).length !== 1)
+      add('should match exactly one of the allowed forms');
   }
   // "x-message" says in one sentence what this field should be; errors deeper inside keep their own place and words
-  const own = errs.filter((e) => e.path === path),
-    deeper = errs.filter((e) => e.path !== path);
-  out.push(...(own.length && s['x-message'] ? [{ path, message: s['x-message'] }] : own), ...deeper);
+  const here = errors.filter((error) => error.path === path),
+    deeper = errors.filter((error) => error.path !== path);
+  out.push(...(here.length && subschema['x-message'] ? [{ path, message: subschema['x-message'] }] : here), ...deeper);
 }
 
 // A field the format does not have is most often a misspelt one ("mine" for min, "colour" for color), so the nearest
 // name is offered when it is a letter or two away (a third of the word's length); a shape's field (at, rot…) written on
 // the part that holds the shape is said to belong on the shape.
-function unknown(k, s) {
-  const names = Object.keys(s.properties || {}),
-    shape = schema.$defs.shape.properties;
-  if (s.properties?.shapes && k in shape) return `is not a field of the part: it goes on one of its shapes`;
-  let best = '',
-    most = Math.max(1, Math.floor(k.length / 3));
-  for (const n of names) {
-    const d = edits(k.toLowerCase(), n.toLowerCase());
-    if (d <= most) [best, most] = [n, d - 1];
+function unknown(field, subschema) {
+  const names = Object.keys(subschema.properties || {}),
+    shapeFields = schema.$defs.shape.properties;
+  if (subschema.properties?.shapes && field in shapeFields)
+    return `is not a field of the part: it goes on one of its shapes`;
+  let closest = '',
+    maxEdits = Math.max(1, Math.floor(field.length / 3));
+  for (const name of names) {
+    const distance = edits(field.toLowerCase(), name.toLowerCase());
+    if (distance <= maxEdits) [closest, maxEdits] = [name, distance - 1];
   }
-  return `is not a field here${best ? ` (${best}?)` : ''}`;
+  return `is not a field here${closest ? ` (${closest}?)` : ''}`;
 }
 // the fewest letters to add, remove or change to turn a into b (Levenshtein)
 function edits(a, b) {
@@ -118,161 +130,186 @@ function edits(a, b) {
 }
 
 // an axis (or a cut's normal) of length 0 has no direction: what it turns or slides would not move, or move by NaN
-const zero = (v) => Array.isArray(v) && v.length === 3 && v.every((x) => x === 0);
+const zero = (vector) => Array.isArray(vector) && vector.length === 3 && vector.every((component) => component === 0);
 const NO_WAY = 'has no direction: [0, 0, 0] points nowhere';
 
 // the scene's own cross-references
 function links(scene, out) {
-  const parts = Array.isArray(scene.parts) ? scene.parts.filter((p) => p && typeof p === 'object') : [];
+  const parts = Array.isArray(scene.parts) ? scene.parts.filter((part) => part && typeof part === 'object') : [];
   const section = scene.section;
   if (section && typeof section === 'object' && zero(section.normal))
     out.push({ path: 'section.normal', message: NO_WAY });
-  const names = new Set(parts.flatMap((p) => [p.id, p.group].filter(Boolean))),
+  const names = new Set(parts.flatMap((part) => [part.id, part.group].filter(Boolean))),
     seen = new Set(),
     models = scene.models || {};
-  parts.forEach((p, k) => {
-    if (p.id != null && seen.has(p.id))
-      out.push({ path: `parts[${k}].id`, message: `${say(p.id)} is used by two parts` });
-    seen.add(p.id);
+  parts.forEach((part, index) => {
+    if (part.id != null && seen.has(part.id))
+      out.push({ path: `parts[${index}].id`, message: `${say(part.id)} is used by two parts` });
+    seen.add(part.id);
     // a handle: an axis with a direction, a range from a value to one no smaller, a first value inside it (else the
     // part would jump to the range's end the first time it is moved)
-    const h = p.handle && typeof p.handle === 'object' ? p.handle : {};
-    for (const w of ['turn', 'slide'])
-      if (h[w] && zero(h[w].axis)) out.push({ path: `parts[${k}].handle.${w}.axis`, message: NO_WAY });
-    const num = (x) => typeof x === 'number';
-    if (num(h.min) && num(h.max) && h.min > h.max)
-      out.push({ path: `parts[${k}].handle`, message: `its min (${h.min}) is more than its max (${h.max})` });
-    else if (num(h.value) && ((num(h.min) && h.value < h.min) || (num(h.max) && h.value > h.max)))
+    const handle = part.handle && typeof part.handle === 'object' ? part.handle : {};
+    for (const kind of ['turn', 'slide'])
+      if (handle[kind] && zero(handle[kind].axis))
+        out.push({ path: `parts[${index}].handle.${kind}.axis`, message: NO_WAY });
+    const isNumber = (value) => typeof value === 'number';
+    if (isNumber(handle.min) && isNumber(handle.max) && handle.min > handle.max)
       out.push({
-        path: `parts[${k}].handle.value`,
-        message: `${h.value} is outside its range [${h.min ?? '…'}, ${h.max ?? '…'}]`,
+        path: `parts[${index}].handle`,
+        message: `its min (${handle.min}) is more than its max (${handle.max})`,
       });
-    for (const m of Array.isArray(h.moves) ? h.moves : []) {
-      if (!names.has(m))
-        out.push({ path: `parts[${k}].handle.moves`, message: `moves ${say(m)}, which is no part or group` });
+    else if (
+      isNumber(handle.value) &&
+      ((isNumber(handle.min) && handle.value < handle.min) || (isNumber(handle.max) && handle.value > handle.max))
+    )
+      out.push({
+        path: `parts[${index}].handle.value`,
+        message: `${handle.value} is outside its range [${handle.min ?? '…'}, ${handle.max ?? '…'}]`,
+      });
+    for (const moved of Array.isArray(handle.moves) ? handle.moves : []) {
+      if (!names.has(moved))
+        out.push({ path: `parts[${index}].handle.moves`, message: `moves ${say(moved)}, which is no part or group` });
     }
-    const walk = (s, path) => {
-      if (!s || typeof s !== 'object') return;
+    const walk = (shape, path) => {
+      if (!shape || typeof shape !== 'object') return;
       // a bond between atoms that exist
-      const atoms = s.molecule && Array.isArray(s.molecule.atoms) ? s.molecule.atoms.length : 0;
-      if (s.molecule && Array.isArray(s.molecule.bonds))
-        s.molecule.bonds.forEach((b, i) => {
-          if (Array.isArray(b) && b.slice(0, 2).some((a) => Number.isInteger(a) && (a < 0 || a >= atoms)))
+      const atomCount = shape.molecule && Array.isArray(shape.molecule.atoms) ? shape.molecule.atoms.length : 0;
+      if (shape.molecule && Array.isArray(shape.molecule.bonds))
+        shape.molecule.bonds.forEach((bond, i) => {
+          if (
+            Array.isArray(bond) &&
+            bond.slice(0, 2).some((atom) => Number.isInteger(atom) && (atom < 0 || atom >= atomCount))
+          )
             out.push({
               path: `${path}.molecule.bonds[${i}]`,
-              message: `joins an atom the molecule does not have (it has ${atoms})`,
+              message: `joins an atom the molecule does not have (it has ${atomCount})`,
             });
         });
-      if (typeof s.model === 'string' && !(s.model in models))
-        out.push({ path, message: `model ${say(s.model)} is not under the scene's models` });
-      if (s.scatter && s.scatter.shape) walk(s.scatter.shape, `${path}.scatter.shape`);
+      if (typeof shape.model === 'string' && !(shape.model in models))
+        out.push({ path, message: `model ${say(shape.model)} is not under the scene's models` });
+      if (shape.scatter && shape.scatter.shape) walk(shape.scatter.shape, `${path}.scatter.shape`);
     };
-    (Array.isArray(p.shapes) ? p.shapes : []).forEach((s, j) => walk(s, `parts[${k}].shapes[${j}]`));
+    (Array.isArray(part.shapes) ? part.shapes : []).forEach((shape, j) => walk(shape, `parts[${index}].shapes[${j}]`));
   });
   // vessels, liquids and gases: each names what exists; a part without shapes is a liquid's or a gas's (lk3d makes it)
-  const vids = new Set((Array.isArray(scene.vessels) ? scene.vessels : []).map((v) => v && v.id)),
-    lids = new Set((Array.isArray(scene.liquids) ? scene.liquids : []).map((l) => l && l.part)),
-    fluid = new Set([...lids, ...(Array.isArray(scene.gases) ? scene.gases : []).map((x) => x && x.part)]),
-    mids = new Set((Array.isArray(scene.motions) ? scene.motions : []).map((m) => m && m.id)),
-    has = (id) => parts.some((p) => p.id === id);
-  parts.forEach((p, k) => {
-    if (!p.shapes && !fluid.has(p.id))
-      out.push({ path: `parts[${k}]`, message: 'needs shapes (or is a liquid or a gas)' });
+  const vesselIds = new Set((Array.isArray(scene.vessels) ? scene.vessels : []).map((vessel) => vessel && vessel.id)),
+    liquidParts = new Set((Array.isArray(scene.liquids) ? scene.liquids : []).map((liquid) => liquid && liquid.part)),
+    fluidParts = new Set([
+      ...liquidParts,
+      ...(Array.isArray(scene.gases) ? scene.gases : []).map((gas) => gas && gas.part),
+    ]),
+    motionIds = new Set((Array.isArray(scene.motions) ? scene.motions : []).map((motion) => motion && motion.id)),
+    isPart = (id) => parts.some((part) => part.id === id);
+  parts.forEach((part, index) => {
+    if (!part.shapes && !fluidParts.has(part.id))
+      out.push({ path: `parts[${index}]`, message: 'needs shapes (or is a liquid or a gas)' });
   });
   for (const [list, what] of [
     [scene.vessels, 'vessels'],
     [scene.liquids, 'liquids'],
     [scene.gases, 'gases'],
   ])
-    (Array.isArray(list) ? list : []).forEach((x, i) => {
-      if (!x || typeof x !== 'object') return;
-      const at = `${what}[${i}]`,
-        bad = (field, msg) => out.push({ path: `${at}.${field}`, message: msg });
-      if (x.part != null && !has(x.part)) bad('part', `${say(x.part)} is no part`);
-      if (x.in != null && !vids.has(x.in)) bad('in', `${say(x.in)} is no vessel`);
-      if (x.piston != null && !has(x.piston)) bad('piston', `${say(x.piston)} is no part`);
-      if (x.into != null && (!lids.has(x.into) || x.into === x.part)) bad('into', `${say(x.into)} is no other liquid`);
-      if (x.outlet && x.outlet.valve != null && !mids.has(x.outlet.valve))
-        bad('outlet.valve', `${say(x.outlet.valve)} is no motion`);
-      if (Array.isArray(x.inside) && x.inside.some((h, n) => Array.isArray(h) && n && h[0] <= x.inside[n - 1][0]))
+    (Array.isArray(list) ? list : []).forEach((entry, i) => {
+      if (!entry || typeof entry !== 'object') return;
+      const place = `${what}[${i}]`,
+        bad = (field, message) => out.push({ path: `${place}.${field}`, message });
+      if (entry.part != null && !isPart(entry.part)) bad('part', `${say(entry.part)} is no part`);
+      if (entry.in != null && !vesselIds.has(entry.in)) bad('in', `${say(entry.in)} is no vessel`);
+      if (entry.piston != null && !isPart(entry.piston)) bad('piston', `${say(entry.piston)} is no part`);
+      if (entry.into != null && (!liquidParts.has(entry.into) || entry.into === entry.part))
+        bad('into', `${say(entry.into)} is no other liquid`);
+      if (entry.outlet && entry.outlet.valve != null && !motionIds.has(entry.outlet.valve))
+        bad('outlet.valve', `${say(entry.outlet.valve)} is no motion`);
+      if (
+        Array.isArray(entry.inside) &&
+        entry.inside.some((level, n) => Array.isArray(level) && n && level[0] <= entry.inside[n - 1][0])
+      )
         bad('inside', 'heights go up from the bottom to the brim');
     });
   // joints: one id each, moving parts that exist (a part on one joint only), reading joints and motions that exist,
   // without a loop; a rod holds a slide, an aim turns
-  const jl = Array.isArray(scene.joints) ? scene.joints : [],
-    jids = new Map(),
-    owner = new Map();
-  jl.forEach((j, i) => {
-    if (!j || typeof j !== 'object') return;
-    if (jids.has(j.id)) out.push({ path: `joints[${i}].id`, message: `${say(j.id)} is used by two joints` });
-    jids.set(j.id, j);
+  const joints = Array.isArray(scene.joints) ? scene.joints : [],
+    jointsById = new Map(),
+    jointOfPart = new Map();
+  joints.forEach((joint, i) => {
+    if (!joint || typeof joint !== 'object') return;
+    if (jointsById.has(joint.id))
+      out.push({ path: `joints[${i}].id`, message: `${say(joint.id)} is used by two joints` });
+    jointsById.set(joint.id, joint);
   });
-  jl.forEach((j, i) => {
-    if (!j || typeof j !== 'object') return;
-    const at = `joints[${i}]`,
-      bad = (field, msg) => out.push({ path: `${at}.${field}`, message: msg });
-    for (const w of ['turn', 'slide']) if (j[w] && zero(j[w].axis)) bad(`${w}.axis`, NO_WAY);
-    for (const n of Array.isArray(j.parts) ? j.parts : []) {
-      if (!names.has(n)) bad('parts', `moves ${say(n)}, which is no part or group`);
-      else if (owner.has(n) && owner.get(n) !== j.id)
-        bad('parts', `${say(n)} is on joint ${say(owner.get(n))} already`);
-      owner.set(n, j.id);
+  joints.forEach((joint, i) => {
+    if (!joint || typeof joint !== 'object') return;
+    const place = `joints[${i}]`,
+      bad = (field, message) => out.push({ path: `${place}.${field}`, message });
+    for (const kind of ['turn', 'slide']) if (joint[kind] && zero(joint[kind].axis)) bad(`${kind}.axis`, NO_WAY);
+    for (const name of Array.isArray(joint.parts) ? joint.parts : []) {
+      if (!names.has(name)) bad('parts', `moves ${say(name)}, which is no part or group`);
+      else if (jointOfPart.has(name) && jointOfPart.get(name) !== joint.id)
+        bad('parts', `${say(name)} is on joint ${say(jointOfPart.get(name))} already`);
+      jointOfPart.set(name, joint.id);
     }
     for (const [field, id] of [
-      ['parent', j.parent],
-      ['follow.joint', j.follow && j.follow.joint],
-      ['rod.joint', j.rod && j.rod.joint],
-      ['aim.joint', j.aim && j.aim.joint],
+      ['parent', joint.parent],
+      ['follow.joint', joint.follow && joint.follow.joint],
+      ['rod.joint', joint.rod && joint.rod.joint],
+      ['aim.joint', joint.aim && joint.aim.joint],
     ])
-      if (id != null && !jids.has(id)) bad(field, `${say(id)} is no joint`);
-      else if (id === j.id) bad(field, 'a joint reads another joint, not itself');
-    const d = j.drive && (typeof j.drive === 'string' ? j.drive : j.drive.motion);
-    if (d != null && !mids.has(d)) bad('drive', `${say(d)} is no motion`);
-    if (j.rod && !j.slide) bad('rod', 'a rod holds a slide (a piston): give the joint slide, not turn');
-    if (j.aim && !j.turn) bad('aim', 'an aim turns its parts: give the joint turn, not slide');
-    const given = ['drive', 'follow', 'rod', 'aim'].filter((k) => j[k] != null);
+      if (id != null && !jointsById.has(id)) bad(field, `${say(id)} is no joint`);
+      else if (id === joint.id) bad(field, 'a joint reads another joint, not itself');
+    const drive = joint.drive && (typeof joint.drive === 'string' ? joint.drive : joint.drive.motion);
+    if (drive != null && !motionIds.has(drive)) bad('drive', `${say(drive)} is no motion`);
+    if (joint.rod && !joint.slide) bad('rod', 'a rod holds a slide (a piston): give the joint slide, not turn');
+    if (joint.aim && !joint.turn) bad('aim', 'an aim turns its parts: give the joint turn, not slide');
+    const given = ['drive', 'follow', 'rod', 'aim'].filter((source) => joint[source] != null);
     if (given.length > 1) bad(given[1], `its value comes from one place: ${given.join(' or ')}`);
   });
   // (a loop: a joint that reads itself through others)
-  const jseen = new Map(),
-    reads = (j) =>
-      [j.parent, j.follow && j.follow.joint, j.rod && j.rod.joint, j.aim && j.aim.joint].filter((x) => jids.has(x));
-  const loop = (j) => {
-    if (jseen.get(j.id) === 2) return false;
-    if (jseen.get(j.id) === 1) return true;
-    jseen.set(j.id, 1);
-    const l = reads(j).some((r) => loop(jids.get(r)));
-    jseen.set(j.id, 2);
-    return l;
+  const visit = new Map(), // (1 while its readings are being followed, 2 once done)
+    readJoints = (joint) =>
+      [
+        joint.parent,
+        joint.follow && joint.follow.joint,
+        joint.rod && joint.rod.joint,
+        joint.aim && joint.aim.joint,
+      ].filter((id) => jointsById.has(id));
+  const loop = (joint) => {
+    if (visit.get(joint.id) === 2) return false;
+    if (visit.get(joint.id) === 1) return true;
+    visit.set(joint.id, 1);
+    const found = readJoints(joint).some((id) => loop(jointsById.get(id)));
+    visit.set(joint.id, 2);
+    return found;
   };
-  jl.forEach((j, i) => {
-    if (j && typeof j === 'object' && !jseen.has(j.id) && loop(j))
-      out.push({ path: `joints[${i}]`, message: `${say(j.id)} reads itself through other joints (a loop)` });
+  joints.forEach((joint, i) => {
+    if (joint && typeof joint === 'object' && !visit.has(joint.id) && loop(joint))
+      out.push({ path: `joints[${i}]`, message: `${say(joint.id)} reads itself through other joints (a loop)` });
   });
   // motions: one id each; tracks that move parts that exist, with keys in order and within the range
-  const ids = new Set();
-  (Array.isArray(scene.motions) ? scene.motions : []).forEach((mo, i) => {
-    if (!mo || typeof mo !== 'object') return;
-    if (ids.has(mo.id)) out.push({ path: `motions[${i}].id`, message: `${say(mo.id)} is used by two motions` });
-    ids.add(mo.id);
-    const [a, b] = Array.isArray(mo.range) ? mo.range : [];
-    if (!(b > a)) out.push({ path: `motions[${i}].range`, message: 'runs from a value to a larger one' });
-    (Array.isArray(mo.tracks) ? mo.tracks : []).forEach((tr, j) => {
-      const at = `motions[${i}].tracks[${j}]`;
-      if (tr && tr.turn && zero(tr.turn.axis)) out.push({ path: `${at}.turn.axis`, message: NO_WAY });
-      for (const n of (tr && Array.isArray(tr.parts) && tr.parts) || [])
-        if (!names.has(n)) out.push({ path: `${at}.parts`, message: `moves ${say(n)}, which is no part or group` });
+  const seenMotions = new Set();
+  (Array.isArray(scene.motions) ? scene.motions : []).forEach((motion, i) => {
+    if (!motion || typeof motion !== 'object') return;
+    if (seenMotions.has(motion.id))
+      out.push({ path: `motions[${i}].id`, message: `${say(motion.id)} is used by two motions` });
+    seenMotions.add(motion.id);
+    const [start, end] = Array.isArray(motion.range) ? motion.range : [];
+    if (!(end > start)) out.push({ path: `motions[${i}].range`, message: 'runs from a value to a larger one' });
+    (Array.isArray(motion.tracks) ? motion.tracks : []).forEach((track, j) => {
+      const place = `motions[${i}].tracks[${j}]`;
+      if (track && track.turn && zero(track.turn.axis)) out.push({ path: `${place}.turn.axis`, message: NO_WAY });
+      for (const name of (track && Array.isArray(track.parts) && track.parts) || [])
+        if (!names.has(name))
+          out.push({ path: `${place}.parts`, message: `moves ${say(name)}, which is no part or group` });
       for (const [keys, where] of [
-        [tr && tr.move, 'move'],
-        [tr && tr.turn && tr.turn.keys, 'turn.keys'],
+        [track && track.move, 'move'],
+        [track && track.turn && track.turn.keys, 'turn.keys'],
       ])
         if (
           Array.isArray(keys) &&
-          keys.some((k, n) => !Array.isArray(k) || k[0] < a || k[0] > b || (n && k[0] < keys[n - 1][0]))
+          keys.some((key, n) => !Array.isArray(key) || key[0] < start || key[0] > end || (n && key[0] < keys[n - 1][0]))
         )
           out.push({
-            path: `${at}.${where}`,
-            message: `keys go in order of their values, within the range [${a}, ${b}]`,
+            path: `${place}.${where}`,
+            message: `keys go in order of their values, within the range [${start}, ${end}]`,
           });
     });
   });
@@ -284,8 +321,9 @@ export function validate(scene) {
   check(schema, scene, '', out);
   if (TYPES.object(scene)) links(scene, out);
   // (the guard's own word only where the schema said nothing at or around the place)
-  for (const g of guard(scene))
-    if (!out.some((e) => e.path.startsWith(g.path) || g.path.startsWith(e.path))) out.push(g);
+  for (const problem of guard(scene))
+    if (!out.some((said) => said.path.startsWith(problem.path) || problem.path.startsWith(said.path)))
+      out.push(problem);
   return out;
 }
 export { schema };
@@ -300,10 +338,10 @@ const direct =
 if (direct) {
   let text = '';
   process.stdin.setEncoding('utf8');
-  process.stdin.on('data', (d) => (text += d));
+  process.stdin.on('data', (chunk) => (text += chunk));
   process.stdin.on('end', () => {
     const errors = validate(JSON.parse(text));
-    for (const e of errors) console.log(JSON.stringify(e));
+    for (const error of errors) console.log(JSON.stringify(error));
     process.exitCode = errors.length ? 1 : 0;
   });
 }

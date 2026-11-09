@@ -154,9 +154,9 @@ export function makeLook(c) {
       c.stage_.dataset.look = style;
       if (theme) c.stage_.dataset.theme = themeName;
       else delete c.stage_.dataset.theme;
-      for (const k of ['ink', 'line', 'paper', 'muted', 'warn', 'highlight'])
-        if (theme) c.stage_.style.setProperty('--lk3d-' + k, theme[k]);
-        else c.stage_.style.removeProperty('--lk3d-' + k);
+      for (const name of ['ink', 'line', 'paper', 'muted', 'warn', 'highlight'])
+        if (theme) c.stage_.style.setProperty('--lk3d-' + name, theme[name]);
+        else c.stage_.style.removeProperty('--lk3d-' + name);
     }
     return look;
   };

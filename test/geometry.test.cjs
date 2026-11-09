@@ -6,7 +6,7 @@ const { buildShape, isClosed } = require('../src/geometry.js');
 const { makeStream } = require('../src/stream.js');
 const { pathOf } = require('../src/flow.js');
 
-const finite = (g) => Array.from(g.p).every(Number.isFinite);
+const finite = (g) => Array.from(g.positions).every(Number.isFinite);
 
 test('shapes at awkward inputs: closed, no NaN', () => {
   const cases = {
@@ -32,7 +32,7 @@ test('shapes at awkward inputs: closed, no NaN', () => {
     },
   };
   for (const [name, s] of Object.entries(cases)) {
-    const g = buildShape(s, 1).geo;
+    const g = buildShape(s, 1).mesh;
     assert.ok(finite(g), name + ': no NaN');
     assert.ok(isClosed(g), name + ': closed');
   }
@@ -52,10 +52,11 @@ test('a tube round a hairpin and over repeated points keeps its width', () => {
       [1, 1, 0],
     ],
   ]) {
-    const g = buildShape({ tube: path, r: 0.05 }, 1).geo;
+    const g = buildShape({ tube: path, r: 0.05 }, 1).mesh;
     assert.ok(finite(g), JSON.stringify(path));
     // every normal is a unit vector: no ring collapsed to a point
-    for (let k = 0; k < g.n.length; k += 3) assert.ok(Math.abs(Math.hypot(g.n[k], g.n[k + 1], g.n[k + 2]) - 1) < 1e-3);
+    for (let k = 0; k < g.normals.length; k += 3)
+      assert.ok(Math.abs(Math.hypot(g.normals[k], g.normals[k + 1], g.normals[k + 2]) - 1) < 1e-3);
   }
 });
 
@@ -85,7 +86,7 @@ test('a stream keeps its width round right-angle bends, U-turns and a path doubl
     ],
   ]) {
     const T = makeStream({ path, radius: r }),
-      P = T.hull.p;
+      P = T.hull.positions;
     assert.ok(Array.from(P).every(Number.isFinite), JSON.stringify(path));
     // each ring's points: as far from the ring's middle as the hull is wide (none collapsed onto the path)
     const ring = 14;
@@ -132,15 +133,15 @@ test('a tree is the same tree at every detail: a phone or the 2D fallback (built
   const s = {
     tree: { at: [0, 0, 0], dir: [1, 0.2, 0], length: 1, r: 0.05, levels: 4, branches: 2, spread: 40, seed: 7 },
   };
-  const box = (q) => bounds(buildShape(s, q).geo);
+  const box = (q) => bounds(buildShape(s, q).mesh);
   const fine = box(1);
   for (const q of [0.6, 0.5]) {
     const b = box(q);
     // (coarser: fewer points along the same branches, and fewer round each, so a little inside; not another tree)
     for (let i = 0; i < 3; i++) {
-      assert.ok(Math.abs(b.lo[i] - fine.lo[i]) < 0.03, `detail ${q}: low end along axis ${i}`);
-      assert.ok(Math.abs(b.hi[i] - fine.hi[i]) < 0.03, `detail ${q}: high end along axis ${i}`);
+      assert.ok(Math.abs(b.min[i] - fine.min[i]) < 0.03, `detail ${q}: low end along axis ${i}`);
+      assert.ok(Math.abs(b.max[i] - fine.max[i]) < 0.03, `detail ${q}: high end along axis ${i}`);
     }
   }
-  assert.ok(buildShape(s, 0.5).geo.count < buildShape(s, 1).geo.count, 'and coarser it costs less');
+  assert.ok(buildShape(s, 0.5).mesh.count < buildShape(s, 1).mesh.count, 'and coarser it costs less');
 });

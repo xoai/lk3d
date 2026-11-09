@@ -232,7 +232,7 @@ test('a motion is set, played to its end and back, and stopped by the page; its 
     await fig.ready;
     const m = fig.motion('lift'),
       slider = document.querySelector('#g input[aria-label="Lift"]'),
-      knob = () => fig.parts.find((p) => p.id === 'knob').m[13];
+      knob = () => fig.parts.find((p) => p.id === 'knob').matrix[13];
     m.set(0.5);
     await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
     const half = { y: knob(), slider: +slider.value };
@@ -388,14 +388,14 @@ test('a gas holds its piston where pV = nRT puts it: half as hot again, half as 
     const gas = fig.gas('air'),
       piston = () => fig.parts.find((p) => p.id === 'piston'),
       h0 = gas.height,
-      seat0 = piston().lo[1] + piston().m[13];
+      seat0 = piston().min[1] + piston().matrix[13];
     gas.set({ T: 293 * 1.5 });
     // until it has settled (it eases in by frames, which a machine drawing in software gives slowly), 20 s at most
     for (let t = 0, last = NaN; t < 20000 && gas.height !== last; t += 1000) {
       last = gas.height;
       await new Promise((res) => setTimeout(res, 1000));
     }
-    return { h0, h1: gas.height, seat0, seat1: piston().lo[1] + piston().m[13] };
+    return { h0, h1: gas.height, seat0, seat1: piston().min[1] + piston().matrix[13] };
   });
   expect(r.h1 - 0.2).toBeCloseTo(1.5 * (r.h0 - 0.2), 2); // (above the inside's floor at 0.2)
   expect(r.seat0).toBeCloseTo(r.h0, 5); // (the piston sits on the gas)
@@ -1006,7 +1006,7 @@ test('turning the camera works nothing out again: no part placed again, nothing 
       await fig.ready;
       fig.drawNow();
       const gl = document.querySelector('#g canvas[tabindex]').getContext('webgl2'),
-        was = fig.parts.map((p) => p.m),
+        was = fig.parts.map((p) => p.matrix),
         bd = gl.bufferData,
         js = JSON.stringify;
       let sent = 0,
@@ -1020,7 +1020,7 @@ test('turning the camera works nothing out again: no part placed again, nothing 
         fig.view({ yaw: k * 10 }, { ms: 0 });
         fig.drawNow();
       }
-      const kept = fig.parts.every((p, k) => p.m === was[k]);
+      const kept = fig.parts.every((p, k) => p.matrix === was[k]);
       gl.bufferData = bd;
       JSON.stringify = js;
       return { fig, was, kept, sent, strung };
@@ -1028,7 +1028,7 @@ test('turning the camera works nothing out again: no part placed again, nothing 
     const a = await count(window.scene);
     a.fig.motion('swing').set(45);
     a.fig.drawNow();
-    const moved = a.fig.parts.map((p, k) => p.m !== a.was[k]);
+    const moved = a.fig.parts.map((p, k) => p.matrix !== a.was[k]);
     const b = await count(gas);
     return { kept: a.kept, sent: a.sent, strung: a.strung, moved, gas: [b.kept, b.sent, b.strung] };
   });

@@ -6,54 +6,62 @@ import { D2R, M, sub, add, mulv, dot, cross, len, norm } from './math.js';
 
 // seeded random numbers in [0, 1) (mulberry32)
 function rng(seed) {
-  let a = (seed * 2654435761) >>> 0;
+  let state = (seed * 2654435761) >>> 0;
   return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    state = (state + 0x6d2b79f5) >>> 0;
+    let bits = state;
+    bits = Math.imul(bits ^ (bits >>> 15), bits | 1);
+    bits ^= bits + Math.imul(bits ^ (bits >>> 7), bits | 61);
+    return ((bits ^ (bits >>> 14)) >>> 0) / 4294967296;
   };
 }
 // smooth noise in 3D, about -1..1: values on an integer lattice, blended with smoothstep
 function noise3(seed) {
-  const R = rng(seed),
-    V = Float64Array.from({ length: 512 }, () => R() * 2 - 1);
-  const h = (i, j, k) => V[((i * 73856093) ^ (j * 19349663) ^ (k * 83492791)) & 511];
-  const s = (t) => t * t * (3 - 2 * t);
+  const random = rng(seed),
+    lattice = Float64Array.from({ length: 512 }, () => random() * 2 - 1);
+  const corner = (i, j, k) => lattice[((i * 73856093) ^ (j * 19349663) ^ (k * 83492791)) & 511];
+  const smooth = (t) => t * t * (3 - 2 * t);
   return (x, y, z) => {
     const i = Math.floor(x),
       j = Math.floor(y),
       k = Math.floor(z),
-      u = s(x - i),
-      v = s(y - j),
-      w = s(z - k);
-    const l = (a, b, t) => a + (b - a) * t;
-    return l(
-      l(l(h(i, j, k), h(i + 1, j, k), u), l(h(i, j + 1, k), h(i + 1, j + 1, k), u), v),
-      l(l(h(i, j, k + 1), h(i + 1, j, k + 1), u), l(h(i, j + 1, k + 1), h(i + 1, j + 1, k + 1), u), v),
-      w,
+      blendX = smooth(x - i),
+      blendY = smooth(y - j),
+      blendZ = smooth(z - k);
+    const lerp = (a, b, t) => a + (b - a) * t;
+    return lerp(
+      lerp(
+        lerp(corner(i, j, k), corner(i + 1, j, k), blendX),
+        lerp(corner(i, j + 1, k), corner(i + 1, j + 1, k), blendX),
+        blendY,
+      ),
+      lerp(
+        lerp(corner(i, j, k + 1), corner(i + 1, j, k + 1), blendX),
+        lerp(corner(i, j + 1, k + 1), corner(i + 1, j + 1, k + 1), blendX),
+        blendY,
+      ),
+      blendZ,
     );
   };
 }
 // an even mesh of the unit sphere (no crowded poles): an icosahedron, each triangle split in four `level` times
 function icosphere(level) {
-  const t = (1 + Math.sqrt(5)) / 2;
-  let pos = [
-    [-1, t, 0],
-    [1, t, 0],
-    [-1, -t, 0],
-    [1, -t, 0],
-    [0, -1, t],
-    [0, 1, t],
-    [0, -1, -t],
-    [0, 1, -t],
-    [t, 0, -1],
-    [t, 0, 1],
-    [-t, 0, -1],
-    [-t, 0, 1],
+  const golden = (1 + Math.sqrt(5)) / 2;
+  let positions = [
+    [-1, golden, 0],
+    [1, golden, 0],
+    [-1, -golden, 0],
+    [1, -golden, 0],
+    [0, -1, golden],
+    [0, 1, golden],
+    [0, -1, -golden],
+    [0, 1, -golden],
+    [golden, 0, -1],
+    [golden, 0, 1],
+    [-golden, 0, -1],
+    [-golden, 0, 1],
   ].map(norm);
-  let tris = [
+  let triangles = [
     [0, 11, 5],
     [0, 5, 1],
     [0, 1, 7],
@@ -75,20 +83,20 @@ function icosphere(level) {
     [8, 6, 7],
     [9, 8, 1],
   ];
-  for (let l = 0; l < level; l++) {
-    const mid = new Map(),
-      m = (a, b) => {
-        const k = a < b ? a * 1e6 + b : b * 1e6 + a;
-        if (!mid.has(k)) {
-          mid.set(k, pos.length);
-          pos.push(norm(mulv(add(pos[a], pos[b]), 0.5)));
+  for (let step = 0; step < level; step++) {
+    const midpoints = new Map(),
+      midpoint = (a, b) => {
+        const key = a < b ? a * 1e6 + b : b * 1e6 + a;
+        if (!midpoints.has(key)) {
+          midpoints.set(key, positions.length);
+          positions.push(norm(mulv(add(positions[a], positions[b]), 0.5)));
         }
-        return mid.get(k);
+        return midpoints.get(key);
       };
-    tris = tris.flatMap(([a, b, c]) => {
-      const ab = m(a, b),
-        bc = m(b, c),
-        ca = m(c, a);
+    triangles = triangles.flatMap(([a, b, c]) => {
+      const ab = midpoint(a, b),
+        bc = midpoint(b, c),
+        ca = midpoint(c, a);
       return [
         [a, ab, ca],
         [b, bc, ab],
@@ -97,136 +105,169 @@ function icosphere(level) {
       ];
     });
   }
-  return { pos, tris };
+  return { positions, triangles };
 }
-const levelFor = (q, base = 3) => Math.max(1, Math.min(5, Math.round(base + Math.log2(Math.max(0.25, q || 1)))));
+const levelFor = (quality, base = 3) =>
+  Math.max(1, Math.min(5, Math.round(base + Math.log2(Math.max(0.25, quality || 1)))));
 
-export default ({ Geo, lathe, tube, sphere, cylinder }) => {
+export default ({ Mesh, lathe, tube, sphere, cylinder }) => {
   // a closed mesh from shared vertices, with normals given (or averaged from the faces around each vertex)
-  function meshOf(pos, tris, normals) {
-    let N = normals;
-    if (!N) {
+  function meshOf(positions, triangles, normals) {
+    let vertexNormals = normals;
+    if (!vertexNormals) {
       // from the faces; turned outwards if the triangles were written the other way round (negative volume)
-      let vol = 0;
-      for (const [a, b, c] of tris) vol += dot(pos[a], cross(pos[b], pos[c]));
-      const s = vol < 0 ? -1 : 1;
-      N = pos.map(() => [0, 0, 0]);
-      for (const [a, b, c] of tris) {
-        const f = mulv(cross(sub(pos[b], pos[a]), sub(pos[c], pos[a])), s);
-        for (const v of [a, b, c]) N[v] = add(N[v], f);
+      let volume = 0;
+      for (const [a, b, c] of triangles) volume += dot(positions[a], cross(positions[b], positions[c]));
+      const sign = volume < 0 ? -1 : 1;
+      vertexNormals = positions.map(() => [0, 0, 0]);
+      for (const [a, b, c] of triangles) {
+        const faceNormal = mulv(cross(sub(positions[b], positions[a]), sub(positions[c], positions[a])), sign);
+        for (const vertex of [a, b, c]) vertexNormals[vertex] = add(vertexNormals[vertex], faceNormal);
       }
-      N = N.map(norm);
+      vertexNormals = vertexNormals.map(norm);
     }
-    const g = new Geo();
-    pos.forEach((p, k) => g.v(p, N[k]));
-    for (const [a, b, c] of tris) g.tri(a, b, c);
-    return g;
+    const mesh = new Mesh();
+    positions.forEach((position, k) => mesh.vertex(position, vertexNormals[k]));
+    for (const [a, b, c] of triangles) mesh.triangle(a, b, c);
+    return mesh;
   }
-  // a matrix that takes the x axis from a to b (length |b − a|), for rods between two points
+  // a matrix that takes the x axis from a to b (its length |b − a|), for rods between two points; and the rod's y axis
   function between(a, b) {
-    const d = sub(b, a),
-      L = len(d),
-      x = mulv(d, 1 / L),
-      up = Math.abs(x[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
-    const z = norm(cross(x, up)),
-      y = cross(z, x);
-    return { m: [x[0], x[1], x[2], 0, y[0], y[1], y[2], 0, z[0], z[1], z[2], 0, a[0], a[1], a[2], 1], L, y };
+    const span = sub(b, a),
+      length = len(span),
+      xAxis = mulv(span, 1 / length),
+      up = Math.abs(xAxis[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+    const zAxis = norm(cross(xAxis, up)),
+      yAxis = cross(zAxis, xAxis);
+    return {
+      matrix: [
+        xAxis[0],
+        xAxis[1],
+        xAxis[2],
+        0,
+        yAxis[0],
+        yAxis[1],
+        yAxis[2],
+        0,
+        zAxis[0],
+        zAxis[1],
+        zAxis[2],
+        0,
+        a[0],
+        a[1],
+        a[2],
+        1,
+      ],
+      length,
+      yAxis,
+    };
   }
 
   // ellipsoid: [a, b, c], semi-axes along x, y, z (a cell, a nucleus, an egg)
-  function ellipsoid([a, b, c], o) {
-    const { pos, tris } = icosphere(levelFor(o.q));
+  function ellipsoid([semiX, semiY, semiZ], options) {
+    const { positions, triangles } = icosphere(levelFor(options.q));
     return meshOf(
-      pos.map(([x, y, z]) => [a * x, b * y, c * z]),
-      tris,
-      pos.map(([x, y, z]) => norm([x / a, y / b, z / c])),
+      positions.map(([x, y, z]) => [semiX * x, semiY * y, semiZ * z]),
+      triangles,
+      positions.map(([x, y, z]) => norm([x / semiX, y / semiY, z / semiZ])),
     );
   }
   // capsule: {r, x0, x1}: a cylinder with round ends, along x (a mitochondrion, a bacterium, a pill)
-  function capsule({ r, x0 = -0.5, x1 = 0.5 }, o) {
-    const n = Math.max(4, Math.round(8 * (o.q || 1))),
-      prof = [];
-    for (let k = 0; k <= n; k++) {
-      const t = ((Math.PI / 2) * k) / n;
-      prof.push([x0 - r * Math.cos(t), r * Math.sin(t)]);
+  function capsule({ r: radius, x0 = -0.5, x1 = 0.5 }, options) {
+    const steps = Math.max(4, Math.round(8 * (options.q || 1))),
+      profile = [];
+    for (let k = 0; k <= steps; k++) {
+      const angle = ((Math.PI / 2) * k) / steps;
+      profile.push([x0 - radius * Math.cos(angle), radius * Math.sin(angle)]);
     }
-    for (let k = 0; k <= n; k++) {
-      const t = ((Math.PI / 2) * k) / n;
-      prof.push([x1 + r * Math.sin(t), r * Math.cos(t)]);
+    for (let k = 0; k <= steps; k++) {
+      const angle = ((Math.PI / 2) * k) / steps;
+      profile.push([x1 + radius * Math.sin(angle), radius * Math.cos(angle)]);
     }
-    return lathe(prof, { ...o, smooth: true });
+    return lathe(profile, { ...options, smooth: true });
   }
   // blob: {r, amp, freq, seed, stretch: [sx, sy, sz]}: a sphere with a smooth, irregular surface (a cell body, a
   // nucleus, a rock, a small moon): its radius varies by ±amp
-  function blob({ r = 0.5, amp = 0.15, freq = 1.6, seed = 1, stretch = [1, 1, 1] }, o) {
-    const { pos, tris } = icosphere(levelFor(o.q, 4)),
-      n = noise3(seed);
+  function blob({ r: radius = 0.5, amp = 0.15, freq = 1.6, seed = 1, stretch = [1, 1, 1] }, options) {
+    const { positions, triangles } = icosphere(levelFor(options.q, 4)),
+      noise = noise3(seed);
     return meshOf(
-      pos.map((p) => {
-        const k = r * (1 + amp * n(p[0] * freq + 7.1, p[1] * freq + 3.3, p[2] * freq + 5.7));
-        return [p[0] * k * stretch[0], p[1] * k * stretch[1], p[2] * k * stretch[2]];
+      positions.map((point) => {
+        const pointRadius =
+          radius * (1 + amp * noise(point[0] * freq + 7.1, point[1] * freq + 3.3, point[2] * freq + 5.7));
+        return [
+          point[0] * pointRadius * stretch[0],
+          point[1] * pointRadius * stretch[1],
+          point[2] * pointRadius * stretch[2],
+        ];
       }),
-      tris,
+      triangles,
     );
   }
   // shell: {r, ri, from, to}: a sphere around the x axis, hollow inside ri, with the wedge outside from..to (degrees)
   // cut away to show the inside (Earth's layers, a cell's membrane); ri: 0 for a solid core
-  function shell({ r, ri = 0, from = 0, to = 360 }, o) {
-    const g = new Geo(),
-      nt = Math.max(8, Math.round(24 * (o.q || 1))),
+  function shell({ r: radius, ri: innerRadius = 0, from = 0, to = 360 }, options) {
+    const mesh = new Mesh(),
+      polarSteps = Math.max(8, Math.round(24 * (options.q || 1))),
       full = Math.abs(to - from - 360) < 1e-6;
-    const np = Math.max(6, Math.round((48 * (o.q || 1) * (to - from)) / 360)),
-      a0 = from * D2R,
-      a1 = to * D2R;
-    const dir = (t, f) => [Math.cos(t), Math.sin(t) * Math.cos(f), Math.sin(t) * Math.sin(f)];
-    for (const [rad, s] of ri > 0
+    const aroundSteps = Math.max(6, Math.round((48 * (options.q || 1) * (to - from)) / 360)),
+      fromAngle = from * D2R,
+      toAngle = to * D2R;
+    // the direction at an angle from the x axis (polar) and around it (around)
+    const direction = (polar, around) => [
+      Math.cos(polar),
+      Math.sin(polar) * Math.cos(around),
+      Math.sin(polar) * Math.sin(around),
+    ];
+    for (const [layerRadius, facing] of innerRadius > 0
       ? [
-          [r, 1],
-          [ri, -1],
+          [radius, 1],
+          [innerRadius, -1],
         ]
-      : [[r, 1]]) {
+      : [[radius, 1]]) {
       const grid = [];
-      for (let i = 0; i <= nt; i++) {
+      for (let i = 0; i <= polarSteps; i++) {
         const row = [];
-        for (let j = 0; j <= np; j++) {
-          const d = dir((Math.PI * i) / nt, a0 + ((a1 - a0) * j) / np);
-          row.push(g.v(mulv(d, rad), mulv(d, s)));
+        for (let j = 0; j <= aroundSteps; j++) {
+          const unit = direction((Math.PI * i) / polarSteps, fromAngle + ((toAngle - fromAngle) * j) / aroundSteps);
+          row.push(mesh.vertex(mulv(unit, layerRadius), mulv(unit, facing)));
         }
         grid.push(row);
       }
-      for (let i = 0; i < nt; i++)
-        for (let j = 0; j < np; j++) g.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]);
+      for (let i = 0; i < polarSteps; i++)
+        for (let j = 0; j < aroundSteps; j++) mesh.quad(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]);
     }
     if (!full)
-      for (const [ang, sg] of [
-        [a0, -1],
-        [a1, 1],
+      for (const [cutAngle, side] of [
+        [fromAngle, -1],
+        [toAngle, 1],
       ]) {
         // the cut faces: half-discs, or half-rings
-        const n = [0, -Math.sin(ang) * sg, Math.cos(ang) * sg];
-        const out = [],
-          inn = [];
-        for (let i = 0; i <= nt; i++) {
-          const d = dir((Math.PI * i) / nt, ang);
-          out.push(g.v(mulv(d, r), n));
-          if (ri > 0) inn.push(g.v(mulv(d, ri), n));
+        const normal = [0, -Math.sin(cutAngle) * side, Math.cos(cutAngle) * side];
+        const outer = [],
+          inner = [];
+        for (let i = 0; i <= polarSteps; i++) {
+          const unit = direction((Math.PI * i) / polarSteps, cutAngle);
+          outer.push(mesh.vertex(mulv(unit, radius), normal));
+          if (innerRadius > 0) inner.push(mesh.vertex(mulv(unit, innerRadius), normal));
         }
-        if (ri > 0) for (let i = 0; i < nt; i++) g.quad(out[i], out[i + 1], inn[i + 1], inn[i]);
+        if (innerRadius > 0)
+          for (let i = 0; i < polarSteps; i++) mesh.quad(outer[i], outer[i + 1], inner[i + 1], inner[i]);
         else {
-          const c = g.v([0, 0, 0], n);
-          for (let i = 0; i < nt; i++) g.tri(c, out[i], out[i + 1]);
+          const center = mesh.vertex([0, 0, 0], normal);
+          for (let i = 0; i < polarSteps; i++) mesh.triangle(center, outer[i], outer[i + 1]);
         }
       }
-    return g;
+    return mesh;
   }
   // tree: branching tubes, tapering (dendrites, axon terminals, blood vessels, roots, a river's tributaries).
   // {at, dir, length, r, levels, branches, spread (degrees), shrink, taper, bend, seed}
   function tree(
     {
       at = [0, 0, 0],
-      dir = [1, 0, 0],
+      dir: direction = [1, 0, 0],
       length = 1,
-      r = 0.04,
+      r: radius = 0.04,
       levels = 3,
       branches = 2,
       spread = 35,
@@ -235,274 +276,293 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
       bend = 0.12,
       seed = 1,
     },
-    o,
+    options,
   ) {
     // the form (each branch's wander, where its branches start) is drawn at FORM steps whatever the detail, so a phone
     // or the 2D fallback (built coarser) shows the same tree: the detail only chooses how many of its points are drawn
     const FORM = 8,
-      g = new Geo(),
-      R = rng(seed),
-      segs = Math.min(FORM, Math.max(4, Math.round(FORM * (o.q || 1))));
-    const grow = (p0, d0, L, r0, level) => {
-      const d = norm(d0),
-        side = norm(cross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])),
-        up = cross(side, d),
-        path = [p0],
+      mesh = new Mesh(),
+      random = rng(seed),
+      drawnSteps = Math.min(FORM, Math.max(4, Math.round(FORM * (options.q || 1))));
+    const grow = (start, startDirection, branchLength, startRadius, level) => {
+      const forward = norm(startDirection),
+        side = norm(cross(forward, Math.abs(forward[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])),
+        up = cross(side, forward),
+        path = [start],
         radii = [];
-      let p = p0,
-        dd = d;
+      let point = start,
+        heading = forward;
       for (let k = 1; k <= FORM; k++) {
         // a gently wandering path
-        dd = norm(add(dd, add(mulv(side, (R() - 0.5) * bend), mulv(up, (R() - 0.5) * bend))));
-        p = add(p, mulv(dd, L / FORM));
-        path.push(p);
+        heading = norm(add(heading, add(mulv(side, (random() - 0.5) * bend), mulv(up, (random() - 0.5) * bend))));
+        point = add(point, mulv(heading, branchLength / FORM));
+        path.push(point);
       }
-      const r1 = r0 * taper;
-      for (let k = 0; k <= FORM; k++) radii.push(r0 + ((r1 - r0) * k) / FORM);
-      const drawn = Array.from({ length: segs + 1 }, (_, i) => Math.round((i * FORM) / segs));
-      g.add(
+      const endRadius = startRadius * taper;
+      for (let k = 0; k <= FORM; k++) radii.push(startRadius + ((endRadius - startRadius) * k) / FORM);
+      const drawn = Array.from({ length: drawnSteps + 1 }, (_, i) => Math.round((i * FORM) / drawnSteps));
+      mesh.add(
         tube(
           drawn.map((k) => path[k]),
           drawn.map((k) => radii[k]),
-          o,
+          options,
         ),
         M.id(),
       );
       if (level >= levels) return;
-      for (let b = 0; b < branches; b++) {
-        const k = b === branches - 1 ? FORM : Math.max(1, Math.round(FORM * (0.45 + 0.5 * R()))),
-          az = 2 * Math.PI * (b / branches + 0.3 * R());
-        const perp = add(mulv(side, Math.cos(az)), mulv(up, Math.sin(az))),
-          sp = spread * D2R * (0.6 + 0.8 * R());
+      for (let branch = 0; branch < branches; branch++) {
+        const fork = branch === branches - 1 ? FORM : Math.max(1, Math.round(FORM * (0.45 + 0.5 * random()))),
+          azimuth = 2 * Math.PI * (branch / branches + 0.3 * random());
+        const outward = add(mulv(side, Math.cos(azimuth)), mulv(up, Math.sin(azimuth))),
+          spreadAngle = spread * D2R * (0.6 + 0.8 * random());
         grow(
-          path[k],
-          add(mulv(dd, Math.cos(sp)), mulv(perp, Math.sin(sp))),
-          L * shrink * (0.8 + 0.4 * R()),
-          radii[k] * 0.85,
+          path[fork],
+          add(mulv(heading, Math.cos(spreadAngle)), mulv(outward, Math.sin(spreadAngle))),
+          branchLength * shrink * (0.8 + 0.4 * random()),
+          radii[fork] * 0.85,
           level + 1,
         );
       }
     };
-    grow(at, dir, length, r, 1);
-    return g;
+    grow(at, direction, length, radius, 1);
+    return mesh;
   }
   // molecule: {atoms: [{el, at: [x, y, z] (ångström)}], bonds: [[i, j, order]], scale, style: 'ball' | 'space'}:
   // atoms in their usual (CPK) colours, ball-and-stick or space-filling; bonds in the two atoms' colours
-  function molecule({ atoms = [], bonds = [], scale = 1, style = 'ball', bond = 0.09 }, o) {
-    const g = new Geo();
-    atoms.forEach((a) => {
-      const e = ELEMENTS[a.el] || ELEMENTS.X,
-        rad = (a.r ?? (style === 'space' ? e[2] : e[1])) * scale;
-      const s = sphere(rad, o).paint(a.color || e[0]);
-      g.add(s, M.trans(mulv(a.at, scale)));
+  function molecule({ atoms = [], bonds = [], scale = 1, style = 'ball', bond: bondRadius = 0.09 }, options) {
+    const mesh = new Mesh();
+    atoms.forEach((atom) => {
+      const element = ELEMENTS[atom.el] || ELEMENTS.X,
+        radius = (atom.r ?? (style === 'space' ? element[2] : element[1])) * scale;
+      const ball = sphere(radius, options).paint(atom.color || element[0]);
+      mesh.add(ball, M.trans(mulv(atom.at, scale)));
     });
     if (style !== 'space')
       for (const [i, j, order = 1] of bonds) {
-        const A = mulv(atoms[i].at, scale),
-          B = mulv(atoms[j].at, scale);
-        if (len(sub(B, A)) < 1e-9) continue; // (two atoms at one place: no rod between them)
-        const { y } = between(A, B),
-          w = bond * scale * (order > 1 ? 0.6 : 1);
+        const first = mulv(atoms[i].at, scale),
+          second = mulv(atoms[j].at, scale);
+        if (len(sub(second, first)) < 1e-9) continue; // (two atoms at one place: no rod between them)
+        const { yAxis } = between(first, second),
+          rodRadius = bondRadius * scale * (order > 1 ? 0.6 : 1);
         for (let k = 0; k < order; k++) {
           // a double or triple bond: rods side by side
-          const off = mulv(y, (k - (order - 1) / 2) * w * 2.6),
-            a = add(A, off),
-            b = add(B, off),
-            mid = mulv(add(a, b), 0.5);
-          for (const [p, q, el] of [
-            [a, mid, atoms[i].el],
-            [mid, b, atoms[j].el],
+          const offset = mulv(yAxis, (k - (order - 1) / 2) * rodRadius * 2.6),
+            start = add(first, offset),
+            end = add(second, offset),
+            middle = mulv(add(start, end), 0.5);
+          for (const [rodStart, rodEnd, element] of [
+            [start, middle, atoms[i].el],
+            [middle, end, atoms[j].el],
           ]) {
-            const t = between(p, q),
-              rod = cylinder({ r: w, x0: 0, x1: t.L }, o).paint((ELEMENTS[el] || ELEMENTS.X)[0]);
-            g.add(rod, t.m);
+            const frame = between(rodStart, rodEnd),
+              rod = cylinder({ r: rodRadius, x0: 0, x1: frame.length }, options).paint(
+                (ELEMENTS[element] || ELEMENTS.X)[0],
+              );
+            mesh.add(rod, frame.matrix);
           }
         }
       }
-    return g;
+    return mesh;
   }
   // dna: {pairs, seq, r, rise, twist, groove, scale}: a double helix along x in nanometres (radius 1, rise 0.34 per
   // base pair, 10.5 pairs per turn): two backbones and the base pairs between them, coloured A T G C
   function dna(
     {
       pairs = 12,
-      seq = 'ATGCGTACGTTAGC',
-      r = 1,
+      seq: sequence = 'ATGCGTACGTTAGC',
+      r: radius = 1,
       rise = 0.34,
       twist = 360 / 10.5,
       groove = 150,
       wire = 0.11,
       scale = 1,
     },
-    o,
+    options,
   ) {
-    const g = new Geo(),
-      S = (p) => mulv(p, scale),
-      pt = (k, a) => S([k * rise, r * Math.cos(a), r * Math.sin(a)]);
-    const n = Math.max(2, pairs),
-      per = Math.max(3, Math.round(6 * (o.q || 1))),
+    const mesh = new Mesh(),
+      scaled = (point) => mulv(point, scale),
+      helixPoint = (step, angle) => scaled([step * rise, radius * Math.cos(angle), radius * Math.sin(angle)]);
+    const pairCount = Math.max(2, pairs),
+      perPair = Math.max(3, Math.round(6 * (options.q || 1))),
       /** @type {number[][][]} */
       strands = [[], []];
-    for (let k = 0; k <= (n - 1) * per; k++) {
-      const t = k / per,
-        a = t * twist * D2R;
-      strands[0].push(pt(t, a));
-      strands[1].push(pt(t, a + groove * D2R));
+    for (let k = 0; k <= (pairCount - 1) * perPair; k++) {
+      const t = k / perPair,
+        angle = t * twist * D2R;
+      strands[0].push(helixPoint(t, angle));
+      strands[1].push(helixPoint(t, angle + groove * D2R));
     }
-    g.add(tube(strands[0], wire * scale, o).paint(BACKBONE[0]), M.id());
-    g.add(tube(strands[1], wire * scale, o).paint(BACKBONE[1]), M.id());
+    mesh.add(tube(strands[0], wire * scale, options).paint(BACKBONE[0]), M.id());
+    mesh.add(tube(strands[1], wire * scale, options).paint(BACKBONE[1]), M.id());
     const PAIR = { A: 'T', T: 'A', G: 'C', C: 'G' };
-    for (let k = 0; k < n; k++) {
-      const b = seq[k % seq.length].toUpperCase(),
-        a = k * twist * D2R,
-        p = pt(k, a),
-        q = pt(k, a + groove * D2R),
-        mid = mulv(add(p, q), 0.5);
-      for (const [x, y, base] of [
-        [p, mid, b],
-        [mid, q, PAIR[b] || 'A'],
+    for (let k = 0; k < pairCount; k++) {
+      const letter = sequence[k % sequence.length].toUpperCase(),
+        angle = k * twist * D2R,
+        onFirst = helixPoint(k, angle),
+        onSecond = helixPoint(k, angle + groove * D2R),
+        middle = mulv(add(onFirst, onSecond), 0.5);
+      for (const [from, to, base] of [
+        [onFirst, middle, letter],
+        [middle, onSecond, PAIR[letter] || 'A'],
       ]) {
-        const t = between(x, y);
-        g.add(cylinder({ r: wire * 0.6 * scale, x0: 0, x1: t.L }, o).paint(BASES[base]), t.m);
+        const frame = between(from, to);
+        mesh.add(
+          cylinder({ r: wire * 0.6 * scale, x0: 0, x1: frame.length }, options).paint(BASES[base]),
+          frame.matrix,
+        );
       }
     }
-    return g;
+    return mesh;
   }
   // extrude: {outline: [[x, y], …], depth}: a flat outline (any simple polygon) made solid along z (a rock layer seen
   // in section, a fault block, a Golgi cisterna, a tooth's cross-section)
   function extrude({ outline, depth = 0.2 }) {
-    const g = new Geo(),
-      P = outline.length && signedArea(outline) < 0 ? outline.slice().reverse() : outline,
-      z = depth / 2,
-      tri = earcut(P);
-    for (const [s, zz] of [
-      [1, z],
-      [-1, -z],
+    const mesh = new Mesh(),
+      points = outline.length && signedArea(outline) < 0 ? outline.slice().reverse() : outline,
+      halfDepth = depth / 2,
+      triangles = earcut(points);
+    for (const [facing, faceZ] of [
+      [1, halfDepth],
+      [-1, -halfDepth],
     ]) {
-      const ids = P.map(([x, y]) => g.v([x, y, zz], [0, 0, s]));
-      for (const [a, b, c] of tri) g.tri(ids[a], ids[b], ids[c]);
+      const vertexIds = points.map(([x, y]) => mesh.vertex([x, y, faceZ], [0, 0, facing]));
+      for (const [a, b, c] of triangles) mesh.triangle(vertexIds[a], vertexIds[b], vertexIds[c]);
     }
-    for (let k = 0; k < P.length; k++) {
-      const a = P[k],
-        b = P[(k + 1) % P.length],
-        n = norm([b[1] - a[1], a[0] - b[0], 0]);
-      g.quad(g.v([a[0], a[1], -z], n), g.v([b[0], b[1], -z], n), g.v([b[0], b[1], z], n), g.v([a[0], a[1], z], n));
+    for (let k = 0; k < points.length; k++) {
+      const a = points[k],
+        b = points[(k + 1) % points.length],
+        normal = norm([b[1] - a[1], a[0] - b[0], 0]);
+      mesh.quad(
+        mesh.vertex([a[0], a[1], -halfDepth], normal),
+        mesh.vertex([b[0], b[1], -halfDepth], normal),
+        mesh.vertex([b[0], b[1], halfDepth], normal),
+        mesh.vertex([a[0], a[1], halfDepth], normal),
+      );
     }
-    return g;
+    return mesh;
   }
   // terrain: {size: [x, z], res, base, height: {amp, freq, seed}, layers: [{thick, color}], top, tilt}: a block of
   // ground whose top is a smooth landscape and whose sides show its rock layers (top layer first, the last one to the
   // bottom); tilt (degrees) dips the layers along x
   /** @param {{ size?: number[], res?: number, base?: number, height?: { amp?: number, freq?: number, seed?: number },
-   *   layers?: { thick: number, color: string }[], top?: string, tilt?: number }} t @param {any} o */
-  function terrain({ size = [2, 2], res = 24, base = 0.6, height = {}, layers = [], top = '#7a9a55', tilt = 0 }, o) {
-    const g = new Geo(),
-      n = Math.max(6, Math.round(res * (o.q || 1))),
-      nz = noise3(height.seed ?? 3),
-      [sx, sz] = size;
-    const h = (x, z) => base + (height.amp ?? 0.12) * nz(x * (height.freq ?? 1.5), 0.37, z * (height.freq ?? 1.5));
-    const X = (i) => -sx / 2 + (sx * i) / n,
-      Z = (j) => -sz / 2 + (sz * j) / n;
+   *   layers?: { thick: number, color: string }[], top?: string, tilt?: number }} t @param {any} options */
+  function terrain(
+    { size = [2, 2], res = 24, base = 0.6, height = {}, layers = [], top = '#7a9a55', tilt = 0 },
+    options,
+  ) {
+    const mesh = new Mesh(),
+      steps = Math.max(6, Math.round(res * (options.q || 1))),
+      noise = noise3(height.seed ?? 3),
+      [sizeX, sizeZ] = size;
+    const heightAt = (x, z) =>
+      base + (height.amp ?? 0.12) * noise(x * (height.freq ?? 1.5), 0.37, z * (height.freq ?? 1.5));
+    const xAt = (i) => -sizeX / 2 + (sizeX * i) / steps,
+      zAt = (j) => -sizeZ / 2 + (sizeZ * j) / steps;
     // the top surface, normals from the slope
     const grid = [];
-    for (let i = 0; i <= n; i++) {
+    for (let i = 0; i <= steps; i++) {
       const row = [];
-      for (let j = 0; j <= n; j++) {
-        const x = X(i),
-          z = Z(j),
-          e = 1e-3;
+      for (let j = 0; j <= steps; j++) {
+        const x = xAt(i),
+          z = zAt(j),
+          delta = 1e-3;
         row.push(
-          g.v(
-            [x, h(x, z), z],
-            norm([-(h(x + e, z) - h(x - e, z)) / (2 * e), 1, -(h(x, z + e) - h(x, z - e)) / (2 * e)]),
+          mesh.vertex(
+            [x, heightAt(x, z), z],
+            norm([
+              -(heightAt(x + delta, z) - heightAt(x - delta, z)) / (2 * delta),
+              1,
+              -(heightAt(x, z + delta) - heightAt(x, z - delta)) / (2 * delta),
+            ]),
           ),
         );
       }
       grid.push(row);
     }
-    for (let i = 0; i < n; i++)
-      for (let j = 0; j < n; j++) g.quad(grid[i][j], grid[i][j + 1], grid[i + 1][j + 1], grid[i + 1][j]);
-    g.paint(top);
+    for (let i = 0; i < steps; i++)
+      for (let j = 0; j < steps; j++) mesh.quad(grid[i][j], grid[i][j + 1], grid[i + 1][j + 1], grid[i + 1][j]);
+    mesh.paint(top);
     // the layer boundaries under a point: from the top down, then the bottom (y = 0)
     const bounds = (x) => {
       let y = base + Math.tan(tilt * D2R) * x;
-      const out = [];
-      for (const L of layers.slice(0, -1)) {
-        y -= L.thick;
-        out.push(y);
+      const boundaries = [];
+      for (const layer of layers.slice(0, -1)) {
+        y -= layer.thick;
+        boundaries.push(y);
       }
-      return out;
+      return boundaries;
     };
     const colour = (k) => (layers[Math.min(k, layers.length - 1)] || { color: '#9a8466' }).color;
     // the four sides, in bands of colour
-    const side = (pts, nrm) => {
-      for (let k = 0; k + 1 < pts.length; k++) {
-        const [x0, z0] = pts[k],
-          [x1, z1] = pts[k + 1],
-          t0 = h(x0, z0),
-          t1 = h(x1, z1),
-          b0 = bounds(x0),
-          b1 = bounds(x1);
-        const lev0 = [t0, ...b0.map((y) => Math.min(t0, Math.max(0, y))), 0],
-          lev1 = [t1, ...b1.map((y) => Math.min(t1, Math.max(0, y))), 0];
-        for (let L = 0; L + 1 < lev0.length; L++) {
-          if (lev0[L] - lev0[L + 1] < 1e-9 && lev1[L] - lev1[L + 1] < 1e-9) continue;
-          const from = g.count;
-          g.quad(
-            g.v([x0, lev0[L], z0], nrm),
-            g.v([x0, lev0[L + 1], z0], nrm),
-            g.v([x1, lev1[L + 1], z1], nrm),
-            g.v([x1, lev1[L], z1], nrm),
+    const side = (points, normal) => {
+      for (let k = 0; k + 1 < points.length; k++) {
+        const [x0, z0] = points[k],
+          [x1, z1] = points[k + 1],
+          top0 = heightAt(x0, z0),
+          top1 = heightAt(x1, z1),
+          bounds0 = bounds(x0),
+          bounds1 = bounds(x1);
+        const levels0 = [top0, ...bounds0.map((y) => Math.min(top0, Math.max(0, y))), 0],
+          levels1 = [top1, ...bounds1.map((y) => Math.min(top1, Math.max(0, y))), 0];
+        for (let layer = 0; layer + 1 < levels0.length; layer++) {
+          if (levels0[layer] - levels0[layer + 1] < 1e-9 && levels1[layer] - levels1[layer + 1] < 1e-9) continue;
+          const from = mesh.count;
+          mesh.quad(
+            mesh.vertex([x0, levels0[layer], z0], normal),
+            mesh.vertex([x0, levels0[layer + 1], z0], normal),
+            mesh.vertex([x1, levels1[layer + 1], z1], normal),
+            mesh.vertex([x1, levels1[layer], z1], normal),
           );
-          g.paint(colour(L), from);
+          mesh.paint(colour(layer), from);
         }
       }
     };
-    const edge = (f) => Array.from({ length: n + 1 }, (_, k) => f(k));
+    const edge = (pointAt) => Array.from({ length: steps + 1 }, (_, k) => pointAt(k));
     side(
-      edge((k) => [X(k), -sz / 2]),
+      edge((k) => [xAt(k), -sizeZ / 2]),
       [0, 0, -1],
     );
     side(
-      edge((k) => [sx / 2, Z(k)]),
+      edge((k) => [sizeX / 2, zAt(k)]),
       [1, 0, 0],
     );
     side(
-      edge((k) => [X(n - k), sz / 2]),
+      edge((k) => [xAt(steps - k), sizeZ / 2]),
       [0, 0, 1],
     );
     side(
-      edge((k) => [-sx / 2, Z(n - k)]),
+      edge((k) => [-sizeX / 2, zAt(steps - k)]),
       [-1, 0, 0],
     );
     // the bottom: a fan from its middle to every point of the sides' lower edge (one quad would leave the sides'
     // points along it unjoined, and the block open)
-    const from = g.count,
-      dn = [0, -1, 0],
-      mid = g.v([0, 0, 0], dn),
+    const from = mesh.count,
+      down = [0, -1, 0],
+      middle = mesh.vertex([0, 0, 0], down),
       rim = [
-        ...edge((k) => [X(k), -sz / 2]),
-        ...edge((k) => [sx / 2, Z(k)]).slice(1),
-        ...edge((k) => [X(n - k), sz / 2]).slice(1),
-        ...edge((k) => [-sx / 2, Z(n - k)]).slice(1),
-      ].map(([x, z]) => g.v([x, 0, z], dn));
-    for (let k = 0; k + 1 < rim.length; k++) g.tri(mid, rim[k], rim[k + 1]);
-    g.paint(colour(layers.length - 1), from);
-    return g;
+        ...edge((k) => [xAt(k), -sizeZ / 2]),
+        ...edge((k) => [sizeX / 2, zAt(k)]).slice(1),
+        ...edge((k) => [xAt(steps - k), sizeZ / 2]).slice(1),
+        ...edge((k) => [-sizeX / 2, zAt(steps - k)]).slice(1),
+      ].map(([x, z]) => mesh.vertex([x, 0, z], down));
+    for (let k = 0; k + 1 < rim.length; k++) mesh.triangle(middle, rim[k], rim[k + 1]);
+    mesh.paint(colour(layers.length - 1), from);
+    return mesh;
   }
   // ring: {r, ri, thickness}: a flat ring around the x axis (Saturn's rings, a washer)
-  const ring = ({ r, ri, thickness = 0.01 }, o) => cylinder({ r, ri, x0: -thickness / 2, x1: thickness / 2 }, o);
+  const ring = ({ r, ri, thickness = 0.01 }, options) =>
+    cylinder({ r, ri, x0: -thickness / 2, x1: thickness / 2 }, options);
   // orbit: {a, e, wire}: an ellipse in the x-z plane with a focus at the origin (where the Sun is): semi-major axis a,
   // eccentricity e
-  function orbit({ a, e = 0, wire = 0.01 }, o) {
-    const n = Math.max(48, Math.round(160 * (o.q || 1))),
+  function orbit({ a, e = 0, wire = 0.01 }, options) {
+    const steps = Math.max(48, Math.round(160 * (options.q || 1))),
       b = a * Math.sqrt(1 - e * e),
       path = [];
-    for (let k = 0; k < n; k++) {
-      const t = (2 * Math.PI * k) / n;
-      path.push([a * (Math.cos(t) - e), 0, b * Math.sin(t)]);
+    for (let k = 0; k < steps; k++) {
+      const angle = (2 * Math.PI * k) / steps;
+      path.push([a * (Math.cos(angle) - e), 0, b * Math.sin(angle)]);
     }
-    return tube(path, wire, { ...o, closed: true });
+    return tube(path, wire, { ...options, closed: true });
   }
   // blade: {root, span, chord, tip, twist, thickness, camber}: an airfoil blade standing out along y from radius root
   // to root + span, its chord along x (a fan, compressor or turbine blade; repeat it around the x axis). The section is
@@ -510,62 +570,70 @@ export default ({ Geo, lathe, tube, sphere, cylinder }) => {
   // root, decreasing to 0 at the tip
   function blade(
     { root = 0.2, span = 0.5, chord = 0.15, tip, twist = 35, thickness = 0.1, camber = 0.04, sweep = 0 },
-    o,
+    options,
   ) {
-    const ns = Math.max(4, Math.round(10 * (o.q || 1))),
-      na = Math.max(8, Math.round(16 * (o.q || 1))),
-      pos = [],
-      tris = [];
-    const yt = (x) =>
+    const spanSteps = Math.max(4, Math.round(10 * (options.q || 1))),
+      chordSteps = Math.max(8, Math.round(16 * (options.q || 1))),
+      positions = [],
+      triangles = [];
+    const halfThicknessAt = (x) =>
       5 * thickness * (0.2969 * Math.sqrt(x) - 0.126 * x - 0.3516 * x * x + 0.2843 * x ** 3 - 0.1036 * x ** 4);
-    const yc = (x) => camber * 4 * x * (1 - x);
-    const ring = []; // the airfoil's outline: upper surface from the leading edge back, lower surface forward
-    for (let k = 0; k <= na; k++) {
-      const x = (1 - Math.cos((Math.PI * k) / na)) / 2;
-      ring.push([x, yc(x) + yt(x)]);
+    const camberAt = (x) => camber * 4 * x * (1 - x);
+    const outline = []; // the airfoil's outline: upper surface from the leading edge back, lower surface forward
+    for (let k = 0; k <= chordSteps; k++) {
+      const x = (1 - Math.cos((Math.PI * k) / chordSteps)) / 2;
+      outline.push([x, camberAt(x) + halfThicknessAt(x)]);
     }
-    for (let k = na - 1; k > 0; k--) {
-      const x = (1 - Math.cos((Math.PI * k) / na)) / 2;
-      ring.push([x, yc(x) - yt(x)]);
+    for (let k = chordSteps - 1; k > 0; k--) {
+      const x = (1 - Math.cos((Math.PI * k) / chordSteps)) / 2;
+      outline.push([x, camberAt(x) - halfThicknessAt(x)]);
     }
-    for (let s = 0; s <= ns; s++) {
-      const u = s / ns,
-        c = chord + ((tip ?? chord) - chord) * u,
-        a = twist * (1 - u) * D2R,
-        y = root + span * u,
-        dx = sweep * span * u;
-      for (const [x, z] of ring) {
-        const X = (x - 0.5) * c,
-          Z = z * c;
-        pos.push([X * Math.cos(a) - Z * Math.sin(a) + dx, y, X * Math.sin(a) + Z * Math.cos(a)]);
+    for (let section = 0; section <= spanSteps; section++) {
+      const fraction = section / spanSteps,
+        sectionChord = chord + ((tip ?? chord) - chord) * fraction,
+        angle = twist * (1 - fraction) * D2R,
+        y = root + span * fraction,
+        sweepOffset = sweep * span * fraction;
+      for (const [x, z] of outline) {
+        const alongChord = (x - 0.5) * sectionChord,
+          acrossChord = z * sectionChord;
+        positions.push([
+          alongChord * Math.cos(angle) - acrossChord * Math.sin(angle) + sweepOffset,
+          y,
+          alongChord * Math.sin(angle) + acrossChord * Math.cos(angle),
+        ]);
       }
     }
-    const m = ring.length;
-    for (let s = 0; s < ns; s++)
-      for (let k = 0; k < m; k++) {
-        const a = s * m + k,
-          b = s * m + ((k + 1) % m),
-          c = a + m,
-          d = b + m;
-        tris.push([a, b, d], [a, d, c]);
+    const outlineLength = outline.length;
+    for (let section = 0; section < spanSteps; section++)
+      for (let k = 0; k < outlineLength; k++) {
+        const a = section * outlineLength + k,
+          b = section * outlineLength + ((k + 1) % outlineLength),
+          c = a + outlineLength,
+          d = b + outlineLength;
+        triangles.push([a, b, d], [a, d, c]);
       }
-    for (const [s, flip] of /** @type {[number, boolean][]} */ ([
+    for (const [section, flip] of /** @type {[number, boolean][]} */ ([
       [0, true],
-      [ns, false],
+      [spanSteps, false],
     ])) {
       // root and tip, closed by a fan from the section's middle
-      const cIdx = pos.length,
-        base = s * m;
-      pos.push(
+      const centerIndex = positions.length,
+        first = section * outlineLength;
+      positions.push(
         mulv(
-          pos.slice(base, base + m).reduce((p, q) => add(p, q), [0, 0, 0]),
-          1 / m,
+          positions.slice(first, first + outlineLength).reduce((sum, point) => add(sum, point), [0, 0, 0]),
+          1 / outlineLength,
         ),
       );
-      for (let k = 0; k < m; k++)
-        tris.push(flip ? [cIdx, base + ((k + 1) % m), base + k] : [cIdx, base + k, base + ((k + 1) % m)]);
+      for (let k = 0; k < outlineLength; k++)
+        triangles.push(
+          flip
+            ? [centerIndex, first + ((k + 1) % outlineLength), first + k]
+            : [centerIndex, first + k, first + ((k + 1) % outlineLength)],
+        );
     }
-    return meshOf(pos, tris);
+    return meshOf(positions, triangles);
   }
   return { ellipsoid, capsule, blob, shell, tree, molecule, dna, extrude, terrain, ring, orbit, blade };
 };
@@ -602,40 +670,40 @@ const ELEMENTS = {
 };
 const BACKBONE = ['#e0a14a', '#6b8fd6'],
   BASES = { A: '#e8574a', T: '#4a90d9', G: '#f2c14e', C: '#5cb85c' };
-function signedArea(P) {
-  let a = 0;
-  for (let k = 0; k < P.length; k++) {
-    const p = P[k],
-      q = P[(k + 1) % P.length];
-    a += p[0] * q[1] - q[0] * p[1];
+function signedArea(points) {
+  let area = 0;
+  for (let k = 0; k < points.length; k++) {
+    const point = points[k],
+      next = points[(k + 1) % points.length];
+    area += point[0] * next[1] - next[0] * point[1];
   }
-  return a / 2;
+  return area / 2;
 }
 // triangles of a simple polygon given counter-clockwise (ear clipping: fine for the few dozen points of an outline)
-function earcut(P) {
-  const idx = P.map((_, k) => k),
-    out = [],
-    cr = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
-  const inTri = (p, a, b, c) => cr(a, b, p) >= 0 && cr(b, c, p) >= 0 && cr(c, a, p) >= 0;
+function earcut(points) {
+  const remaining = points.map((_, k) => k),
+    triangles = [],
+    turn = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const inTriangle = (point, a, b, c) => turn(a, b, point) >= 0 && turn(b, c, point) >= 0 && turn(c, a, point) >= 0;
   let guard = 0;
-  while (idx.length > 3 && guard++ < 10000) {
+  while (remaining.length > 3 && guard++ < 10000) {
     let cut = false;
-    for (let k = 0; k < idx.length; k++) {
-      const i0 = idx[(k + idx.length - 1) % idx.length],
-        i1 = idx[k],
-        i2 = idx[(k + 1) % idx.length],
-        a = P[i0],
-        b = P[i1],
-        c = P[i2];
-      if (cr(a, b, c) <= 1e-12) continue; // a reflex corner is not an ear
-      if (idx.some((j) => j !== i0 && j !== i1 && j !== i2 && inTri(P[j], a, b, c))) continue;
-      out.push([i0, i1, i2]);
-      idx.splice(k, 1);
+    for (let k = 0; k < remaining.length; k++) {
+      const i0 = remaining[(k + remaining.length - 1) % remaining.length],
+        i1 = remaining[k],
+        i2 = remaining[(k + 1) % remaining.length],
+        a = points[i0],
+        b = points[i1],
+        c = points[i2];
+      if (turn(a, b, c) <= 1e-12) continue; // a reflex corner is not an ear
+      if (remaining.some((j) => j !== i0 && j !== i1 && j !== i2 && inTriangle(points[j], a, b, c))) continue;
+      triangles.push([i0, i1, i2]);
+      remaining.splice(k, 1);
       cut = true;
       break;
     }
     if (!cut) break; // degenerate outline: stop rather than loop
   }
-  if (idx.length === 3) out.push(idx.slice());
-  return out;
+  if (remaining.length === 3) triangles.push(remaining.slice());
+  return triangles;
 }

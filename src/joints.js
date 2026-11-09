@@ -20,97 +20,109 @@ import { M, sub, mulv, dot, cross, norm } from './math.js';
 import { rotAxis } from './handles.js';
 import { between } from './motion.js';
 
-const { pt, dir } = M; // (a point, and a direction, through a matrix)
+const { pt: transformPoint, dir: transformDirection } = M;
 // the joints a joint reads: its parent and the one its value comes from
-const reads = (j) =>
-  [j.parent, j.follow && j.follow.joint, j.rod && j.rod.joint, j.aim && j.aim.joint].filter((x) => x != null);
+const reads = (joint) =>
+  [joint.parent, joint.follow && joint.follow.joint, joint.rod && joint.rod.joint, joint.aim && joint.aim.joint].filter(
+    (id) => id != null,
+  );
 
 // the scene's joints in an order where each comes after those it reads; null when there are none. Throws on a joint
 // that reads itself through others (a loop) or one that isn't there (the validator says it first)
 export function jointsOf(scene) {
   const list = scene.joints || [];
   if (!list.length) return null;
-  const byId = new Map(list.map((j) => [j.id, j])),
+  const byId = new Map(list.map((joint) => [joint.id, joint])),
     order = [],
     state = new Map();
-  const visit = (j, path) => {
-    if (state.get(j.id) === 2) return;
-    if (state.get(j.id) === 1) throw new Error(`lk3d: joints ${[...path, j.id].join(' → ')} read each other in a loop`);
-    state.set(j.id, 1);
-    for (const r of reads(j)) {
-      if (!byId.has(r)) throw new Error(`lk3d: joint ${j.id} reads ${r}, which is no joint`);
-      visit(byId.get(r), [...path, j.id]);
+  const visit = (joint, path) => {
+    if (state.get(joint.id) === 2) return;
+    if (state.get(joint.id) === 1)
+      throw new Error(`lk3d: joints ${[...path, joint.id].join(' → ')} read each other in a loop`);
+    state.set(joint.id, 1);
+    for (const readId of reads(joint)) {
+      if (!byId.has(readId)) throw new Error(`lk3d: joint ${joint.id} reads ${readId}, which is no joint`);
+      visit(byId.get(readId), [...path, joint.id]);
     }
-    state.set(j.id, 2);
-    order.push(j);
+    state.set(joint.id, 2);
+    order.push(joint);
   };
-  for (const j of list) visit(j, []);
+  for (const joint of list) visit(joint, []);
   return { order, byId };
 }
 
 // the joint that moves a part (it is named, or its group), or null
-export const jointOf = (J, p) =>
-  (J && J.order.find((j) => (j.parts || []).some((n) => n === p.id || n === p.group))) || null;
+export const jointOf = (sceneJoints, part) =>
+  (sceneJoints &&
+    sceneJoints.order.find((joint) => (joint.parts || []).some((name) => name === part.id || name === part.group))) ||
+  null;
 
 // the motions a joint's value depends on (directly or through the joints it reads)
-export function motionsOf(J, j, seen = new Set()) {
-  if (seen.has(j.id)) return new Set();
-  seen.add(j.id);
-  const out = new Set();
-  const d = j.drive && (typeof j.drive === 'string' ? j.drive : j.drive.motion);
-  if (d) out.add(d);
-  for (const r of reads(j)) for (const m of motionsOf(J, J.byId.get(r), seen)) out.add(m);
-  return out;
+export function motionsOf(sceneJoints, joint, seen = new Set()) {
+  if (seen.has(joint.id)) return new Set();
+  seen.add(joint.id);
+  const motionIds = new Set();
+  const drivingMotion = joint.drive && (typeof joint.drive === 'string' ? joint.drive : joint.drive.motion);
+  if (drivingMotion) motionIds.add(drivingMotion);
+  for (const readId of reads(joint))
+    for (const motionId of motionsOf(sceneJoints, sceneJoints.byId.get(readId), seen)) motionIds.add(motionId);
+  return motionIds;
 }
 
-const scaled = (o, v) => (o.keys ? between(o.keys, v) : v * (o.ratio ?? 1) + (o.offset ?? 0));
+const scaled = (rule, value) =>
+  rule.keys ? between(rule.keys, value) : value * (rule.ratio ?? 1) + (rule.offset ?? 0);
 
 // each joint's value and matrix (scene coordinates at rest → where its parts are now) for the motions' values
 // ({motion id: value}, missing ones at their start) and the page's values for joints ({joint id: value})
-export function solve(J, motions, values = {}, joints = {}) {
-  const val = new Map(),
-    mat = new Map();
-  const moValue = (id) => {
-    const mo = (motions || []).find((x) => x.id === id);
-    return values[id] ?? (mo ? (mo.value ?? mo.range[0]) : 0);
+export function solve(sceneJoints, motions, values = {}, joints = {}) {
+  const jointValues = new Map(),
+    jointMatrices = new Map();
+  const motionValue = (id) => {
+    const motion = (motions || []).find((each) => each.id === id);
+    return values[id] ?? (motion ? (motion.value ?? motion.range[0]) : 0);
   };
-  for (const j of J.order) {
-    const W = j.parent != null ? mat.get(j.parent) : M.id(),
-      c = (j.turn && j.turn.center) || [0, 0, 0],
-      axis = norm((j.turn || j.slide).axis);
-    let v = j.value ?? 0;
-    if (j.drive != null) v = typeof j.drive === 'string' ? moValue(j.drive) : scaled(j.drive, moValue(j.drive.motion));
-    if (j.follow) v = scaled(j.follow, val.get(j.follow.joint));
-    if (j.rod && j.slide) {
+  for (const joint of sceneJoints.order) {
+    const parentMatrix = joint.parent != null ? jointMatrices.get(joint.parent) : M.id(),
+      center = (joint.turn && joint.turn.center) || [0, 0, 0],
+      axis = norm((joint.turn || joint.slide).axis);
+    let value = joint.value ?? 0;
+    if (joint.drive != null)
+      value =
+        typeof joint.drive === 'string'
+          ? motionValue(joint.drive)
+          : scaled(joint.drive, motionValue(joint.drive.motion));
+    if (joint.follow) value = scaled(joint.follow, jointValues.get(joint.follow.joint));
+    if (joint.rod && joint.slide) {
       // the pin, slid s along the axis, stays the rod's length from the point it hangs on:
       // |P + sA − Q| = L  →  s = d·A ∓ √((d·A)² − |d|² + L²), d = Q − P; the root that is 0 at rest
-      const Q = pt(mat.get(j.rod.joint), j.rod.at),
-        P = pt(W, j.rod.pin),
-        A = norm(dir(W, axis)),
-        d = sub(Q, P),
-        d0 = sub(j.rod.at, j.rod.pin),
-        L2 = dot(d0, d0),
-        k = dot(d, A),
-        disc = Math.max(0, k * k - dot(d, d) + L2);
-      v = k - Math.sign(dot(d0, axis) || 1) * Math.sqrt(disc);
+      // (P the pin, A the axis, Q the point the rod hangs on, L the rod's length at rest)
+      const hangPoint = transformPoint(jointMatrices.get(joint.rod.joint), joint.rod.at),
+        pin = transformPoint(parentMatrix, joint.rod.pin),
+        slideAxis = norm(transformDirection(parentMatrix, axis)),
+        pinToHang = sub(hangPoint, pin),
+        pinToHangAtRest = sub(joint.rod.at, joint.rod.pin),
+        rodLength2 = dot(pinToHangAtRest, pinToHangAtRest),
+        along = dot(pinToHang, slideAxis),
+        discriminant = Math.max(0, along * along - dot(pinToHang, pinToHang) + rodLength2);
+      value = along - Math.sign(dot(pinToHangAtRest, axis) || 1) * Math.sqrt(discriminant);
     }
-    if (j.aim && j.turn) {
-      // turned about the axis (through c, carried by the parent) so that c → at points where it points at rest
-      const inv = M.invert(W),
-        Q = pt(inv, pt(mat.get(j.aim.joint), j.aim.at)),
-        flat = (u) => sub(u, mulv(axis, dot(u, axis))),
-        a = flat(sub(j.aim.at, c)),
-        b = flat(sub(Q, c));
-      v = (Math.atan2(dot(axis, cross(a, b)), dot(a, b)) * 180) / Math.PI;
+    if (joint.aim && joint.turn) {
+      // turned about the axis (through center, carried by the parent) so that center → at points where it points at rest
+      const toParent = M.invert(parentMatrix),
+        target = transformPoint(toParent, transformPoint(jointMatrices.get(joint.aim.joint), joint.aim.at)),
+        flat = (vector) => sub(vector, mulv(axis, dot(vector, axis))),
+        atRest = flat(sub(joint.aim.at, center)),
+        now = flat(sub(target, center));
+      value = (Math.atan2(dot(axis, cross(atRest, now)), dot(atRest, now)) * 180) / Math.PI;
     }
-    if (joints[j.id] != null && !j.rod && !j.aim) v = joints[j.id];
-    const local = j.turn
-      ? M.mul(M.trans(c), M.mul(rotAxis(axis, (v * Math.PI) / 180), M.trans(mulv(c, -1))))
-      : M.trans(mulv(axis, v));
-    val.set(j.id, v);
-    mat.set(j.id, M.mul(W, local));
+    if (joints[joint.id] != null && !joint.rod && !joint.aim) value = joints[joint.id];
+    const local = joint.turn
+      ? M.mul(M.trans(center), M.mul(rotAxis(axis, (value * Math.PI) / 180), M.trans(mulv(center, -1))))
+      : M.trans(mulv(axis, value));
+    jointValues.set(joint.id, value);
+    jointMatrices.set(joint.id, M.mul(parentMatrix, local));
   }
-  return { value: val, matrix: mat };
+  return { value: jointValues, matrix: jointMatrices };
 }
 
-export { pt as transformPoint };
+export { transformPoint };

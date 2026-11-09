@@ -8,10 +8,10 @@
 const RATES = [144, 120, 90, 75, 60, 50, 30].map((hz) => 1000 / hz);
 /** @param {number[]} gaps frame intervals, ms */
 export function refreshFrom(gaps) {
-  const g = gaps.filter((x) => x > 2 && x < 200).sort((a, b) => a - b);
-  if (g.length < 5) return 1000 / 60;
-  const med = g[Math.floor(g.length / 2)];
-  return RATES.reduce((best, r) => (Math.abs(r - med) < Math.abs(best - med) ? r : best), RATES[0]);
+  const kept = gaps.filter((gap) => gap > 2 && gap < 200).sort((a, b) => a - b);
+  if (kept.length < 5) return 1000 / 60;
+  const median = kept[Math.floor(kept.length / 2)];
+  return RATES.reduce((best, rate) => (Math.abs(rate - median) < Math.abs(best - median) ? rate : best), RATES[0]);
 }
 
 // One clock for every figure: animation reads it, not the frame's own timestamp, so a test or a tool can slow time or
@@ -19,22 +19,22 @@ export function refreshFrom(gaps) {
 // it to a time (clock.set(ms), backwards too: a video seeking its own timeline)
 /** @type {Set<(was: number) => void>} the figures on the page, woken when the clock is stepped or set */
 export const awake = new Set();
-let clockT = 0,
-  wall = 0,
+let clockTime = 0,
+  lastWall = 0,
   speed = 1;
 export const clock = {
   now() {
-    const w = performance.now();
-    clockT += (w - (wall || w)) * speed;
-    wall = w;
-    return clockT;
+    const wall = performance.now();
+    clockTime += (wall - (lastWall || wall)) * speed;
+    lastWall = wall;
+    return clockTime;
   },
   get speed() {
     return speed;
   },
-  set speed(v) {
+  set speed(value) {
     clock.now();
-    speed = Math.max(0, +v || 0);
+    speed = Math.max(0, +value || 0);
   },
   /** @param {number} ms */
   step(ms) {
@@ -43,7 +43,7 @@ export const clock = {
   /** @param {number} ms */
   set(ms) {
     const was = clock.now();
-    clockT = +ms || 0;
-    for (const k of awake) k(was);
+    clockTime = +ms || 0;
+    for (const wake of awake) wake(was);
   },
 };

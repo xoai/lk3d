@@ -18,14 +18,14 @@ function getContext(canvas, opts) {
   // rest as every browser has it by default, which lk3d relies on: antialiased, with alpha (every pass blends
   // premultiplied colour: the page shows through as it should), the drawing buffer not kept, the default GPU (these
   // scenes do not need to wake a laptop's second one)
-  const attrs = { stencil: true };
+  const attributes = { stencil: true };
   if (opts.force2d) return null;
   try {
     if (!opts.webgl1) {
-      const gl2 = canvas.getContext('webgl2', attrs);
+      const gl2 = canvas.getContext('webgl2', attributes);
       if (gl2) return gl2;
     }
-    return canvas.getContext('webgl', attrs);
+    return canvas.getContext('webgl', attributes);
   } catch (e) {
     return null;
   }
@@ -45,21 +45,21 @@ export function openGL(c) {
     () => {
       const built = c.built_,
         small = c.smallScreen_;
-      const glOpts = { shadowSize: small ? 1024 : 2048, env: c.spec_.env, small, onTexture: () => c.kick_() };
+      const rendererOptions = { shadowSize: small ? 1024 : 2048, env: c.spec_.env, small, onTexture: () => c.kick_() };
       // (until it has a context: draws nothing, and the work done for later waits for it)
       c.renderer_ = { kind: '', draw: () => false, setAO() {}, dispose() {} };
       c.drawCanvas_ = canvas;
       c.keptPicture_ = null;
       c.contextLost_ = false;
       /** @type {WEBGL_lose_context | null} */
-      let loseExt = null; // (WEBGL_lose_context: how a context is given up and asked back; not in every browser)
+      let loseExtension = null; // (WEBGL_lose_context: how a context is given up and asked back; not in every browser)
       // a canvas under the WebGL one (which keeps receiving the pointer)
       const canvasUnder = () => {
-        const u = document.createElement('canvas');
-        u.className = 'lk3d-canvas lk3d-under';
-        u.setAttribute('aria-hidden', 'true');
-        canvas.before(u);
-        return u;
+        const under = document.createElement('canvas');
+        under.className = 'lk3d-canvas lk3d-under';
+        under.setAttribute('aria-hidden', 'true');
+        canvas.before(under);
+        return under;
       };
       // if WebGL fails (a shader that does not link, a mesh this GPU cannot index), the 2D fallback draws on a canvas
       // under the WebGL one
@@ -75,9 +75,9 @@ export function openGL(c) {
       // context lost meanwhile (taken by the browser) waits to come back too: never the 2D fallback for that
       const makeGL = () => {
         try {
-          c.renderer_ = glRenderer(gl, built, glOpts);
+          c.renderer_ = glRenderer(gl, built, rendererOptions);
           host.dataset.renderer = c.renderer_.kind;
-          loseExt = gl.getExtension('WEBGL_lose_context');
+          loseExtension = gl.getExtension('WEBGL_lose_context');
           holding.add(slot);
         } catch (e) {
           if (!gl || !gl.isContextLost()) c.fallback2d_(e);
@@ -91,7 +91,7 @@ export function openGL(c) {
       const slot = (c.glSlot_ = {
         seen: 0,
         give() {
-          if (!loseExt) return; // (it cannot be given up here: kept)
+          if (!loseExtension) return; // (it cannot be given up here: kept)
           holding.delete(slot);
           if (c.contextLost_) return;
           if (c.drawNow_()) {
@@ -100,7 +100,7 @@ export function openGL(c) {
             kept.height = c.height_;
             kept.getContext('2d')?.drawImage(canvas, 0, 0, c.width_, c.height_);
           }
-          loseExt.loseContext();
+          loseExtension.loseContext();
         },
       });
       c.claimGL_ = () => {
@@ -114,7 +114,7 @@ export function openGL(c) {
           gl = getContext(canvas, c.opts_);
           makeGL();
           c.kick_();
-        } else if (c.contextLost_ && loseExt) loseExt.restoreContext();
+        } else if (c.contextLost_ && loseExtension) loseExtension.restoreContext();
       };
       // (for stats())
       c.gpuName_ = () => {
@@ -140,9 +140,9 @@ export function openGL(c) {
         c.contextLost_ = false;
         if (c.renderer_.kind === '2d' || makeGL()) return; // (drawing in 2D already, or now)
         // (the lines' buffers were the old context's)
-        for (const L of c.lines_) {
-          c.renderer_.upload?.(L.part.batches[0]);
-          L.dirty = true;
+        for (const lines of c.lines_) {
+          c.renderer_.upload?.(lines.part.batches[0]);
+          lines.dirty = true;
         }
         c.kick_();
       });

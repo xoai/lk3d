@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { sceneToGLB, toGLB, trs } = require('../src/gltf-write.js');
 const { parseGLB, load } = require('../src/gltf.js');
-const { Geo, buildScene, flatten, bounds } = require('../src/geometry.js');
+const { Mesh, buildScene, flatten, bounds } = require('../src/geometry.js');
 const { M } = require('../src/math.js');
 
 const SCENE = {
@@ -81,13 +81,13 @@ test('parts as named nodes with their notes and materials, under a root scaled t
 
 test('read back by lk3d: the same triangles, where the figure has them', () => {
   const S = buildScene(SCENE),
-    tris = S.parts.reduce((n, p) => n + flatten(p).i.length, 0);
-  const g = load(Geo, parseGLB(sceneToGLB({ ...SCENE, unit: 'm' })));
-  assert.equal(g.i.length, tris);
+    tris = S.parts.reduce((n, p) => n + flatten(p).indices.length, 0);
+  const g = load(Mesh, parseGLB(sceneToGLB({ ...SCENE, unit: 'm' })));
+  assert.equal(g.indices.length, tris);
   const a = bounds(g, M.id()),
-    b = { lo: S.lo, hi: S.hi };
+    b = { min: S.min, max: S.max };
   for (let k = 0; k < 3; k++)
-    assert.ok(near(a.lo[k], b.lo[k]) && near(a.hi[k], b.hi[k]), `${a.lo} ${a.hi} vs ${b.lo} ${b.hi}`);
+    assert.ok(near(a.min[k], b.min[k]) && near(a.max[k], b.max[k]), `${a.min} ${a.max} vs ${b.min} ${b.max}`);
 });
 
 test('posed as asked (a joint at 90°), and each motion as an animation of what it moves', () => {
@@ -109,8 +109,8 @@ test('posed as asked (a joint at 90°), and each motion as an animation of what 
 test('trs: a rigid matrix as translation and rotation; a stretched one is refused', () => {
   const m = M.mul(M.trans([1, 2, 3]), M.rotY(Math.PI / 2)),
     x = trs(m);
-  assert.deepEqual(x.t, [1, 2, 3]);
-  assert.ok(near(x.r[1], Math.SQRT1_2) && near(x.r[3], Math.SQRT1_2));
+  assert.deepEqual(x.translation, [1, 2, 3]);
+  assert.ok(near(x.rotation[1], Math.SQRT1_2) && near(x.rotation[3], Math.SQRT1_2));
   assert.equal(trs(M.scale([2, 1, 1])), null);
   assert.ok(toGLB({ parts: [] }).length > 20);
 });

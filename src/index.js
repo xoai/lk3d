@@ -5,7 +5,7 @@
 //
 //   const s = LK3D.mount(el, FIG.generator, { info: $('#info') });
 //   s.set({ spin: angle, glow: { lamp: 0.8 }, move: { piston: [0, -0.2, 0] } });  s.particles({ path, count, color }).speed = v;
-//   const gas = s.particles({ count, radius, colors }); write gas.pos4 (x, y, z, colour 0..1) and call s.redraw()
+//   const gas = s.particles({ count, radius, colors }); write gas.positionsAndColors (x, y, z, colour 0..1) and call s.redraw()
 //   a part with a handle (turn, slide, along) is moved by the reader's pointer or keys: opts.onHandle(id, value);
 //   s.handle(id).set(v);  const rays = s.lines({ count, radius, color, glow }); rays.set(k, [x, y, z], [x, y, z])
 //   const air = s.flow({ paths, count, ramp: 'cool', spread }); air.set({ speed, amount })   streaks along paths
@@ -56,8 +56,8 @@ let warned = false;
 function mount(el, spec, opts = {}) {
   // a scene may come from anyone: refused with a sentence naming the place before anything is built or drawn, by the
   // engine's guard (guard.js), or by the full rules when the page gives them (opts.validate: lk3d/validate's validate)
-  const bad = (opts.validate || guard)(spec)[0];
-  if (bad) throw new Error(`lk3d: ${bad.path || 'the scene'}: ${bad.message}`);
+  const problem = (opts.validate || guard)(spec)[0];
+  if (problem) throw new Error(`lk3d: ${problem.path || 'the scene'}: ${problem.message}`);
   css();
   if (el.lk3d) el.lk3d.destroy(); // (mounting again on the same element replaces the figure there)
   if ((spec.lk3d || 0) > FORMAT && !warned) {
@@ -68,9 +68,9 @@ function mount(el, spec, opts = {}) {
   // the class of the built-in buttons (opts.buttonClass, e.g. a page's own button style; else lk3d's plain one)
   const defaults = LK3D.defaults,
     words = { ...(LK3D.locales[opts.locale || defaults.locale] || en), ...defaults.strings, ...opts.strings };
-  const own = opts.buttonClass ?? defaults.buttonClass,
-    btnClass = 'lk3d-btn ' + (own || 'lk3d-plain');
-  const t0 = performance.now(),
+  const pageButtonClass = opts.buttonClass ?? defaults.buttonClass,
+    buttonClass = 'lk3d-btn ' + (pageButtonClass || 'lk3d-plain');
+  const mountedAt = performance.now(),
     stats = { setupMs: 0, firstFrameMs: null, treesMs: null, aoMs: null, refreshMs: null };
   const state = {
     style: opts.style || spec.style || 'pen',
@@ -95,8 +95,8 @@ function mount(el, spec, opts = {}) {
   };
   // (resolved once the figure is complete: see checkReady_ in figure/idle.js)
   let resolveReady;
-  const ready = new Promise((r) => (resolveReady = r));
-  const small = Math.min(screen.width, screen.height) < 700;
+  const ready = new Promise((resolve) => (resolveReady = resolve));
+  const smallScreen = Math.min(screen.width, screen.height) < 700;
   /** @type {import('./figure/context').Ctx} (filled in by the parts below) */
   const c = /** @type {any} */ ({
     host_: el,
@@ -105,11 +105,11 @@ function mount(el, spec, opts = {}) {
     words_: words,
     state_: state,
     stats_: stats,
-    mountedAt_: t0,
+    mountedAt_: mountedAt,
     ready_: ready,
     resolveReady_: resolveReady,
     destroyed_: false,
-    smallScreen_: small,
+    smallScreen_: smallScreen,
     canvas_: document.createElement('canvas'),
     animations_: new Set(),
     controls_: {}, // the built-in controls' hooks (filled in below, once the figure's API exists)
@@ -127,11 +127,11 @@ function mount(el, spec, opts = {}) {
   // elsewhere 10 million (2 million a part)
   c.built_ = buildFitting(
     spec,
-    (opts.quality ?? (small ? 0.6 : 1)) * (webgl ? 1 : 0.5),
-    opts.maxTriangles ?? (small || /** @type {any} */ (navigator).deviceMemory < 4 ? 1e6 : 1e7),
+    (opts.quality ?? (smallScreen ? 0.6 : 1)) * (webgl ? 1 : 0.5),
+    opts.maxTriangles ?? (smallScreen || /** @type {any} */ (navigator).deviceMemory < 4 ? 1e6 : 1e7),
   );
   const built = c.built_;
-  c.part_ = (id) => built.parts.find((p) => p.id === id);
+  c.part_ = (id) => built.parts.find((part) => part.id === id);
   makePose(c);
   makeLiquids(c);
   makeCamera(c);
@@ -155,19 +155,19 @@ function mount(el, spec, opts = {}) {
         fig: api,
         state,
         words,
-        btnClass,
+        buttonClass,
         tweenExplode: c.tweenExplode_,
-        explodable: built.parts.some((p) => p.explode.some((v) => v !== 0)),
-        motions: c.motions_.filter((mo) => mo.name),
+        explodable: built.parts.some((part) => part.explode.some((offset) => offset !== 0)),
+        motions: c.motions_.filter((motion) => motion.name),
         cuttable: spec.section !== false && c.renderer_ && c.renderer_.kind !== '2d',
-        seeThrough: built.parts.some((p) => p.xray),
+        seeThrough: built.parts.some((part) => part.xray),
       }),
     );
   }
   makeHandleInputs();
   startWatching();
   c.showInfo_();
-  stats.setupMs = performance.now() - t0;
+  stats.setupMs = performance.now() - mountedAt;
   return api;
 }
 

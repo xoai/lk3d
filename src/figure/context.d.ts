@@ -117,14 +117,14 @@ export interface Ctx {
   lines_: any[];
   /** what destroy() runs: listeners removed, observers and timers stopped */
   cleanups_: (() => void)[];
-  /** the built scene (geometry.js: buildFitting): its parts, their batches, its bounds, its detail q */
+  /** the built scene (geometry.js: buildFitting): its parts, their batches, its bounds, its detail */
   built_: {
     parts: Part[];
     radius: number;
     center: number[];
-    lo: number[];
-    hi: number[];
-    q: number;
+    min: number[];
+    max: number[];
+    quality: number;
     [key: string]: any;
   };
   /** a part by its id */
@@ -159,9 +159,9 @@ export interface Ctx {
   /** taken apart this far at once (a tween running stops) */
   explodeNow_(v: number): void;
   tweenExplode_(to: number): void;
-  setMotion_(mo: any, v: number): void;
-  playMotion_(mo: any): any;
-  stopMotion_(mo: any): void;
+  setMotion_(motion: any, v: number): void;
+  playMotion_(motion: any): any;
+  stopMotion_(motion: any): void;
 
   // ---- liquids.js
   /** the scene's vessels, liquids and gases (fluids.js: fluidsOf), null without any */
@@ -178,7 +178,7 @@ export interface Ctx {
   viewProj_: Mat;
   eye_: number[];
   /** the camera's distance to what it looks at and the half-height it sees there, for the shaders */
-  frustum_: { d: number; h: number; ortho: boolean };
+  frustum_: { distance: number; halfHeight: number; ortho: boolean };
   /** the scene's own camera distance: zoom 1 */
   baseDist_: number;
   /** how far the view moves as the model is taken apart (the scene's view.explodeShift, scaled) */
@@ -189,9 +189,9 @@ export interface Ctx {
   /** the cut's plane [nx, ny, nz, -offset] */
   cutPlane_(): number[];
   /** the box round the parts drawn now */
-  shownBox_(): { center: number[]; radius: number; lo: number[]; hi: number[] };
-  boxOf_(ps: Part[]): { center: number[]; radius: number; lo: number[]; hi: number[] };
-  rayAt_(px: number, py: number): { A: number[]; D: number[] };
+  shownBox_(): { center: number[]; radius: number; min: number[]; max: number[] };
+  boxOf_(ps: Part[]): { center: number[]; radius: number; min: number[]; max: number[] };
+  rayAt_(px: number, py: number): { origin: number[]; direction: number[] };
   zoom_(k: number, x?: number, y?: number): void;
   view_(name: any, o?: { ms?: number; [key: string]: any }): void;
   cancelView_(): void;
@@ -237,7 +237,11 @@ export interface Ctx {
 
   // ---- pick.js
   bvhOf_(b: any): any;
-  pickHit_(px: number, py: number, see?: number): { id: string | null; t: number; A: number[]; D: number[] };
+  pickHit_(
+    px: number,
+    py: number,
+    see?: number,
+  ): { id: string | null; t: number; origin: number[]; direction: number[] };
   pickAt_(px: number, py: number, see?: number): string | null;
 
   // ---- idle.js

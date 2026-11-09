@@ -58,37 +58,39 @@ export function makeApi(c) {
       return c.state_.timeScale;
     },
     _state: c.state_, // the engine's own state: not an API, it may change
-    set(o) {
-      if ('explode' in o) c.explodeNow_(o.explode); // (the page's own value wins over a running tween)
-      for (const k of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection']) if (k in o) c.state_[k] = o[k];
-      if ('transparent' in o) c.state_.transparent = !!o.transparent;
-      if (o.section) c.state_.section = { ...c.state_.section, ...o.section };
-      if (o.camera) c.view_(o.camera, { ms: 0 }); // (placed at once: the page's camera wins over a gliding view)
-      if ('timeScale' in o) c.state_.timeScale = Math.max(0, +o.timeScale || 0);
+    set(changes) {
+      if ('explode' in changes) c.explodeNow_(changes.explode); // (the page's own value wins over a running tween)
+      for (const key of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection'])
+        if (key in changes) c.state_[key] = changes[key];
+      if ('transparent' in changes) c.state_.transparent = !!changes.transparent;
+      if (changes.section) c.state_.section = { ...c.state_.section, ...changes.section };
+      if (changes.camera) c.view_(changes.camera, { ms: 0 }); // (placed at once: the page's camera wins over a gliding view)
+      if ('timeScale' in changes) c.state_.timeScale = Math.max(0, +changes.timeScale || 0);
       if (c.controls_.style) c.controls_.style(); // (the buttons: the look's name, which toggles are on)
-      if (o.move)
-        for (const [id, v] of Object.entries(o.move)) {
-          const p = c.part_(id);
-          if (p) p.offset = v;
+      if (changes.move)
+        for (const [id, offset] of Object.entries(changes.move)) {
+          const part = c.part_(id);
+          if (part) part.offset = offset;
         }
-      if (o.glow)
-        for (const [id, v] of Object.entries(o.glow)) {
-          const p = c.part_(id);
-          if (p) p.emit = mulv(p.glowColor, v);
+      if (changes.glow)
+        for (const [id, strength] of Object.entries(changes.glow)) {
+          const part = c.part_(id);
+          if (part) part.emission = mulv(part.glowColor, strength);
         }
-      if (o.joints) {
-        c.state_.joints = { ...o.joints }; // (each call says all the page sets: a joint not named follows its drive)
+      if (changes.joints) {
+        c.state_.joints = { ...changes.joints }; // (each call says all the page sets: a joint not named follows its drive)
         c.poseVersion_++;
       }
-      if (o.motion)
-        for (const [id, v] of Object.entries(o.motion)) {
-          const mo = c.motions_.find((x) => x.id === id);
-          if (mo) c.setMotion_(mo, v);
+      if (changes.motion)
+        for (const [id, value] of Object.entries(changes.motion)) {
+          const motion = c.motions_.find((each) => each.id === id);
+          if (motion) c.setMotion_(motion, value);
         }
-      if (o.hide) {
-        for (const p of c.built_.parts) p.hidden = p.hidden0 || o.hide.includes(p.id) || o.hide.includes(p.group);
+      if (changes.hide) {
+        for (const part of c.built_.parts)
+          part.hidden = part.hiddenByScene || changes.hide.includes(part.id) || changes.hide.includes(part.group);
         c.syncHandleInputs_();
-        if (c.built_.parts.find((p) => p.id === c.state_.selected)?.hidden) {
+        if (c.built_.parts.find((part) => part.id === c.state_.selected)?.hidden) {
           c.state_.selected = null; // (a part out of sight is not the one chosen)
           c.showInfo_();
         }
@@ -99,38 +101,38 @@ export function makeApi(c) {
     flow: c.addFlow_,
     stream: c.addStream_,
     lines: c.addLines_,
-    tick(fn) {
-      c.animations_.add(fn);
+    tick(animation) {
+      c.animations_.add(animation);
       c.kick_();
-      return () => c.animations_.delete(fn);
-    }, // fn(now) returns true while it keeps moving
+      return () => c.animations_.delete(animation);
+    }, // animation(now) returns true while it keeps moving
     pick: c.pickAt_,
     // the figure as glTF 2.0 binary (.glb bytes), posed as it is now (taken apart, moved, its motions and joints);
     // { animate: true } adds each motion as an animation along its range (samples: 120 poses). The exporter is apart
     // from the engine (export.js), set as LK3D.toGLB by importing lk3d/export or loading dist/lk3d-export.min.js
-    exportGLB(o = {}) {
+    exportGLB(options = {}) {
       if (!LK3D.toGLB)
         throw new Error('lk3d: exportGLB needs the exporter: load dist/lk3d-export.min.js, or import lk3d/export');
-      const now = { ...c.state_.motion },
+      const motionNow = { ...c.state_.motion },
         animations = [];
-      if (o.animate)
-        for (const mo of c.motions_) {
-          const [a, b] = mo.range,
-            n = o.samples ?? 120,
-            secs = (b - a) / (mo.speed ?? b - a),
+      if (options.animate)
+        for (const motion of c.motions_) {
+          const [from, to] = motion.range,
+            samples = options.samples ?? 120,
+            seconds = (to - from) / (motion.speed ?? to - from),
             poses = [];
-          for (let k = 0; k <= n; k++) {
-            c.state_.motion = { ...now, [mo.id]: a + ((b - a) * k) / n };
+          for (let sample = 0; sample <= samples; sample++) {
+            c.state_.motion = { ...motionNow, [motion.id]: from + ((to - from) * sample) / samples };
             c.poseVersion_++;
-            poses.push(new Map(c.built_.parts.map((p) => [p, c.modelMatrix_(p)])));
+            poses.push(new Map(c.built_.parts.map((part) => [part, c.modelMatrix_(part)])));
           }
           animations.push({
-            name: mo.name || mo.id,
-            times: poses.map((_, k) => (secs * k) / n),
-            matrix: (p, k) => poses[k].get(p),
+            name: motion.name || motion.id,
+            times: poses.map((_, sample) => (seconds * sample) / samples),
+            matrix: (part, sample) => poses[sample].get(part),
           });
         }
-      c.state_.motion = now;
+      c.state_.motion = motionNow;
       c.poseVersion_++;
       return LK3D.toGLB(c.built_, {
         matrix: c.modelMatrix_,
@@ -147,29 +149,29 @@ export function makeApi(c) {
     // shaders are still compiling (it draws again on the next frame by itself)
     drawNow: c.drawNow_,
     // a point of the scene (or of a part, as that part is placed now) on the stage, in CSS pixels; null behind the eye
-    project(p, id) {
-      const q = id && c.part_(id);
+    project(point, id) {
+      const part = id && c.part_(id);
       c.camera_();
-      const s = M.project(c.viewProj_, q ? M.pt(c.modelMatrix_(q), p) : p, c.width_, c.height_);
-      return s && [s[0], s[1]];
+      const onStage = M.project(c.viewProj_, part ? M.pt(c.modelMatrix_(part), point) : point, c.width_, c.height_);
+      return onStage && [onStage[0], onStage[1]];
     },
     // a handle's value, read or set by the page (setting it does not call onHandle)
     handle(id) {
-      const grip = c.handles_.find((x) => x.part.id === id);
+      const grip = c.handles_.find((each) => each.part.id === id);
       return (
         grip && {
           get value() {
             return grip.value;
           },
-          set(v) {
-            c.setHandle_(grip, HD.hold(grip.handle, v), false);
+          set(value) {
+            c.setHandle_(grip, HD.hold(grip.handle, value), false);
           },
         }
       );
     },
     // the scene's liquids, vessels and gases (fluids.js), read and set by the page; and a buoyant plume of air or gas
     liquid(id) {
-      const liquid = c.fluids_ && c.fluids_.liquids.find((x) => x.part === id);
+      const liquid = c.fluids_ && c.fluids_.liquids.find((each) => each.part === id);
       return (
         liquid && {
           get volume() {
@@ -178,11 +180,11 @@ export function makeApi(c) {
           // (the height of its surface in the scene)
           get level() {
             const vessel = c.fluids_.vessels.get(liquid.in),
-              layer = c.layersIn_(vessel).find((x) => x.l === liquid);
-            return layer ? vessel.at[1] + layer.h1 : null;
+              layer = c.layersIn_(vessel).find((each) => each.liquid === liquid);
+            return layer ? vessel.at[1] + layer.top : null;
           },
-          set(o) {
-            if ('volume' in o) liquid.volume = Math.max(0, +o.volume || 0);
+          set(changes) {
+            if ('volume' in changes) liquid.volume = Math.max(0, +changes.volume || 0);
             c.kick_();
           },
         }
@@ -199,15 +201,15 @@ export function makeApi(c) {
           get flow() {
             return vessel.flow || 0;
           },
-          set(o) {
-            if ('open' in o) vessel.open = Math.max(0, Math.min(1, +o.open || 0));
+          set(changes) {
+            if ('open' in changes) vessel.open = Math.max(0, Math.min(1, +changes.open || 0));
             c.kick_();
           },
         }
       );
     },
     gas(id) {
-      const gas = c.fluids_ && c.fluids_.gases.find((g) => g.part === id);
+      const gas = c.fluids_ && c.fluids_.gases.find((each) => each.part === id);
       return (
         gas && {
           get height() {
@@ -219,39 +221,43 @@ export function makeApi(c) {
           get T() {
             return gas.T;
           },
-          set(o) {
-            for (const k of ['n', 'T', 'p', 'mass']) if (k in o) gas[k] = +o[k];
+          set(changes) {
+            for (const key of ['n', 'T', 'p', 'mass']) if (key in changes) gas[key] = +changes[key];
             c.kick_();
           },
         }
       );
     },
-    plume(o) {
-      return c.addStream_({ ramp: 'heat', ...o, ...FX.plume(o.at, o.height, o.radius ?? 0.05) });
+    plume(options) {
+      return c.addStream_({
+        ramp: 'heat',
+        ...options,
+        ...FX.plume(options.at, options.height, options.radius ?? 0.05),
+      });
     },
     // a motion of the scene, set or played by the page: { value, set(v), play(), stop(), playing }
     motion(id) {
-      const mo = c.motions_.find((x) => x.id === id);
+      const motion = c.motions_.find((each) => each.id === id);
       return (
-        mo && {
+        motion && {
           get value() {
             return c.state_.motion[id];
           },
           get playing() {
             return c.playing_.has(id);
           },
-          set: (v) => c.setMotion_(mo, v),
-          play: () => c.playMotion_(mo),
-          stop: () => c.stopMotion_(mo),
+          set: (value) => c.setMotion_(motion, value),
+          play: () => c.playMotion_(motion),
+          stop: () => c.stopMotion_(motion),
         }
       );
     },
     // frame some parts (ids or groups): the camera looks at their middle, from far enough to see them all
-    focus(ids, o = {}) {
-      const ps = c.built_.parts.filter((p) => ids.includes(p.id) || ids.includes(p.group));
-      if (!ps.length) return;
-      const b = c.boxOf_(ps);
-      c.view_({ ...o, target: b.center, dist: b.radius * 2.6 }, o);
+    focus(ids, options = {}) {
+      const parts = c.built_.parts.filter((part) => ids.includes(part.id) || ids.includes(part.group));
+      if (!parts.length) return;
+      const box = c.boxOf_(parts);
+      c.view_({ ...options, target: box.center, dist: box.radius * 2.6 }, options);
     },
     get refreshMs() {
       return c.refreshMs_;
@@ -267,7 +273,7 @@ export function makeApi(c) {
         hifi: renderer.hifi,
         shadows: renderer.shadows,
         parallelCompile: !!renderer.parallel,
-        triangles: Math.round(c.built_.parts.reduce((a, p) => a + p.tris, 0)),
+        triangles: Math.round(c.built_.parts.reduce((sum, part) => sum + part.triangleCount, 0)),
         scale: c.resolution_,
         dpr: c.dpr_,
         gpu,
@@ -275,7 +281,7 @@ export function makeApi(c) {
     },
     destroy() {
       c.destroyed_ = true;
-      for (const f of c.cleanups_) f(); // (the frame loop, the watchers, the listeners on the document)
+      for (const cleanup of c.cleanups_) cleanup(); // (the frame loop, the watchers, the listeners on the document)
       c.animations_.clear();
       holding.delete(c.glSlot_);
       c.renderer_.dispose();

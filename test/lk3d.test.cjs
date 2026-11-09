@@ -8,8 +8,12 @@ const LK3D = require('../src/index.js');
 const part = (shapes) => LK3D.build({ parts: [{ id: 'p', shapes }] }, 1).parts[0];
 function volume(g) {
   let v = 0;
-  for (let t = 0; t < g.i.length; t += 3) {
-    const P = (k) => [g.p[3 * g.i[t + k]], g.p[3 * g.i[t + k] + 1], g.p[3 * g.i[t + k] + 2]],
+  for (let t = 0; t < g.indices.length; t += 3) {
+    const P = (k) => [
+        g.positions[3 * g.indices[t + k]],
+        g.positions[3 * g.indices[t + k] + 1],
+        g.positions[3 * g.indices[t + k] + 2],
+      ],
       [a, b, c] = [P(0), P(1), P(2)];
     v +=
       (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])) /
@@ -18,9 +22,9 @@ function volume(g) {
   return v;
 }
 function windingAgrees(g) {
-  for (let t = 0; t < g.i.length; t += 3) {
-    const [a, b, c] = [g.i[t], g.i[t + 1], g.i[t + 2]],
-      P = (k) => [g.p[3 * k], g.p[3 * k + 1], g.p[3 * k + 2]];
+  for (let t = 0; t < g.indices.length; t += 3) {
+    const [a, b, c] = [g.indices[t], g.indices[t + 1], g.indices[t + 2]],
+      P = (k) => [g.positions[3 * k], g.positions[3 * k + 1], g.positions[3 * k + 2]];
     const A = P(a),
       B = P(b),
       C = P(c),
@@ -28,9 +32,9 @@ function windingAgrees(g) {
       w = [C[0] - A[0], C[1] - A[1], C[2] - A[2]];
     const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
     const vn = [
-      g.n[3 * a] + g.n[3 * b] + g.n[3 * c],
-      g.n[3 * a + 1] + g.n[3 * b + 1] + g.n[3 * c + 1],
-      g.n[3 * a + 2] + g.n[3 * b + 2] + g.n[3 * c + 2],
+      g.normals[3 * a] + g.normals[3 * b] + g.normals[3 * c],
+      g.normals[3 * a + 1] + g.normals[3 * b + 1] + g.normals[3 * c + 1],
+      g.normals[3 * a + 2] + g.normals[3 * b + 2] + g.normals[3 * c + 2],
     ];
     if (Math.hypot(...n) > 1e-12 && n[0] * vn[0] + n[1] * vn[1] + n[2] * vn[2] < 0) return false;
   }
@@ -140,15 +144,15 @@ test('repeats and placement put copies where they should be', () => {
   const ys = new Set(),
     zs = new Set();
   for (let k = 0; k < g.count; k++) {
-    ys.add(Math.round(g.p[3 * k + 1]));
-    zs.add(Math.round(g.p[3 * k + 2]));
+    ys.add(Math.round(g.positions[3 * k + 1]));
+    zs.add(Math.round(g.positions[3 * k + 2]));
   }
   assert.deepEqual([...ys].sort(), [-1, 0, 1], 'copies at 0°, 90°, 180°, 270° around x');
   const moved = LK3D.build({
     parts: [{ id: 'm', at: [2, 0, 0], rot: [0, 0, 90], shapes: [{ cylinder: { r: 0.1, x0: 0, x1: 1 } }] }],
   }).parts[0];
-  near(moved.hi[1], 1, 1e-6, 'a cylinder along x, turned 90° about z, points along y');
-  near(moved.lo[0], 1.9, 1e-6, 'and moved to x = 2');
+  near(moved.max[1], 1, 1e-6, 'a cylinder along x, turned 90° about z, points along y');
+  near(moved.min[0], 1.9, 1e-6, 'and moved to x = 2');
 });
 
 test('a bad scene is refused', () => {
@@ -162,9 +166,9 @@ test('a repeated shape is one geometry drawn at each placement (instancing), and
     ],
   }).parts[0];
   assert.equal(p.batches.length, 2, 'the plain shapes merged into one batch, the repeated one its own');
-  const fins = p.batches.find((b) => b.mats.length === 28);
-  assert.ok(fins && fins.geo.count === 24, 'one box of geometry, 28 placements');
-  assert.equal(p.tris, p.g.i.length / 3, 'the triangles drawn equal those of the expanded model');
+  const fins = p.batches.find((b) => b.placements.length === 28);
+  assert.ok(fins && fins.mesh.count === 24, 'one box of geometry, 28 placements');
+  assert.equal(p.triangleCount, p.g.indices.length / 3, 'the triangles drawn equal those of the expanded model');
 });
 
 test('the intersection tree finds the same nearest hit as testing every triangle', () => {
@@ -183,10 +187,10 @@ test('the intersection tree finds the same nearest hit as testing every triangle
   }).parts[0].g;
   const bvh = buildBVH(g),
     one = (t) => ({
-      tri: new Uint32Array([t]),
-      box: new Float32Array([-1e9, -1e9, -1e9, 1e9, 1e9, 1e9]),
-      kids: new Int32Array([-1, -1]),
-      range: new Uint32Array([0, 1]),
+      triangles: new Uint32Array([t]),
+      boxes: new Float32Array([-1e9, -1e9, -1e9, 1e9, 1e9, 1e9]),
+      children: new Int32Array([-1, -1]),
+      ranges: new Uint32Array([0, 1]),
     });
   let seed = 7;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -194,7 +198,7 @@ test('the intersection tree finds the same nearest hit as testing every triangle
     const o = [rnd() * 4 - 2, rnd() * 4 - 2, 3],
       d = [rnd() * 0.6 - 0.3, rnd() * 0.6 - 0.3, -1];
     let best = Infinity;
-    for (let t = 0; t < g.i.length / 3; t++) {
+    for (let t = 0; t < g.indices.length / 3; t++) {
       const h = intersect(g, one(t), o, d);
       if (h && h.t < best) best = h.t;
     }
@@ -214,10 +218,10 @@ test('ambient occlusion darkens the inside of a tube more than its outside', () 
     outside = 0,
     no = 0;
   for (let v = 0; v < g.count; v++) {
-    const y = g.p[3 * v + 1],
-      z = g.p[3 * v + 2],
+    const y = g.positions[3 * v + 1],
+      z = g.positions[3 * v + 2],
       r = Math.hypot(y, z),
-      radial = (g.n[3 * v + 1] * y + g.n[3 * v + 2] * z) / r;
+      radial = (g.normals[3 * v + 1] * y + g.normals[3 * v + 2] * z) / r;
     if (radial < -0.9) {
       inside += job.out[v];
       ni++;
@@ -272,10 +276,13 @@ test('a mirrored or stretched shape still faces outwards, with normals perpendic
       a = 0.5 * sc[0];
     let sum = 0;
     for (let k = 0; k < g.count; k++) {
-      const gr = [g.p[3 * k] / (a * a), g.p[3 * k + 1] / 0.25, g.p[3 * k + 2] / 0.25],
+      const gr = [g.positions[3 * k] / (a * a), g.positions[3 * k + 1] / 0.25, g.positions[3 * k + 2] / 0.25],
         l = Math.hypot(...gr);
       sum +=
-        (Math.acos(Math.min(1, (g.n[3 * k] * gr[0] + g.n[3 * k + 1] * gr[1] + g.n[3 * k + 2] * gr[2]) / l)) * 180) /
+        (Math.acos(
+          Math.min(1, (g.normals[3 * k] * gr[0] + g.normals[3 * k + 1] * gr[1] + g.normals[3 * k + 2] * gr[2]) / l),
+        ) *
+          180) /
         Math.PI;
     }
     return sum / g.count;
@@ -354,7 +361,7 @@ test('the shapes for the sciences are solids with outward faces and the volumes 
   // the same seed gives the same shape, another seed another one
   const pts = (seed) =>
     part([{ blob: { r: 0.5, seed } }])
-      .g.p.slice(0, 30)
+      .g.positions.slice(0, 30)
       .join();
   assert.equal(pts(4), pts(4));
   assert.notEqual(pts(4), pts(5));
@@ -365,11 +372,11 @@ test('vertex colours: a coloured shape keeps its colour beside an uncoloured one
     { sphere: 0.2, color: '#ff0000' },
     { box: [0.1, 0.1, 0.1], at: [1, 0, 0] },
   ]).g;
-  assert.equal(g.c.length, 4 * g.count);
+  assert.equal(g.colors.length, 4 * g.count);
   const own = [],
     plain = [];
-  for (let k = 0; k < g.count; k++) (g.c[4 * k + 3] === 255 ? own : plain).push(k);
-  assert.ok(own.length && plain.length && own.every((k) => g.c[4 * k] === 255 && g.c[4 * k + 1] === 0));
+  for (let k = 0; k < g.count; k++) (g.colors[4 * k + 3] === 255 ? own : plain).push(k);
+  assert.ok(own.length && plain.length && own.every((k) => g.colors[4 * k] === 255 && g.colors[4 * k + 1] === 0));
   const t = part([
     {
       terrain: {
@@ -383,7 +390,7 @@ test('vertex colours: a coloured shape keeps its colour beside an uncoloured one
     },
   ]).g;
   const colours = new Set();
-  for (let k = 0; k < t.count; k++) colours.add(t.c.slice(4 * k, 4 * k + 3).join());
+  for (let k = 0; k < t.count; k++) colours.add(t.colors.slice(4 * k, 4 * k + 3).join());
   assert.equal(colours.size, 4, 'the surface and three layers');
 });
 
@@ -392,7 +399,7 @@ test('an orbit has the Sun at a focus, and scattered copies stay in their region
   let rmin = 9,
     rmax = 0;
   for (let k = 0; k < o.count; k++) {
-    const r = Math.hypot(o.p[3 * k], o.p[3 * k + 2]);
+    const r = Math.hypot(o.positions[3 * k], o.positions[3 * k + 2]);
     rmin = Math.min(rmin, r);
     rmax = Math.max(rmax, r);
   }
@@ -408,9 +415,9 @@ test('an orbit has the Sun at a focus, and scattered copies stay in their region
       },
     ],
   }).parts[0];
-  const b = s.batches.find((x) => x.mats.length > 1);
-  assert.equal(b.mats.length, 120, 'drawn by instancing');
-  for (const m of b.mats) {
+  const b = s.batches.find((x) => x.placements.length > 1);
+  assert.equal(b.placements.length, 120, 'drawn by instancing');
+  for (const m of b.placements) {
     const r = Math.hypot(m[12], m[13], m[14]);
     assert.ok(r <= 1 && r >= 0.4, `copy at ${r}`);
   }
@@ -495,16 +502,16 @@ test('a glTF model is read with its node transforms, quantized positions and col
   near(volume(whole), 8 + 1, 1e-4, 'a 2-unit cube and a cube scaled to 1 unit');
   const moved = LK3D.build({ models, parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Moved' }] }] }).parts[0];
   assert.deepEqual(
-    moved.lo.map((v) => +v.toFixed(4)),
+    moved.min.map((v) => +v.toFixed(4)),
     [2, -1, -1],
   );
   assert.deepEqual(
-    moved.hi.map((v) => +v.toFixed(4)),
+    moved.max.map((v) => +v.toFixed(4)),
     [4, 1, 1],
   );
   const small = LK3D.build({ models, parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Small' }] }] }).parts[0].g;
   near(volume(small), 1, 1e-3, 'quantized, normalized and scaled by its node');
-  assert.ok(windingAgrees(small) && small.c && small.c[3] === 255, 'outward, with its colour');
+  assert.ok(windingAgrees(small) && small.colors && small.colors[3] === 255, 'outward, with its colour');
   assert.throws(
     () => LK3D.build({ models, parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Nope' }] }] }),
     /no node or mesh called "Nope"/,
@@ -615,12 +622,12 @@ test('a textured glTF model: its texture coordinates (transformed) and maps, in 
   }).parts[0];
   assert.equal(part.batches.length, 2, 'the plain shapes, and the textured model');
   const [plain, tex] = part.batches;
-  assert.ok(!plain.geo.uv && !plain.geo.tex, 'the sphere has no texture');
-  const g = tex.geo;
-  assert.equal(g.tex.base.mime, 'image/png');
-  assert.equal(Buffer.from(g.tex.base.bytes).toString('latin1'), '\x89PNG stand-in');
-  assert.equal(Buffer.from(g.tex.normal.bytes).toString('latin1'), '\x89PNG normal');
-  assert.equal(g.tex.mr, null);
+  assert.ok(!plain.mesh.uv && !plain.mesh.textures, 'the sphere has no texture');
+  const g = tex.mesh;
+  assert.equal(g.textures.base.mime, 'image/png');
+  assert.equal(Buffer.from(g.textures.base.bytes).toString('latin1'), '\x89PNG stand-in');
+  assert.equal(Buffer.from(g.textures.normal.bytes).toString('latin1'), '\x89PNG normal');
+  assert.equal(g.textures.metalRoughness, null);
   assert.equal(g.uv.length, 2 * g.count, 'a UV for every vertex');
   // the square's UVs (0..1) went through offset [0.5, 0] and scale [0.5, 1]; the untextured triangle has 0, 0
   const sq = [];
@@ -632,7 +639,7 @@ test('a textured glTF model: its texture coordinates (transformed) and maps, in 
     [0.5, 1],
   ]);
   assert.deepEqual(g.uv.slice(8, 16), [0, 0, 0, 0, 0, 0, 0, 0]);
-  near(Math.min(...g.p.filter((_, i) => i % 3 === 1)), 2, 1e-9, 'placed by the shape');
+  near(Math.min(...g.positions.filter((_, i) => i % 3 === 1)), 2, 1e-9, 'placed by the shape');
   // a second textured material in the same model shape is refused (each would need its own maps), and so is KTX2
   assert.throws(
     () =>
@@ -657,18 +664,18 @@ test('a glTF cut-out keeps its alpha cutoff, and a double-sided surface is marke
     LK3D.build({
       models: { m: { data: texturedGlb({ mat }) } },
       parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Square' }] }],
-    }).parts[0].batches[0].geo;
-  assert.equal(square({}).tex.cut, 0, 'opaque by default');
-  assert.equal(square({ alphaMode: 'MASK' }).tex.cut, 0.5, "MASK's default cutoff");
-  assert.equal(square({ alphaMode: 'MASK', alphaCutoff: 0.3 }).tex.cut, 0.3);
-  assert.equal(square({ alphaMode: 'BLEND' }).tex.cut, 0.5, 'BLEND drawn as a cut-out at half');
+    }).parts[0].batches[0].mesh;
+  assert.equal(square({}).textures.alphaCutoff, 0, 'opaque by default');
+  assert.equal(square({ alphaMode: 'MASK' }).textures.alphaCutoff, 0.5, "MASK's default cutoff");
+  assert.equal(square({ alphaMode: 'MASK', alphaCutoff: 0.3 }).textures.alphaCutoff, 0.3);
+  assert.equal(square({ alphaMode: 'BLEND' }).textures.alphaCutoff, 0.5, 'BLEND drawn as a cut-out at half');
   // marked, not copied: drawn with both faces (a copy turned inwards would show through a closed body's outline)
   const one = square({}),
     two = square({ doubleSided: true });
   assert.ok(!one.twoSided);
   assert.equal(two.twoSided, true);
   assert.equal(two.count, one.count, 'no copy of its vertices');
-  assert.equal(two.i.length, one.i.length);
+  assert.equal(two.indices.length, one.indices.length);
   // and a part that holds it, placed by a part's own matrix, keeps the mark
   const placed = LK3D.build({
     models: { m: { data: texturedGlb({ mat: { doubleSided: true } }) } },
@@ -683,8 +690,11 @@ test('a glTF cut-out keeps its alpha cutoff, and a double-sided surface is marke
       },
     ],
   }).parts[0];
-  assert.ok(placed.batches.find((b) => b.geo.tex).geo.twoSided, 'the textured batch');
-  assert.ok(!placed.batches.find((b) => !b.geo.tex).geo.twoSided, 'not the plain one (its material is single-sided)');
+  assert.ok(placed.batches.find((b) => b.mesh.textures).mesh.twoSided, 'the textured batch');
+  assert.ok(
+    !placed.batches.find((b) => !b.mesh.textures).mesh.twoSided,
+    'not the plain one (its material is single-sided)',
+  );
 });
 
 test("a glTF model's glass is see-through glass in its tint, and a shape's colour replaces a texture", () => {
@@ -700,11 +710,11 @@ test("a glTF model's glass is see-through glass in its tint, and a shape's colou
       parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Square' }], ...part }],
     }).parts[0];
   const p = build({}),
-    g = p.batches[0].geo;
-  assert.equal(g.tex.base, null, "no base colour map: a scan's glass is a white film");
-  assert.ok(g.tex.normal, 'its relief kept');
+    g = p.batches[0].mesh;
+  assert.equal(g.textures.base, null, "no base colour map: a scan's glass is a white film");
+  assert.ok(g.textures.normal, 'its relief kept');
   // painted the tint (linear 1, 0.5, 0 as sRGB), as its own colour
-  assert.deepEqual(g.c.slice(0, 4), [255, Math.round(Math.pow(0.5, 1 / 2.2) * 255), 0, 255]);
+  assert.deepEqual(g.colors.slice(0, 4), [255, Math.round(Math.pow(0.5, 1 / 2.2) * 255), 0, 255]);
   assert.equal(p.material, 'glass');
   assert.equal(p.alpha, 0.35, 'see-through');
   assert.equal(build({ opacity: 0.6, material: 'ice' }).alpha, 0.6, 'unless the part says otherwise');
@@ -728,15 +738,15 @@ test("a glTF model's glass is see-through glass in its tint, and a shape's colou
   const painted = LK3D.build({
     models: { m: { data: texturedGlb() } },
     parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Square', color: '#c8641c' }] }],
-  }).parts[0].batches[0].geo;
-  assert.equal(painted.tex.base, null);
-  assert.ok(painted.tex.normal);
-  assert.deepEqual(painted.c.slice(0, 4), [0xc8, 0x64, 0x1c, 255]);
+  }).parts[0].batches[0].mesh;
+  assert.equal(painted.textures.base, null);
+  assert.ok(painted.textures.normal);
+  assert.deepEqual(painted.colors.slice(0, 4), [0xc8, 0x64, 0x1c, 255]);
   const plain = LK3D.build({
     models: { m: { data: texturedGlb() } },
     parts: [{ id: 'p', shapes: [{ model: 'm', node: 'Square' }] }],
-  }).parts[0].batches[0].geo;
-  assert.ok(plain.tex.base, 'the same model unpainted keeps its map (the paint did not reach the cached one)');
+  }).parts[0].batches[0].mesh;
+  assert.ok(plain.textures.base, 'the same model unpainted keeps its map (the paint did not reach the cached one)');
 });
 
 test('every shape for the sciences follows the quality setting (coarser on phones and in 2D)', () => {
@@ -759,7 +769,7 @@ test('every shape for the sciences follows the quality setting (coarser on phone
     dna: { pairs: 6 },
   };
   for (const [k, v] of Object.entries(shapes)) {
-    const t = (q) => LK3D.build({ parts: [{ id: 'p', shapes: [{ [k]: v }] }] }, q).parts[0].tris;
+    const t = (q) => LK3D.build({ parts: [{ id: 'p', shapes: [{ [k]: v }] }] }, q).parts[0].triangleCount;
     assert.ok(t(0.5) < t(1), `${k}: ${t(0.5)} triangles at half quality, ${t(1)} at full`);
   }
 });
@@ -791,7 +801,7 @@ test('handles: the pointer ray gives the angle of a turn, the distance of a slid
   close(
     HD.nearestAlong(
       m,
-      m.P.map(([x, y]) => [x * 100, y * 100]),
+      m.points.map(([x, y]) => [x * 100, y * 100]),
       100,
       50,
     ),
@@ -903,7 +913,9 @@ test('flow streaks: along their paths, as many as the amount says, coloured by t
   assert.deepEqual(line.at(1), [1, 0, 0]);
   assert.deepEqual(line.at(2.5), [2, 0.5, 0]);
   const pt = (f, i, k) =>
-    Array.from(f.verts.subarray((i * F.PTS + k) * 2 * F.STRIDE, (i * F.PTS + k) * 2 * F.STRIDE + 9));
+    Array.from(
+      f.vertices.subarray((i * F.STREAK_POINTS + k) * 2 * F.STRIDE, (i * F.STREAK_POINTS + k) * 2 * F.STRIDE + 9),
+    );
   const f = F.makeFlow({
     path: [
       [0, 0, 0],
@@ -913,20 +925,24 @@ test('flow streaks: along their paths, as many as the amount says, coloured by t
     length: 0.1,
   });
   f.update(null);
-  assert.equal(f.n, 50);
-  for (let i = 0; i < f.n; i++) {
+  assert.equal(f.drawnCount, 50);
+  for (let i = 0; i < f.drawnCount; i++) {
     const head = pt(f, i, 0),
-      tail = pt(f, i, F.PTS - 1);
+      tail = pt(f, i, F.STREAK_POINTS - 1);
     assert.ok(head[1] === 0 && head[2] === 0 && head[0] >= 0 && head[0] <= 10, 'on the path (no spread)');
     assert.ok(head[0] - tail[0] <= 1 + 1e-6 && head[0] >= tail[0], 'the tail a tenth of the path behind the head');
     assert.ok(Math.abs(head[7] - head[0] / 10) < 1e-6, 'ramp position: how far along the path');
     assert.ok(head[8] >= tail[8] && tail[8] === 0, 'fading towards the tail');
     assert.equal(head[3], -1);
-    assert.equal(pt(f, i, 0)[3] + Array.from(f.verts.subarray((i * F.PTS * 2 + 1) * F.STRIDE))[3], 0, 'two sides');
+    assert.equal(
+      pt(f, i, 0)[3] + Array.from(f.vertices.subarray((i * F.STREAK_POINTS * 2 + 1) * F.STRIDE))[3],
+      0,
+      'two sides',
+    );
   }
   f.amount = 0.3;
   f.update(null);
-  assert.equal(f.n, 15, 'amount: the share of streaks drawn');
+  assert.equal(f.drawnCount, 15, 'amount: the share of streaks drawn');
   const g = F.makeFlow({
     path: [
       [0, 0, 0],
@@ -937,7 +953,7 @@ test('flow streaks: along their paths, as many as the amount says, coloured by t
   });
   g.amount = 0.3;
   g.update(null);
-  const drawn = (x) => Array.from(x.verts.subarray(0, x.n * F.PTS * 2 * F.STRIDE));
+  const drawn = (x) => Array.from(x.vertices.subarray(0, x.drawnCount * F.STREAK_POINTS * 2 * F.STRIDE));
   assert.deepEqual(drawn(g), drawn(f), 'the same streaks every time');
   const x0 = pt(f, 3, 0)[0];
   f.speed = 2;
@@ -990,7 +1006,7 @@ test('flow streaks: along their paths, as many as the amount says, coloured by t
   assert.ok(Math.min(...lightHeat) < 0.3, 'on paper heat ends in a strong colour, not white');
   assert.ok(Math.min(...darkHeat) > 0.7, 'on a dark page it ends near white');
   assert.throws(() => F.makeFlow({}), /path/);
-  assert.equal(F.flowIndices(2).length, 2 * (F.PTS - 1) * 6);
+  assert.equal(F.flowIndices(2).length, 2 * (F.STREAK_POINTS - 1) * 6);
 });
 
 test('the validator finds each planted mistake where it is, and passes a right scene', () => {
@@ -1090,7 +1106,7 @@ test('a scene too big to draw is refused in plain words, by the validator and be
   assert.ok(Date.now() - t0 < 1000, 'refused before building, not after');
   // the estimate is no more than what is built: a scene at its bounds that fits is still drawn
   const fits = one({ sphere: 1, seg: 512 });
-  assert.ok(LK3D.build(fits, 1).parts[0].tris > 0);
+  assert.ok(LK3D.build(fits, 1).parts[0].triangleCount > 0);
 });
 
 test('an axis has a direction, a handle a range from small to large with its first value inside', () => {
@@ -1212,7 +1228,7 @@ test('edges: where faces meet at an angle and where a surface ends, never across
   const { edgesOf } = require('../src/geometry.js');
   const one = (shape, o = {}) => {
     const b = LK3D.build({ parts: [{ id: 'p', shapes: [shape], ...o }] }, 1).parts[0].batches[0];
-    return b.edgy ? edgesOf(b.geo, 40, b.soft).length / 9 : 0;
+    return b.drawsEdges ? edgesOf(b.mesh, 40, b.soft).length / 9 : 0;
   };
   assert.equal(one({ box: [1, 2, 3] }), 12); // a box: its twelve edges
   assert.equal(one({ sphere: 1 }), 0); // a sphere: none
@@ -1233,7 +1249,7 @@ test('edges: where faces meet at an angle and where a surface ends, never across
   );
   // every edge of the box lies on the box's edges: two of its coordinates at a corner value
   const b = LK3D.build({ parts: [{ id: 'p', shapes: [{ box: [1, 2, 3] }] }] }, 1).parts[0].batches[0];
-  const E = edgesOf(b.geo); // (each segment: two ends, then the mean normal of its two faces)
+  const E = edgesOf(b.mesh); // (each segment: two ends, then the mean normal of its two faces)
   for (let k = 0; k < E.length; k += 9) {
     for (const o of [k, k + 3]) {
       const atCorner = [0.5, 1, 1.5].filter((h, a) => Math.abs(Math.abs(E[o + a]) - h) < 1e-6).length;
@@ -1253,7 +1269,7 @@ test('edges: where faces meet at an angle and where a surface ends, never across
   // a soft shape merged with a hard one: only the hard one's edges
   const m = LK3D.build({ parts: [{ id: 'p', shapes: [{ box: [1, 1, 1] }, { blob: { r: 0.4 }, at: [2, 0, 0] }] }] }, 1)
     .parts[0].batches[0];
-  assert.equal(edgesOf(m.geo, 40, m.soft).length / 9, 12);
+  assert.equal(edgesOf(m.mesh, 40, m.soft).length / 9, 12);
 });
 
 test('a sector of a lathe with a concave profile (half a cowl) is a closed solid, half the whole', () => {
@@ -1293,27 +1309,27 @@ test('streams: the radius profile along the path, and a hull that encloses the s
     ],
   });
   // the distance along the path at each point, for the shader; the total
-  assert.equal(T.n, 3);
+  assert.equal(T.pointCount, 3);
   assert.ok(
-    Math.abs(T.pts[7] - 1) < 1e-6 &&
-      Math.abs(T.pts[11] - (1 + Math.hypot(1, 0.25))) < 1e-6 &&
+    Math.abs(T.pointTable[7] - 1) < 1e-6 &&
+      Math.abs(T.pointTable[11] - (1 + Math.hypot(1, 0.25))) < 1e-6 &&
       Math.abs(T.total - (1 + Math.hypot(1, 0.25))) < 1e-6,
   );
   // the radius: inner and outer, interpolated between the stops
-  assert.deepEqual(radiusAt(T.rad, 0), [0.1, 0.25]);
+  assert.deepEqual(radiusAt(T.radii, 0), [0.1, 0.25]);
   assert.deepEqual(
-    radiusAt(T.rad, 0.5).map((v) => +v.toFixed(6)),
+    radiusAt(T.radii, 0.5).map((v) => +v.toFixed(6)),
     [0.125, 0.35],
   );
-  assert.deepEqual(radiusAt(T.rad, 1), [0.15, 0.45]);
+  assert.deepEqual(radiusAt(T.radii, 1), [0.15, 0.45]);
   // the hull: every vertex at least the outer radius from the path (a quarter more), its faces pointing out
-  const P = T.hull.p,
-    I = T.hull.i;
+  const P = T.hull.positions,
+    I = T.hull.indices;
   const toPath = (q) => {
     let best = Infinity;
-    for (let k = 0; k + 1 < T.n; k++) {
-      const a = [T.pts[4 * k], T.pts[4 * k + 1], T.pts[4 * k + 2]],
-        b = [T.pts[4 * k + 4], T.pts[4 * k + 5], T.pts[4 * k + 6]],
+    for (let k = 0; k + 1 < T.pointCount; k++) {
+      const a = [T.pointTable[4 * k], T.pointTable[4 * k + 1], T.pointTable[4 * k + 2]],
+        b = [T.pointTable[4 * k + 4], T.pointTable[4 * k + 5], T.pointTable[4 * k + 6]],
         ab = b.map((v, i) => v - a[i]),
         t = Math.max(
           0,
@@ -1343,9 +1359,9 @@ test('streams: the radius profile along the path, and a hull that encloses the s
 });
 
 test('streams: the air moves by travel time, faster where the stream narrows, never backwards', () => {
-  const { makeStream, NT } = require('../src/stream.js');
-  const tau = (T) => Array.from({ length: NT }, (_, k) => T.tab[3 * k + 2]),
-    rate = (t, k) => (t[k + 1] - t[k]) / (1 / (NT - 1)); // the travel time per unit of f: the length / the speed there
+  const { makeStream, TABLE_SAMPLES } = require('../src/stream.js');
+  const tau = (T) => Array.from({ length: TABLE_SAMPLES }, (_, k) => T.table[3 * k + 2]),
+    rate = (t, k) => (t[k + 1] - t[k]) / (1 / (TABLE_SAMPLES - 1)); // the travel time per unit of f: the length / the speed there
   // an intake narrowing to half its radius: a quarter of the area, so by continuity four times as fast at its end
   const T = makeStream({
     path: [
@@ -1359,11 +1375,11 @@ test('streams: the air moves by travel time, faster where the stream narrows, ne
   });
   const t = tau(T);
   assert.equal(t[0], 0);
-  for (let k = 0; k + 1 < NT; k++)
+  for (let k = 0; k + 1 < TABLE_SAMPLES; k++)
     assert.ok(t[k + 1] > t[k], 'travel time grows along the path: the air never runs back');
   assert.ok(
-    Math.abs(rate(t, 0) / rate(t, NT - 2) - 4) < 0.3,
-    `speed ratio ${(rate(t, 0) / rate(t, NT - 2)).toFixed(2)}`,
+    Math.abs(rate(t, 0) / rate(t, TABLE_SAMPLES - 2) - 4) < 0.3,
+    `speed ratio ${(rate(t, 0) / rate(t, TABLE_SAMPLES - 2)).toFixed(2)}`,
   );
   // the table carries the radii too, and any number of stops
   const M = makeStream({
@@ -1380,9 +1396,9 @@ test('streams: the air moves by travel time, faster where the stream narrows, ne
       [1, 0.1, 0.6],
     ],
   });
-  const mid = Math.round(0.4 * (NT - 1));
+  const mid = Math.round(0.4 * (TABLE_SAMPLES - 1));
   assert.ok(
-    Math.abs(M.tab[3 * mid] - 0.2) < 0.02 && Math.abs(M.tab[3 * mid + 1] - 0.3) < 0.02,
+    Math.abs(M.table[3 * mid] - 0.2) < 0.02 && Math.abs(M.table[3 * mid + 1] - 0.3) < 0.02,
     'the fourth stop of six',
   );
   // a stream that says its own speeds (gas heated in a combustor, a jet slowing as it mixes): they win over continuity
@@ -1401,7 +1417,7 @@ test('streams: the air moves by travel time, faster where the stream narrows, ne
     ],
   });
   const s = tau(S);
-  assert.ok(Math.abs(rate(s, 0) / rate(s, NT - 2) - 2) < 0.15);
+  assert.ok(Math.abs(rate(s, 0) / rate(s, TABLE_SAMPLES - 2) - 2) < 0.15);
   // the pattern's position is tau - phase: as phase grows, every point of the pattern moves downstream
   S.speed = 1;
   S.step(0.5);

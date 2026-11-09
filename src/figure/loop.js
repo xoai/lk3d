@@ -15,16 +15,17 @@ import LK3D from '../namespace.js';
 // 30 Hz (Chrome on iOS does, measured), and there a 33 ms frame is on time, not slow.
 /** @param {import('./context').Ctx} c @returns {() => void} what watches the figure's size and visibility, started last */
 export function makeLoop(c) {
-  // the order parts are drawn in: parts that share a geometry one after another (the GPU then binds it once for them)
-  const geoIndex = new Map(),
+  // the order parts are drawn in: parts that share a mesh one after another (the GPU then binds it once for them)
+  const meshIndex = new Map(),
     drawOrder = c.built_.parts
-      .map((p, k) => [
-        p,
-        geoIndex.get(p.batches[0]?.geo) ?? geoIndex.set(p.batches[0]?.geo, geoIndex.size).get(p.batches[0]?.geo),
-        k,
+      .map((part, index) => [
+        part,
+        meshIndex.get(part.batches[0]?.mesh) ??
+          meshIndex.set(part.batches[0]?.mesh, meshIndex.size).get(part.batches[0]?.mesh),
+        index,
       ])
       .sort((a, b) => a[1] - b[1] || a[2] - b[2])
-      .map(([p]) => p);
+      .map(([part]) => part);
   c.width_ = 1;
   c.height_ = 1;
   let dpr = (c.dpr_ = 1),
@@ -35,7 +36,7 @@ export function makeLoop(c) {
     onScreen = true,
     pageShown = !document.hidden,
     visible = pageShown;
-  let raf = 0, // (the frame asked for, 0 if none)
+  let frameRequest = 0, // (the frame asked for, 0 if none)
     lastFrame = 0, // (when the last moving frame was drawn; 0 after a still one)
     late = 0, // (frames that came late lately, and on time in a row: they lower and raise the resolution)
     onTime = 0,
@@ -44,11 +45,11 @@ export function makeLoop(c) {
   function measureRefresh() {
     // twenty frame intervals; see refreshFrom
     const stamps = [];
-    const onFrame = (t) => {
-      stamps.push(t);
+    const onFrame = (time) => {
+      stamps.push(time);
       if (stamps.length < 21) requestAnimationFrame(onFrame);
       else {
-        c.refreshMs_ = refresh = refreshFrom(stamps.slice(1).map((x, i) => x - stamps[i]));
+        c.refreshMs_ = refresh = refreshFrom(stamps.slice(1).map((stamp, i) => stamp - stamps[i]));
         c.stats_.refreshMs = +refresh.toFixed(1);
       }
     };
@@ -57,35 +58,36 @@ export function makeLoop(c) {
   measureRefresh();
   c.kick_ = () => {
     dirty = true;
-    if (!raf && visible && !c.destroyed_) raf = requestAnimationFrame(frame);
+    if (!frameRequest && visible && !c.destroyed_) frameRequest = requestAnimationFrame(frame);
   };
   function resize() {
     const narrow = c.host_.clientWidth < 560,
-      ar = narrow ? c.spec_.narrow || '1 / 0.9' : `${c.spec_.w || 16} / ${c.spec_.h || 10}`;
-    if (c.stage_.style.aspectRatio !== ar) c.stage_.style.aspectRatio = ar;
+      aspectRatio = narrow ? c.spec_.narrow || '1 / 0.9' : `${c.spec_.w || 16} / ${c.spec_.h || 10}`;
+    if (c.stage_.style.aspectRatio !== aspectRatio) c.stage_.style.aspectRatio = aspectRatio;
     c.dpr_ = dpr = Math.min(c.opts_.maxDpr || 3, window.devicePixelRatio || 1);
-    const r = c.stage_.getBoundingClientRect();
-    c.width_ = Math.max(1, r.width);
-    c.height_ = Math.max(1, r.height);
+    const rect = c.stage_.getBoundingClientRect();
+    c.width_ = Math.max(1, rect.width);
+    c.height_ = Math.max(1, rect.height);
     c.labelWidths_ = {}; // labels change size with the layout (smaller on a phone)
     if (c.sizeCanvas_() && visible && !c.destroyed_ && c.stats_.firstFrameMs != null) {
-      cancelAnimationFrame(raf);
-      raf = 0;
+      cancelAnimationFrame(frameRequest);
+      frameRequest = 0;
       dirty = true;
       frame(performance.now());
     } else c.kick_();
   }
   c.sizeCanvas_ = () => {
     // true if the size changed (which clears the canvas: the caller draws again at once)
-    const w = Math.round(c.width_ * dpr * resolution),
-      h = Math.round(c.height_ * dpr * resolution),
-      out = c.drawCanvas_;
-    if (c.canvas_.width === w && c.canvas_.height === h && out.width === w) return false;
-    c.canvas_.width = w;
-    c.canvas_.height = h;
-    if (out !== c.canvas_) {
-      out.width = w;
-      out.height = h;
+    const pixelWidth = Math.round(c.width_ * dpr * resolution),
+      pixelHeight = Math.round(c.height_ * dpr * resolution),
+      drawCanvas = c.drawCanvas_;
+    if (c.canvas_.width === pixelWidth && c.canvas_.height === pixelHeight && drawCanvas.width === pixelWidth)
+      return false;
+    c.canvas_.width = pixelWidth;
+    c.canvas_.height = pixelHeight;
+    if (drawCanvas !== c.canvas_) {
+      drawCanvas.width = pixelWidth;
+      drawCanvas.height = pixelHeight;
     }
     return true;
   };
@@ -106,53 +108,61 @@ export function makeLoop(c) {
   // it is stopped, where their speed puts them at the clock's time: the value at an anchor plus speed × time since it.
   // The anchor is time 0 (or the last frame the clock ran), and moves to the last time drawn when the speed or the
   // time scale changes, or the page moves the thing itself. So one time is one picture, however the clock got there
-  // (each thing's anchor: t and v, the time and the value there; r, the rate it was made for (speed × time scale); at
-  // and w, the time and the value last drawn)
+  // (each thing's anchor: the time and the value there, the rate it was made for (speed × time scale), and the time
+  // and the value last drawn)
   const anchors = new WeakMap();
   // thing[key] moved on: true if it moved
-  c.travel_ = (thing, key, speed, t, dt, wrap) => {
+  c.travel_ = (thing, key, speed, time, dt, wrap) => {
     const was = thing[key],
-      r = speed * c.state_.timeScale;
+      rate = speed * c.state_.timeScale;
     let anchor = anchors.get(thing);
-    if (!anchor) anchors.set(thing, (anchor = { t: 0, v: was, r, at: 0, w: was }));
-    let v;
-    if (clock.speed) v = was + speed * dt;
+    if (!anchor) anchors.set(thing, (anchor = { time: 0, value: was, rate, drawnAt: 0, drawnValue: was }));
+    let value;
+    if (clock.speed) value = was + speed * dt;
     else {
-      if (anchor.r !== r || anchor.w !== was) Object.assign(anchor, { t: anchor.at, v: was, r });
-      v = anchor.v + (r * (t - anchor.t)) / 1000;
+      if (anchor.rate !== rate || anchor.drawnValue !== was)
+        Object.assign(anchor, { time: anchor.drawnAt, value: was, rate });
+      value = anchor.value + (rate * (time - anchor.time)) / 1000;
     }
-    if (wrap) v %= wrap;
-    if (clock.speed) Object.assign(anchor, { t, v, r });
-    anchor.at = t;
-    anchor.w = v;
-    if (v === was) return false;
-    thing[key] = v;
+    if (wrap) value %= wrap;
+    if (clock.speed) Object.assign(anchor, { time, value, rate });
+    anchor.drawnAt = time;
+    anchor.drawnValue = value;
+    if (value === was) return false;
+    thing[key] = value;
     return true;
   };
   /** @param {number} now */
   function frame(now) {
-    raf = 0;
+    frameRequest = 0;
     if (c.destroyed_) return;
     let moving = false;
-    const t = clock.now(); // (now, the frame's own time, still judges whether frames come late)
-    for (const a of c.animations_) {
-      if (a(t)) moving = true;
-      else c.animations_.delete(a);
+    const time = clock.now(); // (now, the frame's own time, still judges whether frames come late)
+    for (const animation of c.animations_) {
+      if (animation(time)) moving = true;
+      else c.animations_.delete(animation);
     } // a tick runs while it returns true
     // particles along paths run at the speed the page gave them (never backwards: a clock set back is not a frame).
     // A clock stepped by hand moves things on by the whole step; one that runs, by at most 50 ms a frame (not a leap
     // after a hidden tab)
     const still = !clock.speed,
-      dt = movedAt == null ? 0 : Math.max(0, Math.min(still ? 1e9 : 0.05, (t - movedAt) / 1000)) * c.state_.timeScale;
+      dt =
+        movedAt == null ? 0 : Math.max(0, Math.min(still ? 1e9 : 0.05, (time - movedAt) / 1000)) * c.state_.timeScale;
     let flowing = false;
     if (c.fluids_ && c.fluidStep_(dt)) flowing = true; // (liquids pour and gases settle by their laws)
     // (all of it stands still for a reader who asked for less motion; a flow with nothing to show does not move; with
     // the clock stopped, each is placed for the clock's time, and draws again only if that moved it: see travel_)
     if (!LK3D.reduce)
-      for (const X of c.particles_.concat(c.flows_, c.streams_))
-        if (X.go && X.visible && (X.amount ?? X.density ?? 1) > 0 && (X.speed || still) && (X.go(t, dt) || !still))
+      for (const mover of c.particles_.concat(c.flows_, c.streams_))
+        if (
+          mover.go &&
+          mover.visible &&
+          (mover.amount ?? mover.density ?? 1) > 0 &&
+          (mover.speed || still) &&
+          (mover.go(time, dt) || !still)
+        )
           flowing = true;
-    movedAt = flowing || still ? t : null;
+    movedAt = flowing || still ? time : null;
     moving = moving || flowing;
     if ((dirty || moving) && !c.contextLost_) {
       // adaptive resolution: if moving frames keep coming late, draw fewer pixels until things are still again
@@ -193,37 +203,44 @@ export function makeLoop(c) {
       }
       c.camera_();
       const look = c.lookNow_();
-      for (const p of c.built_.parts) {
+      for (const part of c.built_.parts) {
         // a part's matrix, worked out again only when what places it changed: taking apart, its offset, its handle,
         // the spin, its motions' values or the joints' pose (a camera turning thousands of parts costs nothing here)
-        changed.start(p.matrixFor || (p.matrixFor = []));
-        for (const x of p.offset) changed.put(x);
+        changed.start(part.matrixFor || (part.matrixFor = []));
+        for (const coordinate of part.offset) changed.put(coordinate);
         changed.put(c.state_.explode);
-        changed.put(p.handleOf && p.handleOf.value);
-        changed.put(p.spin && c.state_.spin);
-        changed.put(p.joint && c.poseVersion_);
-        for (const t of p.tracks) changed.put(c.state_.motion[t.mo.id]);
-        if (changed.end()) p.m = c.modelMatrix_(p);
-        p.drawAlpha = p.hidden ? 0 : c.state_.xray && p.xray ? 0.18 : p.alpha;
+        changed.put(part.handleOf && part.handleOf.value);
+        changed.put(part.spin && c.state_.spin);
+        changed.put(part.joint && c.poseVersion_);
+        for (const entry of part.tracks) changed.put(c.state_.motion[entry.motion.id]);
+        if (changed.end()) part.matrix = c.modelMatrix_(part);
+        part.drawAlpha = part.hidden ? 0 : c.state_.xray && part.xray ? 0.18 : part.alpha;
         // the pen look's colour: all of it for an accent part, a glowing one or the one chosen, a soft wash otherwise
         // (grey machine parts stay nearly white; coloured ones, an organelle or a layer, still read as their colour)
-        p.tint = p.accent || p.id === c.state_.selected || p.emit[0] + p.emit[1] + p.emit[2] > 0.01 ? 1 : 0.4;
+        part.tint =
+          part.accent || part.id === c.state_.selected || part.emission[0] + part.emission[1] + part.emission[2] > 0.01
+            ? 1
+            : 0.4;
       }
-      const flows = c.flows_.filter((F) => F.visible && F.amount > 0);
-      for (const F of flows.concat(c.streams_)) {
-        if (F.update) F.update(F.owner ? F.owner.m : null);
-        if (!F.colors || F.dark !== look.dark) {
-          F.colors = ramp(F.ramp, look.dark);
-          F.dark = look.dark;
+      const flows = c.flows_.filter((flow) => flow.visible && flow.amount > 0);
+      for (const flow of flows.concat(c.streams_)) {
+        if (flow.update) flow.update(flow.owner ? flow.owner.matrix : null);
+        if (!flow.colors || flow.dark !== look.dark) {
+          flow.colors = ramp(flow.ramp, look.dark);
+          flow.dark = look.dark;
         }
       }
-      for (const L of c.lines_)
-        if (L.dirty) {
-          L.place();
-          L.dirty = false;
+      for (const lines of c.lines_)
+        if (lines.dirty) {
+          lines.place();
+          lines.dirty = false;
         }
       const shown = c.lines_.length
-        ? drawOrder.concat(c.lines_.filter((L) => L.visible && L.part.batches[0].mats.length).map((L) => L.part))
+        ? drawOrder.concat(
+            c.lines_
+              .filter((lines) => lines.visible && lines.part.batches[0].placements.length)
+              .map((lines) => lines.part),
+          )
         : drawOrder;
       const box = c.shownBox_(),
         frustum = c.frustum_,
@@ -231,14 +248,14 @@ export function makeLoop(c) {
       let drawn;
       try {
         drawn = c.renderer_.draw({
-          VP: c.viewProj_,
+          viewProjection: c.viewProj_,
           eye,
           look,
           style: c.state_.style,
           parts: shown,
           flows,
           streams: c.streams_,
-          fwd: norm(sub(add(c.state_.target, c.explodeShift_()), eye)),
+          forward: norm(sub(add(c.state_.target, c.explodeShift_()), eye)),
           edges: c.showEdges_(),
           cut: !!c.state_.cut,
           plane: c.cutPlane_(),
@@ -247,9 +264,9 @@ export function makeLoop(c) {
           selected: c.state_.selected,
           dpr: dpr * resolution,
           // pixels per unit at unit distance from the eye (shaders divide by it); in ortho the size is the same everywhere
-          pxPerUnit: (c.canvas_.height * frustum.d) / (2 * frustum.h),
-          viewD: frustum.ortho ? frustum.d : 0,
-          tanHalf: frustum.h / frustum.d,
+          pxPerUnit: (c.canvas_.height * frustum.distance) / (2 * frustum.halfHeight),
+          viewDistance: frustum.ortho ? frustum.distance : 0,
+          tanHalf: frustum.halfHeight / frustum.distance,
           particles: c.particles_,
           ao: c.aoComplete_,
           shadows: true,
@@ -260,7 +277,7 @@ export function makeLoop(c) {
               : {
                   center: [box.center[0], 0, box.center[2]],
                   radius: box.radius * 1.6,
-                  y: c.built_.lo[1] - 0.004,
+                  y: c.built_.min[1] - 0.004,
                   contact: c.state_.explode < 0.3 ? 1 - c.state_.explode / 0.3 : 0,
                 },
         });
@@ -286,14 +303,14 @@ export function makeLoop(c) {
         c.checkReady_();
       }
     }
-    if (moving && visible && !raf) raf = requestAnimationFrame(frame); // one frame pending at most
+    if (moving && visible && !frameRequest) frameRequest = requestAnimationFrame(frame); // one frame pending at most
   }
   // draw the state as it is now, before returning (a tool that screenshots right after setting it); false while the
   // shaders are still compiling (it draws again on the next frame by itself)
   c.drawNow_ = () => {
     if (c.destroyed_) return false;
-    cancelAnimationFrame(raf);
-    raf = 0;
+    cancelAnimationFrame(frameRequest);
+    frameRequest = 0;
     dirty = true;
     frame(performance.now());
     return !dirty;
@@ -303,15 +320,15 @@ export function makeLoop(c) {
     dirty = true;
   };
   c.cleanups_.push(() => {
-    cancelAnimationFrame(raf);
-    raf = 0;
+    cancelAnimationFrame(frameRequest);
+    frameRequest = 0;
     clearTimeout(fullResTimer);
   });
 
   // ---- watching size, visibility and the screen's density (started last, once everything is in place)
   return () => {
-    const ro = new ResizeObserver(resize);
-    ro.observe(c.stage_);
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(c.stage_);
     const wake = () => {
       const was = visible;
       visible = onScreen && pageShown;
@@ -320,7 +337,7 @@ export function makeLoop(c) {
         c.kick_();
       }
     };
-    const io = new IntersectionObserver(
+    const intersectionObserver = new IntersectionObserver(
       (entries) => {
         c.glSlot_.near = onScreen = entries[entries.length - 1].isIntersecting;
         c.glSlot_.seen = performance.now();
@@ -329,12 +346,12 @@ export function makeLoop(c) {
       },
       { rootMargin: '100px' },
     );
-    io.observe(c.stage_);
-    const onVis = () => {
+    intersectionObserver.observe(c.stage_);
+    const onVisibility = () => {
       pageShown = !document.hidden;
       wake();
     };
-    document.addEventListener('visibilitychange', onVis);
+    document.addEventListener('visibilitychange', onVisibility);
     // (woken by the clock stepped or set: liquids and gases move on from where it was, if they had not been moving)
     const woke = (was) => {
       if (movedAt == null && !clock.speed) movedAt = was;
@@ -343,9 +360,9 @@ export function makeLoop(c) {
     awake.add(woke);
     c.cleanups_.push(() => {
       awake.delete(woke);
-      io.disconnect();
-      ro.disconnect();
-      document.removeEventListener('visibilitychange', onVis);
+      intersectionObserver.disconnect();
+      resizeObserver.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
       dprQuery?.removeEventListener('change', onDpr);
     });
     watchDpr();

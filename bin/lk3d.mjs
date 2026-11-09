@@ -26,16 +26,16 @@ const VALUED = new Set(['looks', 'poses', 'theme', 'width', 'out', 'motion']),
   flags = {},
   words = [];
 for (const args = process.argv.slice(2); args.length;) {
-  const a = args.shift();
-  if (a.startsWith('--')) flags[a.slice(2)] = VALUED.has(a.slice(2)) && args.length ? args.shift() : true;
-  else words.push(a);
+  const arg = args.shift();
+  if (arg.startsWith('--')) flags[arg.slice(2)] = VALUED.has(arg.slice(2)) && args.length ? args.shift() : true;
+  else words.push(arg);
 }
-const [cmd, file] = words,
-  flag = (name, dflt) => flags[name] ?? dflt;
+const [command, file] = words,
+  flag = (name, fallback) => flags[name] ?? fallback;
 // a failure said where it belongs: on stderr, or as JSON when JSON was asked for
 const fail = (message, code = 2) => {
   if (flags.json) console.log(JSON.stringify({ summary: null, problems: [{ path: '(scene)', message }] }, null, 2));
-  else console.error(`lk3d ${cmd}: ${message}`);
+  else console.error(`lk3d ${command}: ${message}`);
   process.exitCode = code;
 };
 const LOOKS = ['pen', 'studio', 'ink'],
@@ -44,62 +44,66 @@ const USAGE = `usage: lk3d check scene.json [--json]
        lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
        lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut] [--theme NAME] [--ortho] [--width 640] [--out DIR]`;
 
-function load(f) {
-  const scene = JSON.parse(fs.readFileSync(f, 'utf8'));
+function load(scenePath) {
+  const scene = JSON.parse(fs.readFileSync(scenePath, 'utf8'));
   if (!scene || typeof scene !== 'object' || Array.isArray(scene)) throw new Error('a scene is a JSON object');
-  for (const [name, m] of Object.entries(scene.models || {}))
-    if (m.file && !m.data) {
-      const at = [path.dirname(f), path.dirname(path.dirname(f)), '.']
-        .map((d) => path.resolve(d, m.file))
-        .find((p) => fs.existsSync(p));
-      if (!at) throw new Error(`the model ${name}: no file ${m.file} beside the scene, the page or here`);
-      m.data = fs.readFileSync(at).toString('base64');
+  for (const [name, model] of Object.entries(scene.models || {}))
+    if (model.file && !model.data) {
+      const found = [path.dirname(scenePath), path.dirname(path.dirname(scenePath)), '.']
+        .map((dir) => path.resolve(dir, model.file))
+        .find((candidate) => fs.existsSync(candidate));
+      if (!found) throw new Error(`the model ${name}: no file ${model.file} beside the scene, the page or here`);
+      model.data = fs.readFileSync(found).toString('base64');
     }
   return scene;
 }
 
-function exportGLB(f, out) {
-  const scene = load(f),
+function exportGLB(scenePath, outPath) {
+  const scene = load(scenePath),
     problems = validate(scene);
   if (problems.length)
-    return fail(`not a valid scene (lk3d check ${path.basename(f)}): ${problems[0].path}: ${problems[0].message}`, 1);
+    return fail(
+      `not a valid scene (lk3d check ${path.basename(scenePath)}): ${problems[0].path}: ${problems[0].message}`,
+      1,
+    );
   const motion = Object.fromEntries(
     String(flag('motion', ''))
       .split(',')
       .filter(Boolean)
-      .map((kv) => [kv.split('=')[0], +kv.split('=')[1]]),
+      .map((pair) => [pair.split('=')[0], +pair.split('=')[1]]),
   );
   const glb = sceneToGLB(scene, { motion, animate: !!flag('animate') }),
-    to = out || f.replace(/\.json$/i, '') + '.glb';
-  fs.writeFileSync(to, glb);
+    target = outPath || scenePath.replace(/\.json$/i, '') + '.glb';
+  fs.writeFileSync(target, glb);
   console.log(
-    `${to}: ${(glb.length / 1e6).toFixed(1)} MB` +
+    `${target}: ${(glb.length / 1e6).toFixed(1)} MB` +
       (flag('animate') ? `, ${(scene.motions || []).length} animation(s)` : ''),
   );
 }
 
-function check(f) {
-  const scene = load(f),
+function check(scenePath) {
+  const scene = load(scenePath),
     problems = validate(scene);
   // the geometry is checked only on a scene in the right form (a wrong one may not build); a scene that still does not
   // build is one problem, said as the others are
-  let r = { problems: [], summary: null };
+  let geometry = { problems: [], summary: null };
   if (!problems.length)
     try {
-      r = lint(scene);
-    } catch (e) {
-      r.problems.push({ path: '(scene)', message: e.message.replace(/^lk3d: /, '') });
+      geometry = lint(scene);
+    } catch (error) {
+      geometry.problems.push({ path: '(scene)', message: error.message.replace(/^lk3d: /, '') });
     }
-  const all = [...problems, ...r.problems];
-  if (flag('json')) console.log(JSON.stringify({ summary: r.summary, problems: all }, null, 2));
+  const all = [...problems, ...geometry.problems];
+  if (flag('json')) console.log(JSON.stringify({ summary: geometry.summary, problems: all }, null, 2));
   else {
-    const s = r.summary;
-    if (s)
+    const summary = geometry.summary;
+    if (summary)
       console.log(
-        `${path.basename(f)}: ${s.parts} parts (${s.named} named, ${s.accents} accent), ${s.shapes} shapes, ` +
-          `${s.placed} placed, ${s.triangles} triangles, ${+s.size.toFixed(2)} units across`,
+        `${path.basename(scenePath)}: ${summary.parts} parts (${summary.named} named, ${summary.accents} accent), ` +
+          `${summary.shapes} shapes, ${summary.placed} placed, ${summary.triangles} triangles, ` +
+          `${+summary.size.toFixed(2)} units across`,
       );
-    for (const e of all) console.log(`  ${e.path || '(scene)'}: ${e.message}`);
+    for (const problem of all) console.log(`  ${problem.path || '(scene)'}: ${problem.message}`);
     console.log(all.length ? `${all.length} problem${all.length > 1 ? 's' : ''}` : 'no problems');
   }
   process.exitCode = all.length ? 1 : 0;
@@ -109,15 +113,15 @@ function check(f) {
 const PAGE = `<!doctype html><meta charset="utf-8"><title>lk3d render</title>
 <style>body{margin:0;background:#fff;font-family:system-ui,sans-serif}#g{width:WIDTHpx}.lk3d{margin:0}.lk3d-hint{display:none}</style>
 <div id="g"></div><script src="/lk3d.min.js"></script><script type="module">
-const q = new URLSearchParams(location.search), scene = await (await fetch('/scene.json')).json(), errors = [];
+const query = new URLSearchParams(location.search), scene = await (await fetch('/scene.json')).json(), errors = [];
 window.addEventListener('error', (e) => errors.push(String(e.message)));
-if (q.get('ortho')) scene.view = { ...scene.view, projection: 'ortho' };
+if (query.get('ortho')) scene.view = { ...scene.view, projection: 'ortho' };
 const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, adaptive: false, locale: 'en',
-  style: q.get('look'), theme: q.get('theme') || undefined, labels: q.get('pose') === 'apart' ? 'auto' : 'none' });
-await Promise.race([fig.ready, new Promise((r) => setTimeout(r, 30000))]);
-if (q.get('pose') === 'apart') fig.set({ explode: 1 });
-if (q.get('pose') === 'cut') fig.set({ cut: true });
-for (let k = 0; k < 3; k++) await new Promise((r) => requestAnimationFrame(r));
+  style: query.get('look'), theme: query.get('theme') || undefined, labels: query.get('pose') === 'apart' ? 'auto' : 'none' });
+await Promise.race([fig.ready, new Promise((resolve) => setTimeout(resolve, 30000))]);
+if (query.get('pose') === 'apart') fig.set({ explode: 1 });
+if (query.get('pose') === 'cut') fig.set({ cut: true });
+for (let k = 0; k < 3; k++) await new Promise((resolve) => requestAnimationFrame(resolve));
 window.__ready = { errors, renderer: fig.renderer };
 </script>`;
 
@@ -127,25 +131,25 @@ window.__ready = { errors, renderer: fig.renderer };
 async function engineScript() {
   try {
     return await (await import('../build.mjs')).bundle();
-  } catch (e) {
+  } catch (error) {
     const shipped = path.join(ROOT, 'dist/lk3d.min.js');
-    if (e.code === 'ERR_MODULE_NOT_FOUND' && fs.existsSync(shipped)) return fs.readFileSync(shipped);
-    throw new Error(`could not build the engine from src/ (${e.message.split('\n')[0]}): run npm install in lk3d`, {
-      cause: e,
+    if (error.code === 'ERR_MODULE_NOT_FOUND' && fs.existsSync(shipped)) return fs.readFileSync(shipped);
+    throw new Error(`could not build the engine from src/ (${error.message.split('\n')[0]}): run npm install in lk3d`, {
+      cause: error,
     });
   }
 }
 
-async function render(f) {
-  let pw = null;
+async function render(scenePath) {
+  let playwright = null;
   for (const name of ['playwright', '@playwright/test'])
     try {
-      pw = await import(name);
+      playwright = await import(name);
       break;
     } catch {
       // (try the next)
     }
-  if (!pw || !pw.chromium) {
+  if (!playwright || !playwright.chromium) {
     console.error(
       'lk3d render needs Playwright: npm i -D playwright && npx playwright install chromium\n' +
         'not checked visually: nothing was drawn',
@@ -153,41 +157,41 @@ async function render(f) {
     process.exitCode = 2;
     return;
   }
-  const data = load(f),
-    wrong = validate(data);
-  if (wrong.length) {
-    for (const e of wrong) console.error(`  ${e.path || '(scene)'}: ${e.message}`);
+  const data = load(scenePath),
+    problems = validate(data);
+  if (problems.length) {
+    for (const problem of problems) console.error(`  ${problem.path || '(scene)'}: ${problem.message}`);
     return fail(
-      `the scene is not in the right form (${wrong.length} problem${wrong.length > 1 ? 's' : ''}): run lk3d check`,
+      `the scene is not in the right form (${problems.length} problem${problems.length > 1 ? 's' : ''}): run lk3d check`,
       1,
     );
   }
   const width = Number(flag('width', 640)),
     looks = String(flag('looks', 'pen,ink')).split(','),
     poses = String(flag('poses', 'rest,apart,cut')).split(','),
-    odd = [...looks.filter((l) => !LOOKS.includes(l)), ...poses.filter((p) => !POSES.includes(p))];
+    unknown = [...looks.filter((look) => !LOOKS.includes(look)), ...poses.filter((pose) => !POSES.includes(pose))];
   if (!(width >= 64 && width <= 4096))
     return fail(`--width is a number of pixels from 64 to 4096, not ${flag('width')}`);
-  if (odd.length)
-    return fail(`no look or pose ${odd.join(', ')} (looks: ${LOOKS.join(', ')}; poses: ${POSES.join(', ')})`);
+  if (unknown.length)
+    return fail(`no look or pose ${unknown.join(', ')} (looks: ${LOOKS.join(', ')}; poses: ${POSES.join(', ')})`);
   const scene = JSON.stringify(data),
     engine = await engineScript(),
     page = PAGE.replace('WIDTH', String(width));
   const server = http.createServer((req, res) => {
-    const u = new URL(req.url, 'http://x').pathname;
+    const pathname = new URL(req.url, 'http://x').pathname;
     const [type, body] =
-      u === '/lk3d.min.js'
+      pathname === '/lk3d.min.js'
         ? ['text/javascript', engine]
-        : u === '/scene.json'
+        : pathname === '/scene.json'
           ? ['application/json', scene]
           : ['text/html', page];
     res.writeHead(200, { 'content-type': type });
     res.end(body);
   });
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}/`,
     out = path.resolve(String(flag('out', '.'))),
-    name = path.basename(f).replace(/\.json$/, ''),
+    name = path.basename(scenePath).replace(/\.json$/, ''),
     theme = flag('theme', ''),
     ortho = flag('ortho', false);
   fs.mkdirSync(out, { recursive: true });
@@ -195,45 +199,45 @@ async function render(f) {
   // (a CI job with Playwright but no browser yet hung six hours)
   let browser;
   try {
-    browser = await pw.chromium.launch();
-  } catch (e) {
+    browser = await playwright.chromium.launch();
+  } catch (error) {
     server.close();
     console.error(
       "lk3d render needs Playwright's Chromium: npx playwright install chromium\n" +
-        `(${String(e.message).split('\n')[0]})\nnot checked visually: nothing was drawn`,
+        `(${String(error.message).split('\n')[0]})\nnot checked visually: nothing was drawn`,
     );
     process.exitCode = 2;
     return;
   }
-  let bad = 0;
+  let errorCount = 0;
   try {
     const tab = await browser.newPage({ deviceScaleFactor: 2 });
     for (const look of looks)
       for (const pose of poses) {
         await tab.goto(`${base}?look=${look}&pose=${pose}${theme ? '&theme=' + theme : ''}${ortho ? '&ortho=1' : ''}`);
-        const r = await (await tab.waitForFunction(() => window.__ready, null, { timeout: 60000 })).jsonValue();
+        const result = await (await tab.waitForFunction(() => window.__ready, null, { timeout: 60000 })).jsonValue();
         const png = path.join(out, `${name}-${look}-${pose}.png`);
         await tab.locator('.lk3d-stage').screenshot({ path: png });
-        console.log(png + (r.errors.length ? '  errors: ' + r.errors.join('; ') : ''));
-        bad += r.errors.length;
+        console.log(png + (result.errors.length ? '  errors: ' + result.errors.join('; ') : ''));
+        errorCount += result.errors.length;
       }
   } finally {
     await browser.close();
     server.close();
   }
   console.log('look at each picture: is every part where it should be, and does it read at a glance?');
-  process.exitCode = bad ? 1 : 0;
+  process.exitCode = errorCount ? 1 : 0;
 }
 
 try {
-  if (cmd === 'check' && file) check(file);
-  else if (cmd === 'render' && file) await render(file);
-  else if (cmd === 'export' && file) exportGLB(file, words[2]);
-  else if (!cmd || cmd === 'help' || flags.help) console.log(USAGE);
+  if (command === 'check' && file) check(file);
+  else if (command === 'render' && file) await render(file);
+  else if (command === 'export' && file) exportGLB(file, words[2]);
+  else if (!command || command === 'help' || flags.help) console.log(USAGE);
   else {
     console.error(USAGE);
     process.exitCode = 2;
   }
-} catch (e) {
-  fail(e.message);
+} catch (error) {
+  fail(error.message);
 }

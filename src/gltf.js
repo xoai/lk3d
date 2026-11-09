@@ -26,49 +26,54 @@ const OUTSIDE =
   'its data and images must be inside the .glb (a .gltf with separate files can be packed into one, e.g. with gltfpack)';
 const IMAGE_SIDE = 8192; // the most pixels an image may have a side (decoded, 8192² is 256 MB)
 
-const fail = (m) => {
-  throw new Error('lk3d model: ' + m);
+const fail = (message) => {
+  throw new Error('lk3d model: ' + message);
 };
 // one of the file's lists (none: empty), and an item of it by its index: there, or the file is refused
-const list = (o, k) => (o[k] == null ? [] : Array.isArray(o[k]) ? o[k] : fail(k + ' should be a list'));
-const item = (json, k, i) => {
-  const x = list(json, k)[i];
-  return Number.isInteger(i) && x && typeof x === 'object' ? x : fail(`${k}[${i}] is not in the file`);
+const list = (object, key) =>
+  object[key] == null ? [] : Array.isArray(object[key]) ? object[key] : fail(key + ' should be a list');
+const item = (json, key, index) => {
+  const entry = list(json, key)[index];
+  return Number.isInteger(index) && entry && typeof entry === 'object'
+    ? entry
+    : fail(`${key}[${index}] is not in the file`);
 };
-const nums = (v, n, what) =>
-  Array.isArray(v) && v.length >= n && v.every(Number.isFinite) ? v : fail(`${what} should be ${n} numbers`);
+const numbers = (value, count, what) =>
+  Array.isArray(value) && value.length >= count && value.every(Number.isFinite)
+    ? value
+    : fail(`${what} should be ${count} numbers`);
 
 function bytes(b64) {
-  const no = () => fail('its data should be the .glb as base64');
-  if (typeof b64 !== 'string') no();
+  const refuse = () => fail('its data should be the .glb as base64');
+  if (typeof b64 !== 'string') refuse();
   if (typeof atob === 'function') {
-    let s;
+    let binary;
     try {
-      s = atob(b64);
+      binary = atob(b64);
     } catch {
-      no();
+      refuse();
     }
-    const u = new Uint8Array(s.length);
-    for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
-    return u;
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
   }
   return new Uint8Array(globalThis.Buffer.from(b64, 'base64')); // (Node, for tools and tests)
 }
 // the JSON and binary chunks of a .glb
-function parseGLB(u8) {
-  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
-  if (u8.byteLength < 20 || dv.getUint32(0, true) !== 0x46546c67 || dv.getUint32(4, true) !== 2)
+function parseGLB(file) {
+  const data = new DataView(file.buffer, file.byteOffset, file.byteLength);
+  if (file.byteLength < 20 || data.getUint32(0, true) !== 0x46546c67 || data.getUint32(4, true) !== 2)
     fail('not a .glb file (glTF 2.0)');
-  const end = dv.getUint32(8, true),
-    short = () => fail('the file is cut short');
-  if (end > u8.byteLength) short();
-  let off = 12,
+  const end = data.getUint32(8, true),
+    cutShort = () => fail('the file is cut short');
+  if (end > file.byteLength) cutShort();
+  let offset = 12,
     json = null,
     bin = null;
-  while (off + 8 <= end) {
-    const len = dv.getUint32(off, true),
-      type = dv.getUint32(off + 4, true),
-      body = off + 8 + len <= end ? u8.subarray(off + 8, off + 8 + len) : short();
+  while (offset + 8 <= end) {
+    const chunkLength = data.getUint32(offset, true),
+      type = data.getUint32(offset + 4, true),
+      body = offset + 8 + chunkLength <= end ? file.subarray(offset + 8, offset + 8 + chunkLength) : cutShort();
     if (type === 0x4e4f534a && !json)
       try {
         json = JSON.parse(new TextDecoder().decode(body));
@@ -76,59 +81,67 @@ function parseGLB(u8) {
         fail('its JSON cannot be read');
       }
     else if (type === 0x004e4942 && !bin) bin = body;
-    off += 8 + len;
+    offset += 8 + chunkLength;
   }
   if (!json || typeof json !== 'object' || Array.isArray(json)) fail('it has no glTF JSON');
-  for (const ext of list(json, 'extensionsRequired')) {
-    if (!['KHR_mesh_quantization', 'KHR_materials_unlit', 'KHR_texture_transform', 'EXT_texture_webp'].includes(ext))
+  for (const extension of list(json, 'extensionsRequired')) {
+    if (
+      !['KHR_mesh_quantization', 'KHR_materials_unlit', 'KHR_texture_transform', 'EXT_texture_webp'].includes(extension)
+    )
       fail(
-        `${ext} is not supported (write it without: gltfpack does by default, and glTF-Transform can decompress Draco meshes first)`,
+        `${extension} is not supported (write it without: gltfpack does by default, and glTF-Transform can decompress Draco meshes first)`,
       );
   }
   return { json, bin: bin || new Uint8Array(0) };
 }
 // a buffer view, as its place in the binary chunk (the only buffer: a file that points to another is refused)
-function view(json, bin, k) {
-  const v = item(json, 'bufferViews', k),
-    o = +(v.byteOffset || 0), // (numbers, whatever the file wrote: an offset of [] or "8" would otherwise join as text)
-    l = +v.byteLength;
-  if (v.buffer || (list(json, 'buffers')[0] || {}).uri != null) fail(OUTSIDE);
-  if (!(o >= 0 && l >= 0 && o + l <= bin.length) || o % 1 || l % 1) fail(`bufferViews[${k}] lies outside its data`);
-  return { o, l, stride: +v.byteStride };
+function view(json, bin, index) {
+  const bufferView = item(json, 'bufferViews', index),
+    offset = +(bufferView.byteOffset || 0), // (numbers, whatever the file wrote: an offset of [] or "8" would otherwise join as text)
+    length = +bufferView.byteLength;
+  if (bufferView.buffer || (list(json, 'buffers')[0] || {}).uri != null) fail(OUTSIDE);
+  if (!(offset >= 0 && length >= 0 && offset + length <= bin.length) || offset % 1 || length % 1)
+    fail(`bufferViews[${index}] lies outside its data`);
+  return { offset, length, stride: +bufferView.byteStride };
 }
 // an accessor's values as plain numbers, normalized ones mapped to -1..1 or 0..1 (of a type other than the one expected,
 // it reads as numbers all the same: what they make is wrong, not unsafe)
-function accessor(json, bin, i) {
-  const a = item(json, 'accessors', i),
-    n = SIZE[a.type],
-    r = READ[a.componentType],
-    count = +a.count;
-  const no = (why) => fail(`accessors[${i}] ${why}`);
-  if (a.sparse) fail('sparse accessors are not supported');
-  if (!n || !r || !(count >= 0) || count % 1 || a.bufferView == null) no('is not one lk3d reads');
-  const v = view(json, bin, a.bufferView),
-    [get, size, max] = r,
-    stride = v.stride || n * size,
-    base = v.o + +(a.byteOffset || 0);
+function accessor(json, bin, index) {
+  const entry = item(json, 'accessors', index),
+    components = SIZE[entry.type],
+    reader = READ[entry.componentType],
+    count = +entry.count;
+  const refuse = (why) => fail(`accessors[${index}] ${why}`);
+  if (entry.sparse) fail('sparse accessors are not supported');
+  if (!components || !reader || !(count >= 0) || count % 1 || entry.bufferView == null) refuse('is not one lk3d reads');
+  const bufferView = view(json, bin, entry.bufferView),
+    [getter, componentBytes, normalizeBy] = reader,
+    stride = bufferView.stride || components * componentBytes,
+    start = bufferView.offset + +(entry.byteOffset || 0);
   // (its last value inside its view: so its count is no more than the bytes there allow, before anything is made)
-  if (!(stride >= n * size && stride <= 252 && base >= v.o) || stride % 1 || base % 1)
-    no('has a wrong stride or offset');
-  if (count && base + (count - 1) * stride + n * size > v.o + v.l) no('reads past its data');
-  const dv = new DataView(bin.buffer, bin.byteOffset, bin.byteLength),
-    out = new Float64Array(count * n);
+  if (
+    !(stride >= components * componentBytes && stride <= 252 && start >= bufferView.offset) ||
+    stride % 1 ||
+    start % 1
+  )
+    refuse('has a wrong stride or offset');
+  if (count && start + (count - 1) * stride + components * componentBytes > bufferView.offset + bufferView.length)
+    refuse('reads past its data');
+  const data = new DataView(bin.buffer, bin.byteOffset, bin.byteLength),
+    out = new Float64Array(count * components);
   for (let k = 0; k < count; k++)
-    for (let c = 0; c < n; c++) {
-      let x = dv[get](base + k * stride + c * size, true);
-      if (a.normalized && max) x = Math.max(x / max, -1);
-      else if (!Number.isFinite(x)) no('holds a number that is not finite');
-      out[k * n + c] = x;
+    for (let component = 0; component < components; component++) {
+      let value = data[getter](start + k * stride + component * componentBytes, true);
+      if (entry.normalized && normalizeBy) value = Math.max(value / normalizeBy, -1);
+      else if (!Number.isFinite(value)) refuse('holds a number that is not finite');
+      out[k * components + component] = value;
     }
-  return { data: out, n, count };
+  return { data: out, components, count };
 }
 const trsMatrix = (node) => {
-  if (node.matrix != null) return nums(node.matrix, 16, 'a node matrix').slice(0, 16);
-  const [x, y, z, w] = node.rotation == null ? [0, 0, 0, 1] : nums(node.rotation, 4, 'a node rotation');
-  const R = [
+  if (node.matrix != null) return numbers(node.matrix, 16, 'a node matrix').slice(0, 16);
+  const [x, y, z, w] = node.rotation == null ? [0, 0, 0, 1] : numbers(node.rotation, 4, 'a node rotation');
+  const rotation = [
     1 - 2 * (y * y + z * z),
     2 * (x * y + z * w),
     2 * (x * z - y * w),
@@ -146,30 +159,31 @@ const trsMatrix = (node) => {
     0,
     1,
   ];
-  return M.mul(M.trans(node.translation || [0, 0, 0]), M.mul(R, M.scale(node.scale || [1, 1, 1])));
+  return M.mul(M.trans(node.translation || [0, 0, 0]), M.mul(rotation, M.scale(node.scale || [1, 1, 1])));
 };
 // the size an embedded image says it is (PNG, JPEG, WebP), or null where its header cannot be read (the browser then
 // decides: an image it cannot decode leaves the part its colour)
-function dims(b) {
-  const at = (k, n, le) => {
-    let v = 0;
-    for (let i = 0; i < n; i++) v += b[k + i] * 256 ** (le ? i : n - 1 - i);
-    return v;
+function dims(data) {
+  const readInt = (offset, length, littleEndian) => {
+    let value = 0;
+    for (let i = 0; i < length; i++) value += data[offset + i] * 256 ** (littleEndian ? i : length - 1 - i);
+    return value;
   };
-  if (b.length < 30) return null;
-  if (b[0] === 0x89 && b[1] === 0x50) return [at(16, 4), at(20, 4)];
-  if (b[0] === 0x52 && b[8] === 0x57) {
-    const c = String.fromCharCode(b[12], b[13], b[14], b[15]);
-    if (c === 'VP8X') return [1 + at(24, 3, 1), 1 + at(27, 3, 1)];
-    if (c === 'VP8L') return [1 + (at(21, 2, 1) & 0x3fff), 1 + ((at(22, 3, 1) >> 6) & 0x3fff)];
-    if (c === 'VP8 ') return [at(26, 2, 1) & 0x3fff, at(28, 2, 1) & 0x3fff];
+  if (data.length < 30) return null;
+  if (data[0] === 0x89 && data[1] === 0x50) return [readInt(16, 4), readInt(20, 4)];
+  if (data[0] === 0x52 && data[8] === 0x57) {
+    const chunkType = String.fromCharCode(data[12], data[13], data[14], data[15]);
+    if (chunkType === 'VP8X') return [1 + readInt(24, 3, 1), 1 + readInt(27, 3, 1)];
+    if (chunkType === 'VP8L') return [1 + (readInt(21, 2, 1) & 0x3fff), 1 + ((readInt(22, 3, 1) >> 6) & 0x3fff)];
+    if (chunkType === 'VP8 ') return [readInt(26, 2, 1) & 0x3fff, readInt(28, 2, 1) & 0x3fff];
   }
-  if (b[0] === 0xff && b[1] === 0xd8)
-    for (let k = 2; k + 9 < b.length;) {
-      const m = b[k + 1];
-      if (b[k] !== 0xff) return null;
-      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return [at(k + 7, 2), at(k + 5, 2)];
-      k += m === 0xff ? 1 : 2 + at(k + 2, 2);
+  if (data[0] === 0xff && data[1] === 0xd8)
+    for (let offset = 2; offset + 9 < data.length;) {
+      const marker = data[offset + 1];
+      if (data[offset] !== 0xff) return null;
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc)
+        return [readInt(offset + 7, 2), readInt(offset + 5, 2)];
+      offset += marker === 0xff ? 1 : 2 + readInt(offset + 2, 2);
     }
   return null;
 }
@@ -177,18 +191,18 @@ function dims(b) {
 // The model's names (nodes and meshes), to map to the parts of a scene
 function names(b64) {
   const { json } = parseGLB(bytes(b64)),
-    named = (k) =>
-      list(json, k)
-        .map((n) => n && n.name)
-        .filter((s) => typeof s === 'string' && s);
+    named = (key) =>
+      list(json, key)
+        .map((entry) => entry && entry.name)
+        .filter((name) => typeof name === 'string' && name);
   return { nodes: named('nodes'), meshes: named('meshes') };
 }
 
-// The geometry of a model, or of one of its nodes (with everything under it), as a Geo in the model's units. Geo.fits(n)
+// The geometry of a model, or of one of its nodes (with everything under it), as a Mesh in the model's units. Mesh.fits(n)
 // refuses n more triangles past the scene's limit (geometry.js), asked before a primitive's values are read.
-function load(Geo, b64, only) {
+function load(Mesh, b64, only) {
   const { json, bin } = typeof b64 === 'string' ? parseGLB(bytes(b64)) : b64, // (or a file already read: parseGLB's)
-    g = new Geo(),
+    model = new Mesh(),
     nodes = list(json, 'nodes');
   const scene =
     json.scene != null || list(json, 'scenes').length
@@ -198,135 +212,148 @@ function load(Geo, b64, only) {
   // the nodes, depth first in the file's order, without recursion (a chain of nodes as deep as the file is long) and
   // each once (glTF's nodes are trees: a node reached twice is a loop, or has two parents)
   const seen = new Set(),
-    todo = list(scene, 'nodes')
-      .map((i) => [i, M.id(), false])
+    stack = list(scene, 'nodes')
+      .map((nodeIndex) => [nodeIndex, M.id(), false])
       .reverse();
-  for (let next; (next = todo.pop());) {
-    const [i, parent, inside] = next,
-      node = item(json, 'nodes', i);
-    if (seen.has(i)) fail(`nodes[${i}] is reached twice (a loop, or two parents)`);
-    seen.add(i);
-    const m = M.mul(parent, trsMatrix(node)),
-      mesh = node.mesh != null ? item(json, 'meshes', node.mesh) : null,
-      hit = !only || inside || node.name === only || (mesh && mesh.name === only);
-    if (hit) found = true;
-    if (hit && mesh) for (const prim of list(mesh, 'primitives')) addPrimitive(prim || {}, m);
-    for (const c of list(node, 'children').slice().reverse()) todo.push([c, m, hit]);
+  for (let next; (next = stack.pop());) {
+    const [nodeIndex, parentMatrix, inside] = next,
+      node = item(json, 'nodes', nodeIndex);
+    if (seen.has(nodeIndex)) fail(`nodes[${nodeIndex}] is reached twice (a loop, or two parents)`);
+    seen.add(nodeIndex);
+    const matrix = M.mul(parentMatrix, trsMatrix(node)),
+      meshEntry = node.mesh != null ? item(json, 'meshes', node.mesh) : null,
+      included = !only || inside || node.name === only || (meshEntry && meshEntry.name === only);
+    if (included) found = true;
+    if (included && meshEntry)
+      for (const primitive of list(meshEntry, 'primitives')) addPrimitive(primitive || {}, matrix);
+    for (const child of list(node, 'children').slice().reverse()) stack.push([child, matrix, included]);
   }
-  function addPrimitive(prim, m) {
-    if ((prim.mode ?? 4) !== 4) return; // triangles only
-    const at = prim.attributes || {},
-      pa = item(json, 'accessors', at.POSITION),
-      ia = prim.indices != null ? item(json, 'accessors', prim.indices) : pa;
-    Geo.fits(Math.max(+ia.count, +pa.count) / 3 || 0); // (refused before its values are read, if over the limit)
-    const P = accessor(json, bin, at.POSITION),
-      local = new Geo(),
-      n = P.count;
-    const each = (k) => (at[k] != null ? accessor(json, bin, at[k]) : null);
-    const idx =
-      prim.indices != null
-        ? Array.from(accessor(json, bin, prim.indices).data)
-        : Array.from({ length: n }, (_, k) => k);
+  function addPrimitive(primitive, matrix) {
+    if ((primitive.mode ?? 4) !== 4) return; // triangles only
+    const attributes = primitive.attributes || {},
+      positionAccessor = item(json, 'accessors', attributes.POSITION),
+      indexAccessor = primitive.indices != null ? item(json, 'accessors', primitive.indices) : positionAccessor;
+    Mesh.fits(Math.max(+indexAccessor.count, +positionAccessor.count) / 3 || 0); // (refused before its values are read, if over the limit)
+    const positions = accessor(json, bin, attributes.POSITION),
+      mesh = new Mesh(),
+      vertexCount = positions.count;
+    const attribute = (name) => (attributes[name] != null ? accessor(json, bin, attributes[name]) : null);
+    const indices =
+      primitive.indices != null
+        ? Array.from(accessor(json, bin, primitive.indices).data)
+        : Array.from({ length: vertexCount }, (_, k) => k);
     // (each one of the vertices, three to a triangle)
-    if (idx.length % 3 || idx.some((v) => !(v >= 0 && v < n) || v % 1))
-      fail(`its indices are past its ${n} vertices, or not in threes`);
-    const N = each('NORMAL');
-    const pos = (k) => [P.data[3 * k], P.data[3 * k + 1], P.data[3 * k + 2]];
+    if (indices.length % 3 || indices.some((index) => !(index >= 0 && index < vertexCount) || index % 1))
+      fail(`its indices are past its ${vertexCount} vertices, or not in threes`);
+    const givenNormals = attribute('NORMAL');
+    const position = (k) => [positions.data[3 * k], positions.data[3 * k + 1], positions.data[3 * k + 2]];
     let normals;
-    if (N) normals = Array.from({ length: n }, (_, k) => norm([N.data[3 * k], N.data[3 * k + 1], N.data[3 * k + 2]]));
+    if (givenNormals)
+      normals = Array.from({ length: vertexCount }, (_, k) =>
+        norm([givenNormals.data[3 * k], givenNormals.data[3 * k + 1], givenNormals.data[3 * k + 2]]),
+      );
     else {
       // none given: from the faces around each vertex
-      normals = Array.from({ length: n }, () => [0, 0, 0]);
-      for (let t = 0; t < idx.length; t += 3) {
-        const [a, b, c] = [idx[t], idx[t + 1], idx[t + 2]],
-          f = cross(sub(pos(b), pos(a)), sub(pos(c), pos(a)));
-        for (const v of [a, b, c]) normals[v] = add(normals[v], f);
+      normals = Array.from({ length: vertexCount }, () => [0, 0, 0]);
+      for (let t = 0; t < indices.length; t += 3) {
+        const [a, b, c] = [indices[t], indices[t + 1], indices[t + 2]],
+          faceNormal = cross(sub(position(b), position(a)), sub(position(c), position(a)));
+        for (const corner of [a, b, c]) normals[corner] = add(normals[corner], faceNormal);
       }
       normals = normals.map(norm);
     }
-    for (let k = 0; k < n; k++) local.v(pos(k), normals[k]);
-    for (let t = 0; t < idx.length; t += 3) local.tri(idx[t], idx[t + 1], idx[t + 2]);
-    const col = each('COLOR_0');
-    const mat = prim.material != null ? item(json, 'materials', prim.material) : null,
-      pbr = (mat && mat.pbrMetallicRoughness) || {};
+    for (let k = 0; k < vertexCount; k++) mesh.vertex(position(k), normals[k]);
+    for (let t = 0; t < indices.length; t += 3) mesh.triangle(indices[t], indices[t + 1], indices[t + 2]);
+    const vertexColors = attribute('COLOR_0');
+    const material = primitive.material != null ? item(json, 'materials', primitive.material) : null,
+      pbr = (material && material.pbrMetallicRoughness) || {};
     // glass (KHR_materials_transmission): no base colour map (a scan's is a white film), painted its tint instead
     // (KHR_materials_volume's, else its own colour), and marked so its part is see-through glass
-    const clear = mat?.extensions?.KHR_materials_transmission?.transmissionFactor > 0,
-      bc = (clear && mat.extensions.KHR_materials_volume?.attenuationColor) || pbr.baseColorFactor;
-    const tx = (!clear && pbr.baseColorTexture) || mat?.normalTexture;
-    const T = tx && each('TEXCOORD_0');
-    if (T) {
+    const isGlass = material?.extensions?.KHR_materials_transmission?.transmissionFactor > 0,
+      baseColor = (isGlass && material.extensions.KHR_materials_volume?.attenuationColor) || pbr.baseColorFactor;
+    const texture = (!isGlass && pbr.baseColorTexture) || material?.normalTexture;
+    const texcoords = texture && attribute('TEXCOORD_0');
+    if (texcoords) {
       // texture coordinates, moved by KHR_texture_transform once here
-      const t = tx.extensions?.KHR_texture_transform || {};
-      const [ox, oy] = nums(t.offset || [0, 0], 2, 'a texture offset'),
-        [sx, sy] = nums(t.scale || [1, 1], 2, 'a texture scale'),
-        c = Math.cos(t.rotation || 0),
-        s = Math.sin(t.rotation || 0);
-      local.uv = [];
-      for (let k = 0; k < n; k++) {
-        const u = T.data[2 * k] * sx,
-          v = T.data[2 * k + 1] * sy;
-        local.uv.push(c * u + s * v + ox, -s * u + c * v + oy);
+      const transform = texture.extensions?.KHR_texture_transform || {};
+      const [offsetU, offsetV] = numbers(transform.offset || [0, 0], 2, 'a texture offset'),
+        [scaleU, scaleV] = numbers(transform.scale || [1, 1], 2, 'a texture scale'),
+        cos = Math.cos(transform.rotation || 0),
+        sin = Math.sin(transform.rotation || 0);
+      mesh.uv = [];
+      for (let k = 0; k < vertexCount; k++) {
+        const u = texcoords.data[2 * k] * scaleU,
+          v = texcoords.data[2 * k + 1] * scaleV;
+        mesh.uv.push(cos * u + sin * v + offsetU, -sin * u + cos * v + offsetV);
       }
       // cut-outs (feathers, leaves, hair as cards): MASK drops what is below its cutoff; BLEND is drawn the same way at
       // half (sorting every card of a model for true blending is not worth its cost)
-      const mode = mat.alphaMode;
+      const alphaMode = material.alphaMode;
       const maps = {
-        base: clear ? null : image(pbr.baseColorTexture),
-        normal: image(mat.normalTexture),
-        mr: image(pbr.metallicRoughnessTexture),
-        mat: prim.material,
-        cut: mode === 'MASK' ? (mat.alphaCutoff ?? 0.5) : mode === 'BLEND' ? 0.5 : 0,
+        base: isGlass ? null : image(pbr.baseColorTexture),
+        normal: image(material.normalTexture),
+        metalRoughness: image(pbr.metallicRoughnessTexture),
+        materialIndex: primitive.material,
+        alphaCutoff: alphaMode === 'MASK' ? (material.alphaCutoff ?? 0.5) : alphaMode === 'BLEND' ? 0.5 : 0,
       };
-      if (g.tex && g.tex.mat !== maps.mat)
+      if (model.textures && model.textures.materialIndex !== maps.materialIndex)
         fail('the textures of one material per model shape (take each node apart: {model, node})');
-      local.tex = maps;
+      mesh.textures = maps;
     }
-    if (col) {
-      local.c = [];
-      const srgb = (v) => Math.round(Math.pow(Math.min(1, Math.max(0, v)), 1 / 2.2) * 255); // glTF colours are linear
-      for (let k = 0; k < n; k++)
-        local.c.push(srgb(col.data[k * col.n]), srgb(col.data[k * col.n + 1]), srgb(col.data[k * col.n + 2]), 255);
-    } else if (bc) {
+    if (vertexColors) {
+      mesh.colors = [];
+      const srgb = (value) => Math.round(Math.pow(Math.min(1, Math.max(0, value)), 1 / 2.2) * 255); // glTF colours are linear
+      for (let k = 0; k < vertexCount; k++)
+        mesh.colors.push(
+          srgb(vertexColors.data[k * vertexColors.components]),
+          srgb(vertexColors.data[k * vertexColors.components + 1]),
+          srgb(vertexColors.data[k * vertexColors.components + 2]),
+          255,
+        );
+    } else if (baseColor) {
       // the material's colour, written as sRGB hex for paint()
-      const s = (v) =>
-        Math.round(Math.pow(Math.min(1, Math.max(0, v)), 1 / 2.2) * 255)
+      const hex = (value) =>
+        Math.round(Math.pow(Math.min(1, Math.max(0, value)), 1 / 2.2) * 255)
           .toString(16)
           .padStart(2, '0');
-      local.paint('#' + s(bc[0]) + s(bc[1]) + s(bc[2]));
+      mesh.paint('#' + hex(baseColor[0]) + hex(baseColor[1]) + hex(baseColor[2]));
     }
     // a double-sided surface (a card of feathers, a leaf) is drawn with both faces; marked, not copied, so a closed
     // body marked so (a scan often is) keeps its outline in the drawn looks
-    if (mat?.doubleSided) local.twoSided = true;
-    g.add(local, m);
-    g.clear = clear && g.clear !== false; // (all of it glass)
+    if (material?.doubleSided) mesh.twoSided = true;
+    model.add(mesh, matrix);
+    model.glass = isGlass && model.glass !== false; // (all of it glass)
   }
   // an embedded image (a texture's source, or its WebP one), as bytes and their type: PNG, JPEG or WebP, of a size the
   // page can decode
   function image(info) {
     if (!info) return null;
-    const t = item(json, 'textures', info.index),
-      src = t.extensions?.EXT_texture_webp?.source ?? t.source;
-    if (src == null) return null;
-    const im = item(json, 'images', src);
-    if (im.bufferView == null) fail(OUTSIDE);
-    const v = view(json, bin, im.bufferView),
-      b = bin.subarray(v.o, v.o + v.l),
-      d = dims(b) || [0];
-    if (!/^image\/(png|jpeg|webp)$/.test(im.mimeType) || Math.max(...d) > IMAGE_SIDE)
+    const texture = item(json, 'textures', info.index),
+      source = texture.extensions?.EXT_texture_webp?.source ?? texture.source;
+    if (source == null) return null;
+    const imageEntry = item(json, 'images', source);
+    if (imageEntry.bufferView == null) fail(OUTSIDE);
+    const bufferView = view(json, bin, imageEntry.bufferView),
+      data = bin.subarray(bufferView.offset, bufferView.offset + bufferView.length),
+      size = dims(data) || [0];
+    if (!/^image\/(png|jpeg|webp)$/.test(imageEntry.mimeType) || Math.max(...size) > IMAGE_SIDE)
       fail(
-        `its images are PNG, JPEG or WebP, at most ${IMAGE_SIDE} pixels a side (not ${im.mimeType}, ${d.join(' × ')})`,
+        `its images are PNG, JPEG or WebP, at most ${IMAGE_SIDE} pixels a side (not ${imageEntry.mimeType}, ${size.join(' × ')})`,
       );
-    return { bytes: b, mime: im.mimeType };
+    return { bytes: data, mime: imageEntry.mimeType };
   }
   if (!found) {
-    const all = [...nodes, ...list(json, 'meshes')].map((x) => x && x.name).filter((s) => typeof s === 'string' && s);
+    const allNames = [...nodes, ...list(json, 'meshes')]
+      .map((entry) => entry && entry.name)
+      .filter((name) => typeof name === 'string' && name);
     fail(
       `no node or mesh called "${only}"` +
-        (all.length ? ` (it has: ${[...new Set(all)].slice(0, 20).join(', ')})` : ' (its nodes have no names)'),
+        (allNames.length
+          ? ` (it has: ${[...new Set(allNames)].slice(0, 20).join(', ')})`
+          : ' (its nodes have no names)'),
     );
   }
-  return g;
+  return model;
 }
 
 export { load, names, parseGLB, bytes, dims };

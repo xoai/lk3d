@@ -59,12 +59,17 @@ export function makeApi(c) {
     },
     // the cut's plane now: where the scene, a step, the page or the reader put it
     get section() {
-      return { normal: c.state_.section.normal.slice(), offset: c.state_.section.offset };
+      const { normal, offset, second } = c.state_.section;
+      return {
+        normal: normal.slice(),
+        offset,
+        ...(second && { second: { normal: (second.normal || [1, 0, 0]).slice(), offset: second.offset || 0 } }),
+      };
     },
     _state: c.state_, // the engine's own state: not an API, it may change
     set(changes) {
       if ('explode' in changes) c.explodeNow_(changes.explode); // (the page's own value wins over a running tween)
-      for (const key of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection'])
+      for (const key of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection', 'dimensions'])
         if (key in changes) c.state_[key] = changes[key];
       if ('transparent' in changes) c.state_.transparent = !!changes.transparent;
       if (changes.section) c.state_.section = { ...c.state_.section, ...changes.section };

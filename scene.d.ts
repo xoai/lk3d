@@ -122,6 +122,16 @@ export interface Scene {
          * while the model is cut open, the reader moves the plane along its normal.
          */
         fixed?: boolean;
+        /**
+         * A second plane, for a quarter cut: then only what lies beyond both planes is cut away (two planes at right
+         * angles take out a quarter). false: none (a step's, over the scene's).
+         */
+        second?:
+          | false
+          | {
+              normal?: Vec3;
+              offset?: number;
+            };
       };
   /**
    * Parts that move together as one value goes along a range: a piston's stroke as the crank turns, a sleeve
@@ -139,6 +149,11 @@ export interface Scene {
    * Honest scale: a bar that keeps its true length as the view zooms, and/or a note saying what is not to scale.
    */
   scale?: SceneScale;
+  /**
+   * Dimensions drawn on the figure: lengths between points and angles at vertices, with their values, as on a
+   * technical drawing; worked out from the points as shown, so a length to a moving part changes as it moves.
+   */
+  dimensions?: Dimension[];
   /** glTF 2.0 models (.glb) by name, for {model: name} shapes. */
   models?: { [key: string]: Model };
   /** What one scene unit is (m): the laws of liquids and gases (g, R) are worked out in it. */
@@ -291,6 +306,65 @@ export interface SceneScaleFields {
   };
   /** @minLength 1 */
   note?: string;
+}
+
+/**
+ * A dimension drawn on the figure, as on a technical drawing: a length between two points (extension lines, a
+ * dimension line with arrows, its value), or an angle at a vertex (an arc with arrows, its value in degrees).
+ * Its value is worked out from the points as they are shown (in the scene's unit, when it has one), unless
+ * text says otherwise.
+ */
+export type Dimension = Form<DimensionFields, 'from' | 'to'> | Form<DimensionFields, 'angle'>;
+
+/** the fields of Dimension, each optional (Dimension says which are required, together) */
+export interface DimensionFields {
+  /**
+   * Unique among the dimensions: what steps and the page name it by.
+   * @minLength 1
+   */
+  id?: string;
+  /**
+   * What is measured, for screen readers ("the piston's stroke").
+   * @minLength 1
+   */
+  name?: string;
+  /** A length's first end. */
+  from?: Point;
+  /** A length's other end. */
+  to?: Point;
+  /**
+   * Where the dimension line is drawn: the two ends moved by this much (default: on the points themselves), with
+   * extension lines out to it.
+   */
+  offset?: Vec3;
+  /** An angle: a point on one arm, the vertex, a point on the other arm. */
+  angle?: [Point, Point, Point];
+  /**
+   * An angle's arc radius (default: a third of the shorter arm).
+   * @exclusiveMinimum 0
+   */
+  radius?: number;
+  /** Draw an angle's arms from the vertex (false by default: they are usually edges of the model). */
+  arms?: boolean;
+  /**
+   * The value shown, in place of the one worked out ("Ø 40", "stroke").
+   * @minLength 1
+   */
+  text?: string;
+  /**
+   * Decimals in the value worked out (default: three significant figures).
+   * @minimum 0
+   * @maximum 6
+   * @integer
+   */
+  digits?: number;
+  /** Not shown unless a step or the page names it. */
+  hidden?: boolean;
+  /**
+   * The unit a length's value is given in (the scene's unit by default); converted from the scene's unit, which
+   * it needs.
+   */
+  unit?: 'mm' | 'cm' | 'dm' | 'm' | 'km';
 }
 
 /** a model needs its .glb: data (base64) or file (a path) */
@@ -553,6 +627,16 @@ export interface StepFields {
   section?: {
     normal?: Vec3;
     offset?: number;
+    /**
+     * A second plane, for a quarter cut: then only what lies beyond both planes is cut away (two planes at right
+     * angles take out a quarter). false: none (a step's, over the scene's).
+     */
+    second?:
+      | false
+      | {
+          normal?: Vec3;
+          offset?: number;
+        };
   };
   /** Casings see-through. */
   xray?: boolean;
@@ -572,6 +656,10 @@ export interface StepFields {
   motion?: { [key: string]: number };
   /** Motions played as the step comes, from the value it gives them. */
   play?: string[];
+  /**
+   * The dimensions shown in this step, by id (none: [ ]); without it, the scene's own (those not hidden).
+   */
+  dimensions?: string[];
 }
 
 /** Parts that move one way: moved, turned, or both (moved, then turned). */
@@ -592,6 +680,22 @@ export interface MotionTrackFields {
   /** A smooth start and stop at each key (else straight from key to key). */
   ease?: boolean;
 }
+
+/**
+ * A point of the scene, [x, y, z], or one carried by a part, {part, at}: it moves as the part does (taken
+ * apart, moved by a motion or a handle), so what is measured to it is measured as shown.
+ */
+export type Point =
+  | Vec3
+  | {
+      /**
+       * The part that carries it.
+       * @minLength 1
+       */
+      part: string;
+      /** The point, in the part's own place at rest. */
+      at: Vec3;
+    };
 
 /**
  * How it reflects light in the studio look (and how much light wraps round into it, for soft materials).

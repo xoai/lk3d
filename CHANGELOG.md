@@ -5,6 +5,24 @@ format or the API, and says how to move.
 
 ## Unreleased
 
+- **Quarter cuts**: a second plane, `section.second` (`{normal, offset}`), and only what lies beyond both planes is cut
+  away, as in a technical cutaway; both faces are filled and hatched, the reader drags either, and `fig.section` reports
+  both. A step or the page drops it with `second: false` / `null`.
+- **The playground** (`playground/`, published at https://xoai.github.io/lk3d/playground/): a scene's JSON beside the
+  figure, drawn as it is typed and checked as `lk3d check` does (the format and the geometry, in a worker), each problem
+  shown at its place in the text; the examples to start from; a look and a theme; Share makes a link with the scene in
+  it, and the scene goes out as .json or .glb. `npm run playground` serves it from a checkout.
+- **Dimensions** (`dimensions` in the scene): lengths between points and angles at vertices, drawn as on a technical
+  drawing (extension lines, arrows, the value), their values worked out from the figure as shown, in the scene's unit or
+  the dimension's own (`unit`); a point may ride on a part (`{part, at}`), so a length to it follows the part as the
+  reader moves it. Steps (`dimensions: [ids]`) and the page (`fig.set({ dimensions })`) choose which show; screen
+  readers find them listed. The lens bench example measures the object's distance and the focal length. New word:
+  `dimensions`.
+- **Examples**: a tour of a human cell (`examples/cell-tour.html`, its scene made by `examples/cell-tour.mjs`), made as
+  detailed as an illustrated film: proteins in the membrane, nuclear pores, loose chromatin, smooth ER, mitochondria
+  with folded cristae, a Golgi stack with swollen rims and budding vesicles, centrioles of nine triplets, and the
+  cytoskeleton's three fibres; eleven guided steps, messenger RNA leaving through the pores, a close-up of the
+  membrane. The lens bench measures the object's distance and the focal length.
 - A label whose point the cut has taken points at its part's cut face instead; it hides only when the cut has taken
   the whole part. (0.2.0 hid the label of any part whose label point was cut away, though the rest of it still showed:
   the generator's south magnet when cut open, say.)

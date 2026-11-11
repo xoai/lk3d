@@ -123,30 +123,42 @@ export function makeInput(c) {
   // cut face is seen nearly face on (the normal pointing at the eye has no direction on the stage)
   c.cutMovable_ = () =>
     !!c.state_.cut && c.spec_.section !== false && !c.spec_.section?.fixed && c.renderer_.kind !== '2d';
-  c.moveCut_ = (offset) => {
-    const [from, to] = c.cutRange_(),
+  // (second: the quarter cut's other plane, section.second, moved instead)
+  c.moveCut_ = (offset, second = false) => {
+    const section = c.state_.section,
+      [from, to] = c.cutRange_(second),
       held = Math.max(from, Math.min(to, offset));
-    if (held === c.state_.section.offset) return;
-    c.state_.section = { ...c.state_.section, offset: held };
+    if (held === (second ? (section.second || {}).offset : section.offset)) return;
+    c.state_.section = second
+      ? { ...section, second: { ...section.second, offset: held } }
+      : { ...section, offset: held };
     if (c.controls_.style) c.controls_.style(); // (the slider follows)
     c.kick_();
-    if (c.opts_.onSection) {
-      const [x, y, z] = c.state_.section.normal;
-      c.opts_.onSection({ normal: [x, y, z], offset: held });
-    }
+    if (c.opts_.onSection) c.opts_.onSection(c.api_.section);
   };
-  /** @type {{ id: number, x: number, y: number, from: number, along: number[], moved: number, part: string } | null} */
+  /** @type {{ id: number, x: number, y: number, from: number, along: number[], moved: number, part: string, second: boolean } | null} */
   let cutting = null;
   /** @param {number} x @param {number} y */
   function cutAt(x, y) {
     if (!c.cutMovable_()) return null;
     const hit = c.pickHit_(x, y);
     if (!hit.onCut || !hit.id) return null;
-    const plane = c.cutPlane_(),
-      normal = plane.slice(0, 3),
-      facing = dot(normal, hit.direction);
-    if (Math.abs(facing) < 1e-9) return null;
-    const point = add(hit.origin, mulv(hit.direction, -(dot(normal, hit.origin) + plane[3]) / facing)),
+    // (the face taken hold of: the first plane's, or in a quarter cut the second's, where the ray's crossing of the
+    // first lies outside the cut-away wedge)
+    const crossing = (/** @type {number[]} */ plane) => {
+      const facing = dot(plane.slice(0, 3), hit.direction);
+      return Math.abs(facing) < 1e-9
+        ? null
+        : add(hit.origin, mulv(hit.direction, -(dot(plane.slice(0, 3), hit.origin) + plane[3]) / facing));
+    };
+    const first = c.cutPlane_(),
+      other = c.cutPlane2_();
+    let plane = first,
+      point = crossing(first);
+    const second = !point || dot(other.slice(0, 3), point) + other[3] < 0;
+    if (second) point = crossing((plane = other));
+    if (!point) return null;
+    const normal = plane.slice(0, 3),
       across = norm(cross(normal, Math.abs(normal[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])),
       here = c.project_(point),
       deeper = c.project_(add(point, normal)),
@@ -155,7 +167,16 @@ export function makeInput(c) {
     const perUnit = Math.hypot(aside[0] - here[0], aside[1] - here[1]); // (pixels a scene unit, across the cut)
     let along = [deeper[0] - here[0], deeper[1] - here[1]];
     if (Math.hypot(along[0], along[1]) < 0.3 * perUnit) along = [0, -perUnit];
-    return { x, y, from: c.state_.section.offset, along, moved: 0, part: hit.id };
+    const section = c.state_.section;
+    return {
+      x,
+      y,
+      from: second ? (section.second || {}).offset || 0 : section.offset,
+      along,
+      moved: 0,
+      part: hit.id,
+      second,
+    };
   }
   const capture = (pointerId) => {
     try {
@@ -218,7 +239,10 @@ export function makeInput(c) {
         dy = y - cutting.y,
         along = cutting.along;
       cutting.moved = Math.max(cutting.moved, Math.abs(dx) + Math.abs(dy));
-      c.moveCut_(cutting.from + (dx * along[0] + dy * along[1]) / (along[0] * along[0] + along[1] * along[1]));
+      c.moveCut_(
+        cutting.from + (dx * along[0] + dy * along[1]) / (along[0] * along[0] + along[1] * along[1]),
+        cutting.second,
+      );
       return;
     }
     if (grab && event.pointerId === grab.id) {

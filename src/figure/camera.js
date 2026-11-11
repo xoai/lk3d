@@ -1,7 +1,7 @@
 // @ts-check
 // The camera: where it stands and looks (fitted to the stage), the views and their glides, zooming towards a point,
 // the cut's plane, boxes round parts, and the ray through a point of the stage. Owns viewProj_, eye_, frustum_,
-// baseDist_, explodeShift_, camera_, project_, cutPlane_, cutRange_, boxOf_, frame_, shownBox_, rayAt_, zoom_, view_,
+// baseDist_, explodeShift_, camera_, project_, cutPlane_, cutPlane2_, cutRange_, boxOf_, frame_, shownBox_, rayAt_, zoom_, view_,
 // viewAngles_ and cancelView_;
 // reads state_, spec_, built_, width_, height_ and animations_, and calls offsetOf_, pickHit_, measure_, markDirty_ and kick_.
 import { D2R, M, sub, add, mulv, len, norm, cross, dot } from '../math.js';
@@ -146,6 +146,14 @@ export function makeCamera(c) {
     }
     return [normal[0], normal[1], normal[2], -(swept < 1 ? from + (to - from) * swept : to)];
   };
+  // the second plane of a quarter cut (section.second): what lies beyond both planes is cut away; without one, a
+  // plane everything is beyond, so one plane cuts alone
+  c.cutPlane2_ = () => {
+    const second = c.state_.section.second;
+    if (!second) return [0, 0, 0, 1];
+    const normal = norm(second.normal || [1, 0, 0]);
+    return [normal[0], normal[1], normal[2], -(second.offset || 0)];
+  };
   // what is on screen now (for the shadow's reach) and the floor under the assembled model
   c.shownBox_ = () => c.boxOf_(c.built_.parts.filter((part) => part.drawAlpha >= 0.01));
   // the box round some parts where they are now (taken apart, moved)
@@ -162,8 +170,8 @@ export function makeCamera(c) {
     return { center: mulv(add(min, max), 0.5), radius: len(sub(max, min)) / 2 || 1, min, max };
   };
   // how far along the cut's normal the parts it cuts reach, as they are now: where the plane can go [from, to]
-  c.cutRange_ = () => {
-    const normal = norm(c.state_.section.normal);
+  c.cutRange_ = (second = false) => {
+    const normal = norm(second ? (c.state_.section.second || {}).normal || [1, 0, 0] : c.state_.section.normal);
     let from = Infinity,
       to = -Infinity;
     for (const part of c.built_.parts)

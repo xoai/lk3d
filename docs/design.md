@@ -45,6 +45,7 @@ lk3d is about 8 000 lines of plain JavaScript (ES modules, no dependencies). Thi
 | `index.d.ts`, `scene.d.ts`, `scripts/types.mjs`, `tsconfig.json`            | the TypeScript types: the page API by hand (`index.d.ts`), the scene's types generated from the schema (`scene.d.ts`, by `scripts/types.mjs`: `npm run types`); the sources are type-checked as JavaScript against them (`tsconfig.json`) |
 | `build.mjs`                                                                 | the bundle (esbuild), with the shaders' GLSL squeezed (comments and spaces out, line breaks kept) and the context's fields renamed short                                                                                                  |
 | `bin/lk3d.mjs`                                                              | the command line: `lk3d check`, `lk3d render` (the built engine in a headless browser) and `lk3d export`                                                                                                                                  |
+| `playground/`                                                               | the playground: an editor and the live figure (playground.js), the checks in a worker (check.js: lk3d/validate and lk3d/lint), each problem's place in the text (locate.js); published on GitHub Pages by `.github/workflows/pages.yml`   |
 
 ## A mounted figure
 
@@ -181,9 +182,10 @@ schema makes.
   a slider and a play button under the figure; liquids pouring and gases settling by their laws) or driven by the page
   (spin, glow, particles, moved parts, a motion's value). There is no general physics engine; a page that simulates
   writes its own model.
-- The cut is one plane at a time: the scene's (`section`), which the reader moves along its normal (dragging the cut
-  face, or its slider) and a page can move, turn or sweep through the model (`set({ section, cut })`); the reader
-  cannot turn it, nor cut along a second plane.
+- The cut is one plane, or two for a quarter cut: the scene's (`section`), which the reader moves along its normal (dragging the cut
+  face, or its slider) and a page can move, turn or sweep through the model (`set({ section, cut })`). A second plane
+  (`section.second`) makes a quarter cut: only what lies beyond both is cut away; the reader drags either face. The
+  reader cannot turn a plane.
 - Ambient occlusion is computed per part (a part's own creases and hollows), not between parts.
 - The 2D fallback has no section view (its button is not offered) and no shadows, and draws balls without sorting them
   by depth; WebGL 1 has no cast shadows, no glow halo, no surface detail, refraction or textures.

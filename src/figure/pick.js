@@ -2,7 +2,7 @@
 // Picking: a ray from the eye through a point of the stage, against each part's bounding-volume trees (bvh.js, each
 // built when first needed, or in idle time: idle.js); the nearest hit on a part that is drawn and not cut away, and
 // whether what is seen there is the part's cut face. Owns bvhOf_, pickHit_ and pickAt_; reads built_ and state_, and
-// calls rayAt_ and cutPlane_.
+// calls rayAt_, cutPlane_ and cutPlane2_.
 import { M, add, sub, mulv, cross, dot } from '../math.js';
 import { buildBVH, intersect } from '../bvh.js';
 
@@ -58,7 +58,8 @@ export function makePick(c) {
   c.pickHit_ = (x, y, minAlpha = 0.3) => {
     // parts fainter than minAlpha let the ray through; the part hit, and where along the ray (A + D t)
     const { origin, direction } = c.rayAt_(x, y),
-      plane = c.cutPlane_();
+      plane = c.cutPlane_(),
+      second = c.cutPlane2_();
     let best = Infinity,
       /** @type {string | null} */
       id = null,
@@ -75,8 +76,9 @@ export function makePick(c) {
           const accept =
             c.state_.cut && part.cut
               ? (t) => {
-                  const point = add(origin, mulv(direction, t));
-                  return plane[0] * point[0] + plane[1] * point[1] + plane[2] * point[2] + plane[3] <= 0;
+                  const point = add(origin, mulv(direction, t)),
+                    beyond = (p) => p[0] * point[0] + p[1] * point[1] + p[2] * point[2] + p[3] > 0;
+                  return !(beyond(plane) && beyond(second)); // (cut away only beyond both, in a quarter cut)
                 }
               : null;
           const hit = intersect(batch.mesh, c.bvhOf_(batch), shapeOrigin, shapeDirection, best, false, accept);

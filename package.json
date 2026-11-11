@@ -88,6 +88,7 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "examples": "node build.mjs && node test/visual/serve.mjs",
+    "playground": "node build.mjs && node test/visual/serve.mjs",
     "docs": "node docs/scene-format.mjs && node docs/shapes/render.mjs",
     "prepublishOnly": "npm run lint && npm test && npm run typecheck && npm run size",
     "prepack": "node build.mjs"

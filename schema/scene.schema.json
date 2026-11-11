@@ -169,6 +169,26 @@
             "fixed": {
               "type": "boolean",
               "description": "true: the reader cannot move the cut (by dragging its face or its slider); the page still can. By default, while the model is cut open, the reader moves the plane along its normal."
+            },
+            "second": {
+              "description": "A second plane, for a quarter cut: then only what lies beyond both planes is cut away (two planes at right angles take out a quarter). false: none (a step's, over the scene's).",
+              "anyOf": [
+                {
+                  "const": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "normal": {
+                      "$ref": "#/$defs/vec3"
+                    },
+                    "offset": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -224,6 +244,14 @@
       ],
       "x-message": "scale is a bar ({bar: {length, label}}) and/or a note ({note: \"not to scale\"})",
       "additionalProperties": false
+    },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/dimension"
+      },
+      "description": "Dimensions drawn on the figure: lengths between points and angles at vertices, with their values, as on a technical drawing; worked out from the points as shown, so a length to a moving part changes as it moves."
     },
     "models": {
       "type": "object",
@@ -2059,6 +2087,26 @@
             },
             "offset": {
               "type": "number"
+            },
+            "second": {
+              "description": "A second plane, for a quarter cut: then only what lies beyond both planes is cut away (two planes at right angles take out a quarter). false: none (a step's, over the scene's).",
+              "anyOf": [
+                {
+                  "const": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "normal": {
+                      "$ref": "#/$defs/vec3"
+                    },
+                    "offset": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
             }
           },
           "additionalProperties": false,
@@ -2112,6 +2160,14 @@
           },
           "minItems": 1,
           "description": "Motions played as the step comes, from the value it gives them."
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The dimensions shown in this step, by id (none: [ ]); without it, the scene's own (those not hidden)."
         }
       },
       "anyOf": [
@@ -2123,6 +2179,114 @@
         }
       ],
       "x-message": "a step needs its words: a title, text, or both",
+      "additionalProperties": false
+    },
+    "point": {
+      "description": "A point of the scene, [x, y, z], or one carried by a part, {part, at}: it moves as the part does (taken apart, moved by a motion or a handle), so what is measured to it is measured as shown.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/vec3"
+        },
+        {
+          "type": "object",
+          "required": ["part", "at"],
+          "properties": {
+            "part": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The part that carries it."
+            },
+            "at": {
+              "$ref": "#/$defs/vec3",
+              "description": "The point, in the part's own place at rest."
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "x-message": "a point is [x, y, z], or {part, at: [x, y, z]}"
+    },
+    "dimension": {
+      "type": "object",
+      "description": "A dimension drawn on the figure, as on a technical drawing: a length between two points (extension lines, a dimension line with arrows, its value), or an angle at a vertex (an arc with arrows, its value in degrees). Its value is worked out from the points as they are shown (in the scene's unit, when it has one), unless text says otherwise.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique among the dimensions: what steps and the page name it by."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What is measured, for screen readers (\"the piston's stroke\")."
+        },
+        "from": {
+          "$ref": "#/$defs/point",
+          "description": "A length's first end."
+        },
+        "to": {
+          "$ref": "#/$defs/point",
+          "description": "A length's other end."
+        },
+        "offset": {
+          "$ref": "#/$defs/vec3",
+          "description": "Where the dimension line is drawn: the two ends moved by this much (default: on the points themselves), with extension lines out to it."
+        },
+        "angle": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/point"
+            },
+            {
+              "$ref": "#/$defs/point"
+            },
+            {
+              "$ref": "#/$defs/point"
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 3,
+          "description": "An angle: a point on one arm, the vertex, a point on the other arm."
+        },
+        "radius": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "An angle's arc radius (default: a third of the shorter arm)."
+        },
+        "arms": {
+          "type": "boolean",
+          "description": "Draw an angle's arms from the vertex (false by default: they are usually edges of the model)."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The value shown, in place of the one worked out (\"Ø 40\", \"stroke\")."
+        },
+        "digits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Decimals in the value worked out (default: three significant figures)."
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "Not shown unless a step or the page names it."
+        },
+        "unit": {
+          "enum": ["mm", "cm", "dm", "m", "km"],
+          "description": "The unit a length's value is given in (the scene's unit by default); converted from the scene's unit, which it needs."
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["from", "to"]
+        },
+        {
+          "required": ["angle"]
+        }
+      ],
+      "x-message": "a dimension is a length (from, to) or an angle ([a, vertex, b])",
       "additionalProperties": false
     }
   },

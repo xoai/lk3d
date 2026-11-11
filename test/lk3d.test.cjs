@@ -1065,6 +1065,7 @@ test('the validator finds each planted mistake where it is, and passes a right s
     [{ parts: [part({ edges: 1 })] }, 'parts[0].edges'],
     [{ parts: [part()], models: { m: { source: 'web' } } }, 'models.m.source'],
     [{ parts: [part()], section: { normal: [0, 0, 1], fixed: 'yes' } }, 'section.fixed'], // fixed is true or false
+    [{ parts: [part()], section: { normal: [0, 0, 1], second: { normal: [0, 0, 0] } } }, 'section.second.normal'], // a quarter cut's second plane points nowhere
   ];
   for (const [scene, path] of cases)
     assert.ok(at(scene).includes(path), `${JSON.stringify(scene).slice(0, 90)} → ${JSON.stringify(validate(scene))}`);
@@ -1133,6 +1134,113 @@ test('guided steps: what each names exists and can be shown, one id each, a cut 
   const fs = require('node:fs'),
     path = require('node:path');
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'scene.d.ts'), 'utf8'), /steps\?: Step\[\];/);
+});
+
+test("dimensions: lengths and angles whose points exist, one id each, a unit only to convert from the scene's", () => {
+  const { validate } = require('../src/validate.js');
+  const scene = (dimensions, o = {}) => ({
+    parts: [{ id: 'a', name: 'A', shapes: [{ box: [1, 1, 1] }] }],
+    unit: 'dm',
+    dimensions,
+    ...o,
+  });
+  const good = scene(
+    [
+      {
+        id: 'w',
+        name: 'width',
+        from: [-0.5, 0, 0],
+        to: { part: 'a', at: [0.5, 0, 0] },
+        offset: [0, -0.7, 0],
+        unit: 'cm',
+      },
+      {
+        id: 'corner',
+        angle: [
+          [1, 0, 0],
+          [0, 0, 0],
+          [0, 1, 0],
+        ],
+        radius: 0.3,
+        arms: true,
+        digits: 1,
+        hidden: true,
+      },
+      { from: [0, 0, 0], to: [0, 1, 0], text: 'h' },
+    ],
+    {
+      steps: [
+        { title: 'Width', dimensions: ['w'] },
+        { title: 'None', dimensions: [] },
+      ],
+    },
+  );
+  assert.deepEqual(validate(good), []);
+  const at = (dimensions, o) => validate(scene(dimensions, o)).map((e) => e.path),
+    cases = [
+      [[{ from: [0, 0, 0] }], 'dimensions[0]'], // a length without its other end
+      [
+        [
+          {
+            to: [0, 0, 0],
+            angle: [
+              [1, 0, 0],
+              [0, 0, 0],
+              [0, 1, 0],
+            ],
+            from: [1, 1, 1],
+          },
+        ],
+        'dimensions[0]',
+      ], // both kinds
+      [[{ from: [0, 0, 0], to: [0, 0, 0] }], 'dimensions[0].to'], // nothing to measure
+      [
+        [
+          {
+            angle: [
+              [0, 0, 0],
+              [0, 0, 0],
+              [0, 1, 0],
+            ],
+          },
+        ],
+        'dimensions[0].angle',
+      ], // an arm of no length
+      [
+        [
+          {
+            angle: [
+              [1, 0, 0],
+              [0, 0, 0],
+            ],
+          },
+        ],
+        'dimensions[0].angle',
+      ], // two points
+      [[{ from: { part: 'b', at: [0, 0, 0] }, to: [1, 0, 0] }], 'dimensions[0].from.part'], // no such part
+      [[{ from: { at: [0, 0, 0] }, to: [1, 0, 0] }], 'dimensions[0].from'], // a point on a part needs the part
+      [
+        [
+          { id: 'x', from: [0, 0, 0], to: [1, 0, 0] },
+          { id: 'x', from: [0, 0, 0], to: [0, 1, 0] },
+        ],
+        'dimensions[1].id',
+      ],
+      [[{ from: [0, 0, 0], to: [1, 0, 0], unit: 'inch' }], 'dimensions[0].unit'],
+      [[{ from: [0, 0, 0], to: [1, 0, 0], radius: 0 }], 'dimensions[0].radius'],
+    ];
+  for (const [dimensions, path] of cases)
+    assert.ok(
+      at(dimensions).includes(path),
+      `${JSON.stringify(dimensions).slice(0, 90)} → ${JSON.stringify(at(dimensions))}`,
+    );
+  // a unit to convert to, in a scene without one; a step naming a dimension that does not exist
+  assert.ok(at([{ from: [0, 0, 0], to: [1, 0, 0], unit: 'cm' }], { unit: undefined }).includes('dimensions[0].unit'));
+  assert.ok(
+    at([{ id: 'w', from: [0, 0, 0], to: [1, 0, 0] }], { steps: [{ title: 's', dimensions: ['v'] }] }).includes(
+      'steps[0].dimensions',
+    ),
+  );
 });
 
 test('a scene too big to draw is refused in plain words, by the validator and before anything is built', () => {

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d playground</title>
+  <meta
+    name="description"
+    content="Write an lk3d scene as JSON and see it drawn as you type, checked as lk3d check does."
+  />
+  <link rel="stylesheet" href="playground.css" />
+  <header>
+    <h1>lk3d <span>playground</span></h1>
+    <label
+      >Start from
+      <select id="example"></select
+    ></label>
+    <span class="tools">
+      <button type="button" id="format" title="Lay the JSON out again">Format</button>
+      <button type="button" id="share" title="A link with this scene in it">Share</button>
+      <button type="button" id="download" title="The scene as a .json file">JSON</button>
+      <button type="button" id="glb" title="The figure as glTF binary, posed as shown">.glb</button>
+    </span>
+    <nav>
+      <a href="https://github.com/xoai/lk3d/blob/main/docs/scene-format.md">Scene format</a>
+      <a href="https://github.com/xoai/lk3d/blob/main/docs/shapes.md">Shapes</a>
+      <a href="../examples/index.html">Examples</a>
+    </nav>
+  </header>
+  <main>
+    <section class="code" aria-label="The scene, as JSON">
+      <pre class="gutter" id="gutter" aria-hidden="true"></pre>
+      <textarea
+        id="editor"
+        spellcheck="false"
+        autocomplete="off"
+        autocapitalize="off"
+        aria-label="The scene, as JSON"
+      ></textarea>
+    </section>
+    <section class="view">
+      <div class="settings">
+        <label
+          >Look
+          <select id="look">
+            <option value="pen">Pen</option>
+            <option value="studio">Realistic</option>
+            <option value="ink">Drawn</option>
+          </select>
+        </label>
+        <label
+          >Theme
+          <select id="theme">
+            <option value="">The look's own</option>
+            <option value="auto">The reader's (light or dark)</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="blueprint">Blueprint</option>
+            <option value="sepia">Sepia</option>
+          </select>
+        </label>
+        <span class="summary" id="summary" aria-live="polite"></span>
+      </div>
+      <div id="figure"></div>
+      <h2 id="problems-title">Checks</h2>
+      <ul class="problems" id="problems" aria-labelledby="problems-title"></ul>
+    </section>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module" src="playground.js"></script>
+</html>

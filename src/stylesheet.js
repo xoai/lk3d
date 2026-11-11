@@ -22,13 +22,15 @@ lk3d-figure{display:block}
 .lk3d-lines{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible}
 .lk3d-lines line{stroke:var(--lk3d-ink, #1d1a1e); stroke-width:1.1}
 .lk3d-lines circle{fill:var(--lk3d-ink, #1d1a1e)}
+.lk3d-lines path.lk3d-dim{fill:none; stroke:var(--lk3d-ink, #1d1a1e); stroke-width:1}
+.lk3d-dimtext{position:absolute; left:0; top:0; font:12.5px/1.25 system-ui, sans-serif; color:var(--lk3d-ink, #1d1a1e); background:var(--lk3d-paper, #f7f5ef); padding:0 3px; border-radius:3px; white-space:nowrap}
 .lk3d-tags{position:absolute; inset:0; pointer-events:none}
 .lk3d-tag{position:absolute; left:0; top:0; will-change:transform; white-space:nowrap; font-family:var(--lk3d-font, system-ui, sans-serif); font-size:14px; line-height:20px; padding:0 7px;
   background:var(--lk3d-paper, #f7f5ef); color:var(--lk3d-ink, #1d1a1e); border:1.2px solid var(--lk3d-ink, #1d1a1e); border-radius:4px 7px 5px 6px}
 .lk3d-tag.on{background:#f3d78f}
 .lk3d-stage[data-look="studio"] .lk3d-tag{background:rgba(14,18,24,.82); color:#eef2f7; border-color:rgba(255,255,255,.35); font-family:system-ui, sans-serif; font-size:12.5px; letter-spacing:.02em}
 .lk3d-stage[data-look="studio"] .lk3d-tag.on{background:rgba(232,150,60,.9); color:#111}
-.lk3d-stage[data-look="studio"] .lk3d-lines line{stroke:rgba(255,255,255,.55)} .lk3d-stage[data-look="studio"] .lk3d-lines circle{fill:#fff}
+.lk3d-stage[data-look="studio"] .lk3d-lines line, .lk3d-stage[data-look="studio"] .lk3d-lines path.lk3d-dim{stroke:rgba(255,255,255,.7)} .lk3d-stage[data-look="studio"] .lk3d-dimtext{background:rgba(20,22,26,.75); color:#fff} .lk3d-stage[data-look="studio"] .lk3d-lines circle{fill:#fff}
 .lk3d-hint{position:absolute; left:10px; bottom:8px; font-size:13px; color:var(--lk3d-muted, #6b6670); background:rgba(247,245,239,.85); padding:1px 7px; border-radius:4px; pointer-events:none; transition:opacity .4s}
 .lk3d-stage[data-look="studio"] .lk3d-hint{color:#c9d1dc; background:rgba(10,12,16,.6)}
 .lk3d-hint.gone{opacity:0}
@@ -40,7 +42,7 @@ lk3d-figure{display:block}
 .lk3d-stage[data-look="studio"] .lk3d-scale{color:#eef2f7} .lk3d-stage[data-look="studio"] .lk3d-note{background:rgba(10,12,16,.7); color:#ffb38a}
 .lk3d-stage[data-theme] .lk3d-tag{background:var(--lk3d-paper); color:var(--lk3d-ink); border:1px solid var(--lk3d-line); font-family:system-ui, sans-serif; font-size:12.5px}
 .lk3d-stage[data-theme] .lk3d-tag.on{background:var(--lk3d-highlight); color:var(--lk3d-ink)}
-.lk3d-stage[data-theme] .lk3d-lines line{stroke:var(--lk3d-line); stroke-width:.8} .lk3d-stage[data-theme] .lk3d-lines circle{fill:var(--lk3d-line)}
+.lk3d-stage[data-theme] .lk3d-lines line{stroke:var(--lk3d-line); stroke-width:.8} .lk3d-stage[data-theme] .lk3d-lines path.lk3d-dim{stroke:var(--lk3d-line)} .lk3d-stage[data-theme] .lk3d-dimtext{background:var(--lk3d-paper); color:var(--lk3d-ink)} .lk3d-stage[data-theme] .lk3d-lines circle{fill:var(--lk3d-line)}
 .lk3d-stage[data-theme] .lk3d-hint{color:var(--lk3d-muted); background:var(--lk3d-paper)} .lk3d-stage[data-theme] .lk3d-mark{color:var(--lk3d-muted)}
 .lk3d-stage[data-theme] .lk3d-scale{color:var(--lk3d-ink)} .lk3d-stage[data-theme] .lk3d-note{background:var(--lk3d-paper); color:var(--lk3d-warn)}
 .lk3d-sr{position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}

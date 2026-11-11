@@ -71,6 +71,8 @@ export interface Strings {
   /** the slider that moves the cut, while it is on, and what a screen reader calls it */
   cutAt: string;
   cutAtLabel: string;
+  /** what screen readers call the list of the figure's dimensions */
+  dimensions: string;
   /** the guided steps' panel, its buttons, and where the reader is ("{n}" and "{count}" are filled in) */
   steps: string;
   back: string;
@@ -283,6 +285,8 @@ export interface Figure {
     motion?: Record<string, number>;
     /** joints' values, by id, over their drives (a joint held by a rod or an aim keeps to it); each call replaces the last */
     joints?: Record<string, number>;
+    /** the dimensions shown, by id ([]: none), or null: the scene's own (those not hidden) */
+    dimensions?: string[] | null;
   }): void;
   /** a motion of the scene, to set or play */
   /** the figure as glTF 2.0 binary (.glb), posed as it is now; animate: each motion as an animation. Needs the

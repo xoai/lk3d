@@ -1,7 +1,7 @@
 // @ts-check
 // Labels and their leader lines (HTML and SVG over the canvas, measured once, moved with transforms), and the scale
 // bar. Owns labelWidths_ and placeLabels_ (the frame loop calls it after each picture); reads built_, state_, spec_,
-// tagLayer_, leaderSvg_, scaleEl_, lookKey_, width_ and height_, and calls project_, cutPlane_, explodeShift_, baseMatrix_ and
+// tagLayer_, leaderSvg_, scaleEl_, lookKey_, width_ and height_, and calls project_, cutPlane_, cutPlane2_, explodeShift_, baseMatrix_ and
 // kick_.
 import { M, sub, add, mulv, len } from '../math.js';
 import textWidth from '../text-width.js';
@@ -125,26 +125,30 @@ export function makeLabels(c) {
             (which === 'auto' && c.state_.explode > 0.45));
     const middle = c.project_(add(c.built_.center, c.explodeShift_())) || [width / 2, height / 2];
     const items = [],
-      plane = c.state_.cut ? c.cutPlane_() : null;
+      plane = c.state_.cut ? c.cutPlane_() : null,
+      second = c.cutPlane2_();
     for (const tag of tags) {
       // the part's anchor on the stage, if its label is wanted (a spinning part's label stays put). Where the cut has
-      // taken the anchor's place, the label points at the part's cut face instead (the anchor moved onto the plane), and
-      // shows not at all once the cut has taken the whole part (it would point at nothing)
+      // taken the anchor's place (beyond its plane, and beyond the second too in a quarter cut), the label points at the
+      // part's cut face instead (the anchor moved onto the nearer plane), and shows not at all once the cut has taken
+      // the whole part (it would point at nothing)
       let anchor = M.pt(
         tag.part.spin || tag.part.handleOf?.round ? c.baseMatrix_(tag.part) : tag.part.matrix,
         tag.part.anchor,
       );
       const cut = /** @type {number[]} */ (plane),
-        beyond = (point) => cut[0] * point[0] + cut[1] * point[1] + cut[2] * point[2] + cut[3],
+        along = (p, point) => p[0] * point[0] + p[1] * point[1] + p[2] * point[2] + p[3],
+        beyond = (point) => Math.min(along(cut, point), along(second, point)), // (> 0: cut away)
         past = plane && tag.part.cut ? beyond(anchor) : 0;
       let cutAway = false;
       if (past > 0) {
         const offset = c.offsetOf_(tag.part),
-          { min, max } = tag.part;
+          { min, max } = tag.part,
+          nearer = along(cut, anchor) <= along(second, anchor) ? cut : second;
         cutAway = [0, 1, 2, 3, 4, 5, 6, 7].every(
           (corner) => beyond([0, 1, 2].map((axis) => offset[axis] + ((corner >> axis) & 1 ? max : min)[axis])) > 0,
         );
-        anchor = anchor.map((value, axis) => value - cut[axis] * past);
+        anchor = anchor.map((value, axis) => value - nearer[axis] * past);
       }
       const at = which !== 'none' && wanted(tag.part) && !cutAway && c.project_(anchor);
       if (!at) {

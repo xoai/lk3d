@@ -263,6 +263,7 @@ export function makeLoop(c) {
           edges: c.showEdges_(),
           cut: !!c.state_.cut,
           plane: c.cutPlane_(),
+          plane2: c.cutPlane2_(),
           hatch: c.built_.radius / 80, // (a cap's hatching: lines this far apart on the cut, a few px when the model fills the view)
           hover: c.state_.hover,
           selected: c.state_.selected,
@@ -295,6 +296,7 @@ export function makeLoop(c) {
       else {
         if (c.keptPicture_) c.keptPicture_.remove(); // (drawn again: the picture kept while the context was given up goes)
         c.placeLabels_();
+        c.placeDimensions_();
         dirty = false;
         if (c.stats_.firstFrameMs == null) {
           c.stats_.firstFrameMs = performance.now() - c.mountedAt_;

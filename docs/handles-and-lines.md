@@ -245,3 +245,30 @@ fig.drawNow();
 Their time starts at 0, or where the clock last ran. When a speed changes, the thing goes on from where it was last
 drawn at its new speed; a timeline that changes speeds as it goes seeks in order, as an export does, to draw the same
 picture each time. No re-simulation is needed: their places follow from their seeds and the distance travelled.
+
+## Dimensions
+
+A scene's `dimensions` are drawn on the figure as on a technical drawing: a **length** between two points, with
+extension lines out to a dimension line, arrows at its ends and its value; an **angle** at a vertex, an arc with arrows
+and its value in degrees.
+
+```json
+"unit": "dm",
+"dimensions": [
+  { "id": "d", "name": "the object's distance", "from": { "part": "object", "at": [-4.5, 0, 0] }, "to": [0, 0, 0],
+    "offset": [0, -0.3, 0.5], "unit": "cm", "digits": 0 },
+  { "id": "tilt", "angle": [[1, 0, 0], [0, 0, 0], [0.8, 0.6, 0]], "radius": 0.4 }
+]
+```
+
+- **The value** is worked out from the points as they are shown, three significant figures by default (`digits` for a
+  fixed number of decimals), in the scene's `unit`, or converted to the dimension's own (`unit: "cm"` in a scene in
+  decimetres); an angle in degrees. `text` gives words of its own instead (`"Ø 40"`).
+- **A point on a part**, `{part, at}` (`at` where it is with the part at rest), moves with the part: taken apart, moved
+  by a motion or a joint, or by the reader's handle. A length to it changes as it moves: the lens bench's distance from
+  the object to the lens follows the object as the reader slides it ([example](../examples/lens.html)).
+- **Where the line goes**: `offset` moves the dimension line off the points, extension lines reaching out to it. An
+  angle's arc is a third of its shorter arm from the vertex unless `radius` says; `arms: true` draws the arms too.
+- **Which show**: every dimension the scene does not mark `hidden`; a step shows exactly the ones it names
+  (`dimensions: ["d"]`, or `[]` for none), and a page sets them (`fig.set({ dimensions: ["d"] })`, `null` for the
+  scene's own). Screen readers find them listed with their values, each called by its `name`.

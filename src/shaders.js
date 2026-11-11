@@ -64,7 +64,7 @@ void main() {
 // way back towards the wall: where two parts' sections overlap, the nearer wall's wins, steadily.
 const PART_FS = `
 uniform vec3 uColor; uniform float uAlpha; uniform float uFlat; uniform vec3 uMat;  // (uColor: the outline's)
-uniform vec3 uLight; uniform vec3 uEye; uniform vec4 uPlane; uniform vec3 uCap;
+uniform vec3 uLight; uniform vec3 uEye; uniform vec4 uPlane; uniform vec4 uPlane2; uniform vec3 uCap;
 // (a cap's hatching lies on the cut's plane, every uHatch units: uFwd and uOrtho give the ray from the eye)
 uniform vec3 uFwd; uniform float uOrtho; uniform float uHatch;
 uniform float uDpr; uniform float uAOk; uniform vec3 uPaper; uniform vec3 uSolid;
@@ -139,7 +139,7 @@ vec2 envBRDF(float NoV, float r) {  // the split-sum environment term, as Karis 
 #endif
 void main() {
   float cut = step(1.5, vIE.w), hi = step(0.5, vIE.w - 2.0 * cut);
-  if (cut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
+  if (cut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0 && dot(uPlane2.xyz, vW) + uPlane2.w > 0.0) discard;  // (beyond both planes: one, when uPlane2 is (0, 0, 0, 1))
 #ifdef CUTS
   if (uTex.x > 0.5 && texture2D(uBase, vUV).a < uTex.w) discard;  // a cut-out's clear texels
 #endif
@@ -151,10 +151,18 @@ void main() {
     // behind open space, a bore, is hidden by the nearer wall), hatched where the ray to it crosses the cut's plane,
     // in the plane's own coordinates: the hatching stays put on the section as the camera drifts
     vec3 rd = uOrtho > 0.5 ? uFwd : vW - uEye;
-    float den = dot(uPlane.xyz, rd);
-    vec3 P = abs(den) > 1e-6 ? vW - rd * ((dot(uPlane.xyz, vW) + uPlane.w) / den) : vW;
-    vec3 ax = normalize(cross(uPlane.xyz, abs(uPlane.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
-    float hs = (dot(P, ax) + dot(P, cross(uPlane.xyz, ax))) / max(uHatch, 1e-4), h = step(0.55, fract(hs));
+    vec4 pl = uPlane;
+    float den = dot(pl.xyz, rd);
+    vec3 P = abs(den) > 1e-6 ? vW - rd * ((dot(pl.xyz, vW) + pl.w) / den) : vW;
+    // (a quarter cut: the face the ray left the cut-away wedge through; the second plane's where the first's crossing
+    // lies outside the wedge)
+    if (dot(uPlane2.xyz, P) + uPlane2.w < 0.0) {
+      pl = uPlane2;
+      den = dot(pl.xyz, rd);
+      P = abs(den) > 1e-6 ? vW - rd * ((dot(pl.xyz, vW) + pl.w) / den) : vW;
+    }
+    vec3 ax = normalize(cross(pl.xyz, abs(pl.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+    float hs = (dot(P, ax) + dot(P, cross(pl.xyz, ax))) / max(uHatch, 1e-4), h = step(0.55, fract(hs));
 #ifdef GL2
     h = mix(h, 0.45, smoothstep(0.15, 0.4, fwidth(hs)));  // (lines too fine for the pixels: their even tone, no moiré)
 #endif
@@ -275,12 +283,12 @@ void main() {
 }`;
 
 // ---- depth only, for the shadow map (and a cut-out's clear texels casting none)
-const DEPTH_FS = `uniform vec4 uPlane; varying vec3 vW; varying vec4 vIE;
+const DEPTH_FS = `uniform vec4 uPlane; uniform vec4 uPlane2; varying vec3 vW; varying vec4 vIE;
 #ifdef CUTS
 uniform sampler2D uBase; uniform vec4 uTex; varying vec2 vUV;
 #endif
 void main() {
-  if (vIE.w > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
+  if (vIE.w > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0 && dot(uPlane2.xyz, vW) + uPlane2.w > 0.0) discard;
 #ifdef CUTS
   if (uTex.x > 0.5 && texture2D(uBase, vUV).a < uTex.w) discard;
 #endif
@@ -288,8 +296,8 @@ void main() {
 }`;
 
 // ---- emission only, for the glow
-const GLOW_FS = `uniform vec4 uPlane; varying vec3 vW; varying vec4 vIE;
-void main() { if (vIE.w > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard; gl_FragColor = vec4(vIE.rgb, 1.0); }`;
+const GLOW_FS = `uniform vec4 uPlane; uniform vec4 uPlane2; varying vec3 vW; varying vec4 vIE;
+void main() { if (vIE.w > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0 && dot(uPlane2.xyz, vW) + uPlane2.w > 0.0) discard; gl_FragColor = vec4(vIE.rgb, 1.0); }`;
 
 // ---- the ground: a disc under the model that only shows the shadow (and a soft contact shadow)
 const GROUND_VS = `attribute vec4 aPos; uniform mat4 uVP; uniform vec3 uCenter; uniform float uRadius; uniform float uY;
@@ -379,9 +387,9 @@ void main() {
   gl_Position = a; vA = aA; vSide = aPos.w; vT = aDir.w;
 }`;
 const FLOW_FS = `uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3; uniform float uAlpha;
-uniform vec4 uPlane; uniform float uCut; varying float vA; varying float vSide; varying float vT; varying vec3 vW;
+uniform vec4 uPlane; uniform vec4 uPlane2; uniform float uCut; varying float vA; varying float vSide; varying float vT; varying vec3 vW;
 void main() {
-  if (uCut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;  // cut away with the parts it flows through
+  if (uCut > 0.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0 && dot(uPlane2.xyz, vW) + uPlane2.w > 0.0) discard;  // cut away with the parts it flows through
   float x = clamp(vT, 0.0, 1.0) * 3.0;
   vec3 c = x < 1.0 ? mix(uC0, uC1, x) : x < 2.0 ? mix(uC1, uC2, x - 1.0) : mix(uC2, uC3, x - 2.0);
   float a = uAlpha * vA * (1.0 - smoothstep(0.3, 1.0, abs(vSide)));
@@ -405,10 +413,10 @@ void main() {
   gl_Position = a; vSide = aPos.w; vW = w.xyz; vLit = dot(normalize(mat3(m) * aFace), uLight);
   vTint = aIC.a; vCut = aIE.w;
 }`;
-const EDGE_FS = `uniform vec3 uColor; uniform vec3 uLit; uniform float uAlpha; uniform vec4 uPlane;
+const EDGE_FS = `uniform vec3 uColor; uniform vec3 uLit; uniform float uAlpha; uniform vec4 uPlane; uniform vec4 uPlane2;
 varying float vSide; varying vec3 vW; varying float vLit; varying float vTint; varying float vCut;
 void main() {
-  if (vCut > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0) discard;
+  if (vCut > 1.5 && dot(uPlane.xyz, vW) + uPlane.w > 0.0 && dot(uPlane2.xyz, vW) + uPlane2.w > 0.0) discard;
   // a lit part's edges light (an accent, a glowing one, the one chosen: as if catching the light); and an edge whose
   // faces turn to the light lighter, one turned away darker (a bevel catching the light)
   vec3 c = vTint > 0.5 ? uLit : uColor;
@@ -427,7 +435,7 @@ const STREAM_FS = `uniform vec4 uPts[16]; uniform vec3 uTab[24]; uniform int uN;
 uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3;
 uniform vec3 uEye; uniform vec3 uFwd; uniform float uOrtho; uniform mat4 uVP;
 uniform sampler2D uDepth; uniform float uHasDepth; uniform vec2 uView;
-uniform vec4 uF; uniform vec3 uG; uniform float uDen; uniform vec4 uPlane; uniform float uCut; uniform vec3 uLo; uniform vec3 uHi;
+uniform vec4 uF; uniform vec3 uG; uniform float uDen; uniform vec4 uPlane; uniform vec4 uPlane2; uniform float uCut; uniform vec3 uLo; uniform vec3 uHi;
 varying vec3 vW;  // uF: how far the air has travelled, the field's scale along the path, reach (how far a ray crosses),
 // turbulence; uG: swirl, the path's length, where it fades; uTab: inner and outer radius and travel time along the path
 float h3(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
@@ -475,7 +483,7 @@ void main() {
   vec4 acc = vec4(0.0);
   for (int i = 0; i < 48; i++) {
     vec3 p = vW - dir * st * (float(i) + j);
-    if (uCut > 0.5 && dot(uPlane.xyz, p) + uPlane.w > 0.0) continue;
+    if (uCut > 0.5 && dot(uPlane.xyz, p) + uPlane.w > 0.0 && dot(uPlane2.xyz, p) + uPlane2.w > 0.0) continue;
     vec4 cp = uVP * vec4(p, 1.0);
     if (cp.z / cp.w * 0.5 + 0.5 > zs) continue;
     float a = min(1.0, dens(p, f) * st * 2.0 * uDen);

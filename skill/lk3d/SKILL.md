@@ -95,6 +95,9 @@ every number in scene units with one scale for the whole object, and say what is
 - **Living and grown forms** (cells, neurons, organs): pen or studio, perspective. Soft shapes get no edge lines.
 - `studio` when materials (metal, glass, tissue, a textured scan) are the point; `ink` for a drawn, warmer page.
 - A `theme` (`light`, `dark`, `blueprint`, `sepia`) only if the page around it asks for one.
+- **Dimensions** where a size or an angle is the point (a stroke, a focal length, a slope): `dimensions` with the
+  points as the model has them (on a part, `{part, at}`, if it moves), an `offset` that keeps the line clear of the
+  model, and the scene's `unit` so the value is right. A few, never a dimension for every part.
 - The object fills about 55–65% of the stage, with air around it.
 
 ## 6. Steps, when the figure explains something in order

@@ -1459,3 +1459,139 @@ test("crease shading is worked out in a worker made of lk3d's own script (by src
   expect(inline.hash).toBe(bySrc.hash);
   expect(onPage.hash).toBe(bySrc.hash);
 });
+
+test('dimensions: a length to a part follows it as the reader moves it, in the unit asked; an angle in degrees; steps and the page choose which show; listed for screen readers', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const el = document.getElementById('g'),
+      scene = {
+        ...window.scene,
+        unit: 'dm',
+        parts: [
+          ...window.scene.parts,
+          {
+            id: 'slider',
+            name: 'Slider',
+            shapes: [{ box: [0.1, 0.1, 0.1] }],
+            at: [0.4, 0.15, 0.6],
+            handle: { slide: { axis: [1, 0, 0] }, value: 0, min: -0.3, max: 0.5 },
+          },
+        ],
+        dimensions: [
+          {
+            id: 'gap',
+            name: 'the gap',
+            from: [0, 0.15, 0.6],
+            to: { part: 'slider', at: [0.4, 0.15, 0.6] },
+            offset: [0, 0.2, 0],
+            unit: 'mm',
+            digits: 0,
+          },
+          {
+            id: 'corner',
+            angle: [
+              [1, 0.1, 1],
+              [-1, 0.1, 1],
+              [-1, 0.1, -1],
+            ],
+            hidden: true,
+          },
+          { id: 'own', from: [-1, -0.1, 1], to: [1, -0.1, 1], text: 'the width' },
+        ],
+        steps: [{ title: 'All' }, { title: 'The corner', dimensions: ['corner'] }, { title: 'None', dimensions: [] }],
+      };
+    const fig = LK3D.mount(el, scene, { adaptive: false, controls: false, steps: false });
+    await fig.ready;
+    const shown = () =>
+      [...el.querySelectorAll('.lk3d-dimtext')].filter((t) => t.style.display !== 'none').map((t) => t.textContent);
+    fig.drawNow();
+    const out = { start: shown(), readers: el.querySelector('ul[aria-label="Dimensions"]').textContent };
+    fig.handle('slider').set(0.35);
+    fig.drawNow();
+    out.moved = shown();
+    fig.step(1, { ms: 0 });
+    fig.drawNow();
+    out.corner = shown();
+    fig.step(2, { ms: 0 });
+    fig.drawNow();
+    out.none = shown();
+    fig.set({ dimensions: ['own'] });
+    fig.drawNow();
+    out.page = shown();
+    fig.set({ dimensions: null });
+    fig.drawNow();
+    out.back = shown();
+    // (each value drawn on its line: the gap's at the middle, on the stage, of its two ends raised by the offset)
+    const gap = el.querySelector('.lk3d-dimtext'),
+      [x, y] = gap.style.transform.match(/-?[\d.]+/g).map(Number),
+      [a, b] = [fig.project([0, 0.35, 0.6]), fig.project([0.75, 0.35, 0.6])], // (the line's ends: to the slider at 0.75)
+      middle = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    out.onLine = Math.hypot(x - middle[0], y - middle[1]) < 1.5;
+    return out;
+  });
+  expect(r.start).toEqual(['40 mm', 'the width']); // (the corner is hidden until named)
+  expect(r.readers).toContain('the gap: 40 mm');
+  expect(r.moved).toEqual(['75 mm', 'the width']);
+  expect(r.corner).toEqual(['90°']);
+  expect(r.none).toEqual([]);
+  expect(r.page).toEqual(['the width']);
+  expect(r.back).toEqual(['75 mm', 'the width']);
+  expect(r.onLine).toBe(true);
+});
+
+test('a quarter cut: only what lies beyond both planes is cut away; the reader drags either face; a single cut again without the second plane', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const el = document.getElementById('g'),
+      cv = () => el.querySelector('canvas'),
+      ev = (type, [x, y]) => {
+        const rect = cv().getBoundingClientRect();
+        cv().dispatchEvent(
+          new PointerEvent(type, {
+            clientX: rect.left + x,
+            clientY: rect.top + y,
+            pointerId: 1,
+            bubbles: true,
+            isPrimary: true,
+          }),
+        );
+      };
+    // the base's front half (z > 0) on the left (x < 0) is beyond both planes: cut away; its front right, beyond one only, stays
+    const scene = {
+        ...window.scene,
+        section: { normal: [0, 0, 1], offset: 0, second: { normal: [-1, 0, 0], offset: 0 } },
+      },
+      fig = LK3D.mount(el, scene, { adaptive: false, controls: false });
+    await fig.ready;
+    const at = (point) => {
+      fig.drawNow();
+      const [x, y] = fig.project(point);
+      return fig.pick(x, y);
+    };
+    fig.set({ cut: true });
+    const out = {
+      frontLeft: at([-0.6, 0.1, 0.9]),
+      frontRight: at([0.6, 0.1, 0.9]),
+      section: fig.section,
+    };
+    // the second plane's face (x = 0, inside the base, in front), dragged: that plane moves, the first stays
+    fig.drawNow();
+    const face = fig.project([0, 0.02, 0.6]);
+    ev('pointerdown', face);
+    for (let k = 1; k <= 4; k++) ev('pointermove', [face[0] + 10 * k, face[1]]);
+    ev('pointerup', [face[0] + 40, face[1]]);
+    out.dragged = fig.section;
+    // the second plane taken away: a single cut, the front right cut away too
+    fig.set({ section: { second: null } });
+    out.single = [at([0.6, 0.1, 0.9]), fig.section.second === undefined];
+    return out;
+  });
+  expect(r.frontLeft).not.toBe('base');
+  expect(r.frontRight).toBe('base');
+  expect(r.section).toEqual({ normal: [0, 0, 1], offset: 0, second: { normal: [-1, 0, 0], offset: 0 } });
+  expect(r.dragged.offset).toBe(0); // (the first plane where it was)
+  expect(Math.abs(r.dragged.second.offset)).toBeGreaterThan(0.05); // (the second moved)
+  expect(r.single).toEqual([expect.not.stringMatching(/^base$/), true]);
+});

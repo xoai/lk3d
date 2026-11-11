@@ -99,6 +99,7 @@ export function makeSteps(c, buttonClass) {
     c.syncHandleInputs_();
     c.state_.xray = !!step.xray;
     c.state_.labels = step.labels ?? c.opts_.labels ?? 'auto';
+    c.state_.dimensions = step.dimensions ?? null;
     c.state_.section = { normal: [0, 0, 1], offset: 0, ...c.spec_.section, ...step.section };
     const part = step.select != null && c.part_(step.select);
     c.state_.selected = part && !part.hidden ? part.id : null;

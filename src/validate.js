@@ -139,6 +139,8 @@ function links(scene, out) {
   const section = scene.section;
   if (section && typeof section === 'object' && zero(section.normal))
     out.push({ path: 'section.normal', message: NO_WAY });
+  if (section && typeof section === 'object' && section.second && zero(section.second.normal))
+    out.push({ path: 'section.second.normal', message: NO_WAY });
   const names = new Set(parts.flatMap((part) => [part.id, part.group].filter(Boolean))),
     seen = new Set(),
     models = scene.models || {};
@@ -284,6 +286,7 @@ function links(scene, out) {
     if (joint && typeof joint === 'object' && !visit.has(joint.id) && loop(joint))
       out.push({ path: `joints[${i}]`, message: `${say(joint.id)} reads itself through other joints (a loop)` });
   });
+  dimensions(scene, out, parts);
   steps(scene, out, names, parts);
   // motions: one id each; tracks that move parts that exist, with keys in order and within the range
   const seenMotions = new Set();
@@ -313,6 +316,39 @@ function links(scene, out) {
             message: `keys go in order of their values, within the range [${start}, ${end}]`,
           });
     });
+  });
+}
+
+// dimensions: one id each; the parts their points ride on exist; a length between two places, an angle with arms
+function dimensions(scene, out, parts) {
+  const seen = new Set(),
+    isPart = (id) => parts.some((part) => part.id === id);
+  (Array.isArray(scene.dimensions) ? scene.dimensions : []).forEach((dimension, i) => {
+    if (!dimension || typeof dimension !== 'object') return;
+    const bad = (field, message) => out.push({ path: `dimensions[${i}]${field}`, message });
+    if (dimension.id != null) {
+      if (seen.has(dimension.id)) bad('.id', `${say(dimension.id)} is used by two dimensions`);
+      seen.add(dimension.id);
+    }
+    const points = [
+      ['.from', dimension.from],
+      ['.to', dimension.to],
+      ...(Array.isArray(dimension.angle) ? dimension.angle.map((point, k) => [`.angle[${k}]`, point]) : []),
+    ];
+    for (const [field, point] of points)
+      if (point && typeof point === 'object' && !Array.isArray(point) && point.part != null && !isPart(point.part))
+        bad(`${field}.part`, `${say(point.part)} is no part`);
+    // (the same place twice, where neither rides on a part: nothing to measure)
+    const same = (a, b) => Array.isArray(a) && Array.isArray(b) && a.every((value, k) => value === b[k]);
+    if (same(dimension.from, dimension.to)) bad('.to', 'is where from is: a length needs two places');
+    if (
+      Array.isArray(dimension.angle) &&
+      (same(dimension.angle[0], dimension.angle[1]) || same(dimension.angle[2], dimension.angle[1]))
+    )
+      bad('.angle', 'has an arm of no length: its points are a point on each arm, and the vertex between them');
+    if (dimension.from && dimension.angle) bad('', 'is a length (from, to) or an angle, not both');
+    if (dimension.unit && !scene.unit)
+      bad('.unit', `converts to ${say(dimension.unit)}, but the scene has no unit to convert from`);
   });
 }
 
@@ -362,6 +398,9 @@ function steps(scene, out, names, parts) {
         bad(`motion.${id}`, `${value} is outside its range [${start}, ${end}]`);
     }
     for (const id of list(step.play)) if (!motions.has(id)) bad('play', `${say(id)} is no motion`);
+    const dimensionIds = new Set(list(scene.dimensions).map((dimension) => dimension && dimension.id));
+    for (const id of list(step.dimensions))
+      if (!dimensionIds.has(id)) bad('dimensions', `${say(id)} is no dimension (give it an id)`);
   });
 }
 

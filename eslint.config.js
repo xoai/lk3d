@@ -4,7 +4,10 @@ import globals from 'globals';
 export default [
   { ignores: ['dist/', 'node_modules/', 'test-results/'] },
   js.configs.recommended,
-  { files: ['src/**/*.js', 'examples/**/*.js'], languageOptions: { globals: { ...globals.browser } } },
+  {
+    files: ['src/**/*.js', 'examples/**/*.js', 'playground/**/*.js'],
+    languageOptions: { globals: { ...globals.browser } },
+  },
   {
     files: [
       '*.mjs',

@@ -746,7 +746,8 @@ function glRenderer(gl, scene, options = {}) {
       changed.put(frame.cut && part.cut);
       changed.put(part.batches.reduce((sum, batch) => sum + (batch.version || 0), 0));
     }
-    for (const value of [...frame.plane, frame.bounds.radius, frame.cut, loaded, ...extra]) changed.put(value);
+    for (const value of [...frame.plane, ...(frame.plane2 || []), frame.bounds.radius, frame.cut, loaded, ...extra])
+      changed.put(value);
     return changed.end();
   }
   // the glow: emission drawn at half resolution, blurred at a quarter, added onto the picture
@@ -838,6 +839,7 @@ function glRenderer(gl, scene, options = {}) {
     if (uniforms.uVP) gl.uniformMatrix4fv(uniforms.uVP, false, viewProjection || frame.viewProjection);
     if (uniforms.uEye) gl.uniform3fv(uniforms.uEye, frame.eye);
     if (uniforms.uPlane) gl.uniform4fv(uniforms.uPlane, frame.plane);
+    if (uniforms.uPlane2) gl.uniform4fv(uniforms.uPlane2, frame.plane2 || [0, 0, 0, 1]); // (none: always beyond it)
     if (uniforms.uCut) gl.uniform1f(uniforms.uCut, frame.cut ? 1 : 0);
     if (uniforms.uOutline) gl.uniform1f(uniforms.uOutline, 0);
     if (uniforms.uViewD) gl.uniform1f(uniforms.uViewD, frame.viewDistance || 0);

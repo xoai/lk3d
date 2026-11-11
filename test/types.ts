@@ -208,3 +208,6 @@ element.addEventListener('lk3d-step', (event) => {
 });
 element.ready.then((figure: Figure) => figure.step(0));
 const maybe: Figure | null = element.figure;
+// dimensions: a page shows some, then the scene's own again
+fig.set({ dimensions: ['stroke'] });
+fig.set({ dimensions: null });

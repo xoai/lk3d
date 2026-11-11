@@ -154,15 +154,27 @@ for (let tries = 0; microtubules.length < 46 && tries < 4000; tries++) {
   if (keptPath(route, 0.01) && len(sub(end, centre)) > 0.6) microtubules.push({ tube: route.map(P), r: 0.0055 });
 }
 const actin = [];
-for (let tries = 0; actin.length < 90 && tries < 4000; tries++) {
+for (let tries = 0; actin.length < 320 && tries < 20000; tries++) {
+  // (a filament along the membrane's inside, and now and then a branch from its middle at about 70 degrees)
   const start = onSphere(),
     turn = norm(sub(onSphere(), scale(start, 0.98))),
     route = [];
   for (let s = 0; s <= 6; s++) {
     const d = norm(add(start, scale(turn, 0.05 * s + between(-0.01, 0.01))));
-    route.push(scale(d, between(0.935, 0.95)));
+    route.push(scale(d, between(0.93, 0.95)));
   }
-  if (keptPath(route, 0.01)) actin.push({ tube: route.map(P), r: 0.003 });
+  if (!keptPath(route, 0.01)) continue;
+  actin.push({ tube: route.map(P), r: 0.0042 });
+  if (random() < 0.45) {
+    const root = route[3],
+      side = norm(sub(add(scale(norm(sub(route[4], route[2])), 0.34), scale(norm(onSphere()), 0.94)), [0, 0, 0])),
+      branch = [
+        root,
+        scale(norm(add(norm(root), scale(side, 0.06))), 0.94),
+        scale(norm(add(norm(root), scale(side, 0.12))), 0.935),
+      ];
+    if (keptPath(branch, 0.01)) actin.push({ tube: branch.map(P), r: 0.0036 });
+  }
 }
 const filaments = [];
 for (let tries = 0; filaments.length < 26 && tries < 4000; tries++) {
@@ -196,8 +208,8 @@ parts.push(
   fibre(
     'actin',
     'Actin filaments',
-    'the thinnest fibres, a mesh under the membrane that shapes the cell’s edge and lets it move.',
-    '#c8505a',
+    'the thinnest fibres, a branching mesh under the membrane that shapes the cell’s edge and lets it move.',
+    '#dc4352',
     actin,
   ),
   fibre(
@@ -207,6 +219,100 @@ parts.push(
     '#9b7b55',
     filaments,
   ),
+);
+
+// ---- mitochondria: the inner membrane folded into cristae, drawn on the cut face over a darker matrix, in place of the
+// plain plates. Each half-mitochondrion lies on a cut face: its own x along it, its face the plane y = 0 (on the face
+// z = 0 of the cell, rotated) or z = 0; the fold is a closed line round fingers that reach in from both sides
+const fold = () => {
+  const L = 0.085,
+    r = 0.036, // (the inner membrane's half-width and the straight part's half-length)
+    points = [];
+  const finger = (u, side) => {
+    // (down from the top edge, side 1, or up from the bottom, -1: in, round its tip, out)
+    const w = 0.0075,
+      reach = 0.047;
+    points.push([u - w, side * r], [u - w, side * (r - reach + w)]);
+    for (let k = 1; k < 6; k++) {
+      const a = Math.PI + (k / 6) * Math.PI * side;
+      points.push([u + w * Math.cos(a), side * (r - reach + w) + w * Math.sin(a) * side * side]);
+    }
+    points.push([u + w, side * (r - reach + w)], [u + w, side * r]);
+  };
+  for (const u of [-0.06, -0.02, 0.02, 0.06]) finger(u, 1);
+  for (let k = 0; k <= 8; k++) {
+    const a = Math.PI / 2 - (k / 8) * Math.PI;
+    points.push([L + r * Math.cos(a), r * Math.sin(a)]);
+  }
+  for (const u of [0.04, 0, -0.04]) finger(u, -1);
+  for (let k = 0; k <= 8; k++) {
+    const a = -Math.PI / 2 - (k / 8) * Math.PI;
+    points.push([-L + r * Math.cos(a), r * Math.sin(a)]);
+  }
+  return points.map(([u, v]) => [round(u), round(v)]);
+};
+for (const id of ['ti-the-1', 'ti-the-2', 'ti-the-3', 'ti-the-4']) {
+  const mito = part(id),
+    onY = mito.shapes[0].from === 90, // (its face the plane y = 0; else z = 0)
+    outline = fold(),
+    lift = 0.0016;
+  mito.shapes = [
+    mito.shapes[0],
+    // the matrix inside the inner membrane, a shade darker, on the face
+    {
+      extrude: { outline, depth: 0.0028 },
+      at: onY ? [0, lift, 0] : [0, 0, lift],
+      rot: onY ? [-90, 0, 0] : [0, 0, 0],
+      color: '#c9582a',
+    },
+    // the inner membrane: one line round every fold
+    {
+      tube: [...outline, outline[0]].map(([u, v]) => (onY ? [u, 0.0032, v] : [u, v, 0.0032])),
+      r: 0.0034,
+      color: '#ffe0bf',
+    },
+  ];
+}
+part('ti-the-1').note =
+  'uses oxygen to turn food into ATP, the cell’s fuel; its inner membrane is folded into cristae, so it has room for more of the machinery that makes ATP.';
+
+// ---- the Golgi apparatus: curved cisternae with swollen rims, cis (yellow) to trans (orange), vesicles budding at their
+// ends; on the cut face z = 0, as the base cell's, and through the cell behind it
+const golgi = part('golgi'),
+  bend = [0.8, 0.8], // (the stack's centre of curvature, on the face)
+  toward = (a, r) => [bend[0] + r * Math.cos(a), bend[1] + r * Math.sin(a)],
+  shades = ['#f3d873', '#f0c35d', '#eaaa4f', '#e29245', '#d97a3c'],
+  buds = [];
+golgi.shapes = shades.map((color, k) => {
+  const R = 0.505 - 0.034 * k,
+    lumen = 0.0075,
+    rim = 0.0145,
+    from = ((198 + 3 * k) * Math.PI) / 180,
+    to = ((262 - 3 * k) * Math.PI) / 180,
+    outline = [];
+  for (let s = 0; s <= 14; s++) outline.push(toward(from + ((to - from) * s) / 14, R + lumen));
+  const bulb = (a, ahead) => {
+    // (a swollen rim at the end at angle a, round from the outside to the inside, bulging ahead along the arc)
+    const [cx, cy] = toward(a, R),
+      radial = [Math.cos(a), Math.sin(a)],
+      tangent = [-Math.sin(a) * ahead, Math.cos(a) * ahead];
+    for (let s = 0; s <= 8; s++) {
+      const t = (s / 8) * Math.PI,
+        d = [radial[0] * Math.cos(t) + tangent[0] * Math.sin(t), radial[1] * Math.cos(t) + tangent[1] * Math.sin(t)];
+      outline.push([cx + rim * d[0], cy + rim * d[1]]);
+    }
+    buds.push([cx + tangent[0] * (rim + 0.016), cy + tangent[1] * (rim + 0.016)]);
+  };
+  bulb(to, 1);
+  for (let s = 14; s >= 0; s--) outline.push(toward(from + ((to - from) * s) / 14, R - lumen));
+  bulb(from, -1);
+  return { extrude: { outline: outline.map((p) => p.map(round)), depth: 0.2 }, color };
+});
+part('tui-van-chuyen').shapes.push(
+  ...buds.map(([x, y], k) => ({
+    shell: { r: round(0.013 + 0.003 * (k % 3)), from: 180, to: 360 },
+    at: [round(x), round(y), 0.003],
+  })),
 );
 
 // ---- messenger RNA's way out: from a pore, outwards, then towards the rough ER (for the page's moving dots)

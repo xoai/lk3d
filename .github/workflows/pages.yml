@@ -1,0 +1,47 @@
+# The playground and the examples, published on GitHub Pages (https://xoai.github.io/lk3d/) from lk3d's main: the
+# engine built, then the pages and what they load (dist/, the sources and the schema the playground's checks import,
+# the examples' scenes and assets) as one static site; its front page goes to the playground. Needs Pages set to
+# "GitHub Actions" in the repository's settings (once).
+name: pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: The site
+        run: |
+          mkdir _site
+          cp -r playground examples dist src schema _site/
+          cp README.md LICENSE _site/
+          printf '<!doctype html><meta charset="utf-8"><title>lk3d</title><meta http-equiv="refresh" content="0; url=playground/"><a href="playground/">The lk3d playground</a>\n' > _site/index.html
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

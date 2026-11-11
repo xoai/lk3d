@@ -27,6 +27,7 @@ import { makeDom, safeHTML } from './figure/dom.js';
 import { makeLoop } from './figure/loop.js';
 import { makeLook } from './figure/look.js';
 import { makeLabels } from './figure/labels.js';
+import { makeDimensions } from './figure/dimensions.js';
 import { makePick } from './figure/pick.js';
 import { makeIdle } from './figure/idle.js';
 import { makeInput } from './figure/input.js';
@@ -86,6 +87,7 @@ function mount(el, spec, opts = {}) {
     cut: false,
     section: { normal: [0, 0, 1], offset: 0, ...spec.section }, // (the cut's plane: the scene's, moved by the page)
     labels: opts.labels || 'auto',
+    dimensions: null, // (the dimensions shown: null, the scene's own; or a step's or the page's, by id)
     xray: false,
     yaw: (spec.view?.yaw ?? -35) * D2R,
     pitch: (spec.view?.pitch ?? 18) * D2R,
@@ -143,6 +145,7 @@ function mount(el, spec, opts = {}) {
   const startWatching = makeLoop(c);
   makeLook(c);
   makeLabels(c);
+  makeDimensions(c);
   makePick(c);
   makeIdle(c);
   const makeHandleInputs = makeInput(c);

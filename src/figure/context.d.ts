@@ -44,8 +44,15 @@ export interface State {
   explode: number;
   spin: number;
   cut: boolean | number;
-  section: { normal: Vec3 | number[]; offset: number };
+  /** the cut's plane, and a quarter cut's second (section.second) */
+  section: {
+    normal: Vec3 | number[];
+    offset: number;
+    second?: { normal?: Vec3 | number[]; offset?: number } | null | false;
+  };
   labels: any;
+  /** the dimensions shown, by id; null: the scene's own */
+  dimensions: string[] | null;
   xray: boolean;
   yaw: number;
   pitch: number;
@@ -192,8 +199,10 @@ export interface Ctx {
   project_(q: number[]): number[] | null;
   /** the cut's plane [nx, ny, nz, -offset] */
   cutPlane_(): number[];
+  /** a quarter cut's second plane, or [0, 0, 0, 1] (everything beyond it: the first plane cuts alone) */
+  cutPlane2_(): number[];
   /** how far along the cut's normal the parts it cuts reach now: where the plane can go [from, to] */
-  cutRange_(): number[];
+  cutRange_(second?: boolean): number[];
   /** the box round the parts drawn now */
   shownBox_(): { center: number[]; radius: number; min: number[]; max: number[] };
   boxOf_(ps: Part[]): { center: number[]; radius: number; min: number[]; max: number[] };
@@ -272,7 +281,7 @@ export interface Ctx {
   /** whether the reader may move the cut now (it is on, and the scene does not fix it) */
   cutMovable_(): boolean;
   /** the cut moved by the reader (held within the parts it cuts; onSection called) */
-  moveCut_(offset: number): void;
+  moveCut_(offset: number, second?: boolean): void;
 
   // ---- additions.js
   addParticles_(o: any): any;
@@ -282,6 +291,10 @@ export interface Ctx {
 
   // ---- api.js
   api_: any;
+
+  // ---- dimensions.js
+  /** the dimensions placed on the stage, after each picture */
+  placeDimensions_(): void;
 
   // ---- steps.js
   /** the step shown (from 0); -1 for a scene without steps */

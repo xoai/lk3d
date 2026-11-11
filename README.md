@@ -40,7 +40,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 ## What it does
 
 - **Explore**: turn and zoom (mouse, touch, pen, keyboard) and pan (Shift-drag or right-drag); preset views; take the
-  model apart (each part along its own path); cut it open, with the cut faces filled and hatched, and move the cut through it (drag its face); see through casings;
+  model apart (each part along its own path); cut it open, with the cut faces filled and hatched (a half, or a quarter with two planes), and move the cut through it (drag its face); see through casings;
   labels with leader lines that do not overlap; a note for each part.
 - **Move parts by hand**: handles that turn (a focus ring, a rotor), slide (a piston, an object on a bench) or follow a
   path (a planet on its orbit), each also a range input for the keyboard and screen readers. Rays, field lines and
@@ -67,6 +67,8 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
   shadows, surface detail, glass that bends light) and a hand-drawn ink look, with an orthographic camera for a
   technical illustration; light, dark, blueprint and sepia themes, or the reader's own setting
   ([looks](docs/looks-and-materials.md)).
+- **Dimensions**: lengths and angles drawn as on a technical drawing, their values worked out from the figure as shown,
+  so a length to a part changes as the reader moves it ([dimensions](docs/handles-and-lines.md#dimensions)).
 - **Honest scale**: a scale bar that keeps its true length as the view zooms, or a note saying what is not to scale.
 - **Accessible**: the figure has a text description and lists its parts for screen readers; the keyboard turns it,
   zooms and goes through its parts (each said aloud with its note); every control works by keyboard, handles are read out, motion
@@ -99,6 +101,12 @@ bundle is built for ES2020, so older ones (an iPhone 6 kept on iOS 12) cannot ru
 lk3d explains objects. For games, character animation (skins, morph targets), VR and AR, custom shaders or general 3D
 scenes, use [three.js](https://threejs.org) or [Babylon.js](https://www.babylonjs.com); to show a single glTF model
 with hotspots and AR, use [model-viewer](https://modelviewer.dev).
+
+## Try it
+
+The [playground](https://xoai.github.io/lk3d/playground/): write a scene as JSON and see it drawn as you type,
+checked as `lk3d check` does (each problem shown where it is in the text), starting from an example; share it as a
+link, or take it away as a .json or .glb file. From a checkout: `npm run playground`, then open `/playground/`.
 
 ## Use it
 

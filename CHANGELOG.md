@@ -3,7 +3,7 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
-## Unreleased
+## 0.2.1 (11 November 2026)
 
 - **Quarter cuts**: a second plane, `section.second` (`{normal, offset}`), and only what lies beyond both planes is cut
   away, as in a technical cutaway; both faces are filled and hatched, the reader drags either, and `fig.section` reports

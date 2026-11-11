@@ -1,6 +1,6 @@
 {
   "name": "lk3d",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A small engine for explorable, accessible 3D diagrams built from data: take apart, cut open, label, move parts by hand",
   "keywords": [
     "3d",

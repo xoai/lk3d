@@ -1,8 +1,8 @@
 # API
 
 ```js
-// a page: one script tag, the global LK3D (https://unpkg.com/lk3d@0.2.0/dist/lk3d.min.js, or a copy of dist/lk3d.min.js)
-<script src="https://unpkg.com/lk3d@0.2.0/dist/lk3d.min.js"></script>;
+// a page: one script tag, the global LK3D (https://unpkg.com/lk3d@0.2.1/dist/lk3d.min.js, or a copy of dist/lk3d.min.js)
+<script src="https://unpkg.com/lk3d@0.2.1/dist/lk3d.min.js"></script>;
 // or a module
 import LK3D, { mount, build, defaults, locales } from 'lk3d';
 ```

@@ -18,6 +18,8 @@ export default {
   cut: 'Cut open',
   cutTitle: 'Cut the model in half to see inside',
   xray: 'See through',
+  cutAt: 'Cut at',
+  cutAtLabel: 'Move the cut through the model',
   xrayTitle: 'Make the casing transparent',
   labels: 'Labels',
   labelsTitle: 'Show all labels',

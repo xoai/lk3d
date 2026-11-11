@@ -1,5 +1,5 @@
-// The built-in controls under a figure: take apart (a slider and a button), cut open, see through, show all labels,
-// go round the looks, and the four views. They act through the figure's own API (fig.set, fig.view), so a page that
+// The built-in controls under a figure: take apart (a slider and a button), cut open (and, while it is, where the cut
+// is: a slider), see through, show all labels, go round the looks, and the four views. They act through the figure's own API (fig.set, fig.view), so a page that
 // passes `controls: false` and builds its own buttons gets exactly the same behaviour.
 export function controls({
   el,
@@ -12,6 +12,8 @@ export function controls({
   seeThrough,
   tweenExplode,
   motions,
+  cutRange,
+  moveCut,
 }) {
   const bar = document.createElement('div');
   bar.className = 'lk3d-bar';
@@ -87,6 +89,23 @@ export function controls({
       () => fig.set({ cut: !state.cut }),
       () => state.cut,
     );
+  // where the cut is, while it is on (unless the scene fixes it): a slider across the parts it cuts, from one end to
+  // the other (the same as dragging the cut face; the keys move it too)
+  if (cuttable && moveCut) {
+    const cutSlider = slider(words.cutAt, words.cutAtLabel, 0, 1, 0.005, 0),
+      row = /** @type {HTMLElement} */ (cutSlider.parentElement);
+    cutSlider.addEventListener('input', () => {
+      const [from, to] = cutRange();
+      moveCut(from + (to - from) * +cutSlider.value);
+    });
+    const sync = () => {
+      row.hidden = !state.cut;
+      const [from, to] = cutRange();
+      cutSlider.value = String((state.section.offset - from) / (to - from || 1));
+    };
+    toggles.push(sync);
+    sync();
+  }
   if (seeThrough)
     toggle(
       words.xray,

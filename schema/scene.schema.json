@@ -152,7 +152,7 @@
       "description": "A shadow under the model (true by default)."
     },
     "section": {
-      "description": "The cut: a plane, or false to offer none. What lies on the side its normal points to, beyond offset along it, is cut away; a page may move it (set({ section }))",
+      "description": "The cut: a plane, or false to offer none. What lies on the side its normal points to, beyond offset along it, is cut away; while the model is cut open the reader moves the plane along its normal (dragging the cut face, or the slider) unless it is fixed, and a page may move it (set({ section }))",
       "anyOf": [
         {
           "const": false
@@ -165,6 +165,10 @@
             },
             "offset": {
               "type": "number"
+            },
+            "fixed": {
+              "type": "boolean",
+              "description": "true: the reader cannot move the cut (by dragging its face or its slider); the page still can. By default, while the model is cut open, the reader moves the plane along its normal."
             }
           },
           "additionalProperties": false

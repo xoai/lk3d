@@ -19,7 +19,7 @@ lk3d is about 8 000 lines of plain JavaScript (ES modules, no dependencies). Thi
 | `src/figure/labels.js`                                                      | labels and leader lines (measured once, moved with transforms), the scale bar                                                                                                                                                             |
 | `src/figure/pick.js`                                                        | picking: a ray through the stage against each part's bounding-volume trees                                                                                                                                                                |
 | `src/figure/idle.js`                                                        | the work done in idle slices after the first picture (the trees, crease shading, edges) and `ready`                                                                                                                                       |
-| `src/figure/input.js`                                                       | the pointer, wheel and keys; handles grabbed and dragged, and each as a range input                                                                                                                                                       |
+| `src/figure/input.js`                                                       | the pointer, wheel and keys; handles grabbed and dragged, and each as a range input; the cut face dragged                                                                                                                                 |
 | `src/figure/additions.js`, `src/figure/api.js`                              | what a page adds (particles, flows, streams, lines); the figure's API                                                                                                                                                                     |
 | `src/figure/steps.js`                                                       | guided steps: going to one (everything it describes set, the rest back at the start; the cut swept in, the camera framing what it focuses on), and the panel of words with Back and Next                                                  |
 | `src/geometry.js`                                                           | `Mesh` (positions, normals, indices, optional vertex colours and texture coordinates), the shapes for machines (lathe, cylinder, box, sphere, torus, tube, helix, loop), placement and repeats, `buildScene` (parts → batches), materials |
@@ -180,8 +180,9 @@ schema makes.
   a slider and a play button under the figure; liquids pouring and gases settling by their laws) or driven by the page
   (spin, glow, particles, moved parts, a motion's value). There is no general physics engine; a page that simulates
   writes its own model.
-- The cut is one plane at a time: the scene's (`section`), which a page can move or sweep through the model
-  (`set({ section, cut })`); the reader cannot drag it.
+- The cut is one plane at a time: the scene's (`section`), which the reader moves along its normal (dragging the cut
+  face, or its slider) and a page can move, turn or sweep through the model (`set({ section, cut })`); the reader
+  cannot turn it, nor cut along a second plane.
 - Ambient occlusion is computed per part (a part's own creases and hollows), not between parts.
 - The 2D fallback has no section view (its button is not offered) and no shadows, and draws balls without sorting them
   by depth; WebGL 1 has no cast shadows, no glow halo, no surface detail, refraction or textures.

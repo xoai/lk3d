@@ -109,13 +109,19 @@ export interface Scene {
   ground?: boolean;
   /**
    * The cut: a plane, or false to offer none. What lies on the side its normal points to, beyond offset along
-   * it, is cut away; a page may move it (set({ section }))
+   * it, is cut away; while the model is cut open the reader moves the plane along its normal (dragging the cut
+   * face, or the slider) unless it is fixed, and a page may move it (set({ section }))
    */
   section?:
     | false
     | {
         normal?: Vec3;
         offset?: number;
+        /**
+         * true: the reader cannot move the cut (by dragging its face or its slider); the page still can. By default,
+         * while the model is cut open, the reader moves the plane along its normal.
+         */
+        fixed?: boolean;
       };
   /**
    * Parts that move together as one value goes along a range: a piston's stroke as the crank turns, a sleeve

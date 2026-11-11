@@ -188,6 +188,8 @@ export interface Ctx {
   project_(q: number[]): number[] | null;
   /** the cut's plane [nx, ny, nz, -offset] */
   cutPlane_(): number[];
+  /** how far along the cut's normal the parts it cuts reach now: where the plane can go [from, to] */
+  cutRange_(): number[];
   /** the box round the parts drawn now */
   shownBox_(): { center: number[]; radius: number; min: number[]; max: number[] };
   boxOf_(ps: Part[]): { center: number[]; radius: number; min: number[]; max: number[] };
@@ -247,7 +249,7 @@ export interface Ctx {
     px: number,
     py: number,
     see?: number,
-  ): { id: string | null; t: number; origin: number[]; direction: number[] };
+  ): { id: string | null; t: number; origin: number[]; direction: number[]; onCut: boolean };
   pickAt_(px: number, py: number, see?: number): string | null;
 
   // ---- idle.js
@@ -263,6 +265,10 @@ export interface Ctx {
   setHandle_(grip: Grip, v: number, byReader: boolean): void;
   /** a hidden part's handle out of the Tab order and of what screen readers read */
   syncHandleInputs_(): void;
+  /** whether the reader may move the cut now (it is on, and the scene does not fix it) */
+  cutMovable_(): boolean;
+  /** the cut moved by the reader (held within the parts it cuts; onSection called) */
+  moveCut_(offset: number): void;
 
   // ---- additions.js
   addParticles_(o: any): any;

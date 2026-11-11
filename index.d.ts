@@ -68,6 +68,9 @@ export interface Strings {
   home: string;
   play: string;
   pause: string;
+  /** the slider that moves the cut, while it is on, and what a screen reader calls it */
+  cutAt: string;
+  cutAtLabel: string;
   /** the guided steps' panel, its buttons, and where the reader is ("{n}" and "{count}" are filled in) */
   steps: string;
   back: string;
@@ -101,6 +104,8 @@ export interface MountOptions {
   onHover?: (part: BuiltPart | null) => void;
   /** a handle moved by the reader (not by the page's own set()) */
   onHandle?: (id: string, value: number) => void;
+  /** the cut moved by the reader, by its face or its slider (not by the page's own set()) */
+  onSection?: (section: { normal: Vec3; offset: number }) => void;
   /** what a screen reader says for a handle's value */
   handleText?: (id: string, value: number) => string | undefined;
   /** 'en' (default), 'vi', or any key of LK3D.locales */
@@ -320,6 +325,8 @@ export interface Figure {
   /** choose a part (or null) without calling onPick */
   select(id: string | null): void;
   readonly labels: Labels;
+  /** the cut's plane now: the scene's, a step's, the page's or where the reader moved it */
+  readonly section: { normal: Vec3; offset: number };
   readonly style: Look;
   readonly theme: string | null;
   readonly timeScale: number;

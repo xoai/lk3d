@@ -1,7 +1,7 @@
 // @ts-check
 // Labels and their leader lines (HTML and SVG over the canvas, measured once, moved with transforms), and the scale
 // bar. Owns labelWidths_ and placeLabels_ (the frame loop calls it after each picture); reads built_, state_, spec_,
-// tagLayer_, leaderSvg_, scaleEl_, lookKey_, width_ and height_, and calls project_, explodeShift_, baseMatrix_ and
+// tagLayer_, leaderSvg_, scaleEl_, lookKey_, width_ and height_, and calls project_, cutPlane_, explodeShift_, baseMatrix_ and
 // kick_.
 import { M, sub, add, mulv, len } from '../math.js';
 import textWidth from '../text-width.js';
@@ -124,15 +124,18 @@ export function makeLabels(c) {
             part.id === c.state_.selected ||
             (which === 'auto' && c.state_.explode > 0.45));
     const middle = c.project_(add(c.built_.center, c.explodeShift_())) || [width / 2, height / 2];
-    const items = [];
+    const items = [],
+      plane = c.state_.cut ? c.cutPlane_() : null;
     for (const tag of tags) {
-      // the part's anchor on the stage, if its label is wanted (a spinning part's label stays put)
-      const at =
-        which !== 'none' &&
-        wanted(tag.part) &&
-        c.project_(
-          M.pt(tag.part.spin || tag.part.handleOf?.round ? c.baseMatrix_(tag.part) : tag.part.matrix, tag.part.anchor),
-        );
+      // the part's anchor on the stage, if its label is wanted (a spinning part's label stays put), and not cut away
+      // (a label pointing at nothing once the cut has passed its place)
+      const anchor = M.pt(
+          tag.part.spin || tag.part.handleOf?.round ? c.baseMatrix_(tag.part) : tag.part.matrix,
+          tag.part.anchor,
+        ),
+        cutAway =
+          plane && tag.part.cut && plane[0] * anchor[0] + plane[1] * anchor[1] + plane[2] * anchor[2] + plane[3] > 0;
+      const at = which !== 'none' && wanted(tag.part) && !cutAway && c.project_(anchor);
       if (!at) {
         show(tag, false);
         continue;

@@ -57,6 +57,10 @@ export function makeApi(c) {
     get timeScale() {
       return c.state_.timeScale;
     },
+    // the cut's plane now: where the scene, a step, the page or the reader put it
+    get section() {
+      return { normal: c.state_.section.normal.slice(), offset: c.state_.section.offset };
+    },
     _state: c.state_, // the engine's own state: not an API, it may change
     set(changes) {
       if ('explode' in changes) c.explodeNow_(changes.explode); // (the page's own value wins over a running tween)

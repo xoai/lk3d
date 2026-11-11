@@ -13,6 +13,11 @@ format or the API, and says how to move.
   out goes back to the figure's start, so a step is the same picture however the reader came to it. The validator
   checks what steps name; `lk3d render` draws each step (`--poses steps`). New words in every locale: `steps`, `back`,
   `next`, `stepOf`.
+- **The reader moves the cut**: with the model cut open, dragging the cut face moves the plane along its normal (up
+  and down where it is seen face on), held within the parts it cuts, and a slider beside **Cut open** does the same
+  by keys and screen readers. `section.fixed: true` keeps it where the scene puts it; `opts.onSection` hears the
+  reader's moves; `fig.section` reads where it is. Labels whose place the cut has passed are no longer shown. New
+  words: `cutAt`, `cutAtLabel`.
 - A pressed button reads on a dark page: its words take `--lk3d-highlight-ink` (dark by default, for the light
   highlight), not the page's ink, which a dark page sets light.
 - Printed, a figure keeps its picture (and a step's words) without the buttons and the hint.

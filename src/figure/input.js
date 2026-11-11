@@ -1,10 +1,12 @@
 // @ts-check
 // The reader's hands on a figure: the pointer (orbit, pan, pinch, hover, pick, grabbing a handle and dragging it),
 // the wheel (only once the figure is taken hold of), the keys (turn, zoom, go through the parts), and each handle as
-// a range input (its value set by the reader or the page: setHandle_). Owns setHandle_ and syncHandleInputs_; reads
-// host_, canvas_, state_, opts_, words_, stage_, hint_, namedParts_, handles_, animations_ and height_, and calls
-// pickAt_, rayAt_, project_, baseMatrix_, zoom_, cancelView_, showInfo_, part_, markDirty_ and kick_.
-import { M, sub, add, mulv, len } from '../math.js';
+// a range input (its value set by the reader or the page: setHandle_), and the cut moved by the reader (its face
+// dragged, or the built-in slider: moveCut_). Owns setHandle_, syncHandleInputs_, cutMovable_ and moveCut_; reads
+// host_, canvas_, spec_, state_, opts_, words_, stage_, hint_, namedParts_, handles_, animations_, controls_ and
+// height_, and calls pickAt_, pickHit_, rayAt_, project_, cutPlane_, cutRange_, baseMatrix_, zoom_, cancelView_,
+// showInfo_, part_, markDirty_ and kick_.
+import { M, sub, add, mulv, len, dot, cross, norm } from '../math.js';
 import * as HD from '../handles.js';
 import { plainText } from './dom.js';
 import LK3D from '../namespace.js';
@@ -116,6 +118,45 @@ export function makeInput(c) {
     }
     c.setHandle_(grip, value, true);
   }
+  // ---- the cut moved by the reader: its face taken hold of and dragged along the plane's normal (unless the scene
+  // fixes it: section.fixed). A drag reads depth by the normal's direction on the stage, or by up and down where the
+  // cut face is seen nearly face on (the normal pointing at the eye has no direction on the stage)
+  c.cutMovable_ = () =>
+    !!c.state_.cut && c.spec_.section !== false && !c.spec_.section?.fixed && c.renderer_.kind !== '2d';
+  c.moveCut_ = (offset) => {
+    const [from, to] = c.cutRange_(),
+      held = Math.max(from, Math.min(to, offset));
+    if (held === c.state_.section.offset) return;
+    c.state_.section = { ...c.state_.section, offset: held };
+    if (c.controls_.style) c.controls_.style(); // (the slider follows)
+    c.kick_();
+    if (c.opts_.onSection) {
+      const [x, y, z] = c.state_.section.normal;
+      c.opts_.onSection({ normal: [x, y, z], offset: held });
+    }
+  };
+  /** @type {{ id: number, x: number, y: number, from: number, along: number[], moved: number, part: string } | null} */
+  let cutting = null;
+  /** @param {number} x @param {number} y */
+  function cutAt(x, y) {
+    if (!c.cutMovable_()) return null;
+    const hit = c.pickHit_(x, y);
+    if (!hit.onCut || !hit.id) return null;
+    const plane = c.cutPlane_(),
+      normal = plane.slice(0, 3),
+      facing = dot(normal, hit.direction);
+    if (Math.abs(facing) < 1e-9) return null;
+    const point = add(hit.origin, mulv(hit.direction, -(dot(normal, hit.origin) + plane[3]) / facing)),
+      across = norm(cross(normal, Math.abs(normal[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])),
+      here = c.project_(point),
+      deeper = c.project_(add(point, normal)),
+      aside = c.project_(add(point, across));
+    if (!here || !deeper || !aside) return null;
+    const perUnit = Math.hypot(aside[0] - here[0], aside[1] - here[1]); // (pixels a scene unit, across the cut)
+    let along = [deeper[0] - here[0], deeper[1] - here[1]];
+    if (Math.hypot(along[0], along[1]) < 0.3 * perUnit) along = [0, -perUnit];
+    return { x, y, from: c.state_.section.offset, along, moved: 0, part: hit.id };
+  }
   const capture = (pointerId) => {
     try {
       c.canvas_.setPointerCapture(pointerId);
@@ -131,7 +172,18 @@ export function makeInput(c) {
     }
     if (!pointers.size) {
       const [x, y] = local(event),
-        grip = handleAt(x, y);
+        grip = handleAt(x, y),
+        cut = grip ? null : cutAt(x, y);
+      if (cut) {
+        // the reader takes hold of the cut face: the plane moves, the view does not
+        cutting = { ...cut, id: event.pointerId };
+        capture(event.pointerId);
+        c.canvas_.style.cursor = 'grabbing';
+        c.hint_.classList.add('gone');
+        setActive(true);
+        event.preventDefault();
+        return;
+      }
       if (grip) {
         // the reader takes hold of a handle: it moves, the view does not
         grab = {
@@ -160,6 +212,15 @@ export function makeInput(c) {
     c.hint_.classList.add('gone');
   });
   c.canvas_.addEventListener('pointermove', (event) => {
+    if (cutting && event.pointerId === cutting.id) {
+      const [x, y] = local(event),
+        dx = x - cutting.x,
+        dy = y - cutting.y,
+        along = cutting.along;
+      cutting.moved = Math.max(cutting.moved, Math.abs(dx) + Math.abs(dy));
+      c.moveCut_(cutting.from + (dx * along[0] + dy * along[1]) / (along[0] * along[0] + along[1] * along[1]));
+      return;
+    }
     if (grab && event.pointerId === grab.id) {
       const [x, y] = local(event);
       grab.moved += Math.abs(event.movementX || 0) + Math.abs(event.movementY || 0);
@@ -201,8 +262,10 @@ export function makeInput(c) {
       // (hovering: what is under the pointer, at most every 40 ms)
       lastHover = performance.now();
       const [x, y] = local(event),
-        id = c.pickAt_(x, y);
-      const onHandle = id ? !!c.part_(id)?.handleOf : !!handleAt(x, y);
+        hit = c.pickHit_(x, y),
+        id = hit.id;
+      // (a handle, or a cut face the reader may move: grabbed, not chosen)
+      const onHandle = (id ? !!c.part_(id)?.handleOf : !!handleAt(x, y)) || (hit.onCut && c.cutMovable_());
       if (id !== c.state_.hover || onHandle !== wasOnHandle) {
         c.state_.hover = id;
         wasOnHandle = onHandle;
@@ -213,6 +276,17 @@ export function makeInput(c) {
     }
   });
   const end = (event) => {
+    if (cutting && event.pointerId === cutting.id) {
+      // let go of the cut; a tap without moving chooses the part, as elsewhere
+      if (cutting.moved < 4 && event.type === 'pointerup') {
+        c.state_.selected = cutting.part === c.state_.selected ? null : cutting.part;
+        c.showInfo_('pick');
+      }
+      cutting = null;
+      c.canvas_.style.cursor = 'grab';
+      c.kick_();
+      return;
+    }
     if (grab && event.pointerId === grab.id) {
       // let go of a handle; a tap without moving selects the part, as elsewhere
       if (grab.moved < 4 && event.type === 'pointerup') {

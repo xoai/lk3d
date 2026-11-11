@@ -161,6 +161,8 @@ function mount(el, spec, opts = {}) {
         explodable: built.parts.some((part) => part.explode.some((offset) => offset !== 0)),
         motions: c.motions_.filter((motion) => motion.name),
         cuttable: spec.section !== false && c.renderer_ && c.renderer_.kind !== '2d',
+        cutRange: c.cutRange_,
+        moveCut: spec.section && spec.section.fixed ? null : c.moveCut_,
         seeThrough: built.parts.some((part) => part.xray),
       }),
     );

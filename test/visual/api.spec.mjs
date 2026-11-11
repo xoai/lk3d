@@ -1246,3 +1246,100 @@ test('a pressed button reads on a dark page; printed, the figure keeps its pictu
     '.lk3d-canvas': true,
   });
 });
+
+test('the reader moves the cut: by dragging its face along its normal, or by its slider; held within what it cuts; not when the scene fixes it', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const el = document.getElementById('g'),
+      moves = [],
+      cv = () => el.querySelector('canvas'),
+      ev = (type, [x, y]) => {
+        const rect = cv().getBoundingClientRect();
+        cv().dispatchEvent(
+          new PointerEvent(type, {
+            clientX: rect.left + x,
+            clientY: rect.top + y,
+            pointerId: 1,
+            bubbles: true,
+            isPrimary: true,
+          }),
+        );
+      },
+      drag = (from, by) => {
+        ev('pointerdown', from);
+        for (let k = 1; k <= 4; k++) ev('pointermove', [from[0] + (by[0] * k) / 4, from[1] + (by[1] * k) / 4]);
+        ev('pointerup', [from[0] + by[0], from[1] + by[1]]);
+      };
+    let fig = LK3D.mount(el, window.scene, { adaptive: false, onSection: (s) => moves.push(s.offset) });
+    await fig.ready;
+    const slider = el.querySelector('input[aria-label="Move the cut through the model"]'),
+      out = { hiddenWhenWhole: slider.closest('label').hidden };
+    fig.set({ cut: true }); // (the scene's plane, z = 0, cuts away z > 0: its face turned to the first view)
+    fig.drawNow();
+    out.shownWhenCut = !slider.closest('label').hidden;
+    const face = fig.project([0.5, 0, 0]), // (a point of the base's cut face)
+      pitch = fig.camera().pitch;
+    drag(face, [0, 30]);
+    out.moved = fig.section.offset;
+    out.reported = moves.slice();
+    out.viewKept = fig.camera().pitch === pitch;
+    out.sliderFollows = Math.abs(+slider.value - (fig.section.offset + 1) / 2) < 0.01;
+    fig.drawNow();
+    drag(fig.project([0.5, 0, fig.section.offset]), [0, 3000]); // (far past the end: held at the base's edge)
+    out.held = fig.section.offset;
+    slider.value = '0.25';
+    slider.dispatchEvent(new Event('input'));
+    out.bySlider = fig.section.offset;
+    // seen face on (from the front, the normal pointing at the eye): up and down move it instead
+    fig.view('front', { ms: 0 });
+    fig.drawNow();
+    drag(fig.project([0.85, 0, fig.section.offset]), [0, -30]);
+    out.faceOn = fig.section.offset;
+    fig.drawNow();
+    // (a tap on the face chooses the part; away from the knob, whose small handle a finger catches near it)
+    ev('pointerdown', fig.project([0.85, 0, fig.section.offset]));
+    ev('pointerup', fig.project([0.85, 0, fig.section.offset]));
+    out.tapped = fig.selected;
+    // a label whose place the cut has passed is not shown (it would point at nothing): the base's is its back corner,
+    // z = -1, kept by the scene's plane however far it goes, cut away by the plane turned round
+    const baseShown = (section) => {
+      fig.set({ labels: ['base'], section });
+      fig.drawNow();
+      const tag = [...el.querySelectorAll('.lk3d-tag')].find((t) => t.textContent === 'Base');
+      return !!tag && tag.style.display !== 'none';
+    };
+    out.labelKept = baseShown({ normal: [0, 0, 1], offset: -0.95 });
+    out.labelCutAway = !baseShown({ normal: [0, 0, -1], offset: 0.5 });
+    fig.set({ section: { normal: [0, 0, 1] } });
+    // fixed by the scene: no slider, and a drag on the face turns the view
+    fig = LK3D.mount(
+      el,
+      { ...window.scene, section: { normal: [0, 0, 1], offset: 0, fixed: true } },
+      { adaptive: false },
+    );
+    await fig.ready;
+    fig.set({ cut: true });
+    fig.drawNow();
+    out.fixedSlider = !!el.querySelector('input[aria-label="Move the cut through the model"]');
+    const fixedPitch = fig.camera().pitch;
+    drag(fig.project([0.5, 0, 0]), [0, 30]); // (up and down: the view tilts)
+    out.fixed = [fig.section.offset, fig.camera().pitch !== fixedPitch];
+    return out;
+  });
+  expect(r.hiddenWhenWhole).toBe(true);
+  expect(r.shownWhenCut).toBe(true);
+  expect(Math.abs(r.moved)).toBeGreaterThan(0.05);
+  expect(r.reported.at(-1)).toBe(r.moved);
+  expect(r.viewKept).toBe(true);
+  expect(r.sliderFollows).toBe(true);
+  expect(Math.abs(Math.abs(r.held) - 1)).toBeLessThan(1e-6); // (the base reaches z = ±1)
+  expect(r.bySlider).toBeCloseTo(-0.5, 6);
+  expect(r.faceOn).toBeGreaterThan(-0.45); // (dragged up: further along the normal)
+  expect(r.tapped).toBe('base');
+  expect(r.labelKept).toBe(true);
+  expect(r.labelCutAway).toBe(true);
+  expect(r.fixedSlider).toBe(false);
+  expect(r.fixed[0]).toBe(0);
+  expect(r.fixed[1]).toBe(true);
+});

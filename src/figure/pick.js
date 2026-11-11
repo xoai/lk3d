@@ -1,9 +1,19 @@
 // @ts-check
 // Picking: a ray from the eye through a point of the stage, against each part's bounding-volume trees (bvh.js, each
-// built when first needed, or in idle time: idle.js); the nearest hit on a part that is drawn and not cut away. Owns
-// bvhOf_, pickHit_ and pickAt_; reads built_ and state_, and calls rayAt_ and cutPlane_.
-import { M, add, mulv } from '../math.js';
+// built when first needed, or in idle time: idle.js); the nearest hit on a part that is drawn and not cut away, and
+// whether what is seen there is the part's cut face. Owns bvhOf_, pickHit_ and pickAt_; reads built_ and state_, and
+// calls rayAt_ and cutPlane_.
+import { M, add, sub, mulv, cross, dot } from '../math.js';
 import { buildBVH, intersect } from '../bvh.js';
+
+// whether a triangle's outward face (its corners anticlockwise) is turned away from a ray going this way
+/** @param {{ positions: ArrayLike<number>, indices: ArrayLike<number> }} mesh @param {number} triangle @param {number[]} direction */
+function facesAway(mesh, triangle, direction) {
+  const [a, b, d] = [0, 1, 2].map((corner) => 3 * mesh.indices[3 * triangle + corner]),
+    corner = (index) => [mesh.positions[index], mesh.positions[index + 1], mesh.positions[index + 2]],
+    normal = cross(sub(corner(b), corner(a)), sub(corner(d), corner(a)));
+  return dot(normal, direction) > 0;
+}
 
 /** @param {import('./context').Ctx} c */
 export function makePick(c) {
@@ -51,7 +61,8 @@ export function makePick(c) {
       plane = c.cutPlane_();
     let best = Infinity,
       /** @type {string | null} */
-      id = null;
+      id = null,
+      onCut = false;
     for (const part of c.built_.parts) {
       if (part.drawAlpha < minAlpha || rayBox(origin, direction, part) >= best) continue; // (missed by the ray, or behind a nearer hit)
       for (const batch of part.batches)
@@ -72,10 +83,13 @@ export function makePick(c) {
           if (hit && hit.t < best) {
             best = hit.t;
             id = part.id;
+            // (a cut part's surface seen from inside, its outward face turned away from the eye: the ray came in
+            // through the cut, so what is seen there is the cut face, filled at the plane)
+            onCut = !!accept && facesAway(batch.mesh, hit.triangle, shapeDirection);
           }
         }
     }
-    return { id, t: best, origin, direction };
+    return { id, t: best, origin, direction, onCut };
   };
   c.pickAt_ = (x, y, minAlpha) => c.pickHit_(x, y, minAlpha).id;
 }

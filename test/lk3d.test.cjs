@@ -1026,6 +1026,7 @@ test('the validator finds each planted mistake where it is, and passes a right s
     view: { projection: 'ortho' },
     edges: true,
     extras: { note: "a page's own data" },
+    section: { normal: [1, 0, 0], offset: 0.2, fixed: true },
   };
   assert.deepEqual(validate(good), []);
   const at = (scene) => validate(scene).map((e) => e.path);
@@ -1063,6 +1064,7 @@ test('the validator finds each planted mistake where it is, and passes a right s
     [{ parts: [part()], edges: 'yes' }, 'edges'],
     [{ parts: [part({ edges: 1 })] }, 'parts[0].edges'],
     [{ parts: [part()], models: { m: { source: 'web' } } }, 'models.m.source'],
+    [{ parts: [part()], section: { normal: [0, 0, 1], fixed: 'yes' } }, 'section.fixed'], // fixed is true or false
   ];
   for (const [scene, path] of cases)
     assert.ok(at(scene).includes(path), `${JSON.stringify(scene).slice(0, 90)} → ${JSON.stringify(validate(scene))}`);

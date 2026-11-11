@@ -17,6 +17,8 @@ export default {
   cut: 'Cắt dọc',
   cutTitle: 'Cắt đôi mô hình để xem bên trong',
   xray: 'Nhìn xuyên',
+  cutAt: 'Mặt cắt',
+  cutAtLabel: 'Dời mặt cắt qua mô hình',
   xrayTitle: 'Làm vỏ trong suốt',
   labels: 'Nhãn',
   labelsTitle: 'Hiện tất cả nhãn',

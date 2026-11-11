@@ -1,7 +1,7 @@
 // @ts-check
 // The camera: where it stands and looks (fitted to the stage), the views and their glides, zooming towards a point,
 // the cut's plane, boxes round parts, and the ray through a point of the stage. Owns viewProj_, eye_, frustum_,
-// baseDist_, explodeShift_, camera_, project_, cutPlane_, boxOf_, frame_, shownBox_, rayAt_, zoom_, view_,
+// baseDist_, explodeShift_, camera_, project_, cutPlane_, cutRange_, boxOf_, frame_, shownBox_, rayAt_, zoom_, view_,
 // viewAngles_ and cancelView_;
 // reads state_, spec_, built_, width_, height_ and animations_, and calls offsetOf_, pickHit_, measure_, markDirty_ and kick_.
 import { D2R, M, sub, add, mulv, len, norm, cross, dot } from '../math.js';
@@ -160,6 +160,28 @@ export function makeCamera(c) {
       }
     }
     return { center: mulv(add(min, max), 0.5), radius: len(sub(max, min)) / 2 || 1, min, max };
+  };
+  // how far along the cut's normal the parts it cuts reach, as they are now: where the plane can go [from, to]
+  c.cutRange_ = () => {
+    const normal = norm(c.state_.section.normal);
+    let from = Infinity,
+      to = -Infinity;
+    for (const part of c.built_.parts)
+      if (part.cut && !part.hidden) {
+        const offset = c.offsetOf_(part);
+        for (let corner = 0; corner < 8; corner++) {
+          const along = dot(
+            normal,
+            add(
+              offset,
+              [0, 1, 2].map((axis) => ((corner >> axis) & 1 ? part.max[axis] : part.min[axis])),
+            ),
+          );
+          from = Math.min(from, along);
+          to = Math.max(to, along);
+        }
+      }
+    return from <= to ? [from, to] : [-1, 1];
   };
   // a point of the scene on the stage, in CSS pixels (null behind the eye), by the camera as last placed
   c.project_ = (point) => M.project(c.viewProj_, point, c.width_, c.height_);

@@ -40,7 +40,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 ## What it does
 
 - **Explore**: turn and zoom (mouse, touch, pen, keyboard) and pan (Shift-drag or right-drag); preset views; take the
-  model apart (each part along its own path); cut it open, with the cut faces filled and hatched; see through casings;
+  model apart (each part along its own path); cut it open, with the cut faces filled and hatched, and move the cut through it (drag its face); see through casings;
   labels with leader lines that do not overlap; a note for each part.
 - **Move parts by hand**: handles that turn (a focus ring, a rotor), slide (a piston, an object on a bench) or follow a
   path (a planet on its orbit), each also a range input for the keyboard and screen readers. Rays, field lines and

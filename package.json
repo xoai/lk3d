@@ -64,8 +64,6 @@
     "export.d.ts",
     "validate.d.ts",
     "docs/*.md",
-    "docs/*.png",
-    "docs/shapes/*.png",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",

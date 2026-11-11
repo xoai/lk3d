@@ -1,6 +1,7 @@
 // The figure's stylesheet, added to the page once. A page themes it with CSS variables (set on :root or any ancestor):
 //   --lk3d-ink (lines, text, borders) · --lk3d-paper (label and button backgrounds) · --lk3d-muted (hints, credits)
-//   --lk3d-accent (focus ring) · --lk3d-warn (the "not to scale" note) · --lk3d-highlight (pressed buttons)
+//   --lk3d-accent (focus ring) · --lk3d-warn (the "not to scale" note) · --lk3d-highlight (pressed buttons) and
+//   --lk3d-highlight-ink (their words: dark, for the light highlight; a page with a dark highlight sets it light)
 //   --lk3d-font (labels in the drawn look) · --lk3d-line (leader lines and label borders under a theme)
 // A theme (LK3D.themes) sets these on the stage itself, so the words on a themed figure follow its theme.
 function css() {
@@ -44,7 +45,7 @@ function css() {
 .lk3d-stage.lk3d-kbd{box-shadow:0 0 0 2px var(--lk3d-accent, #2f5fb3)}
 .lk3d-credit{font-size:13px; color:var(--lk3d-muted, #6b6670); margin:6px 0 0}
 .lk3d-bar{display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; margin-top:10px}
-.lk3d-bar .lk3d-btn.on{background:var(--lk3d-highlight, #f3d78f)}
+.lk3d-bar .lk3d-btn.on{background:var(--lk3d-highlight, #f3d78f); color:var(--lk3d-highlight-ink, #1d1a1e)}
 .lk3d-plain{font:inherit; font-size:14px; line-height:1.3; padding:3px 10px; border:1.2px solid var(--lk3d-ink, #1d1a1e); border-radius:5px; background:var(--lk3d-paper, #f7f5ef); color:var(--lk3d-ink, #1d1a1e); cursor:pointer}
 .lk3d-plain:hover{filter:brightness(.96)} .lk3d-plain:focus-visible{outline:2px solid var(--lk3d-accent, #2f5fb3); outline-offset:1px}
 .lk3d-range{display:flex; gap:8px; align-items:center; font-size:15.5px}
@@ -54,6 +55,7 @@ function css() {
 .lk3d-step{flex:1 1 18em; min-width:0; font-size:15.5px; line-height:1.45}
 .lk3d-step-count{color:var(--lk3d-muted, #6b6670); font-size:13px; white-space:nowrap}
 .lk3d-step-nav{display:inline-flex; gap:6px} .lk3d-step-nav [aria-disabled=true]{opacity:.45; cursor:default}
+@media print{.lk3d-bar, .lk3d-hint, .lk3d-step-nav{display:none}}
 @media (max-width:520px){.lk3d-tag{font-size:12px; line-height:17px; padding:0 5px} .lk3d-scale{font-size:11.5px; top:6px; bottom:auto; right:6px}}`;
   document.head.append(style);
 }

@@ -1215,3 +1215,34 @@ test("the steps' panel: under the built-in controls, or on its own, or none; in 
   expect(r.vi).toEqual(['Bước 1/3', 'Bước trướcBước tiếp']);
   expect(r.plain).toEqual([false, -1, 0]);
 });
+
+test('a pressed button reads on a dark page; printed, the figure keeps its picture and words without its buttons', async ({
+  page,
+}) => {
+  await page.evaluate(STEPS);
+  const r = await page.evaluate(() => {
+    const el = document.getElementById('g');
+    document.body.style.setProperty('--lk3d-ink', '#e9e7e3'); // (a dark page's light ink, and no highlight of its own)
+    const fig = LK3D.mount(el, window.stepsScene(), {});
+    fig.set({ cut: true });
+    const pressed = el.querySelector('.lk3d-bar button.on');
+    return { color: getComputedStyle(pressed).color, background: getComputedStyle(pressed).backgroundColor };
+  });
+  expect(r).toEqual({ color: 'rgb(29, 26, 30)', background: 'rgb(243, 215, 143)' });
+  await page.emulateMedia({ media: 'print' });
+  const shown = await page.evaluate(() =>
+    Object.fromEntries(
+      ['.lk3d-bar', '.lk3d-hint', '.lk3d-step-nav', '.lk3d-step', '.lk3d-canvas'].map((q) => [
+        q,
+        getComputedStyle(document.querySelector('#g ' + q)).display !== 'none',
+      ]),
+    ),
+  );
+  expect(shown).toEqual({
+    '.lk3d-bar': false,
+    '.lk3d-hint': false,
+    '.lk3d-step-nav': false,
+    '.lk3d-step': true,
+    '.lk3d-canvas': true,
+  });
+});

@@ -233,4 +233,6 @@ runs. Flags go anywhere on the line.
 Without a [theme](looks-and-materials.md#themes) (which sets them on the stage itself), the figure's colours and
 lettering come from CSS variables a page sets on `:root` or any element around the figure:
 `--lk3d-ink`, `--lk3d-paper`, `--lk3d-muted`, `--lk3d-accent` (focus), `--lk3d-warn` (the scale note),
-`--lk3d-highlight` (pressed buttons), `--lk3d-font` (labels in the drawn look).
+`--lk3d-highlight` (pressed buttons) and `--lk3d-highlight-ink` (their words: dark by default, for the light
+highlight; a page whose highlight is dark sets it light), `--lk3d-font` (labels in the drawn look). Printed, the
+figure keeps its picture and a step's words, without the buttons and the hint.

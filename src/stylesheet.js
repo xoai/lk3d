@@ -9,7 +9,9 @@ function css() {
   const style = document.createElement('style');
   style.id = 'lk3d-css';
   style.textContent = `
+lk3d-figure{display:block}
 .lk3d{position:relative; margin:24px 0 6px}
+.lk3d-info{font-size:15.5px; line-height:1.45; min-height:1.45em; margin:8px 0 0}
 .lk3d-stage{position:relative; width:100%; overflow:hidden; border-radius:6px; touch-action:pan-y; user-select:none; -webkit-user-select:none}
 .lk3d-active .lk3d-stage{touch-action:none}
 .lk3d-sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}

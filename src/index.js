@@ -41,6 +41,7 @@ import { controls } from './controls.js';
 import { clock, refreshFrom } from './clock.js';
 import LK3D, { FORMAT } from './namespace.js';
 import en from './locales/en.js';
+import { defineElement } from './element.js';
 
 let warned = false;
 
@@ -179,6 +180,7 @@ function mount(el, spec, opts = {}) {
 
 LK3D.mount = mount;
 if (typeof window !== 'undefined') window.LK3D = LK3D;
+defineElement(mount); // <lk3d-figure>, for pages that write no script
 export default LK3D;
 export const { build, reduce, version, locales, defaults, themes, format } = LK3D; // (the same objects: setting defaults here sets them for LK3D; reduce is read once, at load)
 export { mount, M, refreshFrom, clock, safeHTML };

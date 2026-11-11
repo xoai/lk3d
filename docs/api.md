@@ -95,6 +95,34 @@ try {
 The figure draws only when something changes and pauses while it is off screen. A page's own simulation is better on
 its own `requestAnimationFrame`, telling the figure the new state with `set` and `redraw`.
 
+## The element: `<lk3d-figure>`
+
+The same script defines an HTML element for a page that writes no script of its own (Markdown, a content system, a
+framework's template): a figure where the element is, with its controls, and a line under it with the name and note
+of the part pointed at.
+
+```html
+<lk3d-figure src="generator.json" look="studio" locale="vi" step="rotor"></lk3d-figure>
+
+<lk3d-figure labels="all">
+  <script type="application/json">
+    { "title": "A bolt and a nut", "parts": [ … ] }
+  </script>
+</lk3d-figure>
+```
+
+| Attribute                                                                    | Meaning                                                                                                                                           |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src`                                                                        | the scene's address (JSON); without it, a `<script type="application/json">` inside the element                                                   |
+| `look`, `theme`, `labels`, `step`                                            | the look, the theme, which labels show, the guided step (its place from 0, or its id): set as they change                                         |
+| `locale`, `controls="false"`, `steps="false"`, `info="false"`, `transparent` | the words; no buttons; no steps' panel; no line for the part's name and note; nothing painted behind (the figure is mounted again as they change) |
+
+`element.figure` is the figure's API ([above](#the-figure); a new one each time the element mounts it again) and
+`element.ready` resolves with the first, once complete. The reader's moves come as events that bubble:
+`lk3d-pick` (`{ id }`), `lk3d-handle` (`{ id, value }`), `lk3d-step` (`{ index, step }`), `lk3d-section`
+(`{ normal, offset }`). A scene that cannot be fetched, read or drawn shows its problem in the element and sends
+`lk3d-error` (`{ message }`). Taken out of the page, the element destroys its figure; put back, it draws it again.
+
 ## Guided steps
 
 A scene's `steps` ([format](scene-format.md)) explain the figure in order. Each has its words (a `title`, `text`, or

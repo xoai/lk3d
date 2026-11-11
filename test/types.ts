@@ -20,6 +20,7 @@ import LK3D, {
   type Liquid,
   type Gas,
   type Step,
+  type Lk3dFigureEvents,
 } from 'lk3d';
 import { validate } from 'lk3d/validate';
 import LK3DX, { sceneToGLB } from 'lk3d/export';
@@ -198,3 +199,12 @@ const toured = mount(
 toured.step(1, { ms: 0 });
 const at: number = toured.currentStep;
 const titles: (string | undefined)[] = toured.steps.map((step) => step.title);
+// the element: its figure and ready typed, its events' details
+const element = document.createElement('lk3d-figure');
+element.setAttribute('src', 'scene.json');
+element.addEventListener('lk3d-step', (event) => {
+  const { index, step } = (event as Lk3dFigureEvents['lk3d-step']).detail;
+  console.log(index, step.title);
+});
+element.ready.then((figure: Figure) => figure.step(0));
+const maybe: Figure | null = element.figure;

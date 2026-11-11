@@ -1274,10 +1274,10 @@ test('the reader moves the cut: by dragging its face along its normal, or by its
     let fig = LK3D.mount(el, window.scene, { adaptive: false, onSection: (s) => moves.push(s.offset) });
     await fig.ready;
     const slider = el.querySelector('input[aria-label="Move the cut through the model"]'),
-      out = { hiddenWhenWhole: slider.closest('label').hidden };
+      out = { hiddenWhenWhole: getComputedStyle(slider.closest('label')).display === 'none' };
     fig.set({ cut: true }); // (the scene's plane, z = 0, cuts away z > 0: its face turned to the first view)
     fig.drawNow();
-    out.shownWhenCut = !slider.closest('label').hidden;
+    out.shownWhenCut = getComputedStyle(slider.closest('label')).display !== 'none';
     const face = fig.project([0.5, 0, 0]), // (a point of the base's cut face)
       pitch = fig.camera().pitch;
     drag(face, [0, 30]);
@@ -1342,4 +1342,72 @@ test('the reader moves the cut: by dragging its face along its normal, or by its
   expect(r.fixedSlider).toBe(false);
   expect(r.fixed[0]).toBe(0);
   expect(r.fixed[1]).toBe(true);
+});
+
+test("<lk3d-figure>: a scene from a JSON script inside or from src; attributes set it; the reader's moves as events; taken out, destroyed", async ({
+  page,
+}) => {
+  await page.evaluate(STEPS);
+  const r = await page.evaluate(async () => {
+    const host = document.getElementById('g'),
+      events = [];
+    host.innerHTML = '';
+    const element = document.createElement('lk3d-figure');
+    element.setAttribute('locale', 'vi');
+    element.setAttribute('step', 'two');
+    const json = document.createElement('script');
+    json.type = 'application/json';
+    json.textContent = JSON.stringify(window.stepsScene());
+    element.append(json);
+    for (const type of ['pick', 'step', 'section', 'error'])
+      host.addEventListener('lk3d-' + type, (e) => events.push([type, e.detail]));
+    host.append(element);
+    const figure = await element.ready;
+    const out = {
+      same: figure === element.figure,
+      atStep: figure.currentStep,
+      words: element.querySelector('.lk3d-step-count').textContent,
+      info: !!element.querySelector('.lk3d-step + .lk3d-info, .lk3d-steps + .lk3d-info'),
+      display: getComputedStyle(element).display,
+    };
+    // attributes that change the figure as they change, and one that mounts it again
+    // (a step sets its own labels, so labels after it)
+    element.setAttribute('look', 'ink');
+    element.setAttribute('step', '0');
+    element.setAttribute('labels', 'all');
+    out.live = [figure.style, figure.labels, figure.currentStep, element.figure === figure];
+    element.setAttribute('locale', 'en');
+    out.remounted = element.figure !== figure && element.querySelector('.lk3d-step-count').textContent;
+    // the reader's moves, as events: Next, then the cut's slider
+    element.querySelector('.lk3d-step-nav button:last-child').click();
+    element.figure.set({ cut: true });
+    const slider = element.querySelector('input[aria-label="Move the cut through the model"]');
+    slider.value = '0.3';
+    slider.dispatchEvent(new Event('input'));
+    out.events = events.map(([type, detail]) => [type, type === 'step' ? detail.index : typeof detail.offset]);
+    // taken out of the page: the figure goes with it
+    element.remove();
+    out.destroyed = !element.figure && !element.querySelector('canvas');
+    // from src, and a scene that cannot be read: its words shown, an error event
+    const fromSrc = document.createElement('lk3d-figure');
+    fromSrc.setAttribute('src', '/test/visual/scenes/gas.json');
+    host.append(fromSrc);
+    out.src = (await fromSrc.ready).parts.length > 0;
+    const broken = document.createElement('lk3d-figure');
+    broken.setAttribute('src', '/test/visual/scenes/nothing-here.json');
+    host.append(broken);
+    await until(() => events.some(([type]) => type === 'error'));
+    out.error = [broken.textContent.includes('nothing-here.json'), events.filter(([type]) => type === 'error').length];
+    return out;
+  });
+  expect(r).toMatchObject({ same: true, atStep: 1, words: 'Bước 2/3', info: true, display: 'block' });
+  expect(r.live).toEqual(['ink', 'all', 0, true]);
+  expect(r.remounted).toBe('Step 1 of 3');
+  expect(r.events).toEqual([
+    ['step', 1],
+    ['section', 'number'],
+  ]);
+  expect(r.destroyed).toBe(true);
+  expect(r.src).toBe(true);
+  expect(r.error).toEqual([true, 1]);
 });

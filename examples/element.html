@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · without a script</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>A figure without a script</h1>
+    <p>
+      This page writes no JavaScript: it loads lk3d and puts a <code>&lt;lk3d-figure&gt;</code> element where the figure
+      goes, its scene from <code>src</code>. The generator's guided steps are under it, and the name and note of the
+      part you point at under them. Like every example, it is served (<code>npm run examples</code>): a page opened from
+      a file cannot fetch its scene.
+    </p>
+    <lk3d-figure src="scenes/generator.json" look="pen"></lk3d-figure>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+</html>

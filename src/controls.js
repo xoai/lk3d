@@ -99,7 +99,7 @@ export function controls({
       moveCut(from + (to - from) * +cutSlider.value);
     });
     const sync = () => {
-      row.hidden = !state.cut;
+      row.style.display = state.cut ? '' : 'none'; // (not the hidden attribute: the row's own display would win)
       const [from, to] = cutRange();
       cutSlider.value = String((state.section.offset - from) / (to - from || 1));
     };

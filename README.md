@@ -117,6 +117,15 @@ const fig = LK3D.mount(el, scene, { info: document.querySelector('#info'), onHan
 fig.set({ explode: 1 });
 ```
 
+A page that writes no script of its own (Markdown, a content system) uses the element `<lk3d-figure>`, which the
+same script defines: the scene from `src`, or from a JSON script inside it, and the options as attributes; the reader's
+moves come as events ([the element](docs/api.md#the-element-lk3d-figure)).
+
+```html
+<script src="https://unpkg.com/lk3d@0.1.0/dist/lk3d.min.js"></script>
+<lk3d-figure src="generator.json" look="pen" locale="vi"></lk3d-figure>
+```
+
 To build it yourself, or to work on it: `git clone https://github.com/xoai/lk3d.git`, then `npm install && npm run build`
 (`dist/lk3d.min.js`).
 
@@ -125,7 +134,7 @@ To build it yourself, or to work on it: `git clone https://github.com/xoai/lk3d.
   [Looks and materials](docs/looks-and-materials.md) · [Models](docs/models.md) · [How it works](docs/design.md) ·
   [Performance](docs/performance.md).
 - [Examples](examples/): a generator, a lens bench, a cell, molecules, the Solar System, rock layers, a gauge, a fossil
-  skull, the three looks, a circuit, air through a fan. `npm run examples` serves them.
+  skull, the three looks, a circuit, air through a fan, and a figure on a page that writes no script. `npm run examples` serves them.
 - Reading a figure: drag to turn it, Shift-drag or right-drag to pan, pinch to zoom; the wheel zooms only with Ctrl
   held or once the figure has been clicked, and a finger moved up or down scrolls the page until the figure has been
   touched, so it never takes over the page's scrolling. On the keyboard, the arrow keys turn it, `+` and `-` zoom,

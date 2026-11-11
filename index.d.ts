@@ -406,3 +406,25 @@ declare const LK3D: {
   toGLB?: (scene: unknown, o?: object) => Uint8Array;
 };
 export default LK3D;
+
+/** <lk3d-figure>: a figure as an HTML element (src="scene.json", or a JSON script inside; attributes look, theme,
+ * labels, step, locale, controls="false", steps="false", info="false", transparent), defined when lk3d loads */
+export interface Lk3dFigureElement extends HTMLElement {
+  /** the figure's API, once mounted (a new one each time the element mounts it again) */
+  readonly figure: Figure | null;
+  /** resolves with the first figure, once complete */
+  readonly ready: Promise<Figure>;
+}
+/** what the element's events carry (they bubble) */
+export interface Lk3dFigureEvents {
+  'lk3d-pick': CustomEvent<{ id: string | null }>;
+  'lk3d-handle': CustomEvent<{ id: string; value: number }>;
+  'lk3d-step': CustomEvent<{ index: number; step: Step }>;
+  'lk3d-section': CustomEvent<{ normal: Vec3; offset: number }>;
+  'lk3d-error': CustomEvent<{ message: string }>;
+}
+declare global {
+  interface HTMLElementTagNameMap {
+    'lk3d-figure': Lk3dFigureElement;
+  }
+}

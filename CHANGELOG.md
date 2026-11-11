@@ -13,6 +13,11 @@ format or the API, and says how to move.
   out goes back to the figure's start, so a step is the same picture however the reader came to it. The validator
   checks what steps name; `lk3d render` draws each step (`--poses steps`). New words in every locale: `steps`, `back`,
   `next`, `stepOf`.
+- **`<lk3d-figure>`**: a figure as an HTML element, for a page that writes no script (Markdown, a content system): the
+  scene from `src` or a JSON script inside, options as attributes (`look`, `theme`, `labels`, `step` change it live;
+  `locale`, `controls`, `steps`, `info`, `transparent` mount it again), a line for the part's name and note under it,
+  and the reader's moves as events (`lk3d-pick`, `lk3d-handle`, `lk3d-step`, `lk3d-section`, `lk3d-error`);
+  `element.figure` and `element.ready` for a script.
 - **The reader moves the cut**: with the model cut open, dragging the cut face moves the plane along its normal (up
   and down where it is seen face on), held within the parts it cuts, and a slider beside **Cut open** does the same
   by keys and screen readers. `section.fixed: true` keeps it where the scene puts it; `opts.onSection` hears the

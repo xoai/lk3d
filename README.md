@@ -46,6 +46,10 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
   path (a planet on its orbit), each also a range input for the keyboard and screen readers. Rays, field lines and
   forces as lines; streaks of air or blood flowing along paths, coloured cool to hot, as many and as fast as a page
   value says ([flow](docs/handles-and-lines.md#flow)); particles along paths; solid balls a simulation places.
+- **Guided steps**: the figure explained in order, each step a few words and a state of the figure (where the camera
+  looks, taken apart, cut open, which labels, a part chosen, a motion playing), gone through with Back and Next under
+  the figure, said aloud as the reader comes to each, or driven by the page as its own text scrolls
+  ([steps](docs/api.md#guided-steps)).
 - **Mechanisms that move as they are joined**: a crank turns and its piston, rod and cam follow exactly, from joints
   rather than keys for each part ([joints](docs/handles-and-lines.md#joints-parts-posed-by-how-they-are-joined)).
 - **Out to glTF**: the figure as a .glb for Blender, a game engine or a viewer, posed as shown (`fig.exportGLB()`,

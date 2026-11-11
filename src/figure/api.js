@@ -252,12 +252,18 @@ export function makeApi(c) {
         }
       );
     },
+    // the scene's guided steps: go to one by its place (from 0) or id ({ ms: 0 }: at once), and which is shown (-1:
+    // none). The figure starts at the first (or mount's opts.step); moving through them does not call onStep
+    steps: c.spec_.steps || [],
+    step: (which, options) => c.goToStep_(which, options),
+    get currentStep() {
+      return c.stepAt_;
+    },
     // frame some parts (ids or groups): the camera looks at their middle, from far enough to see them all
     focus(ids, options = {}) {
       const parts = c.built_.parts.filter((part) => ids.includes(part.id) || ids.includes(part.group));
       if (!parts.length) return;
-      const box = c.boxOf_(parts);
-      c.view_({ ...options, target: box.center, dist: box.radius * 2.6 }, options);
+      c.view_({ ...options, ...c.frame_(parts) }, options);
     },
     get refreshMs() {
       return c.refreshMs_;

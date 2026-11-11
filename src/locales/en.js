@@ -29,5 +29,9 @@ export default {
   side: 'Side',
   top: 'Top',
   home: 'Reset',
+  steps: 'Steps',
+  back: 'Back',
+  next: 'Next',
+  stepOf: 'Step {n} of {count}',
   decimal: '.',
 };

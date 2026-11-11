@@ -284,6 +284,7 @@ function links(scene, out) {
     if (joint && typeof joint === 'object' && !visit.has(joint.id) && loop(joint))
       out.push({ path: `joints[${i}]`, message: `${say(joint.id)} reads itself through other joints (a loop)` });
   });
+  steps(scene, out, names, parts);
   // motions: one id each; tracks that move parts that exist, with keys in order and within the range
   const seenMotions = new Set();
   (Array.isArray(scene.motions) ? scene.motions : []).forEach((motion, i) => {
@@ -312,6 +313,55 @@ function links(scene, out) {
             message: `keys go in order of their values, within the range [${start}, ${end}]`,
           });
     });
+  });
+}
+
+// guided steps: one id each; what they name exists (parts and groups, motions within their range; a part labelled has
+// a label); a cut only where
+// the scene offers one; a part chosen or labelled that the same step does not hide; home, the figure's first view, not
+// given parts to frame as well (it has its own target)
+function steps(scene, out, names, parts) {
+  const motions = new Map(
+      (Array.isArray(scene.motions) ? scene.motions : [])
+        .filter((motion) => motion)
+        .map((motion) => [motion.id, motion]),
+    ),
+    seen = new Set(),
+    list = (value) => (Array.isArray(value) ? value : []);
+  (Array.isArray(scene.steps) ? scene.steps : []).forEach((step, i) => {
+    if (!step || typeof step !== 'object') return;
+    const bad = (field, message) => out.push({ path: `steps[${i}].${field}`, message });
+    if (step.id != null) {
+      if (seen.has(step.id)) bad('id', `${say(step.id)} is used by two steps`);
+      seen.add(step.id);
+    }
+    const hidden = list(step.hide),
+      hides = (name) => {
+        const part = parts.find((each) => each.id === name);
+        return hidden.includes(name) || (part && hidden.includes(part.group));
+      };
+    for (const field of ['focus', 'hide', 'labels'])
+      for (const name of list(step[field]))
+        if (!names.has(name)) bad(field, `names ${say(name)}, which is no part or group`);
+        else if (field !== 'hide' && hides(name)) bad(field, `names ${say(name)}, which this step hides`);
+        else if (field === 'labels' && parts.some((part) => part.id === name && (part.label === false || !part.name)))
+          bad(field, `names ${say(name)}, which has no label (no name, or label: false)`);
+    if (step.select != null && typeof step.select === 'string') {
+      if (!parts.some((part) => part.id === step.select)) bad('select', `${say(step.select)} is no part`);
+      else if (hides(step.select)) bad('select', `${say(step.select)} is hidden by this step`);
+    }
+    if (step.view === 'home' && list(step.focus).length)
+      bad('focus', 'frames parts, but the view is home (the first view, with its own target): give angles instead');
+    if (step.cut && scene.section === false) bad('cut', 'cuts, but the scene offers no cut (section: false)');
+    const valued = step.motion && typeof step.motion === 'object' ? step.motion : {};
+    for (const [id, value] of Object.entries(valued)) {
+      const motion = motions.get(id),
+        [start, end] = (motion && Array.isArray(motion.range) && motion.range) || [];
+      if (!motion) bad(`motion.${id}`, `${say(id)} is no motion`);
+      else if (!motion.loop && typeof value === 'number' && (value < start || value > end))
+        bad(`motion.${id}`, `${value} is outside its range [${start}, ${end}]`);
+    }
+    for (const id of list(step.play)) if (!motions.has(id)) bad('play', `${say(id)} is no motion`);
   });
 }
 

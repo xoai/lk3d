@@ -32,6 +32,7 @@ import { makeIdle } from './figure/idle.js';
 import { makeInput } from './figure/input.js';
 import { makeAdditions } from './figure/additions.js';
 import { makeApi } from './figure/api.js';
+import { makeSteps } from './figure/steps.js';
 import { M, D2R } from './math.js';
 import { buildFitting } from './geometry.js';
 import { guard } from './guard.js';
@@ -47,7 +48,7 @@ let warned = false;
 // and timers are made in): the WebGL context · where parts are (pose) · liquids and gases · the camera · the elements ·
 // the renderer (WebGL 2 or 1, else Canvas 2D) · the frame loop · the look · labels · picking and the idle work (trees,
 // crease shading, edges) · the pointer, keys and handles · what a page adds · the API · the built-in controls
-// (controls.js) · handles as range inputs · watching size, visibility and the screen's density.
+// (controls.js) · handles as range inputs · guided steps · watching size, visibility and the screen's density.
 /**
  * @param {HTMLElement & { lk3d?: any }} el
  * @param {import('../scene').Scene} spec
@@ -165,6 +166,9 @@ function mount(el, spec, opts = {}) {
     );
   }
   makeHandleInputs();
+  // ---- guided steps (the scene's steps): their panel under the stage, and the first one (opts.step) set at once
+  makeSteps(c, buttonClass);
+  c.goToStep_(opts.step ?? 0, { ms: 0 });
   startWatching();
   c.showInfo_();
   stats.setupMs = performance.now() - mountedAt;

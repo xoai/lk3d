@@ -3,10 +3,10 @@
 // a scene, runs after each step).
 //   lk3d check scene.json [--json]
 //       the format (lk3d/validate) and the geometry (lk3d/lint), with the scene's size: exit code 1 on any problem
-//   lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut] [--theme NAME] [--ortho] [--width 640]
-//                          [--out DIR]
-//       PNG pictures, one per look and pose, drawn by the real engine in a headless browser (Playwright); without
-//       Playwright it says so: the scene is then not checked by eye
+//   lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut,steps] [--theme NAME] [--ortho]
+//                          [--width 640] [--out DIR]
+//       PNG pictures, one per look and pose (steps: one per guided step, when the scene has them), drawn by the real
+//       engine in a headless browser (Playwright); without Playwright it says so: the scene is then not checked by eye
 //   lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
 //       the scene as glTF 2.0 binary (Blender, game engines, viewers): parts as named nodes with their materials, posed
 //       at the motions' starts (or --motion), each motion an animation with --animate
@@ -39,10 +39,10 @@ const fail = (message, code = 2) => {
   process.exitCode = code;
 };
 const LOOKS = ['pen', 'studio', 'ink'],
-  POSES = ['rest', 'apart', 'cut'];
+  POSES = ['rest', 'apart', 'cut', 'steps'];
 const USAGE = `usage: lk3d check scene.json [--json]
        lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
-       lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut] [--theme NAME] [--ortho] [--width 640] [--out DIR]`;
+       lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut,steps] [--theme NAME] [--ortho] [--width 640] [--out DIR]`;
 
 function load(scenePath) {
   const scene = JSON.parse(fs.readFileSync(scenePath, 'utf8'));
@@ -116,11 +116,14 @@ const PAGE = `<!doctype html><meta charset="utf-8"><title>lk3d render</title>
 const query = new URLSearchParams(location.search), scene = await (await fetch('/scene.json')).json(), errors = [];
 window.addEventListener('error', (e) => errors.push(String(e.message)));
 if (query.get('ortho')) scene.view = { ...scene.view, projection: 'ortho' };
+const pose = query.get('pose');
 const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, adaptive: false, locale: 'en',
-  style: query.get('look'), theme: query.get('theme') || undefined, labels: query.get('pose') === 'apart' ? 'auto' : 'none' });
+  style: query.get('look'), theme: query.get('theme') || undefined,
+  labels: pose === 'apart' ? 'auto' : pose === 'step' ? undefined : 'none',
+  step: pose === 'step' ? Number(query.get('step')) : -1 }); // (at rest, apart and cut: before the first step)
 await Promise.race([fig.ready, new Promise((resolve) => setTimeout(resolve, 30000))]);
-if (query.get('pose') === 'apart') fig.set({ explode: 1 });
-if (query.get('pose') === 'cut') fig.set({ cut: true });
+if (pose === 'apart') fig.set({ explode: 1 });
+if (pose === 'cut') fig.set({ cut: true });
 for (let k = 0; k < 3; k++) await new Promise((resolve) => requestAnimationFrame(resolve));
 window.__ready = { errors, renderer: fig.renderer };
 </script>`;
@@ -168,12 +171,14 @@ async function render(scenePath) {
   }
   const width = Number(flag('width', 640)),
     looks = String(flag('looks', 'pen,ink')).split(','),
-    poses = String(flag('poses', 'rest,apart,cut')).split(','),
+    stepCount = Array.isArray(data.steps) ? data.steps.length : 0,
+    poses = String(flag('poses', stepCount ? 'rest,apart,cut,steps' : 'rest,apart,cut')).split(','),
     unknown = [...looks.filter((look) => !LOOKS.includes(look)), ...poses.filter((pose) => !POSES.includes(pose))];
   if (!(width >= 64 && width <= 4096))
     return fail(`--width is a number of pixels from 64 to 4096, not ${flag('width')}`);
   if (unknown.length)
     return fail(`no look or pose ${unknown.join(', ')} (looks: ${LOOKS.join(', ')}; poses: ${POSES.join(', ')})`);
+  if (poses.includes('steps') && !stepCount) return fail('--poses steps: the scene has no steps');
   const scene = JSON.stringify(data),
     engine = await engineScript(),
     page = PAGE.replace('WIDTH', String(width));
@@ -213,10 +218,16 @@ async function render(scenePath) {
   try {
     const tab = await browser.newPage({ deviceScaleFactor: 2 });
     for (const look of looks)
-      for (const pose of poses) {
-        await tab.goto(`${base}?look=${look}&pose=${pose}${theme ? '&theme=' + theme : ''}${ortho ? '&ortho=1' : ''}`);
+      for (const [pose, query, picture] of poses.flatMap((pose) =>
+        pose === 'steps'
+          ? Array.from({ length: stepCount }, (_, index) => ['step', `&step=${index}`, `step${index + 1}`])
+          : [[pose, '', pose]],
+      )) {
+        await tab.goto(
+          `${base}?look=${look}&pose=${pose}${query}${theme ? '&theme=' + theme : ''}${ortho ? '&ortho=1' : ''}`,
+        );
         const result = await (await tab.waitForFunction(() => window.__ready, null, { timeout: 60000 })).jsonValue();
-        const png = path.join(out, `${name}-${look}-${pose}.png`);
+        const png = path.join(out, `${name}-${look}-${picture}.png`);
         await tab.locator('.lk3d-stage').screenshot({ path: png });
         console.log(png + (result.errors.length ? '  errors: ' + result.errors.join('; ') : ''));
         errorCount += result.errors.length;

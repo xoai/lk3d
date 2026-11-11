@@ -19,6 +19,7 @@ import LK3D, {
   type Vessel,
   type Liquid,
   type Gas,
+  type Step,
 } from 'lk3d';
 import { validate } from 'lk3d/validate';
 import LK3DX, { sceneToGLB } from 'lk3d/export';
@@ -182,3 +183,18 @@ const bad10: Motion = { id: 'm', range: [0, 1], tracks: [{ parts: ['a'] }] };
 // @ts-expect-error scale is a bar and/or a note
 const bad11: Scene = { parts: [], scale: {} };
 void [bad7, bad8, bad9, bad10, bad11];
+// guided steps: a scene's own, gone through by the page; the reader's moves reported
+const toured = mount(
+  document.body,
+  {
+    ...scene,
+    steps: [
+      { title: 'The whole', view: 'home' },
+      { text: 'Inside.', cut: true, focus: ['lens'], labels: ['lens'], view: { yaw: 30, zoom: 2 } },
+    ],
+  },
+  { steps: false, step: 'inside', onStep: (index: number, step: Step) => console.log(index, step.title) },
+);
+toured.step(1, { ms: 0 });
+const at: number = toured.currentStep;
+const titles: (string | undefined)[] = toured.steps.map((step) => step.title);

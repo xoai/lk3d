@@ -2,7 +2,7 @@
 // (Scene, Part, Shape, Handle, Motion, Joint, …) are generated from schema/scene.schema.json into scene.d.ts and
 // re-exported from here.
 
-import type { Scene, Look, SceneTheme, Vec3, Color, JointFields } from './scene.js';
+import type { Scene, Look, SceneTheme, Vec3, Color, JointFields, Step } from './scene.js';
 export * from './scene.js';
 
 /** the themes lk3d has by name (a scene may also say 'auto') */
@@ -68,6 +68,11 @@ export interface Strings {
   home: string;
   play: string;
   pause: string;
+  /** the guided steps' panel, its buttons, and where the reader is ("{n}" and "{count}" are filled in) */
+  steps: string;
+  back: string;
+  next: string;
+  stepOf: string;
   /** the decimal mark in numbers read out (handles) */
   decimal: string;
 }
@@ -76,8 +81,15 @@ export interface MountOptions {
   /** an element for the name and note of the part pointed at, and what it says when none is */
   info?: HTMLElement;
   infoIdle?: string;
-  /** false: no built-in buttons */
+  /** false: no built-in buttons (nor the steps' panel, unless `steps` says otherwise) */
   controls?: boolean;
+  /** false: no panel for the scene's steps under the figure (the page goes through them with fig.step) */
+  steps?: boolean;
+  /** the step the figure starts at, by its place (from 0) or id (the first); -1: before the first, the figure at its
+   * own start (Next goes to the first) */
+  step?: number | string;
+  /** the reader went to another step with the panel's Back or Next (not the page's own fig.step) */
+  onStep?: (index: number, step: Step) => void;
   style?: Look;
   theme?: string;
   labels?: Labels;
@@ -297,6 +309,12 @@ export interface Figure {
   readonly zoomLevel: number;
   explode(v: number): void;
   focus(ids: string[], o?: { yaw?: number; pitch?: number; ms?: number }): void;
+  /** the scene's guided steps */
+  readonly steps: Step[];
+  /** go to a step by its place (from 0) or id: its state glided to (ms: 0, at once); onStep is not called */
+  step(which: number | string, o?: { ms?: number }): void;
+  /** the step shown, from 0 (-1: the scene has none) */
+  readonly currentStep: number;
   camera(): { yaw: number; pitch: number; dist: number; target: Vec3 };
   readonly selected: string | null;
   /** choose a part (or null) without calling onPick */

@@ -50,6 +50,10 @@ function css() {
 .lk3d-range{display:flex; gap:8px; align-items:center; font-size:15.5px}
 .lk3d-range input{width:120px; accent-color:var(--lk3d-ink, #1d1a1e)}
 .lk3d-views{display:inline-flex; gap:6px; flex-wrap:wrap}
+.lk3d-steps{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:flex-start; margin-top:10px; padding:2px 0 2px 12px; border-left:3px solid var(--lk3d-accent, #2f5fb3)}
+.lk3d-step{flex:1 1 18em; min-width:0; font-size:15.5px; line-height:1.45}
+.lk3d-step-count{color:var(--lk3d-muted, #6b6670); font-size:13px; white-space:nowrap}
+.lk3d-step-nav{display:inline-flex; gap:6px} .lk3d-step-nav [aria-disabled=true]{opacity:.45; cursor:default}
 @media (max-width:520px){.lk3d-tag{font-size:12px; line-height:17px; padding:0 5px} .lk3d-scale{font-size:11.5px; top:6px; bottom:auto; right:6px}}`;
   document.head.append(style);
 }

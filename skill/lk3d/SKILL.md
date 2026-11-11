@@ -97,7 +97,17 @@ every number in scene units with one scale for the whole object, and say what is
 - A `theme` (`light`, `dark`, `blueprint`, `sepia`) only if the page around it asks for one.
 - The object fills about 55–65% of the stage, with air around it.
 
-## 6. Look like a critic, then hand over
+## 6. Steps, when the figure explains something in order
+
+When the figure is to explain (how a machine works, what happens in turn), give it `steps`: three to six, each a
+`title` of a few words and a sentence or two of `text` saying what to look at and why, with the state that shows it
+(`view` or `focus`, `explode`, `cut`, `xray`, `labels`, `select`, `motion`, `play`). Start from the whole object and
+end where the idea is. A step says everything it needs: what it leaves out goes back to the start (put together, not
+cut, nothing hidden), so write each as if the reader came straight to it. Label only what the step's words name.
+`check` catches steps that name what does not exist or hide what they label; `render` draws each step
+(`name-look-step1.png`, …): look at each as the reader will, with its words beside it.
+
+## 7. Look like a critic, then hand over
 
 Render rest, apart and cut in at least two looks, and at a narrow width (`--width 390`). For each picture ask:
 does it read at a glance? Is every part where it should be, resting on something? Does anything pass through

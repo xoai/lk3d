@@ -1,8 +1,9 @@
 // @ts-check
 // The camera: where it stands and looks (fitted to the stage), the views and their glides, zooming towards a point,
 // the cut's plane, boxes round parts, and the ray through a point of the stage. Owns viewProj_, eye_, frustum_,
-// baseDist_, explodeShift_, camera_, project_, cutPlane_, boxOf_, shownBox_, rayAt_, zoom_, view_ and cancelView_;
-// reads state_, spec_, built_, width_, height_ and animations_, and calls offsetOf_, pickHit_, markDirty_ and kick_.
+// baseDist_, explodeShift_, camera_, project_, cutPlane_, boxOf_, frame_, shownBox_, rayAt_, zoom_, view_,
+// viewAngles_ and cancelView_;
+// reads state_, spec_, built_, width_, height_ and animations_, and calls offsetOf_, pickHit_, measure_, markDirty_ and kick_.
 import { D2R, M, sub, add, mulv, len, norm, cross, dot } from '../math.js';
 import { clock } from '../clock.js';
 import LK3D from '../namespace.js';
@@ -48,11 +49,9 @@ export function makeCamera(c) {
             );
     return out;
   }
-  function fitNow() {
-    const width = c.width_,
-      height = c.height_,
-      ortho = c.state_.projection === 'ortho',
-      key = width / height + (ortho ? 'o' : 'p');
+  function fitNow(aspect = c.width_ / c.height_) {
+    const ortho = c.state_.projection === 'ortho',
+      key = aspect + (ortho ? 'o' : 'p');
     if (key === fitFor) return fit;
     fitFor = key;
     const cosPitch = Math.cos(home.pitch),
@@ -66,12 +65,29 @@ export function makeCamera(c) {
       need = Math.max(
         need,
         (ortho ? 0 : dot(fromTarget, back)) +
-          Math.max(Math.abs(dot(fromTarget, up)), Math.abs(dot(fromTarget, right)) / (width / height)) / tanHalfFov,
+          Math.max(Math.abs(dot(fromTarget, up)), Math.abs(dot(fromTarget, right)) / aspect) / tanHalfFov,
       );
     }
     // (and, as before, on a stage squarer than the scene's own proportions (a phone), back far enough for its width)
-    return (fit = Math.max(1, (c.spec_.w || 16) / (c.spec_.h || 10) / (width / height), need / home.dist));
+    return (fit = Math.max(1, (c.spec_.w || 16) / (c.spec_.h || 10) / aspect, need / home.dist));
   }
+  // where the camera looks and from how far (as the state holds them: before the fit to the stage, the step back and
+  // the shift when taken apart) to frame some parts as they are once taken apart by `explode`: the sphere round them
+  // inside the frame, however narrow it is
+  c.frame_ = (parts, explode = c.state_.explode) => {
+    if (c.width_ <= 1) c.measure_(); // (not laid out yet: a figure just mounted)
+    const now = c.state_.explode;
+    c.state_.explode = explode;
+    const box = c.boxOf_(parts);
+    c.state_.explode = now;
+    const aspect = c.width_ > 1 && c.height_ > 1 ? c.width_ / c.height_ : (c.spec_.w || 16) / (c.spec_.h || 10),
+      tanHalf = (Math.tan(((c.spec_.view?.fov ?? 35) * D2R) / 2) * Math.min(1, aspect)) / 1.08, // (with a margin)
+      distance = c.state_.projection === 'ortho' ? box.radius / tanHalf : box.radius / Math.sin(Math.atan(tanHalf));
+    return {
+      target: sub(box.center, mulv(c.spec_.view?.explodeShift || [0, 0, 0], explode)),
+      dist: distance / fitNow(aspect) / (1 + (c.spec_.view?.explodeZoom ?? 0.5) * explode),
+    };
+  };
   c.camera_ = () => {
     const width = c.width_,
       height = c.height_,
@@ -235,6 +251,8 @@ export function makeCamera(c) {
     c.animations_.add(tween);
     c.kick_();
   };
+  // a named view's angles (degrees), else where the camera looks now
+  c.viewAngles_ = (name) => VIEWS[name] || [c.state_.yaw / D2R, c.state_.pitch / D2R];
   c.cancelView_ = () => {
     if (viewTween) c.animations_.delete(viewTween);
     viewTween = null;

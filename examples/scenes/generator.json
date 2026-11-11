@@ -427,5 +427,55 @@
         }
       ]
     }
+  ],
+  "steps": [
+    {
+      "id": "whole",
+      "title": "An AC generator",
+      "text": "Turn the rotor inside the coils, and a current flows that lights the lamp.",
+      "view": "home"
+    },
+    {
+      "id": "stator",
+      "title": "The stator",
+      "text": "Through the casing: an iron core, wound with coils of copper wire. It stays still.",
+      "xray": true,
+      "labels": ["loi-stato", "cuon-day"],
+      "view": {
+        "yaw": -60,
+        "pitch": 22
+      }
+    },
+    {
+      "id": "rotor",
+      "title": "The rotor",
+      "text": "Cut open: the magnets on the shaft turn inside the stator, a <b>north</b> pole and a <b>south</b> pole passing each coil in turn.",
+      "cut": true,
+      "labels": ["nam-cham-n", "nam-cham-s", "truc"],
+      "view": {
+        "yaw": -20,
+        "pitch": 16
+      }
+    },
+    {
+      "id": "apart",
+      "title": "Its parts",
+      "text": "Taken apart: the casing and its covers, the stator, the rotor on its shaft, and the circuit to the lamp.",
+      "explode": 1,
+      "labels": "all",
+      "view": "home"
+    },
+    {
+      "id": "circuit",
+      "title": "The circuit",
+      "text": "The coils' ends run through the terminal box to the lamp. Each half-turn of the rotor turns the current round: it alternates.",
+      "focus": ["mach", "hop-dau-day"],
+      "labels": ["hop-dau-day", "bong-den"],
+      "select": "day-toc",
+      "view": {
+        "yaw": -30,
+        "pitch": 24
+      }
+    }
   ]
 }

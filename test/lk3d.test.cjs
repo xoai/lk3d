@@ -1068,6 +1068,71 @@ test('the validator finds each planted mistake where it is, and passes a right s
     assert.ok(at(scene).includes(path), `${JSON.stringify(scene).slice(0, 90)} → ${JSON.stringify(validate(scene))}`);
 });
 
+test('guided steps: what each names exists and can be shown, one id each, a cut only where the scene has one', () => {
+  const { validate } = require('../src/validate.js');
+  const scene = (steps, o = {}) => ({
+    parts: [
+      { id: 'case', name: 'Case', group: 'shell', shapes: [{ box: [1, 1, 1] }] },
+      { id: 'core', name: 'Core', shapes: [{ sphere: 0.3 }] },
+      { id: 'pin', name: 'Pin', label: false, shapes: [{ sphere: 0.1 }], at: [0, 0.6, 0] },
+    ],
+    motions: [{ id: 'lift', range: [0, 1], tracks: [{ parts: ['core'], move: [[1, [0, 1, 0]]] }] }],
+    steps,
+    ...o,
+  });
+  const good = scene([
+    { id: 'whole', title: 'The whole', text: 'The <b>case</b> and what it holds.', view: 'home' },
+    {
+      id: 'inside',
+      text: 'Inside.',
+      view: { yaw: 30, pitch: 10, zoom: 2 },
+      focus: ['core'],
+      explode: 1,
+      cut: 0.5,
+      section: { normal: [1, 0, 0], offset: 0 },
+      xray: true,
+      labels: ['core'],
+      hide: ['shell'],
+      select: 'core',
+      motion: { lift: 0.5 },
+      play: ['lift'],
+    },
+    { title: 'All', labels: 'all', view: 'iso' },
+  ]);
+  assert.deepEqual(validate(good), []);
+  const at = (steps, o) => validate(scene(steps, o)).map((e) => e.path),
+    cases = [
+      [[], 'steps'], // none: leave steps out instead
+      [[{ view: 'top' }], 'steps[0]'], // no words
+      [[{ title: '' }], 'steps[0].title'],
+      [[{ title: 'a', zoom: 2 }], 'steps[0].zoom'], // a field steps do not have (zoom goes in view)
+      [[{ title: 'a', view: 'back' }], 'steps[0].view'],
+      [[{ title: 'a', view: { zoom: 0 } }], 'steps[0].view.zoom'],
+      [[{ title: 'a', explode: 2 }], 'steps[0].explode'],
+      [[{ title: 'a', cut: 1.5 }], 'steps[0].cut'],
+      [[{ title: 'a', labels: 'some' }], 'steps[0].labels'],
+      [[{ title: 'a' }, { id: 'x', title: 'b' }, { id: 'x', title: 'c' }], 'steps[2].id'], // one id, two steps
+      [[{ title: 'a', focus: ['lid'] }], 'steps[0].focus'], // no such part or group
+      [[{ title: 'a', hide: ['lid'] }], 'steps[0].hide'],
+      [[{ title: 'a', labels: ['lid'] }], 'steps[0].labels'],
+      [[{ title: 'a', labels: ['pin'] }], 'steps[0].labels'], // a part without a label
+      [[{ title: 'a', select: 'shell' }], 'steps[0].select'], // a group, not a part
+      [[{ title: 'a', select: 'case', hide: ['shell'] }], 'steps[0].select'], // chosen, and hidden by its group
+      [[{ title: 'a', labels: ['core'], hide: ['core'] }], 'steps[0].labels'], // labelled, and hidden
+      [[{ title: 'a', focus: ['core'], view: 'home' }], 'steps[0].focus'], // home has its own target
+      [[{ title: 'a', motion: { spin: 1 } }], 'steps[0].motion.spin'], // no such motion
+      [[{ title: 'a', motion: { lift: 2 } }], 'steps[0].motion.lift'], // outside its range
+      [[{ title: 'a', play: ['spin'] }], 'steps[0].play'],
+    ];
+  for (const [steps, path] of cases)
+    assert.ok(at(steps).includes(path), `${JSON.stringify(steps).slice(0, 90)} → ${JSON.stringify(at(steps))}`);
+  assert.ok(at([{ title: 'a', cut: true }], { section: false }).includes('steps[0].cut')); // no cut offered
+  // the scene's TypeScript types know steps (scene.d.ts, generated from the schema)
+  const fs = require('node:fs'),
+    path = require('node:path');
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'scene.d.ts'), 'utf8'), /steps\?: Step\[\];/);
+});
+
 test('a scene too big to draw is refused in plain words, by the validator and before anything is built', () => {
   const { validate } = require('../src/validate.js');
   const part = (o = {}) => ({ id: 'a', shapes: [{ sphere: 1 }], ...o }),

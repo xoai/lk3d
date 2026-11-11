@@ -3,6 +3,19 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
+## Unreleased
+
+- **Guided steps** (`steps` in the scene): the figure explained in order, each step its words (`title`, `text`) and a
+  state of the figure: `view` or `focus`, `explode`, `cut` and `section`, `xray`, `labels`, `hide`, `select`, the
+  motions' values (`motion`) and which `play`. A panel under the figure shows the step's words, said aloud, with Back
+  and Next; a page goes through them with `fig.step(index or id)` (`currentStep`, `steps`), starts at one with
+  `opts.step`, hears the reader's moves with `opts.onStep`, or leaves the panel out (`steps: false`). What a step leaves
+  out goes back to the figure's start, so a step is the same picture however the reader came to it. The validator
+  checks what steps name; `lk3d render` draws each step (`--poses steps`). New words in every locale: `steps`, `back`,
+  `next`, `stepOf`.
+- `fig.focus()` frames the parts whole: from far enough for the camera's field of view and the stage's shape, and as
+  they are taken apart (it stood too close for a tall or wide group, cutting it off).
+
 ## 0.1.0 (8 November 2026)
 
 The first release as its own package, after it grew as the 3D engine of lessonkit.

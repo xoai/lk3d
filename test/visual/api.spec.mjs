@@ -1034,3 +1034,184 @@ test('turning the camera works nothing out again: no part placed again, nothing 
   });
   expect(got).toEqual({ kept: true, sent: 0, strung: 0, moved: [false, true, false, true], gas: [true, 0, 0] });
 });
+
+// guided steps: a scene with three, the third framing a small part
+const STEPS = () => {
+  window.stepsScene = () => ({
+    ...window.scene,
+    parts: [
+      ...window.scene.parts,
+      {
+        id: 'lid',
+        name: 'Lid',
+        group: 'top',
+        shapes: [{ box: [0.6, 0.1, 0.6] }],
+        at: [0.5, 0.3, 0.5],
+        explode: [0, 0.8, 0],
+      },
+    ],
+    motions: [{ id: 'lift', range: [0, 1], tracks: [{ parts: ['lid'], move: [[1, [0, 0.4, 0]]] }] }],
+    steps: [
+      { id: 'one', title: 'One', text: 'The <b>base</b> & <img src=x onerror="window.ran = 1">.' },
+      {
+        id: 'two',
+        title: 'Two',
+        explode: 1,
+        xray: true,
+        labels: ['knob'],
+        select: 'knob',
+        hide: ['top'],
+        cut: true,
+        motion: { lift: 1 },
+        view: 'top',
+      },
+      { id: 'three', text: 'Back together, framed on the knob.', focus: ['knob'], view: { yaw: 20, pitch: 15 } },
+    ],
+  });
+};
+
+test("guided steps: the first at mount; Back and Next said aloud; the page's step() quiet; what a step leaves out goes back to the start", async ({
+  page,
+}) => {
+  await page.evaluate(STEPS);
+  const r = await page.evaluate(async () => {
+    const calls = [],
+      el = document.getElementById('g'),
+      fig = LK3D.mount(el, window.stepsScene(), { adaptive: false, onStep: (i, step) => calls.push([i, step.id]) });
+    await fig.ready;
+    const words = el.querySelector('.lk3d-step'),
+      [back, next] = el.querySelectorAll('.lk3d-step-nav button'),
+      cutButton = [...el.querySelectorAll('.lk3d-bar button')].find((b) => b.textContent === 'Cut open'),
+      lid = fig.parts.find((p) => p.id === 'lid'),
+      look = () => ({
+        step: fig.currentStep,
+        explode: fig._state.explode,
+        cut: fig._state.cut,
+        xray: fig._state.xray,
+        labels: fig.labels,
+        selected: fig.selected,
+        lidHidden: lid.hidden,
+        lift: fig.motion('lift').value,
+        pitch: Math.round(fig.camera().pitch),
+        words: words.textContent,
+        cutPressed: cutButton.getAttribute('aria-pressed'),
+        back: back.getAttribute('aria-disabled'),
+        next: next.getAttribute('aria-disabled'),
+      });
+    const out = {
+      start: look(),
+      html: words.innerHTML,
+      img: !!words.querySelector('img'),
+      live: words.getAttribute('aria-live'),
+      count: fig.steps.length,
+      callsAtMount: calls.length,
+    };
+    next.click();
+    await until(() => fig._state.explode === 1 && fig._state.cut === true && Math.round(fig.camera().pitch) === 83);
+    out.two = look();
+    out.callsAfterNext = calls.slice();
+    fig.step('three');
+    await until(() => fig._state.explode === 0 && fig._state.cut === false);
+    out.three = look();
+    next.click(); // (at the last step: nothing)
+    out.pastEnd = [fig.currentStep, calls.length];
+    back.click();
+    out.callsAfterBack = calls.slice();
+    out.ran = !!window.ran;
+    return out;
+  });
+  expect(r.count).toBe(3);
+  expect(r.callsAtMount).toBe(0);
+  expect(r.start).toMatchObject({ step: 0, explode: 0, cut: false, xray: false, labels: 'auto', selected: null });
+  expect(r.start).toMatchObject({ lidHidden: false, lift: 0, back: 'true', next: 'false', cutPressed: 'false' });
+  expect(r.start.words).toContain('Step 1 of 3');
+  expect(r.html).toContain('<b>One</b>');
+  expect(r.html).toContain('<b>base</b>');
+  expect(r.img).toBe(false); // (a step's words keep only simple formatting)
+  expect(r.ran).toBe(false);
+  expect(r.live).toBe('polite');
+  expect(r.callsAfterNext).toEqual([[1, 'two']]);
+  expect(r.two).toMatchObject({ step: 1, explode: 1, cut: true, xray: true, labels: ['knob'], selected: 'knob' });
+  expect(r.two).toMatchObject({ lidHidden: true, lift: 1, pitch: 83, back: 'false', cutPressed: 'true' });
+  expect(r.two.words).toContain('Step 2 of 3');
+  // (by the page: onStep not called; everything the third step leaves out back at the figure's start)
+  expect(r.three).toMatchObject({ step: 2, explode: 0, cut: false, xray: false, labels: 'auto', selected: null });
+  expect(r.three).toMatchObject({ lidHidden: false, lift: 0, pitch: 15, next: 'true', cutPressed: 'false' });
+  expect(r.pastEnd).toEqual([2, 1]);
+  expect(r.callsAfterBack).toEqual([
+    [1, 'two'],
+    [1, 'two'],
+  ]);
+});
+
+test('a step is the same picture however the reader came to it; a part focused is framed whole, and large', async ({
+  page,
+}) => {
+  await page.evaluate(STEPS);
+  const r = await page.evaluate(async () => {
+    const el = document.getElementById('g'),
+      hash = (fig) => {
+        fig.drawNow();
+        const cv = el.querySelector('canvas'),
+          gl = cv.getContext(fig.renderer === 'webgl2' ? 'webgl2' : 'webgl'),
+          px = new Uint8Array(cv.width * cv.height * 4);
+        gl.readPixels(0, 0, cv.width, cv.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        let h = 0;
+        for (let k = 0; k < px.length; k++) h = (h * 31 + px[k]) | 0;
+        return h;
+      };
+    let fig = LK3D.mount(el, window.stepsScene(), { adaptive: false });
+    await fig.ready;
+    fig.step(1, { ms: 0 });
+    fig.step('three', { ms: 0 });
+    const out = { via: hash(fig) };
+    fig = LK3D.mount(el, window.stepsScene(), { adaptive: false, step: 'three' });
+    out.atOnce = [fig.currentStep, fig._state.explode, Math.round(fig.camera().pitch)];
+    await fig.ready;
+    out.direct = hash(fig);
+    // the knob framed: each corner of its box on the stage, the box a good part of the stage's height
+    const knob = fig.parts.find((p) => p.id === 'knob'),
+      stage = el.querySelector('.lk3d-stage').getBoundingClientRect(),
+      corners = [0, 1, 2, 3, 4, 5, 6, 7].map((k) =>
+        fig.project([0, 1, 2].map((axis) => ((k >> axis) & 1 ? knob.max : knob.min)[axis])),
+      );
+    out.inside = corners.every(([x, y]) => x > 0 && x < stage.width && y > 0 && y < stage.height);
+    out.share = (Math.max(...corners.map((p) => p[1])) - Math.min(...corners.map((p) => p[1]))) / stage.height;
+    return out;
+  });
+  expect(r.atOnce).toEqual([2, 0, 15]);
+  expect(r.direct).toBe(r.via);
+  expect(r.inside).toBe(true);
+  expect(r.share).toBeGreaterThan(0.25);
+});
+
+test("the steps' panel: under the built-in controls, or on its own, or none; in the figure's words; none without steps", async ({
+  page,
+}) => {
+  await page.evaluate(STEPS);
+  const r = await page.evaluate(() => {
+    const el = document.getElementById('g'),
+      has = (o) => {
+        const fig = LK3D.mount(el, window.stepsScene(), o);
+        return [!!el.querySelector('.lk3d-steps'), !!el.querySelector('.lk3d-bar'), fig.currentStep];
+      };
+    const out = {
+      both: has({}),
+      noControls: has({ controls: false }),
+      noSteps: has({ steps: false }),
+      stepsOnly: has({ controls: false, steps: true }),
+    };
+    LK3D.mount(el, window.stepsScene(), { locale: 'vi' });
+    out.vi = [el.querySelector('.lk3d-step-count').textContent, el.querySelector('.lk3d-step-nav').textContent];
+    const plain = LK3D.mount(el, window.scene, {});
+    plain.step(0);
+    out.plain = [!!el.querySelector('.lk3d-steps'), plain.currentStep, plain.steps.length];
+    return out;
+  });
+  expect(r.both).toEqual([true, true, 0]);
+  expect(r.noControls).toEqual([false, false, 0]);
+  expect(r.noSteps).toEqual([false, true, 0]);
+  expect(r.stepsOnly).toEqual([true, false, 0]);
+  expect(r.vi).toEqual(['Bước 1/3', 'Bước trướcBước tiếp']);
+  expect(r.plain).toEqual([false, -1, 0]);
+});

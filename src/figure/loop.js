@@ -2,7 +2,7 @@
 // The frame loop: a frame drawn only when something changed (kick_) or moves, the canvas's size and resolution
 // (adaptive while frames come late), the screen's refresh, things moved on along paths by the clock (travel_), and
 // watching size, visibility and the screen's density. Owns width_ and height_ (the stage's size), kick_, markDirty_,
-// sizeCanvas_, drawNow_ and travel_ (and dpr_, resolution_ and refreshMs_ for stats); reads nearly everything else, to
+// measure_, sizeCanvas_, drawNow_ and travel_ (and dpr_, resolution_ and refreshMs_ for stats); reads nearly everything else, to
 // draw it, and empties labelWidths_ when the layout changes.
 import { sub, add, norm } from '../math.js';
 import { ramp } from '../flow.js';
@@ -60,6 +60,8 @@ export function makeLoop(c) {
     dirty = true;
     if (!frameRequest && visible && !c.destroyed_) frameRequest = requestAnimationFrame(frame);
   };
+  // the stage measured (and shaped) now: also for a step framing parts before the first measure comes
+  c.measure_ = resize;
   function resize() {
     const narrow = c.host_.clientWidth < 560,
       aspectRatio = narrow ? c.spec_.narrow || '1 / 0.9' : `${c.spec_.w || 16} / ${c.spec_.h || 10}`;

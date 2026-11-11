@@ -20,6 +20,9 @@ readers.
 | -------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `info`, `infoIdle`         |                          | an element that shows the name and note of the part pointed at (only `b i em strong sub sup br` kept as HTML; the rest as text); what it says when none is                                                                                                                |
 | `controls`                 | `true`                   | `false`: no built-in buttons (build your own with the figure's methods)                                                                                                                                                                                                   |
+| `steps`                    | `controls`               | `false`: no panel for the scene's [guided steps](#guided-steps) under the figure (the page goes through them with `step()`)                                                                                                                                               |
+| `step`                     | `0`                      | the step the figure starts at, by its place (from 0) or id; `-1`: before the first, the figure at its own start                                                                                                                                                           |
+| `onStep(index, step)`      |                          | the reader went to another step with the panel's Back or Next (not the page's own `step()`)                                                                                                                                                                               |
 | `style`                    | scene's, else `'pen'`    | the first look: `'pen'`, `'studio'` or `'ink'`                                                                                                                                                                                                                            |
 | `theme`                    | scene's, else none       | the colours: `'light'`, `'dark'`, `'blueprint'`, `'sepia'`, `'auto'`, or a name added to `LK3D.themes`                                                                                                                                                                    |
 | `labels`                   | `'auto'`                 | `'auto'` (on hover and when taken apart), `'all'`, `'none'`, or `[ids or groups]`: exactly those parts' labels                                                                                                                                                            |
@@ -64,6 +67,7 @@ try {
 | `view(name or [yaw, pitch] or {yaw, pitch, dist, zoom, target}, {ms})`                                                                   | glide the camera: `'front'`, `'side'`, `'top'`, `'iso'`, `'home'`; `zoom`: how close (2: twice as close as the whole model); `ms`: how long the glide takes (600; 0: at once)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `zoom(factor, x, y)`, `zoomLevel`                                                                                                        | zoom by a factor towards a point of the stage (what is under it stays under it), as the wheel and a pinch do; how close the view is (the scene's `view.minZoom`, 0.02 by default, is the limit: 50 times closer)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `focus([ids or groups], {yaw, pitch, ms})`                                                                                               | frame those parts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `step(index or id, {ms})`, `currentStep`, `steps`                                                                                        | go to one of the scene's [guided steps](#guided-steps), gliding there (`ms: 0`: at once), without calling `onStep`; the step shown (from 0; `-1` for none); the scene's steps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `explode(0 or 1)`                                                                                                                        | take apart or put together, animated                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `camera()`                                                                                                                               | `{yaw, pitch, dist, target}` (degrees, scene units)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `select(id or null)`, `selected`                                                                                                         | choose a part (lit, its note shown) without calling `onPick`; the part chosen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -88,6 +92,49 @@ try {
 
 The figure draws only when something changes and pauses while it is off screen. A page's own simulation is better on
 its own `requestAnimationFrame`, telling the figure the new state with `set` and `redraw`.
+
+## Guided steps
+
+A scene's `steps` ([format](scene-format.md)) explain the figure in order. Each has its words (a `title`, `text`, or
+both) and the state of the figure while it is shown: where the camera goes (`view`, `focus`), how far apart
+(`explode`), the cut (`cut`, `section`), see-through (`xray`), which `labels` show, parts hidden (`hide`), a part
+chosen (`select`), the motions' values (`motion`) and which play (`play`).
+
+```json
+"steps": [
+  { "id": "whole", "title": "An AC generator", "text": "Turn the rotor and a current lights the lamp.", "view": "home" },
+  { "id": "rotor", "title": "The rotor", "text": "Cut open: magnets turn inside the coils.", "cut": true,
+    "labels": ["magnet-n", "magnet-s"], "view": { "yaw": -20, "pitch": 16 } },
+  { "id": "circuit", "title": "The circuit", "text": "Each half-turn turns the current round.",
+    "focus": ["circuit"], "select": "filament" }
+]
+```
+
+The figure starts at the first step (or `opts.step`), and a panel under it shows the step's words with Back and Next;
+its words are said aloud as the reader comes to each. Going to a step sets everything it describes, and what it leaves
+out goes back to the figure's start: put together, not cut, see-through off, labels as `opts.labels` says, nothing
+hidden or chosen, every motion at its start and stopped. So a step is the same picture however the reader came to it,
+by Next, by Back or straight from the page. The camera is the exception: it moves only when the step gives a `view`
+or parts to `focus` on, so a step that only changes what is shown leaves the reader's view alone. `focus` frames the
+parts as they will be once the step has taken them apart, from the view's angles if it gives them. The explode, the
+cut and the camera glide there together (at once when the reader asked for reduced motion). In between, the reader
+explores as usual; the next step sets its own state again.
+
+A page can go through the steps itself instead, say as the reader scrolls through its own text, with the panel left
+out:
+
+```js
+const fig = LK3D.mount(el, scene, { steps: false });
+for (const section of document.querySelectorAll('[data-step]'))
+  new IntersectionObserver(([entry]) => entry.isIntersecting && fig.step(section.dataset.step), {
+    threshold: 0.6,
+  }).observe(section);
+```
+
+`lk3d check` checks that what each step names exists (parts and groups, motions within their range), that a labelled
+part has a label and is not hidden by the same step, and that a step cuts only where the scene offers a cut; `lk3d
+render` draws each step as a picture of its own (`--poses steps`, with the others by default when the scene has
+steps).
 
 ## Driving a figure from a timeline
 

@@ -191,9 +191,13 @@ export interface Ctx {
   /** the box round the parts drawn now */
   shownBox_(): { center: number[]; radius: number; min: number[]; max: number[] };
   boxOf_(ps: Part[]): { center: number[]; radius: number; min: number[]; max: number[] };
+  /** the target and distance (as the state holds them) that frame these parts, taken apart by explode */
+  frame_(ps: Part[], explode?: number): { target: number[]; dist: number };
   rayAt_(px: number, py: number): { origin: number[]; direction: number[] };
   zoom_(k: number, x?: number, y?: number): void;
   view_(name: any, o?: { ms?: number; [key: string]: any }): void;
+  /** a named view's [yaw, pitch] in degrees, else the camera's now */
+  viewAngles_(name: string): number[];
   cancelView_(): void;
 
   // ---- dom.js
@@ -212,6 +216,8 @@ export interface Ctx {
   /** the stage's size, CSS pixels */
   width_: number;
   height_: number;
+  /** measure (and shape) the stage now */
+  measure_(): void;
   dpr_: number;
   /** the share of full resolution drawn (lowered while frames come late) */
   resolution_: number;
@@ -266,6 +272,12 @@ export interface Ctx {
 
   // ---- api.js
   api_: any;
+
+  // ---- steps.js
+  /** the step shown (from 0); -1 for a scene without steps */
+  stepAt_: number;
+  /** go to a step by its place (from 0) or id; ms: 0 sets it at once */
+  goToStep_(which: number | string, o?: { ms?: number }): void;
 }
 
 declare global {

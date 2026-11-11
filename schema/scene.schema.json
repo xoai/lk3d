@@ -265,6 +265,14 @@
       },
       "x-message": "a scene needs parts",
       "description": "The parts of the model, each a list of shapes with a name and a note."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/step"
+      },
+      "description": "Guided steps: the figure explained in order, each with its words and a state of the figure (where the camera looks, taken apart, cut open, labels, a part chosen, motions). The figure starts at the first; the reader goes through them with Back and Next under it, the page with fig.step()."
     }
   },
   "$defs": {
@@ -1960,6 +1968,158 @@
         }
       ],
       "x-message": "a joint turns its parts (turn) or slides them (slide)"
+    },
+    "step": {
+      "type": "object",
+      "description": "A step of the figure's explanation: its words, and the figure's state while it is shown. What a step does not say goes back to the figure's start (put together, not cut, see-through off, labels as usual, nothing hidden or chosen, the motions at their start), so a step is the same picture however the reader came to it; only the camera stays where the reader left it unless the step says where (view, focus).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique among the steps: what the page names it by (fig.step(id))."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The step's heading, a few words."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the reader is to look at, and why: a sentence or two, with simple formatting (b i em strong sub sup br) as in a part's note."
+        },
+        "view": {
+          "description": "Where the camera goes: a named view (home: the figure's first), or yaw and pitch (degrees), zoom (2: twice as close as the whole model) or dist, and target. Without view or focus the camera stays where it is.",
+          "anyOf": [
+            {
+              "enum": ["front", "side", "top", "iso", "home"]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "yaw": {
+                  "type": "number"
+                },
+                "pitch": {
+                  "type": "number"
+                },
+                "zoom": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "dist": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "target": {
+                  "$ref": "#/$defs/vec3"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "focus": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "description": "Parts or groups to frame: the camera looks at their middle (as they are once the step has taken them apart) from far enough to see them all, from the view's angles if it gives them."
+        },
+        "explode": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How far apart (0, the default: put together; 1: all the way)."
+        },
+        "cut": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          ],
+          "description": "Cut open (true), or how far the plane has swept in (0 to 1); swept in as the step comes."
+        },
+        "section": {
+          "type": "object",
+          "properties": {
+            "normal": {
+              "$ref": "#/$defs/vec3"
+            },
+            "offset": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "description": "The cut's plane for this step (the scene's section by default)."
+        },
+        "xray": {
+          "type": "boolean",
+          "description": "Casings see-through."
+        },
+        "labels": {
+          "description": "Which labels show: auto (the part pointed at or chosen, and all of them once the model is well apart; the default), all, none, or a list of parts and groups.",
+          "anyOf": [
+            {
+              "enum": ["auto", "all", "none"]
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ]
+        },
+        "hide": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "description": "Parts or groups out of sight in this step."
+        },
+        "select": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A part chosen, as if the reader had picked it: lit, with its name and note in the info box."
+        },
+        "motion": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Motions' values by id (the others at their start)."
+        },
+        "play": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "description": "Motions played as the step comes, from the value it gives them."
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["title"]
+        },
+        {
+          "required": ["text"]
+        }
+      ],
+      "x-message": "a step needs its words: a title, text, or both",
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

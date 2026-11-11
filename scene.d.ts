@@ -156,6 +156,12 @@ export interface Scene {
   extras?: { [key: string]: unknown };
   /** The parts of the model, each a list of shapes with a name and a note. */
   parts: Part[];
+  /**
+   * Guided steps: the figure explained in order, each with its words and a state of the figure (where the camera
+   * looks, taken apart, cut open, labels, a part chosen, motions). The figure starts at the first; the reader
+   * goes through them with Back and Next under it, the page with fig.step().
+   */
+  steps?: Step[];
 }
 
 /** The first look: pen (near-white, thin lines; the default), studio (realistic) or ink (drawn). */
@@ -477,6 +483,89 @@ export interface Part {
   shapes?: Shape[];
   /** The page's own data about this part (as glTF's extras): lk3d keeps it and does not read it. */
   extras?: { [key: string]: unknown };
+}
+
+/**
+ * A step of the figure's explanation: its words, and the figure's state while it is shown. What a step does
+ * not say goes back to the figure's start (put together, not cut, see-through off, labels as usual, nothing
+ * hidden or chosen, the motions at their start), so a step is the same picture however the reader came to it;
+ * only the camera stays where the reader left it unless the step says where (view, focus).
+ */
+export type Step = Form<StepFields, 'title'> | Form<StepFields, 'text'>;
+
+/** the fields of Step, each optional (Step says which are required, together) */
+export interface StepFields {
+  /**
+   * Unique among the steps: what the page names it by (fig.step(id)).
+   * @minLength 1
+   */
+  id?: string;
+  /**
+   * The step's heading, a few words.
+   * @minLength 1
+   */
+  title?: string;
+  /**
+   * What the reader is to look at, and why: a sentence or two, with simple formatting (b i em strong sub sup br)
+   * as in a part's note.
+   * @minLength 1
+   */
+  text?: string;
+  /**
+   * Where the camera goes: a named view (home: the figure's first), or yaw and pitch (degrees), zoom (2: twice
+   * as close as the whole model) or dist, and target. Without view or focus the camera stays where it is.
+   */
+  view?:
+    | 'front'
+    | 'side'
+    | 'top'
+    | 'iso'
+    | 'home'
+    | {
+        yaw?: number;
+        pitch?: number;
+        /** @exclusiveMinimum 0 */
+        zoom?: number;
+        /** @exclusiveMinimum 0 */
+        dist?: number;
+        target?: Vec3;
+      };
+  /**
+   * Parts or groups to frame: the camera looks at their middle (as they are once the step has taken them apart)
+   * from far enough to see them all, from the view's angles if it gives them.
+   */
+  focus?: string[];
+  /**
+   * How far apart (0, the default: put together; 1: all the way).
+   * @minimum 0
+   * @maximum 1
+   */
+  explode?: number;
+  /** Cut open (true), or how far the plane has swept in (0 to 1); swept in as the step comes. */
+  cut?: boolean | number;
+  /** The cut's plane for this step (the scene's section by default). */
+  section?: {
+    normal?: Vec3;
+    offset?: number;
+  };
+  /** Casings see-through. */
+  xray?: boolean;
+  /**
+   * Which labels show: auto (the part pointed at or chosen, and all of them once the model is well apart; the
+   * default), all, none, or a list of parts and groups.
+   */
+  labels?: 'auto' | 'all' | 'none' | string[];
+  /** Parts or groups out of sight in this step. */
+  hide?: string[];
+  /**
+   * A part chosen, as if the reader had picked it: lit, with its name and note in the info box.
+   * @minLength 1
+   */
+  select?: string;
+  /** Motions' values by id (the others at their start). */
+  motion?: { [key: string]: number };
+  /** Motions played as the step comes, from the value it gives them. */
+  play?: string[];
 }
 
 /** Parts that move one way: moved, turned, or both (moved, then turned). */

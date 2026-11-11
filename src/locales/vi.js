@@ -28,5 +28,9 @@ export default {
   side: 'Bên',
   top: 'Trên',
   home: 'Ban đầu',
+  steps: 'Các bước',
+  back: 'Bước trước',
+  next: 'Bước tiếp',
+  stepOf: 'Bước {n}/{count}',
   decimal: ',',
 };

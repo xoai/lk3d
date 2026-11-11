@@ -97,6 +97,8 @@ export interface Ctx {
     treesMs: number | null;
     aoMs: number | null;
     refreshMs: number | null;
+    /** whether the crease shading was worked out in the page's worker (ao.js), not here */
+    aoWorker: boolean;
   };
   /** performance.now() when mount began (stats_ count from it) */
   mountedAt_: number;

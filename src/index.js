@@ -42,6 +42,7 @@ import { clock, refreshFrom } from './clock.js';
 import LK3D, { FORMAT } from './namespace.js';
 import en from './locales/en.js';
 import { defineElement } from './element.js';
+import { serveAO } from './ao.js';
 
 let warned = false;
 
@@ -73,7 +74,7 @@ function mount(el, spec, opts = {}) {
   const pageButtonClass = opts.buttonClass ?? defaults.buttonClass,
     buttonClass = 'lk3d-btn ' + (pageButtonClass || 'lk3d-plain');
   const mountedAt = performance.now(),
-    stats = { setupMs: 0, firstFrameMs: null, treesMs: null, aoMs: null, refreshMs: null };
+    stats = { setupMs: 0, firstFrameMs: null, treesMs: null, aoMs: null, refreshMs: null, aoWorker: false };
   const state = {
     style: opts.style || spec.style || 'pen',
     theme: opts.theme || spec.theme || null,
@@ -181,6 +182,8 @@ function mount(el, spec, opts = {}) {
 LK3D.mount = mount;
 if (typeof window !== 'undefined') window.LK3D = LK3D;
 defineElement(mount); // <lk3d-figure>, for pages that write no script
+// (this script run as the page's crease-shading worker, ao.js: it answers its jobs and draws nothing)
+if (typeof self !== 'undefined' && /** @type {any} */ (self).lk3dAO) serveAO();
 export default LK3D;
 export const { build, reduce, version, locales, defaults, themes, format } = LK3D; // (the same objects: setting defaults here sets them for LK3D; reduce is read once, at load)
 export { mount, M, refreshFrom, clock, safeHTML };

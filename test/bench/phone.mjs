@@ -3,13 +3,13 @@
 // Android phones), a 390 px screen at 2.75 device pixels per CSS pixel, touch. For each scene: setup, first picture,
 // picking ready, crease shading done (ms from mount), then 3 s of turning it a step each frame (frame ms, median and
 // 95th percentile). The GPU is the machine's own, not slowed: frame times show the engine's CPU work, not a phone GPU.
-//   npm run build && node test/bench/phone.mjs        SCENES=cell,engine RATES=1,6 node test/bench/phone.mjs
+//   npm run build && node test/bench/phone.mjs        SCENES=cell,engine RATES=1,6 ENGINE=path/to/lk3d.min.js node test/bench/phone.mjs
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 const require = createRequire(import.meta.url);
 const LK = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 const { chromium } = require(LK + '/node_modules/playwright');
-const engine = fs.readFileSync(LK + '/dist/lk3d.min.js', 'utf8');
+const engine = fs.readFileSync(process.env.ENGINE || LK + '/dist/lk3d.min.js', 'utf8');
 const scenes = (process.env.SCENES || 'generator,cell,engine,solar,molecules').split(',');
 const rates = (process.env.RATES || '1,4,6').split(',').map(Number);
 const b = await chromium.launch({ args: ['--use-angle=metal', '--ignore-gpu-blocklist', '--enable-gpu'] });

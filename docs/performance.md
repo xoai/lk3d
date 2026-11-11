@@ -7,7 +7,7 @@ it, keep the tab in front, press Run).
 
 ## Size
 
-The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 65 KB gzipped (57 KB until November 2026; 60 when the engine began checking scenes and models itself; 65 for room to grow): `npm run size` fails past
+The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 67 KB gzipped (57 KB until November 2026; 60 when the engine began checking scenes and models itself; 65 for room to grow; 67 for guided steps, the cut the reader moves, the element, and streaks and crease shading off the main thread): `npm run size` fails past
 it, and the CI workflow runs it. The glTF exporter is a script of its own, `dist/lk3d-export.min.js` (3.8 KB, 2.0 KB
 gzipped), outside the budget: a page loads it only to export.
 
@@ -64,10 +64,21 @@ percentile, on a 60 Hz screen.
 | Solar System      | 11 332    | 6×  | 132   | 154           | 340           | 887                 | 16.7 / 16.7 |
 | Molecules         | 26 856    | 6×  | 224   | 245           | 562           | 6 836               | 16.7 / 16.7 |
 
-The first picture comes within a third of a second even at 6×. The crease shading is the slow part (up to 7 s of
-CPU on the molecules at 6×), but it is done in idle time and waits while the reader turns the figure: turned from
-its first frame for 4 s at 6×, no frame of the cell, the molecules or the jet engine took over 50 ms (the worst 33
-ms), and the shading finished once the figure was still. What this cannot show is a phone's GPU: frames held the
+The first picture comes within a third of a second even at 6×. The crease shading was the slow part (up to 7 s of
+CPU on the molecules at 6×), done on the page in idle slices of a few milliseconds that wait while the reader turns
+the figure. Since 11 November 2026 it is worked out in a Web Worker made of lk3d's own script (the file a `<script src>`
+loaded, or an inline script's text: nothing more to ship), off the page's main thread, and without the slices' pauses
+it finishes sooner: at 1× (the CPU slowdown does not reach a worker, so only 1× compares fairly), shading done
+in ms from mounting, `node test/bench/phone.mjs` with the engine before and after:
+
+| Scene       | On the page, in idle slices | In the worker |
+| ----------- | --------------------------- | ------------- |
+| Animal cell | 970                         | 353           |
+| Jet engine  | 536                         | 245           |
+| Molecules   | 2 170                       | 572           |
+
+Where no worker can be made (lk3d imported as a module, a page whose policy forbids workers) the figure shades on the
+page in idle slices, as before; `fig.stats().aoWorker` says which. What this cannot show is a phone's GPU: frames held the
 screen's rate here because the laptop's GPU did the drawing. A real low-end phone (and its browser) is still the
 measurement that matters.
 

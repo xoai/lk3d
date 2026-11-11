@@ -1411,3 +1411,43 @@ test("<lk3d-figure>: a scene from a JSON script inside or from src; attributes s
   expect(r.src).toBe(true);
   expect(r.error).toEqual([true, 1]);
 });
+
+test("crease shading is worked out in a worker made of lk3d's own script (by src, or inline), the same as on the page without one", async ({
+  browser,
+}) => {
+  const engine = (await import('node:fs')).readFileSync(new URL('../../dist/lk3d.min.js', import.meta.url), 'utf8'),
+    scene = JSON.parse(
+      (await import('node:fs')).readFileSync(new URL('scenes/generator.json', import.meta.url), 'utf8'),
+    );
+  // the shading of every batch, as one hash, and whether the worker made it
+  const shade = async (how) => {
+    const page = await browser.newPage();
+    if (how === 'no worker') await page.addInitScript(() => delete window.Worker);
+    if (how === 'inline') {
+      await page.setContent('<div id="g" style="width:480px"></div>');
+      await page.addScriptTag({ content: engine });
+    } else await page.goto('/test/visual/api.html');
+    const result = await page.evaluate(async (scene) => {
+      const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+      await fig.ready;
+      let hash = 0,
+        shaded = 0;
+      for (const part of fig.parts)
+        for (const batch of part.batches)
+          if (batch.ao) {
+            shaded++;
+            for (const value of batch.ao) hash = (hash * 31 + value) | 0;
+          }
+      return { hash, shaded, worker: fig.stats().aoWorker };
+    }, scene);
+    await page.close();
+    return result;
+  };
+  const bySrc = await shade('src'),
+    inline = await shade('inline'),
+    onPage = await shade('no worker');
+  expect(bySrc.shaded).toBeGreaterThan(5);
+  expect([bySrc.worker, inline.worker, onPage.worker]).toEqual([true, true, false]);
+  expect(inline.hash).toBe(bySrc.hash);
+  expect(onPage.hash).toBe(bySrc.hash);
+});

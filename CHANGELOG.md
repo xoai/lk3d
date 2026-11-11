@@ -13,6 +13,10 @@ format or the API, and says how to move.
   out goes back to the figure's start, so a step is the same picture however the reader came to it. The validator
   checks what steps name; `lk3d render` draws each step (`--poses steps`). New words in every locale: `steps`, `back`,
   `next`, `stepOf`.
+- **Crease shading in a Web Worker**: the ambient occlusion is worked out off the page's main thread, in a worker made
+  of lk3d's own script (nothing more to ship), and finishes 2 to 4 times sooner (the molecules: 2.2 s to 0.6 at full
+  speed). Where no worker can be made it is shaded on the page as before; `fig.stats().aoWorker` says which.
+- The size budget is 67 KB gzipped (65 before), for this release's additions.
 - **Flow streaks are placed on the GPU** (WebGL 2): each flow's paths go to the GPU once, as a texture, and the vertex
   shader places every streak from the time travelled, so a frame sends one number a flow instead of its streaks'
   geometry. lk3d's own work for 8 000 moving streaks fell from 2.0 ms a frame to under 0.1 (13.7 to 0.1 with the CPU

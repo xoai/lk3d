@@ -31,6 +31,7 @@ lk3d is about 8 000 lines of plain JavaScript (ES modules, no dependencies). Thi
 | `src/renderer-gl.js`, `src/shaders.js`                                      | the WebGL 2 and WebGL 1 renderer and its shaders (written once, compiled as GLSL ES 1.00 or 3.00)                                                                                                                                         |
 | `src/renderer-2d.js`                                                        | the Canvas 2D fallback                                                                                                                                                                                                                    |
 | `src/bvh.js`                                                                | bounding-volume trees: picking and ambient occlusion by rays on the CPU                                                                                                                                                                   |
+| `src/ao.js`                                                                 | the crease shading worked out in a Web Worker made of lk3d's own script (the page's one worker; the same script, marked, answers its jobs), or nowhere, where none can be made                                                            |
 | `src/math.js`                                                               | small vector and 4×4 matrix helpers (column-major, as WebGL wants them), colours                                                                                                                                                          |
 | `src/changed.js`                                                            | whether what something was made from has changed since (values compared without garbage): a part's matrix, groups of parts alike, the shadow map, the liquids' bodies                                                                     |
 | `src/handles.js`                                                            | the handle maths: a pointer ray to an angle, a distance or a place along a path (pure, tested in Node)                                                                                                                                    |
@@ -138,7 +139,7 @@ Liquids and gases are shaped again only when a volume or a height changed.
 Labels are HTML, measured once (canvas text metrics, cached, measured again when web fonts arrive) and moved with
 transforms, so a frame never forces the page to lay itself out. Picking casts a ray on the CPU against each batch's
 bounding-volume tree (built in idle slices just after the first picture) instead of reading a pixel back from the GPU.
-Ambient occlusion is computed the same way, a few milliseconds per frame after the first picture, then uploaded.
+Ambient occlusion is computed the same way, by rays against each shape's tree, in a Web Worker (ao.js; on the page in idle slices where there is none), then uploaded.
 
 ## Handles
 
@@ -161,7 +162,7 @@ environments the engine draws.
 instancing, picking against brute force), glTF reading and writing, handle maths, motions and joints, liquids and gases,
 the validator and the geometry check against planted mistakes, the command line, the skill, the locales. `npm run
 typecheck`: the sources (as JavaScript, against the types), the types, and every reference and example scene against
-them. `npm run size`: the 65 KB budget. `npm run test:visual`: 18 reference scenes in their looks
+them. `npm run size`: the 67 KB budget. `npm run test:visual`: 18 reference scenes in their looks
 (some also in the 2D fallback, a theme or the orthographic camera) and the page API, compared with stored pictures
 (`test/visual/`). Pictures are stored per browser and platform: Chromium and Firefox on macOS, and Chromium, Firefox
 and WebKit on Linux (the CI workflow's). WebKit is skipped on macOS 14 and older (Playwright cannot drive it there).

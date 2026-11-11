@@ -152,7 +152,7 @@ To build it yourself, or to work on it: `git clone https://github.com/xoai/lk3d.
 npm install
 npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # fails if the bundle is over its budget (65 KB gzipped, BUDGET_KB in build.mjs)
+npm run size           # fails if the bundle is over its budget (67 KB gzipped, BUDGET_KB in build.mjs)
 npm run test:visual    # reference scenes compared with stored pictures (Chromium and Firefox on macOS; all three on Linux, in CI)
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again

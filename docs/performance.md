@@ -40,9 +40,9 @@ Apple M3 Pro laptop, Chrome, 120 Hz screen (8.3 ms per frame), 2 November 2026. 
 
 Every scene kept the screen's rate. The pen look's edges cost no script: they are found once, in idle time after the
 first picture, and drawn by the GPU. The jet engine's rows were measured again after it was rebuilt on its test stand
-(twice the triangles: the stand, flanges and bolts, casings in halves). Flow streaks are the one thing whose script
-grows with what is drawn: each streak is placed on the CPU every frame it moves (about 0.6 ms for 2000 here), so a page that needs thousands on a
-phone draws fewer (`amount`). On this machine the GPU's cost hides under the 120 Hz frame, so the numbers that
+(twice the triangles: the stand, flanges and bolts, casings in halves). Flow streaks were the one thing whose script
+grew with what is drawn, each placed on the CPU every frame it moved (about 0.6 ms for 2000 here); on WebGL 2 the GPU
+places them now (below). On this machine the GPU's cost hides under the 120 Hz frame, so the numbers that
 matter most come from phones.
 
 ## On a phone-like device
@@ -70,6 +70,26 @@ its first frame for 4 s at 6×, no frame of the cell, the molecules or the jet e
 ms), and the shading finished once the figure was still. What this cannot show is a phone's GPU: frames held the
 screen's rate here because the laptop's GPU did the drawing. A real low-end phone (and its browser) is still the
 measurement that matters.
+
+## Flow streaks
+
+`node test/bench/flow.mjs`: the ducted fan of the image tests with n streaks between its two flows, moving, each frame
+drawn with `drawNow()` and timed (lk3d's own work, median / 95th percentile in ms; the GPU's work is not in it).
+Headless Chromium on the same laptop (Metal), 11 November 2026.
+
+| Streaks | CPU | Placed on the CPU (before) | Placed on the GPU (WebGL 2) |
+| ------- | --- | -------------------------- | --------------------------- |
+| 2 000   | 1×  | 0.5 / 0.7                  | 0.0 / 0.1                   |
+| 8 000   | 1×  | 2.0 / 2.3                  | 0.0 / 0.2                   |
+| 2 000   | 6×  | 3.6 / 4.9                  | 0.1 / 1.3                   |
+| 8 000   | 6×  | 13.7 / 16.6                | 0.1 / 1.3                   |
+
+Each streak used to be placed on the CPU every frame it moved, and its geometry sent to the GPU again (over 2 MB a
+frame at 8 000). On WebGL 2 each flow's paths go to the GPU once, as a float texture (a row a path: each point and its
+distance along), and its streaks' fixed numbers as instance attributes; the vertex shader places each corner from the
+time travelled, finding its place along the path by halving, so a frame sends one number a flow. WebGL 1 and the 2D
+fallback still place them on the CPU. What this moves to the GPU (three lookups of up to 16 steps a corner) is still to
+be measured on a phone's GPU.
 
 ## Many parts
 

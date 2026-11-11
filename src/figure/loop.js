@@ -226,7 +226,9 @@ export function makeLoop(c) {
       }
       const flows = c.flows_.filter((flow) => flow.visible && flow.amount > 0);
       for (const flow of flows.concat(c.streams_)) {
-        if (flow.update) flow.update(flow.owner ? flow.owner.matrix : null);
+        // (placed by the renderer on the GPU where it can, WebGL 2: only how many show, here)
+        if (flow.drawn && c.renderer_.placesFlow && c.renderer_.placesFlow(flow)) flow.drawn();
+        else if (flow.update) flow.update(flow.owner ? flow.owner.matrix : null);
         if (!flow.colors || flow.dark !== look.dark) {
           flow.colors = ramp(flow.ramp, look.dark);
           flow.dark = look.dark;

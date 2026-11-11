@@ -3,7 +3,7 @@
 // ({kind, hifi, draw(frame), setAO(batch), dispose()}), so another backend (WebGPU) can be added beside it.
 import * as shaders from './shaders.js';
 import { M, sub, len, mulv, add, norm, dot } from './math.js';
-import { flowIndices, STRIDE, MAX_STREAKS } from './flow.js';
+import { flowIndices, gpuData, STRIDE, MAX_STREAKS } from './flow.js';
 import * as changed from './changed.js';
 
 // (uViewD: in ortho, the distance every point is drawn as from; 0 in perspective, where nearer points are larger)
@@ -195,8 +195,8 @@ function glRenderer(gl, scene, options = {}) {
     (programs[name] = Object.assign(
       name === 'points'
         ? makeProgram(POINT_VS, POINT_FS)
-        : name === 'flow'
-          ? makeProgram(shaders.FLOW_VS, shaders.FLOW_FS)
+        : name === 'flow' || name === 'flowGPU'
+          ? makeProgram(shaders.FLOW_VS, shaders.FLOW_FS, name === 'flowGPU' ? ['GPU'] : [])
           : name === 'edge'
             ? makeProgram(shaders.EDGE_VS, shaders.EDGE_FS)
             : name === 'stream'
@@ -423,6 +423,38 @@ function glRenderer(gl, scene, options = {}) {
     return [texture, framebuffer];
   };
   const flowBuffers = new WeakMap(); // each flow's vertex buffer, made once at its full size and refilled in place
+  // flows placed on the GPU (WebGL 2): each flow's paths as a float texture and its streaks' fixed numbers as instance
+  // attributes, made once (flow.js gpuData), so a frame sends only the time travelled. A flow whose paths have more
+  // points than a texture is wide, or every flow once the program does not link, is placed on the CPU (flow.js update)
+  const flowsOnGPU = new WeakMap(),
+    maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  /** @type {{ corners: WebGLBuffer, indices: WebGLBuffer } | null} (a streak's 8 corners and 18 triangle corners) */
+  let streakTemplate = null;
+  const placesFlow = (flow) =>
+    gl2 &&
+    !(programs.flowGPU && programs.flowGPU.failed) &&
+    !!flow.seeds &&
+    (flow.tableWidth ??= 1 + Math.max(...flow.paths.map((path) => path.table.length))) <= maxTextureSize;
+  function gpuFlowOf(flow) {
+    let held = flowsOnGPU.get(flow);
+    if (!held) {
+      const data = gpuData(flow),
+        texture = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE8);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      for (const [name, value] of [
+        [gl.TEXTURE_MIN_FILTER, gl.NEAREST],
+        [gl.TEXTURE_MAG_FILTER, gl.NEAREST],
+        [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
+        [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
+      ])
+        gl.texParameteri(gl.TEXTURE_2D, name, value);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, data.width, data.height, 0, gl.RGBA, gl.FLOAT, data.table);
+      gl.activeTexture(gl.TEXTURE0);
+      flowsOnGPU.set(flow, (held = { texture, seeds: makeBuffer(data.seeds) }));
+    }
+    return held;
+  }
 
   // a vertex array, described once: a shape's buffers (or its edges' segments) and its copies' placements, 16
   // numbers a copy (a batch's own), or 24 with the part's state (a group of parts alike: see groupsOf); bound with
@@ -828,6 +860,7 @@ function glRenderer(gl, scene, options = {}) {
     upload,
     instances,
     edges,
+    placesFlow,
     get pending() {
       return pending;
     },
@@ -852,7 +885,7 @@ function glRenderer(gl, scene, options = {}) {
         ...(shadowsOn ? [programs.depth] : []),
         ...(pointSets.length ? [optionalProgram('points')] : []),
         ...(ballSets.length ? [optionalProgram('balls')] : []),
-        ...(flows.length ? [optionalProgram('flow')] : []),
+        ...flows.map((flow) => optionalProgram(placesFlow(flow) ? 'flowGPU' : 'flow')),
         ...(frame.edges ? [optionalProgram('edge')] : []),
         ...(frame.streams && frame.streams.length ? [optionalProgram('stream'), optionalProgram('copy')] : []),
       ];
@@ -1229,20 +1262,54 @@ function glRenderer(gl, scene, options = {}) {
       }
       // 6b. flow streaks: hidden by solid parts, not hiding anything themselves; ink over a light page (never added,
       // which would wash out into the paper), light added on a dark one
-      if (flows.length && can('flow')) {
-        const flowProgram = optionalProgram('flow'),
-          attributes = flowProgram.attributes;
-        common(flowProgram, frame);
-        gl.uniform2f(flowProgram.uniforms.uView, width / 2, height / 2);
+      if (flows.length) {
         gl.enable(gl.BLEND);
         if (frame.look.dark) gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         else gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.depthMask(false);
         gl.disable(gl.CULL_FACE);
-        if (!flowIndexBuffer) flowIndexBuffer = makeBuffer(flowIndices(MAX_STREAKS), gl.ELEMENT_ARRAY_BUFFER);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, flowIndexBuffer);
-        enableOnly([attributes.aPos, attributes.aDir, attributes.aA]);
         for (const flow of flows) {
+          const onGPU = placesFlow(flow),
+            name = onGPU ? 'flowGPU' : 'flow';
+          if (!can(name)) continue;
+          const flowProgram = programs[name],
+            { attributes, uniforms } = flowProgram;
+          common(flowProgram, frame);
+          gl.uniform2f(uniforms.uView, width / 2, height / 2);
+          flow.colors.forEach((color, i) => gl.uniform3fv(uniforms['uC' + i], color));
+          gl.uniform1f(uniforms.uAlpha, flow.opacity);
+          gl.uniform1f(uniforms.uWidth, (Math.max(1.25, flow.width) / 2 + 0.5) * frame.dpr);
+          if (onGPU) {
+            // one streak drawn as many times as there are: its corners, each copy with its streak's fixed numbers
+            const held = gpuFlowOf(flow),
+              seeds = [attributes.aSeedA, attributes.aSeedB, attributes.aSeedC];
+            streakTemplate ??= {
+              corners: makeBuffer(new Float32Array([0, -1, 0, 1, 1, -1, 1, 1, 2, -1, 2, 1, 3, -1, 3, 1])),
+              indices: makeBuffer(flowIndices(1), gl.ELEMENT_ARRAY_BUFFER),
+            };
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, streakTemplate.indices);
+            enableOnly([attributes.aCorner, ...seeds]);
+            gl.bindBuffer(gl.ARRAY_BUFFER, streakTemplate.corners);
+            gl.vertexAttribPointer(attributes.aCorner, 2, gl.FLOAT, false, 0, 0);
+            instancing.setDivisor(attributes.aCorner, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, held.seeds);
+            seeds.forEach((location, k) => {
+              gl.vertexAttribPointer(location, k < 2 ? 4 : 3, gl.FLOAT, false, 48, 16 * k);
+              instancing.setDivisor(location, 1);
+            });
+            gl.activeTexture(gl.TEXTURE8);
+            gl.bindTexture(gl.TEXTURE_2D, held.texture);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.uniform1i(uniforms.uPaths, 8);
+            gl.uniformMatrix4fv(uniforms.uM, false, flow.owner ? flow.owner.matrix : IDENTITY);
+            gl.uniform4f(uniforms.uFlow, flow.travelled, flow.length, flow.spread, flow.closed ? 1 : 0);
+            instancing.drawElements(gl.TRIANGLES, 18, gl.UNSIGNED_SHORT, 0, flow.drawnCount);
+            for (const location of seeds) instancing.setDivisor(location, 0);
+            continue;
+          }
+          if (!flowIndexBuffer) flowIndexBuffer = makeBuffer(flowIndices(MAX_STREAKS), gl.ELEMENT_ARRAY_BUFFER);
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, flowIndexBuffer);
+          enableOnly([attributes.aPos, attributes.aDir, attributes.aA]);
           let flowBuffer = flowBuffers.get(flow);
           if (!flowBuffer)
             flowBuffers.set(flow, (flowBuffer = makeBuffer(flow.vertices, gl.ARRAY_BUFFER, gl.DYNAMIC_DRAW)));
@@ -1252,9 +1319,6 @@ function glRenderer(gl, scene, options = {}) {
           gl.vertexAttribPointer(attributes.aDir, 4, gl.FLOAT, false, STRIDE * 4, 16);
           gl.vertexAttribPointer(attributes.aA, 1, gl.FLOAT, false, STRIDE * 4, 32);
           for (const location of [attributes.aPos, attributes.aDir, attributes.aA]) instancing.setDivisor(location, 0);
-          flow.colors.forEach((color, i) => gl.uniform3fv(flowProgram.uniforms['uC' + i], color));
-          gl.uniform1f(flowProgram.uniforms.uAlpha, flow.opacity);
-          gl.uniform1f(flowProgram.uniforms.uWidth, (Math.max(1.25, flow.width) / 2 + 0.5) * frame.dpr);
           gl.drawElements(gl.TRIANGLES, flow.drawnCount * 18, gl.UNSIGNED_SHORT, 0);
         }
         gl.depthMask(true);
@@ -1455,6 +1519,12 @@ function glRenderer(gl, scene, options = {}) {
     // what a removed thing held on the GPU: a ball set's buffer, a stream's hull, a flow's streaks, or a batch of its
     // own (lines: never shared with another)
     release(thing) {
+      const placed = flowsOnGPU.get(thing); // (a flow placed on the GPU: its paths' texture and its streaks' numbers)
+      if (placed) {
+        gl.deleteTexture(placed.texture);
+        gl.deleteBuffer(placed.seeds);
+        flowsOnGPU.delete(thing);
+      }
       for (const cache of [ballBuffers, hullBuffers, flowBuffers]) {
         const held = cache.get(thing);
         if (held)

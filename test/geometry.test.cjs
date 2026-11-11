@@ -145,3 +145,74 @@ test('a tree is the same tree at every detail: a phone or the 2D fallback (built
   }
   assert.ok(buildShape(s, 0.5).mesh.count < buildShape(s, 1).mesh.count, 'and coarser it costs less');
 });
+
+test("flow streaks placed on the GPU are where flow.js places them: the shader's arithmetic, from gpuData's numbers", () => {
+  const { makeFlow, gpuData, STRIDE, STREAK_POINTS } = require('../src/flow.js');
+  // the vertex shader's point() (shaders.js FLOW_VS, GPU), step for step, reading the texture and the instance numbers
+  const fetch = (data, column, row) =>
+    data.table.subarray((row * data.width + column) * 4, (row * data.width + column) * 4 + 4);
+  const mod = (x, y) => x - y * Math.floor(x / y);
+  const at = (data, row, n, d) => {
+    let lo = 1,
+      hi = n;
+    while (lo < hi) {
+      const m = (lo + hi + 1) >> 1;
+      if (fetch(data, m, row)[3] <= d) lo = m;
+      else hi = m - 1;
+    }
+    const a = fetch(data, lo, row),
+      b = fetch(data, Math.min(lo + 1, n), row),
+      t = b[3] > a[3] ? Math.max(0, Math.min(1, (d - a[3]) / (b[3] - a[3]))) : 0;
+    return [0, 1, 2].map((j) => a[j] + (b[j] - a[j]) * t);
+  };
+  const point = (data, flow, i, k, m) => {
+    const seed = data.seeds.subarray(i * 12, i * 12 + 12),
+      row = seed[0],
+      info = fetch(data, 0, row),
+      L = info[1];
+    let d = mod(seed[1] * L + flow.travelled * seed[2], Math.max(L, 1e-9)) - (flow.length * L * k) / 3;
+    d = flow.closed ? mod(d, Math.max(L, 1e-9)) : Math.max(d, 0);
+    const along = L > 0 ? d / L : 0,
+      wave = Math.sin(seed[3] + 6.2832 * seed[7] * along),
+      p = at(data, row, info[0], d).map((value, j) => value + (seed[4 + j] + seed[8 + j] * wave) * flow.spread);
+    return [0, 1, 2].map((j) => m[j] * p[0] + m[4 + j] * p[1] + m[8 + j] * p[2] + m[12 + j]).concat(along);
+  };
+  const m = [0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0.5, 0.2, -0.3, 1]; // (turned and moved: a part carrying the flow)
+  for (const closed of [false, true]) {
+    const flow = makeFlow({
+      paths: [
+        [
+          [-2, 0.5, 0.2],
+          [-1, 0.5, 0.2],
+          [0.3, 0.45, 0.25],
+          [1.6, 0.4, 0.2],
+        ],
+        [
+          [-2, -0.4, 0],
+          [0, -0.6, 0.1],
+          [2, -0.3, 0],
+        ],
+      ],
+      closed,
+      count: 60,
+      spread: 0.08,
+      length: 0.15,
+    });
+    flow.travelled = 3.7;
+    flow.update(m);
+    const data = gpuData(flow);
+    let worst = 0;
+    for (let i = 0; i < flow.drawnCount; i++)
+      for (let k = 0; k < STREAK_POINTS; k++) {
+        const here = point(data, flow, i, k, m),
+          behind = point(data, flow, i, Math.max(0, k - 1), m),
+          ahead = point(data, flow, i, Math.min(3, k + 1), m),
+          ends = closed ? 1 : Math.max(0, Math.min(1, Math.min(here[3], 1 - here[3]) / 0.06)),
+          vertex = (i * STREAK_POINTS + k) * 2 * STRIDE,
+          cpu = flow.vertices.subarray(vertex, vertex + STRIDE),
+          gpu = [...here.slice(0, 3), -1, ...[0, 1, 2].map((j) => behind[j] - ahead[j]), here[3], (1 - k / 3) * ends];
+        for (let j = 0; j < STRIDE; j++) worst = Math.max(worst, Math.abs(cpu[j] - gpu[j]));
+      }
+    assert.ok(worst < 1e-4, `closed ${closed}: the GPU's placing is off by ${worst}`);
+  }
+});

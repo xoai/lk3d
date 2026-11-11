@@ -1,6 +1,8 @@
 // Flow: streaks that run along paths (air through an engine, blood along a vessel, water round a bend), each a thin
 // ribbon that fades from its head to its tail and takes its colour from a ramp along the path (cool at the intake,
-// hot at the exhaust). Their geometry is made here on the CPU, every frame they move; a renderer only widens them on
+// hot at the exhaust). On WebGL 2 the renderer places them on the GPU from what is here (each path as a table of its
+// points, each streak's fixed numbers: gpuData), sending only the time travelled each frame; elsewhere (WebGL 1, the 2D
+// fallback) their geometry is made here on the CPU, every frame they move (update), and a renderer only widens them on
 // screen and blends them. pathOf() is also what particles along a path use.
 import { sub, mulv, len, rgb } from './math.js';
 
@@ -32,6 +34,11 @@ export function pathOf(points, closed = false) {
   };
   return {
     total,
+    // each point and its distance along the path, [x, y, z, distance], the closing point too for a closed path
+    table: [
+      ...segments.map(([start, , , startDistance]) => [...start, startDistance]),
+      [...path[segments.length % path.length], total],
+    ],
     into,
     at(distance) {
       const point = [0, 0, 0];
@@ -115,7 +122,9 @@ export function makeFlow(options = {}) {
     drawnCount: 0,
     vertices: new Float32Array(count * STREAK_POINTS * 2 * STRIDE),
     // each streak: its path, where it starts, how fast it goes, and how it wanders round the path
+    paths,
     seeds: Array.from({ length: count }, (_, i) => ({
+      row: i % paths.length,
       path: paths[i % paths.length],
       start: random(i, 1),
       pace: 0.8 + 0.4 * random(i, 2),
@@ -127,8 +136,12 @@ export function makeFlow(options = {}) {
     step(dt) {
       flow.travelled += flow.speed * dt;
     },
+    // how many streaks show: count × amount
+    drawn() {
+      return (flow.drawnCount = Math.round(flow.count * Math.max(0, Math.min(1, flow.amount))));
+    },
     update(m) {
-      const drawnCount = (flow.drawnCount = Math.round(flow.count * Math.max(0, Math.min(1, flow.amount)))),
+      const drawnCount = flow.drawn(),
         vertices = flow.vertices,
         points = new Float64Array(STREAK_POINTS * 3), // (one small array a frame: nothing a streak)
         point = new Float64Array(3);
@@ -187,4 +200,22 @@ export function flowIndices(streakCount) {
       offset += 6;
     }
   return indices;
+}
+
+// What the GPU places a flow's streaks from (WebGL 2): its paths as a texture of 4 floats a texel, a row a path (the
+// first texel its point count and length, then each point and its distance along), and each streak's fixed numbers,
+// 12 floats a streak (the path's row, where it starts, its pace, its phase; its offset from the path and its turns; how
+// it wanders). The shader in shaders.js (FLOW_VS, GPU) works out what update() does from them.
+export function gpuData(flow) {
+  const width = 1 + Math.max(...flow.paths.map((path) => path.table.length)),
+    table = new Float32Array(width * flow.paths.length * 4),
+    seeds = new Float32Array(flow.count * 12);
+  flow.paths.forEach((path, row) => {
+    table.set([path.table.length, path.total, 0, 0], row * width * 4);
+    path.table.forEach((point, k) => table.set(point, (row * width + 1 + k) * 4));
+  });
+  flow.seeds.forEach((seed, i) =>
+    seeds.set([seed.row, seed.start, seed.pace, seed.phase, ...seed.offset, seed.turns, ...seed.wobble, 0], i * 12),
+  );
+  return { width, height: flow.paths.length, table, seeds };
 }

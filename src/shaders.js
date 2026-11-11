@@ -329,10 +329,48 @@ void main() {
 // in pixels; alpha fades from head to tail and across the width, with a little dither against banding, and the
 // colour comes from a ramp of four stops along the path. Written premultiplied: over the picture on a light page,
 // added to it on a dark one (the blending decides).
-const FLOW_VS = `attribute vec4 aPos; attribute vec4 aDir; attribute float aA;
+// With GPU (WebGL 2), each vertex places itself as flow.js update() would, from the flow's paths (a float texture: a
+// row a path, its point count and length in the first texel, then each point and its distance along) and its streak's
+// fixed numbers (instance attributes): the head where the time travelled puts it, a point a third of the streak's
+// length behind the last, wandering round the path, through the part's matrix; nothing is sent each frame but the time.
+const FLOW_VS = `
+#ifdef GPU
+attribute vec2 aCorner; attribute vec4 aSeedA; attribute vec4 aSeedB; attribute vec3 aSeedC;
+uniform highp sampler2D uPaths; uniform mat4 uM; uniform vec4 uFlow;  // travelled, length (a share of the path), spread, closed
+// the point at distance d along path row r of n points: the last point at or before d, towards the next
+vec3 at(int r, int n, float d) {
+  int lo = 1, hi = n;
+  for (int i = 0; i < 16; i++) {
+    if (lo >= hi) break;
+    int m = (lo + hi + 1) / 2;
+    if (texelFetch(uPaths, ivec2(m, r), 0).w <= d) lo = m; else hi = m - 1;
+  }
+  vec4 a = texelFetch(uPaths, ivec2(lo, r), 0), b = texelFetch(uPaths, ivec2(min(lo + 1, n), r), 0);
+  return mix(a.xyz, b.xyz, b.w > a.w ? clamp((d - a.w) / (b.w - a.w), 0.0, 1.0) : 0.0);
+}
+// point k of the streak (0 its head, 3 its tail): where it is, in the scene, and how far along the path (w)
+vec4 point(float k) {
+  int r = int(aSeedA.x);
+  vec4 info = texelFetch(uPaths, ivec2(0, r), 0);
+  float L = info.y, d = mod(aSeedA.y * L + uFlow.x * aSeedA.z, max(L, 1e-9)) - uFlow.y * L * k / 3.0;
+  d = uFlow.w > 0.5 ? mod(d, max(L, 1e-9)) : max(d, 0.0);
+  float along = L > 0.0 ? d / L : 0.0;
+  vec3 p = at(r, int(info.x), d) + (aSeedB.xyz + aSeedC * sin(aSeedA.w + 6.2832 * aSeedB.w * along)) * uFlow.z;
+  return vec4((uM * vec4(p, 1.0)).xyz, along);
+}
+#else
+attribute vec4 aPos; attribute vec4 aDir; attribute float aA;
+#endif
 uniform mat4 uVP; uniform vec2 uView; uniform float uWidth; varying float vA; varying float vSide; varying float vT;
 varying vec3 vW;
 void main() {
+#ifdef GPU
+  float k = aCorner.x;
+  vec4 here = point(k), behind = point(max(k - 1.0, 0.0)), ahead = point(min(k + 1.0, 3.0));
+  float ends = uFlow.w > 0.5 ? 1.0 : clamp(min(here.w, 1.0 - here.w) / 0.06, 0.0, 1.0);
+  vec4 aPos = vec4(here.xyz, aCorner.y), aDir = vec4(behind.xyz - ahead.xyz, here.w);
+  float aA = (1.0 - k / 3.0) * ends;
+#endif
   vec4 a = uVP * vec4(aPos.xyz, 1.0), b = uVP * vec4(aPos.xyz + aDir.xyz, 1.0);
   vW = aPos.xyz;
   vec2 d = (b.xy / b.w - a.xy / a.w) * uView;

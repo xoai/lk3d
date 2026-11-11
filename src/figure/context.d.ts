@@ -21,6 +21,8 @@ export interface Renderer {
   upload?(batch: any): void;
   instances?(batch: any): void;
   release?(thing: any): void;
+  /** whether it places this flow's streaks itself, on the GPU (WebGL 2), so the frame loop need not */
+  placesFlow?(flow: any): boolean;
   edges?(batch: any): void;
   dispose(): void;
 }

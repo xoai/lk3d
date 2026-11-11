@@ -3,7 +3,7 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
-## Unreleased
+## 0.2.0 (11 November 2026)
 
 - **Guided steps** (`steps` in the scene): the figure explained in order, each step its words (`title`, `text`) and a
   state of the figure: `view` or `focus`, `explode`, `cut` and `section`, `xray`, `labels`, `hide`, `select`, the

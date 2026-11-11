@@ -13,12 +13,12 @@ gzipped), outside the budget: a page loads it only to export.
 
 |                                                                                                                                         | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
+| lk3d 0.2.0                                                                                                                              | 166.0 KB | 64.9 KB |
 | lk3d 0.1.0                                                                                                                              | 148.0 KB | 59.2 KB |
 | three.js r187, the smallest page (renderer, camera, box, basic material)                                                                | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, orbit controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
-Measured with esbuild (minify, ES2020) and gzip level 9 (lk3d by `npm run size`, 8 November 2026: 60 589 bytes, 5 971
-under the budget; three.js, 2 November 2026).
+Measured with esbuild (minify, ES2020) and gzip level 9 (lk3d by `npm run size`, 11 November 2026: 66 455 bytes, 2 153 under the budget; three.js, 2 November 2026).
 
 ## Frames
 

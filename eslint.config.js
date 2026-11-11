@@ -11,6 +11,7 @@ export default [
       'bin/*.mjs',
       'scripts/*.mjs',
       'docs/**/*.mjs',
+      'examples/**/*.mjs',
       'test/**/*.mjs',
       'test/**/*.cjs',
       'src/validate.js',

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · a tour of a human cell</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .looks {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 8px 0;
+    }
+    .stage {
+      position: relative;
+    }
+    /* the membrane's close-up: a second figure over the first, while the tour is at the membrane */
+    .inset {
+      position: absolute;
+      right: 10px;
+      top: 34px;
+      width: min(46%, 360px);
+      background: var(--bg);
+      border: 1.5px solid var(--fg);
+      border-radius: 6px;
+      padding: 4px 8px 6px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+      display: none;
+      z-index: 2;
+    }
+    .inset.on {
+      display: block;
+    }
+    .inset b {
+      font-size: 13px;
+    }
+    .inset .side {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .inset .lk3d {
+      margin: 0;
+    }
+    .inset .lk3d-mark,
+    .inset .lk3d-hint {
+      display: none;
+    }
+  </style>
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>A tour of a human cell</h1>
+    <p>
+      An illustrated cell, cut open, gone through in eleven guided steps: its membrane and the proteins in it, the
+      nucleus with its pores and loose chromatin, rough and smooth endoplasmic reticulum, the Golgi apparatus,
+      mitochondria, lysosomes, the three fibres of the cytoskeleton and the centrosome. Messenger RNA leaves the nucleus
+      through its pores, and the membrane has a close-up of its own (a second figure). The scene is made by
+      <code>cell-tour.mjs</code> from the cell of <a href="cell.html">the animal cell</a>.
+    </p>
+    <div class="looks">
+      Look: <button type="button" data-look="ink">Drawn</button
+      ><button type="button" data-look="studio">Realistic</button><button type="button" data-look="pen">Pen</button>
+    </div>
+    <div class="stage">
+      <lk3d-figure id="cell" src="scenes/cell-tour.json" look="ink"></lk3d-figure>
+      <div class="inset" id="inset" aria-hidden="true">
+        <b>Close-up</b>
+        <div class="side">outside the cell</div>
+        <lk3d-figure src="scenes/cell-tour-bilayer.json" look="ink" controls="false" info="false"></lk3d-figure>
+        <div class="side">inside the cell</div>
+      </div>
+    </div>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    const cell = document.getElementById('cell'),
+      inset = document.getElementById('inset');
+    for (const button of document.querySelectorAll('[data-look]'))
+      button.addEventListener('click', () => cell.setAttribute('look', button.dataset.look));
+    const [fig, scene] = await Promise.all([cell.ready, fetch('scenes/cell-tour.json').then((r) => r.json())]);
+    // messenger RNA: dots leaving the nucleus through its pores (the scene's extras), while the tour is at the pores
+    const dots = scene.extras.mrna.map((path) => {
+      const set = fig.particles({ path, count: 4, color: '#e0457b', size: 7 });
+      set.speed = 0.06;
+      set.visible = false;
+      return set;
+    });
+    const show = () => {
+      const id = fig.steps[fig.currentStep]?.id;
+      inset.classList.toggle('on', id === 'membrane');
+      for (const set of dots) set.visible = id === 'pores';
+      fig.redraw();
+    };
+    cell.addEventListener('lk3d-step', show);
+    show();
+  </script>
+</html>

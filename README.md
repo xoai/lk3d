@@ -133,7 +133,7 @@ To build it yourself, or to work on it: `git clone https://github.com/xoai/lk3d.
 - [Scene format](docs/scene-format.md) · [Shapes](docs/shapes.md) · [Handles and lines](docs/handles-and-lines.md) ·
   [Looks and materials](docs/looks-and-materials.md) · [Models](docs/models.md) · [How it works](docs/design.md) ·
   [Performance](docs/performance.md).
-- [Examples](examples/): a generator, a lens bench, a cell, molecules, the Solar System, rock layers, a gauge, a fossil
+- [Examples](examples/): a generator, a lens bench, a cell (and a guided tour of one), molecules, the Solar System, rock layers, a gauge, a fossil
   skull, the three looks, a circuit, air through a fan, and a figure on a page that writes no script. `npm run examples` serves them.
 - Reading a figure: drag to turn it, Shift-drag or right-drag to pan, pinch to zoom; the wheel zooms only with Ctrl
   held or once the figure has been clicked, and a finger moved up or down scrolls the page until the figure has been

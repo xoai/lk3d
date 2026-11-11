@@ -4,3 +4,6 @@ test/visual/baselines/
 test/visual/scenes/
 test-results/
 package-lock.json
+# (made by examples/cell-tour.mjs)
+examples/scenes/cell-tour.json
+examples/scenes/cell-tour-bilayer.json

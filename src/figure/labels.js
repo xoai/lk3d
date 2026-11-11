@@ -127,14 +127,25 @@ export function makeLabels(c) {
     const items = [],
       plane = c.state_.cut ? c.cutPlane_() : null;
     for (const tag of tags) {
-      // the part's anchor on the stage, if its label is wanted (a spinning part's label stays put), and not cut away
-      // (a label pointing at nothing once the cut has passed its place)
-      const anchor = M.pt(
-          tag.part.spin || tag.part.handleOf?.round ? c.baseMatrix_(tag.part) : tag.part.matrix,
-          tag.part.anchor,
-        ),
-        cutAway =
-          plane && tag.part.cut && plane[0] * anchor[0] + plane[1] * anchor[1] + plane[2] * anchor[2] + plane[3] > 0;
+      // the part's anchor on the stage, if its label is wanted (a spinning part's label stays put). Where the cut has
+      // taken the anchor's place, the label points at the part's cut face instead (the anchor moved onto the plane), and
+      // shows not at all once the cut has taken the whole part (it would point at nothing)
+      let anchor = M.pt(
+        tag.part.spin || tag.part.handleOf?.round ? c.baseMatrix_(tag.part) : tag.part.matrix,
+        tag.part.anchor,
+      );
+      const cut = /** @type {number[]} */ (plane),
+        beyond = (point) => cut[0] * point[0] + cut[1] * point[1] + cut[2] * point[2] + cut[3],
+        past = plane && tag.part.cut ? beyond(anchor) : 0;
+      let cutAway = false;
+      if (past > 0) {
+        const offset = c.offsetOf_(tag.part),
+          { min, max } = tag.part;
+        cutAway = [0, 1, 2, 3, 4, 5, 6, 7].every(
+          (corner) => beyond([0, 1, 2].map((axis) => offset[axis] + ((corner >> axis) & 1 ? max : min)[axis])) > 0,
+        );
+        anchor = anchor.map((value, axis) => value - cut[axis] * past);
+      }
       const at = which !== 'none' && wanted(tag.part) && !cutAway && c.project_(anchor);
       if (!at) {
         show(tag, false);

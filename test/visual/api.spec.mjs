@@ -1301,16 +1301,22 @@ test('the reader moves the cut: by dragging its face along its normal, or by its
     ev('pointerdown', fig.project([0.85, 0, fig.section.offset]));
     ev('pointerup', fig.project([0.85, 0, fig.section.offset]));
     out.tapped = fig.selected;
-    // a label whose place the cut has passed is not shown (it would point at nothing): the base's is its back corner,
-    // z = -1, kept by the scene's plane however far it goes, cut away by the plane turned round
-    const baseShown = (section) => {
-      fig.set({ labels: ['base'], section });
+    // labels and the cut: the base's label point is its back corner, z = -1. Kept by the scene's plane, it shows where
+    // it is; cut away by the plane turned round, while the rest of the base stays, it points at the base's cut face (on
+    // the plane); the knob (z from -0.08 to 0.08) cut away whole, its label shows not at all
+    const tagOf = (section, id, name) => {
+      fig.set({ labels: [id], section });
       fig.drawNow();
-      const tag = [...el.querySelectorAll('.lk3d-tag')].find((t) => t.textContent === 'Base');
+      const tag = [...el.querySelectorAll('.lk3d-tag')].find((t) => t.textContent === name);
       return !!tag && tag.style.display !== 'none';
     };
-    out.labelKept = baseShown({ normal: [0, 0, 1], offset: -0.95 });
-    out.labelCutAway = !baseShown({ normal: [0, 0, -1], offset: 0.5 });
+    out.labelKept = tagOf({ normal: [0, 0, 1], offset: -0.95 }, 'base', 'Base');
+    out.labelOnFace = tagOf({ normal: [0, 0, -1], offset: 0.5 }, 'base', 'Base');
+    const leader = [...el.querySelectorAll('.lk3d-lines circle')].find((dot) => dot.style.display !== 'none'),
+      onPlane = fig.project([1, 0.1, -0.5]); // (the label point moved onto the plane z = -0.5)
+    out.pointsAtFace =
+      !!leader && Math.hypot(+leader.getAttribute('cx') - onPlane[0], +leader.getAttribute('cy') - onPlane[1]) < 2;
+    out.labelCutAway = !tagOf({ normal: [0, 0, 1], offset: -0.5 }, 'knob', 'Knob');
     fig.set({ section: { normal: [0, 0, 1] } });
     // fixed by the scene: no slider, and a drag on the face turns the view
     fig = LK3D.mount(
@@ -1338,6 +1344,8 @@ test('the reader moves the cut: by dragging its face along its normal, or by its
   expect(r.faceOn).toBeGreaterThan(-0.45); // (dragged up: further along the normal)
   expect(r.tapped).toBe('base');
   expect(r.labelKept).toBe(true);
+  expect(r.labelOnFace).toBe(true);
+  expect(r.pointsAtFace).toBe(true);
   expect(r.labelCutAway).toBe(true);
   expect(r.fixedSlider).toBe(false);
   expect(r.fixed[0]).toBe(0);

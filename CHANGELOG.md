@@ -3,6 +3,12 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
+## Unreleased
+
+- A label whose point the cut has taken points at its part's cut face instead; it hides only when the cut has taken
+  the whole part. (0.2.0 hid the label of any part whose label point was cut away, though the rest of it still showed:
+  the generator's south magnet when cut open, say.)
+
 ## 0.2.0 (11 November 2026)
 
 - **Guided steps** (`steps` in the scene): the figure explained in order, each step its words (`title`, `text`) and a

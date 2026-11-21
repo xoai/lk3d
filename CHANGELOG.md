@@ -8,7 +8,7 @@ format or the API, and says how to move.
 - **A page that shows a glTF model loads one more script.** The glTF reader left the global script for an add-on,
   `dist/lk3d-models.min.js` (`lk3d/bundle-models`), loaded after `dist/lk3d.min.js`. A scene with a model is refused by
   name until it comes (`this scene draws glTF models (skull): load dist/lk3d-models.min.js after dist/lk3d.min.js`), and
-  an `<lk3d-figure>` refused so is drawn once it does, whichever order the scripts are in. Pages that import lk3d as a
+  an `<lk3d-figure>` refused so is drawn once it does (the add-on after the core: loaded first, it says so). Pages that import lk3d as a
   module, `lk3d check`, `render` and `export` keep the reader. `LK3D.version` is 3. The global script went from 66.6 to
   63.6 KB gzipped; the add-on is 3.9 KB, borrowing the core's matrices.
 - **The size budget is frozen at 67 KB** (it was raised from 57 three times in November): a raise needs a decision

@@ -613,15 +613,18 @@ function expectations(scene, built, solids, tolerance, jointAt) {
           );
       }
     } else if (item.size != null) {
+      // (a group: each of its parts)
       const axis = AXES.indexOf(item.axis),
-        [low, high] = boxOf(A),
-        extent = high[axis] - low[axis],
         [least, most] = item.is,
-        slack = 1e-6 * built.radius;
-      if (extent < least - slack || extent > most + slack)
+        slack = 1e-6 * built.radius,
+        wrong = A.map((a) => {
+          const [low, high] = boxOf([a]);
+          return [a, high[axis] - low[axis]];
+        }).find(([, extent]) => extent < least - slack || extent > most + slack);
+      if (wrong)
         fail(
           k,
-          `${name} is ${round(extent)} along ${item.axis}, not ${least} to ${most}: change its size, or the expectation`,
+          `${solids[wrong[0]].part.id} is ${round(wrong[1])} along ${item.axis}, not ${least} to ${most}: change its size, or the expectation`,
         );
     } else if (item.seen != null) {
       const steps = (scene.steps || []).filter((step) => step && typeof step === 'object'),
@@ -646,11 +649,13 @@ function expectations(scene, built, solids, tolerance, jointAt) {
                 ) > offset
               );
             };
-          // the plane, swept in from just outside what it cuts as far as the step says (true: all the way)
+          // the plane, swept in from just outside what it cuts as far as the step says (true: all the way): from the
+          // parts it cuts that the step shows, as the figure sweeps it (figure/camera.js, cutPlane_)
           const n = norm(state.section.normal),
             swept = state.cut === true ? 1 : Math.max(0, Math.min(1, +state.cut || 0)),
             outer = Math.max(
               ...solids.map((s, j) => {
+                if (s.part.cut === false || state.hidden(s.part)) return -Infinity;
                 const [l, h] = boxOf([j], values, state.explode);
                 return dot(
                   n,
@@ -703,7 +708,8 @@ function turnedCopies(scene, solids, tolerance, path) {
         B = raw.get(solids[j].part.id);
       if (!A || !B || !A.shapes || keyOf(A) !== keyOf(B) || excused(A.id, B.id)) continue;
       // B's turn relative to A's: a half turn about one of the axes, the other two flipped
-      const R = M.mul(M.trs(null, B.rot), M.invert(M.trs(null, A.rot))),
+      // (scale included: a copy already mirrored by a negative scale is a reflection, not a turn, and is left alone)
+      const R = M.mul(M.trs(null, B.rot, B.scale), M.invert(M.trs(null, A.rot, A.scale))),
         diagonal = [R[0], R[5], R[10]],
         offDiagonal = [R[1], R[2], R[4], R[6], R[8], R[9]];
       if (offDiagonal.some((v) => Math.abs(v) > 1e-6)) continue;

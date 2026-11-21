@@ -41,7 +41,7 @@ const LK3D = {
   // so that figures refused for want of it are drawn again
   useModels,
   version: 3, // (the page API's version: it goes up when a page's own code must change; 3: models need the add-on)
-  // (for lk3d's own tests and tools; not part of the API)
+  // (for lk3d's own tests and tools, and the models add-on, which takes its matrices from here; not part of the API)
   M,
   refreshFrom,
 };

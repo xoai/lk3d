@@ -1639,4 +1639,12 @@ test('a glTF model needs the models add-on: the core alone refuses it by name; a
   await page.addScriptTag({ content: models });
   expect(errors).toEqual([]);
   await page.close();
+  // loaded before the core: it says what to do
+  const early = await browser.newPage(),
+    said = [];
+  early.on('pageerror', (e) => said.push(String(e.message)));
+  await early.setContent('<p>x</p>');
+  await early.addScriptTag({ content: models }).catch(() => {});
+  expect(said.join()).toMatch(/lk3d-models: load dist\/lk3d\.min\.js first/);
+  await early.close();
 });

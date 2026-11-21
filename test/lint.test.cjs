@@ -334,4 +334,24 @@ test('a turned copy where a mirror image may be meant is warned of (a warning, n
     'symmetric: the turn is a mirror',
   );
   assert.deepEqual(pair(L, { mirror: [{ pair: ['r', 'l'], reason: 'the same hand on purpose' }] }), []);
+  // already mirrored (a negative scale), it is a reflection, not a turned copy
+  assert.deepEqual(
+    lint({
+      parts: [
+        base,
+        { id: 'l', name: 'L', shapes: L, at: [-0.5, 0, 0] },
+        { id: 'r', name: 'R', shapes: L, at: [0.5, 0, 0], rot: [0, 180, 0], scale: [-1, 1, 1] },
+      ],
+    }).problems.filter((p) => p.level === 'warning'),
+    [],
+  );
+});
+
+test('expect size with a group: each of its parts', () => {
+  const tall = { id: 'tall', name: 'Tall', group: 'posts', shapes: [{ box: [0.2, 2, 0.2], at: [0.5, 1.1, 0] }] };
+  const r = lint({
+    parts: [base, { ...post, group: 'posts' }, tall],
+    expect: [{ size: 'posts', axis: 'y', is: [0.9, 1.1] }],
+  });
+  assert.match(at(r, 0)[0], /^tall is 2 along y, not 0\.9 to 1\.1/);
 });

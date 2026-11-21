@@ -11,7 +11,7 @@
 // cannot be read or drawn, as lk3d-error ({ message }), its words shown in the element.
 
 // elements refused because their scene draws glTF models and the page had no reader yet: drawn again once the models
-// add-on gives it (retryModels), whichever order the page's scripts come in
+// add-on gives it (retryModels), even when the element comes before both of the page's scripts
 /** @type {Set<any>} */
 const waiting = new Set();
 export function retryModels() {

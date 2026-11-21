@@ -1814,6 +1814,23 @@ test('the global script leaves the glTF reader to the models add-on: a model sce
     ).stdout.trim();
   const core = run('core.js');
   assert.match(core, /cube/);
+  // a model scattered (scatter.shape) is looked for too
+  const scattered = {
+    models: scene.models,
+    parts: [{ id: 's', name: 'S', shapes: [{ scatter: { shape: { model: 'cube' }, n: 3, within: { sphere: 2 } } }] }],
+  };
+  assert.match(
+    spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `import L from ${JSON.stringify(path.join(__dirname, '../src/core.js'))}; try { L.build(${JSON.stringify(scattered)}) } catch (e) { console.log(e.message) }`,
+      ],
+      { encoding: 'utf8' },
+    ).stdout,
+    /glTF models \(cube\)/,
+  );
   assert.match(core, /lk3d-models\.min\.js/);
   assert.equal(run('index.js'), '1', 'the ES module has the reader');
   // the reader given (as the add-on gives it): the same scene builds

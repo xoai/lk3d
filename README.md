@@ -86,8 +86,8 @@ pack` (a zip to upload). The guides are also in [llms.txt](https://xoai.github.i
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 174 KB   | 67.3 KB |
-| lk3d with the glTF reader (the models add-on), as three.js below has its loader                                                   | 182 KB   | 71.2 KB |
+| lk3d                                                                                                                              | 174 KB   | 67.4 KB |
+| lk3d with the glTF reader (the models add-on), as three.js below has its loader                                                   | 182 KB   | 71.3 KB |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 

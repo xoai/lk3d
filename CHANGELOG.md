@@ -50,7 +50,7 @@ from where it started."`), in English and Vietnamese. After a change the reader 
   and the figure in words for screen readers in English and Vietnamese (about 0.9 KB, the sentences 0.2 KB of it).
   Trimming the code further saved 3 B (gzip already takes the repetition out), so the choice was between the ceiling
   and leaving out parts of the release; the ceiling was raised by 1 KB.
-- Sizes: the global script 173.8 KB, 67.3 KB gzipped; the models add-on 3.9 KB and the exporter 2.9 KB gzipped. No
+- Sizes: the global script 174.1 KB, 67.4 KB gzipped; the models add-on 3.9 KB and the exporter 2.9 KB gzipped. No
   change in speed against 0.3.0 (`test/bench/ab.mjs`).
 - Still to do by hand: the skill's evals' pass rate (`npm run evals` grades a folder of agent answers; none were
   graded for this release), the screen reader matrix (every cell not tested yet) and a low-end Android phone.

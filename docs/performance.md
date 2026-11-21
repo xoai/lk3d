@@ -14,7 +14,7 @@ and the glTF exporter, `dist/lk3d-export.min.js` (5.9 KB, 2.9 KB gzipped; budget
 
 |                                                                                                                                         | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d 0.4.0 (the global script; the models add-on is 7.7 KB, 3.9 KB gzipped)                                                             | 173.8 KB | 67.3 KB |
+| lk3d 0.4.0 (the global script; the models add-on is 7.7 KB, 3.9 KB gzipped)                                                             | 174.1 KB | 67.4 KB |
 | lk3d 0.3.0 (the global script; the models add-on is 7.7 KB, 3.9 KB gzipped)                                                             | 164.0 KB | 63.6 KB |
 | lk3d 0.2.1                                                                                                                              | 170.5 KB | 66.6 KB |
 | lk3d 0.2.0                                                                                                                              | 166.0 KB | 64.9 KB |

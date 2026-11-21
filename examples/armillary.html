@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · armillary sphere</title>
+  <link rel="stylesheet" href="style.css" />
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>An armillary sphere</h1>
+    <p>
+      A model of the sky made of rings, set for Hà Nội's latitude (21° N). Go through the steps under it, or play the
+      sky's daily turn: the cage of celestial circles turns about the polar axis, east to west, round a still Earth. The
+      scene also says what must be true of it (<code>expect</code>): the Earth inside the turning cage, the bearings on
+      the axis, the meridian's size; <code>lk3d check</code> proves each.
+    </p>
+    <div id="fig"></div>
+    <p class="info" id="info"></p>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    import { scene } from './load.js';
+    LK3D.mount(document.getElementById('fig'), await scene('armillary'), {
+      info: document.getElementById('info'),
+      infoIdle: 'Point at a ring to read what it marks.',
+    });
+  </script>
+</html>

@@ -4,8 +4,9 @@ test/visual/baselines/
 test/visual/scenes/
 test-results/
 package-lock.json
-# (made by examples/cell-tour.mjs)
+# (made by examples/cell-tour.mjs and examples/armillary.mjs)
 examples/scenes/cell-tour.json
 examples/scenes/cell-tour-bilayer.json
+examples/scenes/armillary.json
 # (made by node build.mjs --table)
 docs/size.md

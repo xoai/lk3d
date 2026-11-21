@@ -33,7 +33,9 @@ self.onmessage = ({ data }) => {
     try {
       const result = lint(withModels);
       summary = result.summary;
-      for (const problem of result.problems) problems.push({ ...problem, kind: 'geometry' });
+      // (a warning is listed as one: said, and nothing fails)
+      for (const problem of result.problems)
+        problems.push({ ...problem, kind: problem.level === 'warning' ? 'warning' : 'geometry' });
     } catch (error) {
       problems.push({ path: '', message: String(error.message || error), kind: 'geometry' });
     }

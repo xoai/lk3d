@@ -50,6 +50,23 @@ field of a shape, a motion, a joint, a vessel, a liquid, a gas or `check` is rep
 | `the gas in V would push its piston out of it: fewer moles, a lower temperature, or a taller vessel`                            | by pV = nRT, the piston would rest above the top of V's `inside`                                                     | fewer moles `n`, a lower `T`, a heavier piston (`mass`), or a taller `inside`                                                                                                                                                |
 | `the model X: no file …`                                                                                                        | a model's file is not beside the scene, the page or the working folder                                               | the right `file`, or the model's `data` (base64)                                                                                                                                                                             |
 
+## What the scene expects (expect)
+
+Each item of `expect` that does not hold is reported at its place, `expect[i]`. Fix the model, or the expectation if it
+was wrong; never delete one to make the check pass.
+
+| It says                                                                                 | It means                                                          | Fix                                                                              |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `A is not inside B (it reaches … beyond it along x at rest)` (or `as M moves, at …`)    | A's box leaves B's box, at rest or as a motion moves it           | move A, or the motion's keys; as B, a group means the box round all its parts    |
+| `A does not touch B (a gap of … along y)`                                               | A's box is farther from B's than the contact tolerance            | rest A on B (`at`)                                                               |
+| `A runs into B … (… % of one inside the other)`                                         | they overlap at rest, on the way apart, or as a motion moves      | another explode path or motion; or the expectation, if they are meant to overlap |
+| `clear needs a closed part: A and B are both open surfaces`                             | the overlap of two open surfaces cannot be measured               | `inside` or `above` instead                                                      |
+| `A is not above B (it reaches … below its top)` / `A is above B by …, not by … to …`    | A's lowest point is below B's highest, or the gap is outside `by` | move A, or the range                                                             |
+| `A is … along y, not … to …`                                                            | A's extent along the axis is outside `is`                         | its size, or the range                                                           |
+| `A is hidden in step S` / `is cut away in step S` / `is not among the labels in step S` | in that step A cannot be seen                                     | the step's `hide`, `cut`, `section` or `labels`                                  |
+| `"X" is no part or group` / `"X" is both a part and a group` (format)                   | the name is unknown, or could mean either                         | a real name; rename the part or the group                                        |
+| `X is no step` (format)                                                                 | `step` names no step                                              | the step's `id`, or its number from 1                                            |
+
 ## Render
 
 | It says                        | It means                                                     | Fix                                                                                                            |

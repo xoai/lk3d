@@ -288,6 +288,7 @@ function links(scene, out) {
   });
   dimensions(scene, out, parts);
   steps(scene, out, names, parts);
+  expectations(scene, out, parts);
   // motions: one id each; tracks that move parts that exist, with keys in order and within the range
   const seenMotions = new Set();
   (Array.isArray(scene.motions) ? scene.motions : []).forEach((motion, i) => {
@@ -316,6 +317,35 @@ function links(scene, out) {
             message: `keys go in order of their values, within the range [${start}, ${end}]`,
           });
     });
+  });
+}
+
+// expect: each item names parts or groups that exist, and not a name that is both (which would it mean?); a range from
+// a value to one no smaller; a step that is there (by its id, or its number from 1)
+function expectations(scene, out, parts) {
+  const ids = new Set(parts.map((part) => part.id)),
+    groups = new Set(parts.map((part) => part.group).filter(Boolean)),
+    steps = (Array.isArray(scene.steps) ? scene.steps : []).filter((step) => step && typeof step === 'object');
+  (Array.isArray(scene.expect) ? scene.expect : []).forEach((item, i) => {
+    if (!item || typeof item !== 'object') return;
+    const bad = (field, message) => out.push({ path: `expect[${i}]${field}`, message });
+    for (const field of ['inside', 'touches', 'clear', 'above', 'size', 'seen', 'of', 'with']) {
+      const name = item[field];
+      if (typeof name !== 'string') continue;
+      if (!ids.has(name) && !groups.has(name)) bad(`.${field}`, `${say(name)} is no part or group`);
+      else if (ids.has(name) && groups.has(name))
+        bad(`.${field}`, `${say(name)} is both a part and a group: name another part or group`);
+    }
+    for (const field of ['by', 'is'])
+      if (Array.isArray(item[field]) && item[field][0] > item[field][1])
+        bad(`.${field}`, `its least (${item[field][0]}) is more than its greatest (${item[field][1]})`);
+    if (item.seen != null) {
+      const there =
+        typeof item.step === 'number'
+          ? item.step >= 1 && item.step <= steps.length
+          : steps.some((s) => s.id === item.step);
+      if (!there) bad('.step', `${say(item.step)} is no step (an id, or a number from 1 to ${steps.length})`);
+    }
   });
 }
 

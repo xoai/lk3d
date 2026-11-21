@@ -94,7 +94,10 @@ function check(scenePath) {
     } catch (error) {
       geometry.problems.push({ path: '(scene)', message: error.message.replace(/^lk3d: /, '') });
     }
-  const all = [...problems, ...geometry.problems];
+  const all = [...problems, ...geometry.problems],
+    // (a warning is said and passes: the check fails on problems only)
+    failing = all.filter((problem) => problem.level !== 'warning'),
+    warnings = all.length - failing.length;
   if (flag('json')) console.log(JSON.stringify({ summary: geometry.summary, problems: all }, null, 2));
   else {
     const summary = geometry.summary;
@@ -104,10 +107,16 @@ function check(scenePath) {
           `${summary.shapes} shapes, ${summary.placed} placed, ${summary.triangles} triangles, ` +
           `${+summary.size.toFixed(2)} units across`,
       );
-    for (const problem of all) console.log(`  ${problem.path || '(scene)'}: ${problem.message}`);
-    console.log(all.length ? `${all.length} problem${all.length > 1 ? 's' : ''}` : 'no problems');
+    for (const problem of all)
+      console.log(
+        `  ${problem.level === 'warning' ? 'warning: ' : ''}${problem.path || '(scene)'}: ${problem.message}`,
+      );
+    console.log(
+      (failing.length ? `${failing.length} problem${failing.length > 1 ? 's' : ''}` : 'no problems') +
+        (warnings ? `, ${warnings} warning${warnings > 1 ? 's' : ''}` : ''),
+    );
   }
-  process.exitCode = all.length ? 1 : 0;
+  process.exitCode = failing.length ? 1 : 0;
 }
 
 // the page the pictures are drawn on: the built engine, the scene, a fixed width; window.__ready once it is complete

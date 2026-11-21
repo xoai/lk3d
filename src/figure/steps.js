@@ -8,7 +8,7 @@
 // view_, viewAngles_, frame_, explodeNow_, tweenExplode_, setMotion_, stopMotion_, playMotion_, syncHandleInputs_,
 // showInfo_, markDirty_ and kick_.
 import { clock } from '../clock.js';
-import { startOf } from '../motion.js';
+import { stepState } from '../stepstate.js';
 import { safeHTML } from './dom.js';
 import LK3D from '../namespace.js';
 
@@ -92,31 +92,30 @@ export function makeSteps(c, buttonClass) {
     c.stepAt_ = index;
     const atOnce = options.ms === 0,
       listed = (/** @type {unknown} */ list) => (Array.isArray(list) ? list : []),
-      hidden = listed(step.hide);
+      state = stepState(c.spec_, step); // (the same state lk3d check reads: stepstate.js)
     // what shows, and how
-    for (const part of c.built_.parts)
-      part.hidden = part.hiddenByScene || hidden.includes(part.id) || hidden.includes(part.group);
+    for (const part of c.built_.parts) part.hidden = state.hidden(part);
     c.syncHandleInputs_();
     c.state_.xray = !!step.xray;
-    c.state_.labels = step.labels ?? c.opts_.labels ?? 'auto';
+    c.state_.labels = state.labels ?? c.opts_.labels ?? 'auto';
     c.state_.dimensions = step.dimensions ?? null;
-    c.state_.section = { normal: [0, 0, 1], offset: 0, ...c.spec_.section, ...step.section };
+    c.state_.section = state.section;
     const part = step.select != null && c.part_(step.select);
     c.state_.selected = part && !part.hidden ? part.id : null;
     // the motions: each at the step's value, else its start; those the step plays, played from there
     for (const motion of c.motions_) {
       c.stopMotion_(motion);
-      c.setMotion_(motion, step.motion?.[motion.id] ?? startOf(motion));
+      c.setMotion_(motion, state.motion(motion));
     }
-    for (const id of listed(step.play)) {
+    for (const id of state.play) {
       const motion = c.motions_.find((each) => each.id === id);
       if (motion) c.playMotion_(motion);
     }
     // taken apart, cut and looked at: glided there together
-    const explode = Math.max(0, Math.min(1, +(step.explode ?? 0) || 0));
+    const explode = state.explode;
     if (atOnce) c.explodeNow_(explode);
     else c.tweenExplode_(explode);
-    sweepCut(c.spec_.section === false ? false : (step.cut ?? false), atOnce ? 0 : 900);
+    sweepCut(state.cut, atOnce ? 0 : 900);
     const focus = listed(step.focus);
     if (step.view === 'home') c.view_('home', options);
     else if (step.view != null || focus.length) {

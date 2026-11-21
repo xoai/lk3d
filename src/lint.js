@@ -2,8 +2,12 @@
 // schema can say. Parts that run into each other while the model is taken apart (more than they overlap at rest: parts
 // may sit inside others, an organelle in a cell, a filament in a bulb); parts that rest on nothing; labels that point
 // at a place inside another part once taken apart, when labels show. Not part of the runtime bundle: import 'lk3d/lint'.
-//   import { lint } from 'lk3d/lint';  lint(scene) → { problems: [{ path, message }], summary: { parts, shapes, … } }
-//   node src/lint.js < scene.json        prints the summary and the problems; exit code 1 if there are any
+//   import { lint } from 'lk3d/lint';  lint(scene) → { problems: [{ path, message, level? }], summary: { parts, … },
+//                                                      contacts: { id: [ids its box touches at rest] } }
+//   node src/lint.js < scene.json        prints the summary and the findings; exit code 1 if there are problems
+// A finding with level: 'warning' is said and passes (lk3d check exits 0 on warnings alone); every other is a problem.
+// What a scene says must be true (expect: inside, touches, clear, above, size, seen) is checked here too, each failing
+// item reported at its place, expect[i].
 // A scene excuses what it means on purpose, by name and nothing wider: check: { allow: [[a, b], …] } for two parts that
 // may run into each other or hide each other's label (two pictures of one molecule, shown in turn), check: { float:
 // [ids or groups] } for parts that hang in the air (planets, a cell's own nucleus drawn beside it), or float: true for a
@@ -15,6 +19,7 @@ import { M, add, mulv, sub, cross, dot, len, norm } from './math.js';
 import { tracksOf, motionMatrix } from './motion.js';
 import { jointsOf, jointOf, motionsOf, solve as solveJoints } from './joints.js';
 import * as FX from './fluids.js';
+import { stepState } from './stepstate.js';
 
 const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -0.64, -0.75])];
 
@@ -247,11 +252,16 @@ export function lint(scene, options = {}) {
   // parts that run into each other on the way apart (wherever their boxes meet on it): more of one inside the other
   // than at rest
   const touchesAtRest = solids.map(() => false), // (whether each part touches another at rest: for the check below)
+    contacts = Object.fromEntries(solids.map((solid) => [solid.part.id, []])),
     pairs = candidates(solids, tolerance);
   for (const [i, j] of pairs) {
     const a = solids[i],
       b = solids[j];
-    if (near(a, b, 0, tolerance)) touchesAtRest[i] = touchesAtRest[j] = true;
+    if (near(a, b, 0, tolerance)) {
+      touchesAtRest[i] = touchesAtRest[j] = true;
+      contacts[a.part.id].push(b.part.id);
+      contacts[b.part.id].push(a.part.id);
+    }
     if (allowed(a.part.id, b.part.id) || (!a.closed && !b.closed)) continue;
     {
       const share = (apart) =>
@@ -413,8 +423,12 @@ export function lint(scene, options = {}) {
         message: `the label of ${a.part.id} points inside ${hiding.part.id} when taken apart, where no one sees it: give the part a label point ("label": [x, y, z]) on its visible surface`,
       });
   }
+  // what the scene says must be true (expect)
+  if (Array.isArray(scene.expect)) problems.push(...expectations(scene, built, solids, tolerance, jointAt));
   const shapes = (scene.parts || []).reduce((count, part) => count + (part.shapes || []).length, 0);
+  for (const list of Object.values(contacts)) list.sort();
   return {
+    contacts,
     problems,
     summary: {
       parts: built.parts.length,
@@ -446,6 +460,224 @@ if (direct) {
     const result = lint(JSON.parse(text));
     console.log(JSON.stringify(result.summary));
     for (const problem of result.problems) console.log(JSON.stringify(problem));
-    process.exitCode = result.problems.length ? 1 : 0;
+    process.exitCode = result.problems.some((problem) => problem.level !== 'warning') ? 1 : 0;
   });
 }
+
+// ---- expect: what the scene says must be true, as its author means it. The model as drawn at rest (each motion at its
+// start, joints solved); a name is a part's id or a group's (a group as the first: each of its parts; as the second: the
+// box round all of them). Each item that fails is reported at expect[i], saying what was found and how to fix it.
+function expectations(scene, built, solids, tolerance, jointAt) {
+  const problems = [],
+    fail = (k, message) => problems.push({ path: `expect[${k}]`, message }),
+    byName = (name) => {
+      const own = solids.findIndex((solid) => solid.part.id === name);
+      return own >= 0 ? [own] : solids.map((solid, i) => i).filter((i) => solids[i].part.group === name);
+    },
+    tracks = solids.map((solid) => tracksOf(scene.motions, solid.part)),
+    pose = (i, values) => M.mul(motionMatrix(tracks[i], values), jointAt(i, values)),
+    // the box round some parts, each posed by the motions' values and moved apart by `apart`
+    /** @type {(indices: number[], values?: object, apart?: number) => [number[], number[]]} */
+    boxOf = (indices, values = {}, apart = 0) => {
+      const low = [Infinity, Infinity, Infinity],
+        high = [-Infinity, -Infinity, -Infinity];
+      for (const i of indices) {
+        const [l, h] = boxAt(solids[i], pose(i, values)),
+          shift = mulv(solids[i].part.explode, apart);
+        for (let k = 0; k < 3; k++) {
+          low[k] = Math.min(low[k], l[k] + shift[k]);
+          high[k] = Math.max(high[k], h[k] + shift[k]);
+        }
+      }
+      return [low, high];
+    },
+    AXES = 'xyz',
+    round = (v) => +v.toPrecision(3),
+    // how far a's box reaches outside b's (0: within), and along which axis
+    outside = ([la, ha], [lb, hb]) => {
+      let worst = 0,
+        axis = 0;
+      for (let k = 0; k < 3; k++) {
+        const over = Math.max(lb[k] - la[k], ha[k] - hb[k]);
+        if (over > worst) [worst, axis] = [over, k];
+      }
+      return [worst, AXES[axis]];
+    },
+    // the motions that move any of these parts, each sampled along its range as the motion check samples it
+    motionSamples = (indices) =>
+      (scene.motions || [])
+        .filter((motion) =>
+          indices.some(
+            (i) =>
+              tracks[i].some((entry) => entry.motion === motion) ||
+              !isIdentity(jointAt(i, { [motion.id]: motion.range[1] })),
+          ),
+        )
+        .flatMap((motion) =>
+          Array.from({ length: 33 }, (_, k) => ({
+            motion,
+            values: { [motion.id]: motion.range[0] + ((motion.range[1] - motion.range[0]) * k) / 32 },
+          })),
+        );
+  scene.expect.forEach((item, k) => {
+    if (!item || typeof item !== 'object') return;
+    const name = item.inside ?? item.touches ?? item.clear ?? item.above ?? item.size ?? item.seen,
+      other = item.of ?? item.with,
+      A = byName(name),
+      B = other == null ? [] : byName(other);
+    if (!A.length || (other != null && !B.length)) return; // (validate names the unknown one)
+    if (item.inside != null) {
+      for (const a of A) {
+        for (const { motion, values } of [{ motion: null, values: {} }, ...motionSamples([a, ...B])]) {
+          const [over, axis] = outside(boxOf([a], values), boxOf(B, values));
+          if (over > tolerance) {
+            fail(
+              k,
+              `${solids[a].part.id} is not inside ${other} (it reaches ${round(over)} beyond it along ${axis}` +
+                (motion ? ` as ${motion.id} moves, at ${round(values[motion.id])})` : ' at rest)') +
+                ': move it, or change the expectation',
+            );
+            return;
+          }
+        }
+      }
+    } else if (item.touches != null) {
+      const [lb, hb] = boxOf(B);
+      for (const a of A) {
+        const [la, ha] = boxOf([a]);
+        let gap = 0,
+          axis = 0;
+        for (let j = 0; j < 3; j++) {
+          const g = Math.max(lb[j] - ha[j], la[j] - hb[j]);
+          if (g > gap) [gap, axis] = [g, j];
+        }
+        if (gap > tolerance)
+          return void fail(
+            k,
+            `${solids[a].part.id} does not touch ${other} (a gap of ${round(gap)} along ${AXES[axis]}): rest it on ${other}, or change the expectation`,
+          );
+      }
+    } else if (item.clear != null) {
+      for (const a of A)
+        for (const b of B) {
+          const sa = solids[a],
+            sb = solids[b];
+          if (!sa.closed && !sb.closed)
+            return void fail(
+              k,
+              `clear needs a closed part: ${sa.part.id} and ${sb.part.id} are both open surfaces (use inside or above)`,
+            );
+          const share = (apart) =>
+              near(sa, sb, apart, -tolerance)
+                ? Math.max(
+                    sb.closed ? through(sa, sb, apart, tolerance) : 0,
+                    sa.closed ? through(sb, sa, apart, tolerance) : 0,
+                  )
+                : 0,
+            sharePosed = (values) =>
+              Math.max(
+                sb.closed ? throughMatrices(sa, pose(a, values), sb, pose(b, values), tolerance) : 0,
+                sa.closed ? throughMatrices(sb, pose(b, values), sa, pose(a, values), tolerance) : 0,
+              );
+          const found = [
+            [share(0), 'at rest'],
+            ...amounts(sa, sb, tolerance).map((apart) => [
+              share(apart),
+              `as the model is taken apart (${round(apart)} of the way)`,
+            ]),
+            ...motionSamples([a, b]).map(({ motion, values }) => [
+              sharePosed(values),
+              `as ${motion.id} moves, at ${round(values[motion.id])}`,
+            ]),
+          ].find(([amount]) => amount > 0.03);
+          if (found)
+            return void fail(
+              k,
+              `${sa.part.id} runs into ${sb.part.id} ${found[1]} (${Math.round(found[0] * 100)} % of one inside the other): move it, or change the expectation`,
+            );
+        }
+    } else if (item.above != null) {
+      const top = boxOf(B)[1][1],
+        [least, most] = item.by || [0, Infinity];
+      for (const a of A) {
+        const gap = boxOf([a])[0][1] - top;
+        if (gap < least - tolerance || gap > most + tolerance)
+          return void fail(
+            k,
+            (gap < -tolerance
+              ? `${solids[a].part.id} is not above ${other} (it reaches ${round(-gap)} below its top)`
+              : `${solids[a].part.id} is above ${other} by ${round(Math.abs(gap) < tolerance ? 0 : gap)}, not by ${least} to ${most}`) +
+              ': move it, or change the expectation',
+          );
+      }
+    } else if (item.size != null) {
+      const axis = AXES.indexOf(item.axis),
+        [low, high] = boxOf(A),
+        extent = high[axis] - low[axis],
+        [least, most] = item.is,
+        slack = 1e-6 * built.radius;
+      if (extent < least - slack || extent > most + slack)
+        fail(
+          k,
+          `${name} is ${round(extent)} along ${item.axis}, not ${least} to ${most}: change its size, or the expectation`,
+        );
+    } else if (item.seen != null) {
+      const steps = (scene.steps || []).filter((step) => step && typeof step === 'object'),
+        step = typeof item.step === 'number' ? steps[item.step - 1] : steps.find((each) => each.id === item.step);
+      if (!step) return; // (validate names the step that is not there)
+      const state = stepState(scene, step),
+        values = Object.fromEntries((scene.motions || []).map((motion) => [motion.id, state.motion(motion)])),
+        cutAway = (i) => {
+          const part = solids[i].part;
+          if (state.cut === false || part.cut === false) return false;
+          const box = boxOf([i], values, state.explode),
+            beyond = (plane, offset) => {
+              const n = norm(plane.normal || [1, 0, 0]);
+              return (
+                Math.min(
+                  ...[0, 1, 2, 3, 4, 5, 6, 7].map((c) =>
+                    dot(
+                      n,
+                      [0, 1, 2].map((j) => box[(c >> j) & 1][j]),
+                    ),
+                  ),
+                ) > offset
+              );
+            };
+          // the plane, swept in from just outside what it cuts as far as the step says (true: all the way)
+          const n = norm(state.section.normal),
+            swept = state.cut === true ? 1 : Math.max(0, Math.min(1, +state.cut || 0)),
+            outer = Math.max(
+              ...solids.map((s, j) => {
+                const [l, h] = boxOf([j], values, state.explode);
+                return dot(
+                  n,
+                  [0, 1, 2].map((a) => (n[a] > 0 ? h[a] : l[a])),
+                );
+              }),
+            ),
+            from = Math.max(state.section.offset || 0, outer + built.radius * 0.01),
+            offset = swept < 1 ? from + ((state.section.offset || 0) - from) * swept : state.section.offset || 0;
+          return (
+            beyond(state.section, offset) &&
+            (!state.section.second || beyond(state.section.second, state.section.second.offset || 0))
+          );
+        };
+      for (const a of A) {
+        const part = solids[a].part,
+          where = `in step ${typeof item.step === 'number' ? item.step : `"${item.step}"`}`;
+        if (state.hidden(part))
+          return void fail(k, `${part.id} is hidden ${where}: show it there, or change the expectation`);
+        if (cutAway(a))
+          return void fail(k, `${part.id} is cut away ${where}: cut elsewhere there, or change the expectation`);
+        if (Array.isArray(state.labels) && !state.labels.includes(part.id) && !state.labels.includes(part.group))
+          return void fail(
+            k,
+            `${part.id} is not among the labels ${where}: add it to the step's labels, or change the expectation`,
+          );
+      }
+    }
+  });
+  return problems;
+}
+const isIdentity = (m) => m.every((v, i) => Math.abs(v - (i % 5 === 0 ? 1 : 0)) < 1e-12);

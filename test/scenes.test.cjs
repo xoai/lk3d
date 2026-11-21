@@ -28,7 +28,7 @@ for (const dir of dirs)
         assert.fail(`lk3d check did not answer: ${r.stderr || r.stdout}`);
       }
       assert.deepEqual(
-        out.problems.map((p) => `${p.path}: ${p.message}`),
+        out.problems.filter((p) => p.level !== 'warning').map((p) => `${p.path}: ${p.message}`),
         [],
       );
       assert.ok(out.summary && out.summary.parts > 0);

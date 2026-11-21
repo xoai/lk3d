@@ -281,7 +281,8 @@ const problems = validate(scene); // [{ path: 'parts[2].handle', message: 'a han
 
 From a shell: `node node_modules/lk3d/src/validate.js < scene.json` prints one problem per line and exits with 1 if
 there are any. Editors that understand JSON Schema complete and check scenes as you type with
-`"$schema": "https://raw.githubusercontent.com/xoai/lk3d/main/schema/scene.schema.json"`.
+`"$schema": "https://xoai.github.io/lk3d/schema/1/scene.schema.json"` (the format's version 1, kept at that address; the
+old address, `https://raw.githubusercontent.com/xoai/lk3d/main/schema/scene.schema.json`, still works).
 
 A scene stays small enough to draw: each count has a bound (`seg` 512, `repeat` 1000, `scatter.n` 10000, …), and
 counts that multiply past 2 million triangles in a part (10 million in all; 1 million where memory is small, see

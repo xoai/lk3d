@@ -215,3 +215,42 @@ test("lk3d place writes each placed part's at into the file, only those numbers,
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /written by examples\/armillary.mjs: place its parts there, with resolvePlace/);
 });
+
+test('lk3d skill install copies the skill, its links pointing at the guides it bundles; pack zips it; llms.txt lists the guides', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lk3d-skill-'));
+  let r = run('skill', 'install', '--to', dir);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const skill = path.join(dir, 'lk3d'),
+    text = fs.readFileSync(path.join(skill, 'SKILL.md'), 'utf8');
+  assert.ok(fs.existsSync(path.join(skill, 'references/craft.md')), 'its references');
+  assert.ok(!fs.existsSync(path.join(skill, 'evals')), 'not its evals');
+  // every link to a guide points into the copy, and the guide is there
+  for (const [, link] of text.matchAll(/\]\((docs\/[^)#\s]+\.md)/g))
+    assert.ok(fs.existsSync(path.join(skill, link)), `${link} is bundled`);
+  assert.doesNotMatch(text, /\]\(\.\.\/\.\.\/docs\//, 'no link out of the copy');
+  // installed again: replaced, not added to; a folder that is not a skill is left alone
+  fs.writeFileSync(path.join(skill, 'stale.md'), 'old');
+  run('skill', 'install', '--to', dir);
+  assert.ok(!fs.existsSync(path.join(skill, 'stale.md')));
+  const notSkill = path.join(dir, 'other');
+  fs.mkdirSync(path.join(notSkill, 'lk3d'), { recursive: true });
+  r = run('skill', 'install', '--to', notSkill);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /is not a skill/);
+  // packed: a zip with the same files, each readable
+  r = run('skill', 'pack', '--out', dir);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const zip = path.join(dir, 'lk3d-skill.zip'),
+    test = spawnSync('unzip', ['-t', zip], { encoding: 'utf8' });
+  if (!test.error) assert.match(test.stdout, /No errors detected/);
+  assert.equal(fs.readFileSync(zip).readUInt32LE(0), 0x04034b50);
+  // llms.txt: every guide, each with its first sentence
+  r = spawnSync(process.execPath, [path.join(ROOT, 'scripts/llms.mjs'), dir], LIMIT);
+  assert.equal(r.status, 0, r.stderr);
+  const index = fs.readFileSync(path.join(dir, 'llms.txt'), 'utf8');
+  for (const guide of ['scene-format', 'api', 'shapes', 'recipes'].filter((g) =>
+    fs.existsSync(path.join(ROOT, `docs/${g}.md`)),
+  ))
+    assert.match(index, new RegExp(`docs/${guide}\\.md\\): \\S`), guide);
+  assert.ok(fs.statSync(path.join(dir, 'llms-full.txt')).size > 100000);
+});

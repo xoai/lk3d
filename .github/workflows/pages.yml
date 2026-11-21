@@ -1,6 +1,7 @@
 # The playground and the examples, published on GitHub Pages (https://xoai.github.io/lk3d/) from lk3d's main: the
 # engine built, then the pages and what they load (dist/, the sources and the schema the playground's checks import,
-# the examples' scenes and assets) as one static site; its front page goes to the playground. Needs Pages set to
+# the examples' scenes and assets) as one static site; its front page goes to the playground. For agents, the guides,
+# the skill, llms.txt and the schema at https://xoai.github.io/lk3d/schema/1/scene.schema.json. Needs Pages set to
 # "GitHub Actions" in the repository's settings (once).
 name: pages
 on:
@@ -31,6 +32,12 @@ jobs:
           mkdir _site
           cp -r playground examples dist src schema _site/
           cp README.md LICENSE _site/
+          # (for agents: the guides and the skill, llms.txt and llms-full.txt at the root, and the schema at its
+          # versioned address, its $id, as well as at schema/scene.schema.json)
+          mkdir -p _site/docs _site/skill _site/schema/1
+          cp docs/*.md _site/docs/ && cp -r skill/lk3d _site/skill/ && rm -rf _site/skill/lk3d/evals
+          cp schema/scene.schema.json _site/schema/1/
+          node scripts/llms.mjs _site
           printf '<!doctype html><meta charset="utf-8"><title>lk3d</title><meta http-equiv="refresh" content="0; url=playground/"><a href="playground/">The lk3d playground</a>\n' > _site/index.html
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

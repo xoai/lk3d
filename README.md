@@ -78,7 +78,9 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
   labels; TypeScript types.
 - **Made for AI agents too**: `npx lk3d check scene.json` and `npx lk3d render scene.json` (PNG pictures of the looks
   and poses you ask for, pen and ink by default, to look at), and an [Agent Skill](skill/lk3d/SKILL.md) that teaches an agent to build detailed, clean,
-  correct figures.
+  correct figures: `npx lk3d skill install` (into `~/.claude/skills`; `--to codex` or a folder) or `npx lk3d skill
+pack` (a zip to upload). The guides are also in [llms.txt](https://xoai.github.io/lk3d/llms.txt), and the schema at
+  `https://xoai.github.io/lk3d/schema/1/scene.schema.json`.
 
 ## Small and fast
 

@@ -15,6 +15,9 @@
 //       each part with place (on, under, in, against, alignedWith) gets the at it says, written into the file: only
 //       those numbers change, and a second run changes nothing; a scene a script makes is placed by that script
 //       (resolvePlace from lk3d/place), not here
+//   lk3d skill install [--to claude|codex|PATH]   lk3d skill pack [--out DIR]
+//       the lk3d skill for AI agents (SKILL.md, its references, and the guides they link to, bundled under docs/):
+//       copied into ~/.claude/skills/lk3d (or ~/.codex/skills/lk3d, or PATH/lk3d), or packed as lk3d-skill.zip
 //   lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
 //       the scene as glTF 2.0 binary (Blender, game engines, viewers): parts as named nodes with their materials, posed
 //       at the motions' starts (or --motion), each motion an animation with --animate
@@ -23,6 +26,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import '../src/models.js'; // (the glTF reader: check and export read the scene's models)
 import { validate } from '../src/validate.js';
@@ -32,7 +36,7 @@ import { patchPlace } from '../src/place.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 // the words on the command line: flags (--name, or --name value) anywhere, the rest in order (the command, the file)
-const VALUED = new Set(['looks', 'poses', 'theme', 'width', 'out', 'motion']),
+const VALUED = new Set(['looks', 'poses', 'theme', 'width', 'out', 'motion', 'to']),
   flags = {},
   words = [];
 for (const args = process.argv.slice(2); args.length;) {
@@ -52,6 +56,7 @@ const LOOKS = ['pen', 'studio', 'ink'],
   POSES = ['rest', 'apart', 'cut', 'steps'];
 const USAGE = `usage: lk3d check scene.json [--json]
        lk3d place scene.json
+       lk3d skill install [--to claude|codex|PATH] | lk3d skill pack [--out DIR]
        lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
        lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut,steps] [--theme NAME] [--ortho] [--width 640] [--out DIR] [--sheet] [--names]`;
 
@@ -86,6 +91,111 @@ function place(scenePath) {
     fs.writeFileSync(scenePath, placed);
     console.log(`${scenePath}: at written where place puts each part`);
   }
+}
+
+// ---- the skill for AI agents: SKILL.md and references/ as they are, and the guides they link to (and those link to),
+// bundled under docs/ with the links pointing there (from SKILL.md ../../docs/…, from references/ ../../../docs/…)
+const SKILL = path.join(ROOT, 'skill', 'lk3d'),
+  DOCS = path.join(ROOT, 'docs');
+function skillFiles() {
+  const out = [],
+    walk = (dir) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+        const file = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== 'evals') walk(file); // (the evals stay with the package's tests)
+        } else if (entry.name !== '.DS_Store') out.push([path.relative(SKILL, file), file]);
+      }
+    };
+  walk(SKILL);
+  const seen = new Set(),
+    todo = out.map(([, file]) => file).filter((file) => file.endsWith('.md'));
+  while (todo.length) {
+    const file = todo.pop();
+    for (const [, link] of fs.readFileSync(file, 'utf8').matchAll(/\]\(([^)#\s]+\.md)(?:#[^)]*)?\)/g)) {
+      const target = path.resolve(path.dirname(file), link);
+      if (path.dirname(target) === DOCS && fs.existsSync(target) && !seen.has(target)) {
+        seen.add(target);
+        out.push([path.join('docs', path.basename(target)), target]);
+        todo.push(target);
+      }
+    }
+  }
+  return out.sort(([a], [b]) => (a < b ? -1 : 1));
+}
+const skillBytes = (file) =>
+  Buffer.from(
+    fs.readFileSync(file, 'utf8').replaceAll('](../../../docs/', '](../docs/').replaceAll('](../../docs/', '](docs/'),
+  );
+function skill(action) {
+  const files = skillFiles();
+  if (action === 'install') {
+    const to = flag('to', 'claude'),
+      base = { claude: '~/.claude/skills', codex: '~/.codex/skills' }[to] || to,
+      dest = path.resolve(base.replace(/^~(?=$|\/)/, process.env.HOME || ''), 'lk3d');
+    if (path.resolve(dest) === SKILL) throw new Error('that is the skill itself');
+    if (fs.existsSync(dest) && !fs.existsSync(path.join(dest, 'SKILL.md')))
+      throw new Error(`${dest} exists and is not a skill: give another --to`);
+    fs.rmSync(dest, { recursive: true, force: true }); // (an older copy: replaced, so no file it no longer has stays)
+    for (const [rel, file] of files) {
+      fs.mkdirSync(path.dirname(path.join(dest, rel)), { recursive: true });
+      fs.writeFileSync(path.join(dest, rel), skillBytes(file));
+    }
+    console.log(`the lk3d skill (${files.length} files) is in ${dest}`);
+  } else if (action === 'pack') {
+    const out = path.resolve(flag('out', '.'), 'lk3d-skill.zip');
+    fs.writeFileSync(out, zip(files.map(([rel, file]) => [`lk3d/${rel.split(path.sep).join('/')}`, skillBytes(file)])));
+    console.log(
+      `${out}: the lk3d skill, ${files.length} files: upload it to a Claude app as a skill, or unzip it into a tool's skills folder`,
+    );
+  } else throw new Error('lk3d skill install [--to claude|codex|PATH] | lk3d skill pack [--out DIR]');
+}
+// a zip of [name, bytes] (deflated; the same bytes every time: no dates)
+function zip(entries) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+      for (let k = 0; k < 8; k++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1;
+      return n >>> 0;
+    }),
+    crc = (bytes) => {
+      let c = 0xffffffff;
+      for (const byte of bytes) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+      return (c ^ 0xffffffff) >>> 0;
+    },
+    local = [],
+    central = [];
+  let offset = 0;
+  for (const [name, data] of entries) {
+    const packed = zlib.deflateRawSync(data),
+      nameBytes = Buffer.from(name),
+      head = Buffer.alloc(30);
+    head.writeUInt32LE(0x04034b50, 0);
+    head.writeUInt16LE(20, 4);
+    head.writeUInt16LE(0x0800, 6); // (names in UTF-8)
+    head.writeUInt16LE(8, 8);
+    head.writeUInt16LE(0, 10);
+    head.writeUInt16LE(0x5c21, 12); // (1 January 2026)
+    head.writeUInt32LE(crc(data), 14);
+    head.writeUInt32LE(packed.length, 18);
+    head.writeUInt32LE(data.length, 22);
+    head.writeUInt16LE(nameBytes.length, 26);
+    const entry = Buffer.alloc(46);
+    entry.writeUInt32LE(0x02014b50, 0);
+    entry.writeUInt16LE(0x0314, 4);
+    head.copy(entry, 6, 4, 30);
+    entry.writeUInt32LE(0o100644 * 0x10000, 38);
+    entry.writeUInt32LE(offset, 42);
+    local.push(head, nameBytes, packed);
+    central.push(entry, nameBytes);
+    offset += head.length + nameBytes.length + packed.length;
+  }
+  const size = central.reduce((sum, part) => sum + part.length, 0),
+    end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(size, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...local, ...central, end]);
 }
 
 function exportGLB(scenePath, outPath) {
@@ -363,6 +473,7 @@ try {
   else if (command === 'render' && file) await render(file);
   else if (command === 'export' && file) exportGLB(file, words[2]);
   else if (command === 'place' && file) place(file);
+  else if (command === 'skill') skill(file);
   else if (!command || command === 'help' || flags.help) console.log(USAGE);
   else {
     console.error(USAGE);

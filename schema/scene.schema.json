@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/xoai/lk3d/main/schema/scene.schema.json",
+  "$id": "https://xoai.github.io/lk3d/schema/1/scene.schema.json",
   "title": "lk3d scene",
   "description": "A 3D figure as data: parts made of shapes, each with a name and a note, that the reader turns, takes apart, cuts open and moves. Every field is one of the format's, so a misspelt one is caught; a page's own data goes under extras.",
   "type": "object",

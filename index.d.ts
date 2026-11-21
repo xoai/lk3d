@@ -305,8 +305,8 @@ export interface FigureState {
   liquids: Record<string, number>;
   /** how open each vessel is, 0 to 1 (a vessel whose valve is a motion: not here, its motion says) */
   vessels: Record<string, { open: number }>;
-  /** gases' moles and temperature (K), by their part's id */
-  gases: Record<string, { n: number; T: number }>;
+  /** gases' moles and temperature (K), by their part's id; p and mass when the page set them */
+  gases: Record<string, { n: number; T: number; p?: number; mass?: number }>;
 }
 
 export interface Figure {

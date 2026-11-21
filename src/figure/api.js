@@ -21,7 +21,8 @@ export function makeApi(c) {
   // what set() changes besides a state's step and the keys state.js sets
   const set = (changes) => {
     if ('explode' in changes) c.explodeNow_(changes.explode); // (the page's own value wins over a running tween)
-    for (const key of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection', 'dimensions'])
+    if ('cut' in changes) c.cutNow_(changes.cut); // (the page's own value wins over a step's sweep)
+    for (const key of ['spin', 'labels', 'xray', 'style', 'theme', 'projection', 'dimensions'])
       if (key in changes) c.state_[key] = changes[key];
     if ('transparent' in changes) c.state_.transparent = !!changes.transparent;
     if (changes.section) c.state_.section = { ...c.state_.section, ...changes.section };
@@ -195,10 +196,12 @@ export function makeApi(c) {
     // a PNG of the figure as drawn now (no HTML labels), as a data URL: drawn first and read at once (WebGL keeps no
     // picture after the frame), waiting while shaders compile; a figure that never had a WebGL context gets one
     picture() {
+      const until = performance.now() + 10000; // (a context that never comes back: refused, not waited on forever)
       return new Promise((resolve, reject) => {
         const attempt = () => {
           if (c.destroyed_ || !c.host_.getClientRects().length)
             return reject(new Error('lk3d: picture() of a figure not on the page (hidden, or destroyed)'));
+          if (performance.now() > until) return reject(new Error('lk3d: picture(): the figure could not be drawn'));
           if (!c.renderer_.kind) c.claimGL_();
           if (c.renderer_.kind && c.drawNow_()) resolve(c.drawCanvas_.toDataURL('image/png'));
           else setTimeout(attempt, 30);

@@ -6,6 +6,7 @@
 //   resolvePlace(scene) → the scene, each placed part's at worked out (it throws, naming the part, if it cannot be)
 //   placements(scene)  → { at: Map(part index → at), problems: [{ path, message }] }
 //   patchPlace(text)   → the scene file's text with each placed part's at written in
+import './models.js'; // (the glTF reader: a placed part's box may be a model's; Node tools always have it)
 import { buildScene } from './geometry.js';
 
 const AXES = 'xyz';
@@ -119,13 +120,15 @@ export function placements(scene) {
         if (k >= 0) fixed[k].push({ value: centre(b, k) - centre(own, k), by: `alignedWith ${place.alignedWith}` });
       }
     }
-    const was = Array.isArray(part.at) ? part.at : [0, 0, 0],
+    const was = Array.isArray(part.at) ? part.at : null,
       offset = Array.isArray(place.offset) ? place.offset : [0, 0, 0],
       result = [0, 1, 2].map((k) => {
         const twice = fixed[k].length > 1 ? fixed[k] : !fixed[k].length && centred[k].length > 1 ? centred[k] : null;
         if (twice) say(i, `fixes ${part.id} along ${AXES[k]} twice (${twice.map((f) => f.by).join(', ')}): keep one`);
+        // (an axis no relation fixes keeps the at written, which holds the offset already: so a second run changes
+        // nothing; without an at yet, it starts at the offset)
         const by = fixed[k][0] || centred[k][0];
-        return r4((by ? by.value : was[k] || 0) + (offset[k] || 0));
+        return r4(by ? by.value + (offset[k] || 0) : was ? was[k] || 0 : offset[k] || 0);
       });
     at.set(i, result);
   }
@@ -257,9 +260,14 @@ if (direct) {
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', (chunk) => (text += chunk));
   process.stdin.on('end', () => {
-    const { at, problems } = placements(JSON.parse(text));
-    for (const [part, value] of at) console.log(JSON.stringify({ part, at: value }));
-    for (const problem of problems) console.log(JSON.stringify(problem));
-    process.exitCode = problems.length ? 1 : 0;
+    let found;
+    try {
+      found = placements(JSON.parse(text));
+    } catch (e) {
+      found = { at: new Map(), problems: [{ path: 'parts', message: `place cannot be worked out: ${e.message}` }] };
+    }
+    for (const [part, value] of found.at) console.log(JSON.stringify({ part, at: value }));
+    for (const problem of found.problems) console.log(JSON.stringify(problem));
+    process.exitCode = found.problems.length ? 1 : 0;
   });
 }

@@ -13,7 +13,7 @@ import { D2R } from '../math.js';
 
 /** @param {import('./context').Ctx} c */
 export function makeState(c) {
-  c.towards_ = { explode: null, cut: null, camera: null, step: null };
+  c.towards_ = { explode: null, cut: null, camera: null };
   c.lock_ = new Set(c.opts_.lock || []);
   c.locked_ = (what) => c.lock_.has(what);
   c.dragging_ = false;
@@ -53,7 +53,7 @@ export function makeState(c) {
     const s = c.state_,
       t = c.towards_,
       steps = c.spec_.steps || [],
-      at = t.step ?? c.stepAt_,
+      at = c.stepAt_,
       second = s.section.second,
       fluids = c.fluids_,
       // (a vessel whose valve is a motion is opened by that motion: the motion's value says it)
@@ -87,7 +87,12 @@ export function makeState(c) {
           .filter((vessel) => vessel.outlet && !byValve(vessel))
           .map((vessel) => [vessel.id, { open: c.openOf_(vessel) }]),
       ),
-      gases: Object.fromEntries((fluids ? fluids.gases : []).map((gas) => [gas.part, { n: gas.n, T: gas.T }])),
+      gases: Object.fromEntries(
+        (fluids ? fluids.gases : []).map((gas) => [
+          gas.part,
+          { n: gas.n, T: gas.T, ...(gas.p != null && { p: gas.p }), ...(gas.mass != null && { mass: gas.mass }) },
+        ]),
+      ),
     };
   };
 
@@ -103,7 +108,7 @@ export function makeState(c) {
     const api = c.api_,
       each = (list, fn) => list && Object.entries(list).forEach(([id, value]) => fn(id, value));
     each(changes.handles, (id, value) => api.handle(id)?.set(+value));
-    if ('selected' in changes) c.state_.selected = changes.selected ?? null;
+    if ('selected' in changes) ((c.state_.selected = changes.selected ?? null), c.showInfo_());
     if (changes.playing)
       for (const motion of c.motions_) {
         const player = api.motion(motion.id);

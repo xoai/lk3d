@@ -408,6 +408,12 @@ test('place: each relation puts the part where it says; drift, a missing at, a c
   assert.deepEqual(at({ on: 'base', against: 'base', side: '-z' }), [0, 0.6, -1.1]); // (on's centring gives way along z)
   assert.deepEqual(at({ alignedWith: 'base', axes: ['x'] }, { at: [5, 5, 5] }), [0, 5, 5]); // (the rest kept)
   assert.deepEqual(at({ on: 'base', offset: [0.3, 0, 0] }), [0.3, 0.6, 0]);
+  // an offset along an axis no relation fixes: there once, not again each time place runs
+  const { patchPlace } = require('../src/place.js');
+  let text = JSON.stringify(posted({ against: 'base', side: '+x', offset: [0, 0.2, 0] }), null, 2);
+  for (let run = 0; run < 3; run++) text = patchPlace(text);
+  assert.deepEqual(JSON.parse(text).parts[1].at, [1.1, 0.2, 0]);
+  assert.deepEqual(lint(JSON.parse(text)).problems, []);
   // a part placed on a placed part, and on a mirror of one
   const cap = { id: 'cap', shapes: [{ box: [0.2, 0.2, 0.2] }], place: { on: 'post' } };
   assert.deepEqual(resolvePlace({ parts: [base, { ...stick, place: { on: 'base' } }, cap] }).parts[2].at, [0, 1.2, 0]);

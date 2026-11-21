@@ -1773,3 +1773,148 @@ test("the figure in words: the scene's own sentences with {value}, the Describe 
   expect(r.renderer).toBe('2d');
   expect(r.flat).not.toMatch(/Cut open/);
 });
+
+test("set(state()) draws the same picture after the reader's own changes: a handle dragged, the cut, a paused motion, a turn; and with liquids", async ({
+  page,
+}) => {
+  await page.evaluate(async () => {
+    window.scene.motions = [
+      {
+        id: 'lift',
+        name: 'Lift',
+        range: [0, 1],
+        tracks: [
+          {
+            parts: ['knob'],
+            move: [
+              [0, [0, 0, 0]],
+              [1, [0, 0.2, 0]],
+            ],
+          },
+        ],
+      },
+    ];
+    window.scene.section = { normal: [0, 0, 1], offset: 0 };
+    window.fig = mountIt({ controls: true });
+    await fig.ready;
+  });
+  const canvas = await page.locator('#g canvas').boundingBox();
+  // the reader: drags the knob round, turns the view, plays the motion and pauses it, cuts it open, takes it apart
+  const knob = await page.evaluate(() => fig.project([0, 0.15, 0.08]));
+  await page.mouse.move(canvas.x + knob[0], canvas.y + knob[1]);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + knob[0] + 50, canvas.y + knob[1] + 20, { steps: 5 });
+  await page.mouse.up();
+  await page.mouse.move(canvas.x + 40, canvas.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + 120, canvas.y + 70, { steps: 5 });
+  await page.mouse.up();
+  const bar = (name) => page.locator('#g .lk3d-bar button', { hasText: name }).first();
+  await bar('Play').click();
+  await page.waitForTimeout(300);
+  await bar('Pause').click();
+  await bar('Cut open').click();
+  await bar('Take apart').click();
+  const same = await page.evaluate(async () => {
+    await new Promise((done) => setTimeout(done, 1200)); // (the glides end)
+    LK3D.clock.speed = 0;
+    const kept = fig.state(),
+      before = await fig.picture();
+    fig.set({
+      explode: 0,
+      cut: 0,
+      xray: true,
+      camera: { yaw: 10, pitch: 5 },
+      handles: { knob: 0 },
+      motion: { lift: 0 },
+    });
+    await fig.picture();
+    fig.set(kept);
+    const after = await fig.picture();
+    LK3D.clock.speed = 1;
+    return { equal: before === after, moved: kept.handles.knob !== 0 && kept.motion.lift > 0 && kept.cut === 1 };
+  });
+  expect(same.moved).toBe(true);
+  expect(same.equal).toBe(true);
+  // liquids: their volumes and an outlet shut, set back as they were
+  const liquids = await page.evaluate(async () => {
+    const pour = await (await fetch('/test/visual/scenes/pour.json')).json();
+    const fig = LK3D.mount(document.getElementById('g'), pour, { controls: false });
+    await fig.ready;
+    LK3D.clock.speed = 0;
+    fig.set({ liquids: { water: 18, 'water-below': 14 }, vessels: { f: { open: 0 } } });
+    const kept = fig.state(),
+      before = await fig.picture();
+    fig.set({ liquids: { water: 30, 'water-below': 2 } });
+    await fig.picture();
+    fig.set(kept);
+    const after = await fig.picture();
+    LK3D.clock.speed = 1;
+    return before === after;
+  });
+  expect(liquids).toBe(true);
+});
+
+test('the recipes run: a story told by scrolling, each step printed as a picture (the state put back), a state in a link; picture() refuses a hidden figure', async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    // (the story: blocks of text, each naming a step, scrolled past; as docs/recipes.md writes it)
+    window.scene.steps = [
+      { id: 'whole', title: 'The whole' },
+      { id: 'apart', title: 'Apart', explode: 1 },
+    ];
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      '<div id="story"><section data-step="whole" style="height:120vh">The whole</section><section data-step="apart" style="height:120vh">Apart</section></div>',
+    );
+    const fig = mountIt({ steps: false });
+    await fig.ready;
+    const still = matchMedia('(prefers-reduced-motion: reduce)');
+    const watch = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries)
+          if (entry.isIntersecting) fig.step(entry.target.dataset.step, { ms: still.matches ? 0 : 900 });
+      },
+      { rootMargin: '-45% 0px -45% 0px' },
+    );
+    for (const block of document.querySelectorAll('[data-step]')) watch.observe(block);
+    document.querySelector('[data-step="apart"]').scrollIntoView({ block: 'center' });
+    await until(() => fig.currentStep === 1);
+    const scrolled = fig.currentStep;
+    // printing each step: a picture each, and the figure put back as it was
+    fig.set({ camera: { yaw: 33, pitch: 12 } });
+    const kept = fig.state(),
+      pictures = [];
+    for (let k = 0; k < fig.steps.length; k++) {
+      fig.step(k, { ms: 0 });
+      pictures.push(await fig.picture());
+    }
+    fig.set(kept);
+    const restored = JSON.stringify(fig.state()) === JSON.stringify(kept);
+    // a state in a link, and back
+    const text = await LK3D.encodeState(fig.state()),
+      back = await LK3D.decodeState(text);
+    // picture() of a figure the page hides
+    document.getElementById('g').style.display = 'none';
+    const refused = await fig.picture().then(
+      () => 'drawn',
+      (e) => e.message,
+    );
+    document.getElementById('g').style.display = '';
+    return {
+      scrolled,
+      pictures: pictures.map((p) => p.slice(0, 22)),
+      different: pictures[0] !== pictures[1],
+      restored,
+      linked: JSON.stringify(back) === JSON.stringify(kept),
+      refused,
+    };
+  });
+  expect(r.scrolled).toBe(1);
+  expect(r.pictures).toEqual(['data:image/png;base64,', 'data:image/png;base64,']);
+  expect(r.different).toBe(true);
+  expect(r.restored).toBe(true);
+  expect(r.linked).toBe(true);
+  expect(r.refused).toMatch(/not on the page/);
+});

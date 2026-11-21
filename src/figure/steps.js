@@ -18,6 +18,7 @@ export function makeSteps(c, buttonClass) {
   c.stepAt_ = -1;
   c.goToStep_ = () => {};
   c.syncSteps_ = () => {};
+  c.cutNow_ = (cut) => (c.state_.cut = cut);
   if (!steps.length) return;
 
   // ---- the cut, swept in (or out) as the explode and the camera glide, rather than appearing at once
@@ -48,6 +49,9 @@ export function makeSteps(c, buttonClass) {
     c.animations_.add(tween);
     c.towards_.cut = target; // (where it is going: what state() says while it sweeps)
   };
+
+  // (the page's or the reader's cut wins over a step's sweep: set at once, the sweep stopped)
+  c.cutNow_ = (cut) => sweepCut(cut, 0);
 
   // ---- the panel under the stage: the step's words, and Back and Next (unless the page drives the steps itself)
   const panel = (c.opts_.steps ?? c.opts_.controls) !== false ? document.createElement('div') : null,

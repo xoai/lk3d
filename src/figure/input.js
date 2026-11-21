@@ -192,7 +192,7 @@ export function makeInput(c) {
     }
   };
   c.canvas_.addEventListener('pointerdown', (event) => {
-    c.cancelView_(); // the reader takes over from a gliding view
+    if (!c.locked_('camera')) c.cancelView_(); // the reader takes over from a gliding view (unless the page locked it)
     if (momentum) {
       c.animations_.delete(momentum); // a grab stops the model
       momentum = null;
@@ -204,6 +204,7 @@ export function makeInput(c) {
       if (cut) {
         // the reader takes hold of the cut face: the plane moves, the view does not
         cutting = { ...cut, id: event.pointerId };
+        c.dragging_ = true; // (onChange told every 250 ms while it moves)
         capture(event.pointerId);
         c.canvas_.style.cursor = 'grabbing';
         c.hint_.classList.add('gone');
@@ -213,6 +214,7 @@ export function makeInput(c) {
       }
       if (grip) {
         // the reader takes hold of a handle: it moves, the view does not
+        c.dragging_ = true;
         grab = {
           grip,
           id: event.pointerId,
@@ -316,6 +318,7 @@ export function makeInput(c) {
         c.showInfo_('pick');
       }
       c.mark_('reader');
+      c.dragging_ = false;
       cutting = null;
       c.canvas_.style.cursor = 'grab';
       c.kick_();
@@ -328,6 +331,7 @@ export function makeInput(c) {
         c.showInfo_('pick');
       }
       c.mark_('reader');
+      c.dragging_ = false;
       grab = null;
       c.canvas_.style.cursor = 'grab';
       c.kick_();
@@ -459,7 +463,9 @@ export function makeInput(c) {
       });
       // (locked: its keys do nothing, but it keeps the focus, and Tab still leaves it)
       range.addEventListener('keydown', (event) => {
-        if (c.locked_('handles') && event.key !== 'Tab') (event.stopImmediatePropagation(), event.preventDefault());
+        // (D still says the figure: it changes nothing)
+        if (c.locked_('handles') && !/^(Tab|d|D)$/.test(event.key))
+          (event.stopImmediatePropagation(), event.preventDefault());
       });
       // (a range input stops at its ends: a handle that goes round and round is turned by its own keys instead)
       if (grip.round)

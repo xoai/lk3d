@@ -126,7 +126,6 @@ export interface Ctx {
     explode: number | null;
     cut: number | null;
     camera: { yaw: number; pitch: number; dist: number; target: number[] } | null;
-    step: number | null;
   };
   /** what the reader may not change (opts_.lock, fig.lock) */
   lock_: Set<Lockable>;
@@ -145,6 +144,8 @@ export interface Ctx {
   setState_(changes: any, rest: () => void): void;
   /** once a frame (loop.js): onChange, if the state differs from the one last told */
   changeFrame_(): void;
+  /** the cut set at once, a step's sweep stopped (steps.js) */
+  cutNow_(cut: boolean | number): void;
   /** the steps' Back and Next said to be locked, or not (steps.js) */
   syncSteps_(): void;
   /** speak to screen readers through the figure's live region (picks and descriptions share it): a newer message

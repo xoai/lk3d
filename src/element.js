@@ -80,6 +80,7 @@ export function defineElement(mount, decode) {
       const load = ++this.loads,
         attribute = (/** @type {string} */ name) => this.getAttribute(name),
         off = (/** @type {string} */ name) => attribute(name) === 'false';
+      const same = !!this.scene; // (src changed: attributeChangedCallback let the old scene go)
       try {
         if (!this.scene) {
           const inside = this.querySelector('script[type="application/json"]'),
@@ -98,7 +99,8 @@ export function defineElement(mount, decode) {
           else throw new Error('lk3d: <lk3d-figure> needs a scene: src="scene.json", or a JSON script inside');
         }
         if (load !== this.loads || !this.isConnected) return;
-        const kept = this.figure && this.figure.state(); // (mounted again: the state it had, set back below)
+        // (mounted again with the same scene, a new locale say: the state it had, set back below; not for a new src)
+        const kept = this.figure && same && this.figure.state();
         if (this.figure) this.figure.destroy();
         const info = off('info') ? null : document.createElement('p'),
           step = attribute('step');

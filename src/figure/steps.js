@@ -8,7 +8,7 @@
 // view_, viewAngles_, frame_, explodeNow_, tweenExplode_, setMotion_, stopMotion_, playMotion_, syncHandleInputs_,
 // showInfo_, markDirty_ and kick_.
 import { clock } from '../clock.js';
-import { stepState } from '../stepstate.js';
+import { stepState, listed } from '../stepstate.js';
 import { safeHTML } from './dom.js';
 import LK3D from '../namespace.js';
 
@@ -91,13 +91,12 @@ export function makeSteps(c, buttonClass) {
     if (!step) return;
     c.stepAt_ = index;
     const atOnce = options.ms === 0,
-      listed = (/** @type {unknown} */ list) => (Array.isArray(list) ? list : []),
       state = stepState(c.spec_, step); // (the same state lk3d check reads: stepstate.js)
     // what shows, and how
     for (const part of c.built_.parts) part.hidden = state.hidden(part);
     c.syncHandleInputs_();
     c.state_.xray = !!step.xray;
-    c.state_.labels = state.labels ?? c.opts_.labels ?? 'auto';
+    c.state_.labels = step.labels ?? c.opts_.labels ?? 'auto';
     c.state_.dimensions = step.dimensions ?? null;
     c.state_.section = state.section;
     const part = step.select != null && c.part_(step.select);
@@ -107,7 +106,7 @@ export function makeSteps(c, buttonClass) {
       c.stopMotion_(motion);
       c.setMotion_(motion, state.motion(motion));
     }
-    for (const id of state.play) {
+    for (const id of listed(step.play)) {
       const motion = c.motions_.find((each) => each.id === id);
       if (motion) c.playMotion_(motion);
     }

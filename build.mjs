@@ -80,14 +80,20 @@ function contextNames() {
       .map((k, i) => [k, names[i]]),
   );
 }
-// the models add-on's maths are the core's, read from LK3D._m on the page (the reader is all it carries); inside the
-// crease-shading worker, where the add-on does nothing, there is no LK3D: the names are then undefined, and unused
+// the models add-on's matrices are the core's, read from LK3D.M on the page, and it carries only the four vector sums it
+// needs besides (the reader is all else it carries); inside the crease-shading worker, where the add-on does nothing,
+// there is no LK3D: M is then undefined, and unused
 const coreMaths = {
   name: 'core-maths',
   setup(b) {
     b.onResolve({ filter: /^\.\/math\.js$/ }, () => ({ path: 'core-maths', namespace: 'core-maths' }));
     b.onLoad({ filter: /.*/, namespace: 'core-maths' }, () => ({
-      contents: 'export const { M, sub, cross, norm, add } = (globalThis.LK3D && globalThis.LK3D._m) || {};',
+      contents:
+        'export const M = globalThis.LK3D && globalThis.LK3D.M;' +
+        'export const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];' +
+        'export const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];' +
+        'export const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];' +
+        'export const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };',
       loader: 'js',
     }));
   },

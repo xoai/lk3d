@@ -3,6 +3,40 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
+## 0.3.0 (21 November 2026)
+
+- **A page that shows a glTF model loads one more script.** The glTF reader left the global script for an add-on,
+  `dist/lk3d-models.min.js` (`lk3d/bundle-models`), loaded after `dist/lk3d.min.js`. A scene with a model is refused by
+  name until it comes (`this scene draws glTF models (skull): load dist/lk3d-models.min.js after dist/lk3d.min.js`), and
+  an `<lk3d-figure>` refused so is drawn once it does, whichever order the scripts are in. Pages that import lk3d as a
+  module, `lk3d check`, `render` and `export` keep the reader. `LK3D.version` is 3. The global script went from 66.6 to
+  63.6 KB gzipped; the add-on is 3.9 KB, borrowing the core's matrices.
+- **The size budget is frozen at 67 KB** (it was raised from 57 three times in November): a raise needs a decision
+  written here. Each add-on has a budget of its own (models 5 KB, exporter 3 KB), all checked by `npm run size`, and
+  `node build.mjs --table` writes `docs/size.md`: what each source file adds.
+- **`expect`: what the scene says must be true**, proved by `lk3d check`: a part `inside` another (at rest and as the
+  motions move), `touches`, `clear` of it (at rest, on the way apart, as the motions move), `above` it by a gap, its
+  `size` along an axis, `seen` in a step (not hidden, not cut away, among the step's labels). A name may be a group: as
+  the first, each of its parts; as the second, the box round all of them. Each failing item is reported at `expect[i]`
+  with what was found and how to fix it.
+- **Warnings**: the check may warn as well as fail, and `lk3d check` exits 0 on warnings alone. The first: two parts of
+  the same shapes, one turned 180° from the other, that are not symmetric across the plane the turn flips, a left and a
+  right made as the same hand (`"scale": [-1, 1, 1]` makes a mirror image; `check.mirror: [{pair, reason}]` says why
+  not).
+- **`lk3d render --sheet`**: every picture on one contact sheet, and `NAME-sheet.md`, the questions to answer looking at
+  it, made from the scene (each step, each dimension, what `expect` says is seen, parts resting on one other); `--names`
+  adds a picture with every part labelled by its id. The lint's result gains `contacts` (which parts each touches).
+- **A speed gate**: `test/bench/ab.mjs` compares this build with the published one, round after round, and flags a
+  metric only when it is slower in a paired t-test and by more than 15 %; the `bench` workflow runs it nightly.
+- **The public surface is recorded** (`test/api-surface.json`): a change to `LK3D`, a figure's methods, the element or
+  the scene's keys fails a test until it is recorded in the same commit.
+- **Examples**: an armillary sphere (`examples/armillary.html`, made by `examples/armillary.mjs`), set for Hà Nội's
+  latitude, with guided steps, the sky's daily turn and six expectations.
+- A scene may say its schema (`"$schema"`). `npm run evals -- DIR` grades a folder of agent answers against the skill's
+  evals and prints the pass rate.
+- **The skill's evals**: not graded for this release (no set of agent answers was made). **Still to measure**: a
+  low-end Android phone (`docs/performance.md`).
+
 ## 0.2.1 (11 November 2026)
 
 - **Quarter cuts**: a second plane, `section.second` (`{normal, offset}`), and only what lies beyond both planes is cut

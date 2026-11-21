@@ -672,7 +672,7 @@ function expectations(scene, built, solids, tolerance, jointAt) {
           return void fail(k, `${part.id} is hidden ${where}: show it there, or change the expectation`);
         if (cutAway(a))
           return void fail(k, `${part.id} is cut away ${where}: cut elsewhere there, or change the expectation`);
-        if (Array.isArray(state.labels) && !state.labels.includes(part.id) && !state.labels.includes(part.group))
+        if (Array.isArray(step.labels) && !step.labels.includes(part.id) && !step.labels.includes(part.group))
           return void fail(
             k,
             `${part.id} is not among the labels ${where}: add it to the step's labels, or change the expectation`,

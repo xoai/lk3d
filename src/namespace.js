@@ -2,7 +2,7 @@
 // The LK3D object: the page API's entry (index.js puts mount on it) and the settings every figure reads live, so a
 // page may change them at any time (defaults, locales, themes, reduce, and toGLB, set by the exporter).
 import { buildScene, flatten, useModels, modelsMissing, modelsError } from './geometry.js';
-import { M, sub, cross, norm, add } from './math.js';
+import { M } from './math.js';
 import { clock, refreshFrom } from './clock.js';
 import { safeHTML } from './figure/dom.js';
 import { THEMES } from './figure/look.js';
@@ -44,7 +44,5 @@ const LK3D = {
   // (for lk3d's own tests and tools; not part of the API)
   M,
   refreshFrom,
-  // (the maths the models add-on reads instead of carrying its own copy)
-  _m: { M, sub, cross, norm, add },
 };
 export default LK3D;

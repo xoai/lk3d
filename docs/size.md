@@ -1,6 +1,6 @@
 # Size
 
-What each source file adds to the global script, `dist/lk3d.min.js`: 163.8 KB minified and 63.6 KB
+What each source file adds to the global script, `dist/lk3d.min.js`: 163.9 KB minified and 63.6 KB
 gzipped, against a budget of 67 KB (frozen: see [performance](performance.md#size)). Made by
 `node build.mjs --size --table`. The minified bytes are exact; the gzipped share is an estimate (gzip compresses the
 whole script, not each file): the file's share of the minified bytes, of the gzipped total.
@@ -21,12 +21,12 @@ whole script, not each file): the file's share of the minified bytes, of the gzi
 | `src/flow.js` | 3.3 KB | 1.3 KB | 2.0 % |
 | `src/renderer-2d.js` | 3.2 KB | 1.3 KB | 2.0 % |
 | `src/math.js` | 3.2 KB | 1.2 KB | 1.9 % |
-| `src/bvh.js` | 2.7 KB | 1.1 KB | 1.7 % |
+| `src/bvh.js` | 2.7 KB | 1.0 KB | 1.7 % |
 | `src/figure/dom.js` | 2.7 KB | 1.0 KB | 1.6 % |
 | `src/figure/dimensions.js` | 2.6 KB | 1.0 KB | 1.6 % |
-| `src/figure/steps.js` | 2.6 KB | 1.0 KB | 1.6 % |
 | `src/element.js` | 2.5 KB | 1.0 KB | 1.5 % |
 | `src/stream.js` | 2.4 KB | 0.9 KB | 1.5 % |
+| `src/figure/steps.js` | 2.4 KB | 0.9 KB | 1.5 % |
 | `src/figure/liquids.js` | 2.2 KB | 0.9 KB | 1.4 % |
 | `src/fluids.js` | 2.2 KB | 0.9 KB | 1.4 % |
 | `src/controls.js` | 2.1 KB | 0.8 KB | 1.3 % |
@@ -45,5 +45,6 @@ whole script, not each file): the file's share of the minified bytes, of the gzi
 | `src/motion.js` | 0.7 KB | 0.3 KB | 0.4 % |
 | `src/text-width.js` | 0.5 KB | 0.2 KB | 0.3 % |
 | `src/clock.js` | 0.5 KB | 0.2 KB | 0.3 % |
-| `src/namespace.js` | 0.5 KB | 0.2 KB | 0.3 % |
+| `src/namespace.js` | 0.4 KB | 0.2 KB | 0.3 % |
+| `src/stepstate.js` | 0.3 KB | 0.1 KB | 0.2 % |
 | `src/changed.js` | 0.1 KB | 0.1 KB | 0.1 % |

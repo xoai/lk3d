@@ -1,6 +1,6 @@
 // dist/lk3d-models.min.js: the glTF reader for a page that loads lk3d as a script (dist/lk3d.min.js) and shows a model.
-// Load it after lk3d; <lk3d-figure>s refused before it came are drawn then. Its maths are the core's (LK3D._m: the
-// build points math.js at them), so it carries only the reader.
+// Load it after lk3d; <lk3d-figure>s refused before it came are drawn then. Its matrices are the core's (LK3D.M: the
+// build points math.js at them), so it carries only the reader and four small vector sums.
 import { load, parseGLB, bytes } from './gltf.js';
 
 const global = /** @type {any} */ (globalThis);

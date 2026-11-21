@@ -13,6 +13,10 @@ type Form<T, K extends keyof T, N extends keyof T = never> = Omit<T, K | N> &
  */
 export interface Scene {
   /**
+   * The address of this schema, for editors that check a scene as it is written (the engine does not read it).
+   */
+  $schema?: string;
+  /**
    * The version of this format the scene is written in (1). Optional; a later engine that changes the format
    * reads older versions.
    */
@@ -104,6 +108,19 @@ export interface Scene {
      * side).
      */
     float?: boolean | string[];
+    /**
+     * Pairs of parts that are the same shapes turned 180° on purpose, not a left and a right that should be mirror
+     * images, each with the reason.
+     */
+    mirror?: Array<{
+      /** The two parts' ids. */
+      pair: [string, string];
+      /**
+       * Why they are turned copies, in words a reader would accept.
+       * @minLength 1
+       */
+      reason: string;
+    }>;
   };
   /** A shadow under the model (true by default). */
   ground?: boolean;
@@ -149,6 +166,11 @@ export interface Scene {
    * Honest scale: a bar that keeps its true length as the view zooms, and/or a note saying what is not to scale.
    */
   scale?: SceneScale;
+  /**
+   * What must be true of the model, checked by lk3d check (lk3d/lint): a part inside another, touching it, clear
+   * of it, above it, its size, seen in a step. The engine does not read them.
+   */
+  expect?: Expectation[];
   /**
    * Dimensions drawn on the figure: lengths between points and angles at vertices, with their values, as on a
    * technical drawing; worked out from the points as shown, so a length to a moving part changes as it moves.
@@ -306,6 +328,59 @@ export interface SceneScaleFields {
   };
   /** @minLength 1 */
   note?: string;
+}
+
+/**
+ * Something that must be true of the model, as the scene's author means it, checked by lk3d check. Parts and
+ * groups are named by id (a group as the first means each of its parts; as the second, the box round all of
+ * them). The model is taken as drawn at rest: every motion at its start, joints solved.
+ */
+export type Expectation =
+  | Form<ExpectationFields, 'inside' | 'of', Exclude<ExpectationKind, 'inside'>>
+  | Form<ExpectationFields, 'touches' | 'with', Exclude<ExpectationKind, 'touches'>>
+  | Form<ExpectationFields, 'clear' | 'of', Exclude<ExpectationKind, 'clear'>>
+  | Form<ExpectationFields, 'above' | 'of', Exclude<ExpectationKind, 'above'>>
+  | Form<ExpectationFields, 'size' | 'axis' | 'is', Exclude<ExpectationKind, 'size'>>
+  | Form<ExpectationFields, 'seen' | 'step', Exclude<ExpectationKind, 'seen'>>;
+
+/** the kinds of Expectation: exactly one of these keys picks its form */
+export type ExpectationKind = 'inside' | 'touches' | 'clear' | 'above' | 'size' | 'seen';
+
+/** the fields of Expectation, each optional (Expectation says which are required, together) */
+export interface ExpectationFields {
+  /**
+   * This part's box lies within the box of `of`: at rest, and as every motion that moves either goes along its
+   * range.
+   */
+  inside?: string;
+  /** This part's box comes within the check's contact tolerance of the box of `with`, at rest. */
+  touches?: string;
+  /**
+   * This part does not run into `of` (at least one of the two closed): at rest, all the way as the model is
+   * taken apart, and as every motion goes along its range.
+   */
+  clear?: string;
+  /** This part's lowest point is above the highest point of `of`, by a gap within `by` when it is given. */
+  above?: string;
+  /** This part's extent along `axis` is within `is`. */
+  size?: string;
+  /**
+   * In `step`, this part is not hidden, not cut wholly away, and among the labels the step shows when it names
+   * them.
+   */
+  seen?: string;
+  /** The other part or group (inside, clear, above). */
+  of?: string;
+  /** The other part or group (touches). */
+  with?: string;
+  /** above: the gap's least and greatest. */
+  by?: Range;
+  /** size: along which axis. */
+  axis?: 'x' | 'y' | 'z';
+  /** size: the least and the greatest extent. */
+  is?: Range;
+  /** seen: the step, by its id or its number from 1. */
+  step?: string | number;
 }
 
 /**
@@ -680,6 +755,9 @@ export interface MotionTrackFields {
   /** A smooth start and stop at each key (else straight from key to key). */
   ease?: boolean;
 }
+
+/** The least and the greatest value, in scene units. */
+export type Range = [number, number];
 
 /**
  * A point of the scene, [x, y, z], or one carried by a part, {part, at}: it moves as the part does (taken

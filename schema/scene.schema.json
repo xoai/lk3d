@@ -6,6 +6,10 @@
   "type": "object",
   "required": ["parts"],
   "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "The address of this schema, for editors that check a scene as it is written (the engine does not read it)."
+    },
     "lk3d": {
       "const": 1,
       "description": "The version of this format the scene is written in (1). Optional; a later engine that changes the format reads older versions."
@@ -144,6 +148,36 @@
               }
             }
           ]
+        },
+        "mirror": {
+          "type": "array",
+          "description": "Pairs of parts that are the same shapes turned 180° on purpose, not a left and a right that should be mirror images, each with the reason.",
+          "items": {
+            "type": "object",
+            "required": ["pair", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "pair": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "The two parts' ids."
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Why they are turned copies, in words a reader would accept."
+              }
+            }
+          }
         }
       }
     },
@@ -244,6 +278,14 @@
       ],
       "x-message": "scale is a bar ({bar: {length, label}}) and/or a note ({note: \"not to scale\"})",
       "additionalProperties": false
+    },
+    "expect": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/expectation"
+      },
+      "description": "What must be true of the model, checked by lk3d check (lk3d/lint): a part inside another, touching it, clear of it, above it, its size, seen in a step. The engine does not read them."
     },
     "dimensions": {
       "type": "array",
@@ -2205,6 +2247,105 @@
         }
       ],
       "x-message": "a point is [x, y, z], or {part, at: [x, y, z]}"
+    },
+    "range": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "The least and the greatest value, in scene units."
+    },
+    "expectation": {
+      "type": "object",
+      "description": "Something that must be true of the model, as the scene's author means it, checked by lk3d check. Parts and groups are named by id (a group as the first means each of its parts; as the second, the box round all of them). The model is taken as drawn at rest: every motion at its start, joints solved.",
+      "properties": {
+        "inside": {
+          "type": "string",
+          "description": "This part's box lies within the box of `of`: at rest, and as every motion that moves either goes along its range."
+        },
+        "touches": {
+          "type": "string",
+          "description": "This part's box comes within the check's contact tolerance of the box of `with`, at rest."
+        },
+        "clear": {
+          "type": "string",
+          "description": "This part does not run into `of` (at least one of the two closed): at rest, all the way as the model is taken apart, and as every motion goes along its range."
+        },
+        "above": {
+          "type": "string",
+          "description": "This part's lowest point is above the highest point of `of`, by a gap within `by` when it is given."
+        },
+        "size": {
+          "type": "string",
+          "description": "This part's extent along `axis` is within `is`."
+        },
+        "seen": {
+          "type": "string",
+          "description": "In `step`, this part is not hidden, not cut wholly away, and among the labels the step shows when it names them."
+        },
+        "of": {
+          "type": "string",
+          "description": "The other part or group (inside, clear, above)."
+        },
+        "with": {
+          "type": "string",
+          "description": "The other part or group (touches)."
+        },
+        "by": {
+          "$ref": "#/$defs/range",
+          "description": "above: the gap's least and greatest."
+        },
+        "axis": {
+          "enum": ["x", "y", "z"],
+          "description": "size: along which axis."
+        },
+        "is": {
+          "$ref": "#/$defs/range",
+          "description": "size: the least and the greatest extent."
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "integer",
+              "minimum": 1
+            }
+          ],
+          "description": "seen: the step, by its id or its number from 1."
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["inside", "of"]
+        },
+        {
+          "required": ["touches", "with"]
+        },
+        {
+          "required": ["clear", "of"]
+        },
+        {
+          "required": ["above", "of"]
+        },
+        {
+          "required": ["size", "axis", "is"]
+        },
+        {
+          "required": ["seen", "step"]
+        }
+      ],
+      "x-message": "an expectation is one of inside+of, touches+with, clear+of, above+of (by), size+axis+is, seen+step",
+      "additionalProperties": false
     },
     "dimension": {
       "type": "object",

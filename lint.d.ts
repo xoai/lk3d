@@ -13,4 +13,13 @@ export interface Summary {
   /** the model's size across, in scene units */
   size: number;
 }
-export function lint(scene: Scene, o?: { quality?: number }): { problems: Problem[]; summary: Summary };
+/** a finding of the check: a problem (lk3d check fails), or a warning (lk3d check says it and passes) */
+export interface Finding extends Problem {
+  level?: 'warning';
+}
+/** each part's id, and the ids of the parts its box touches at rest */
+export type Contacts = Record<string, string[]>;
+export function lint(
+  scene: Scene,
+  o?: { quality?: number },
+): { problems: Finding[]; summary: Summary; contacts: Contacts };

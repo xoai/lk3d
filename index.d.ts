@@ -408,7 +408,16 @@ declare const LK3D: {
   safeHTML: typeof safeHTML;
   /** the glTF writer, set by the exporter (lk3d/export, dist/lk3d-export.min.js): what exportGLB() calls */
   toGLB?: (scene: unknown, o?: object) => Uint8Array;
+  /** gives the engine its glTF reader: called by dist/lk3d-models.min.js (a page that loads lk3d as a script and shows
+   * models), and by the ES module itself; a scene with a model shape is refused until it has been */
+  useModels: (reader: ModelReader | null) => void;
 };
+/** the glTF reader the models add-on brings (the reader's own types are internal) */
+export interface ModelReader {
+  load: (...args: unknown[]) => unknown;
+  parseGLB: (bytes: Uint8Array) => unknown;
+  bytes: (data: string) => Uint8Array;
+}
 export default LK3D;
 
 /** <lk3d-figure>: a figure as an HTML element (src="scene.json", or a JSON script inside; attributes look, theme,

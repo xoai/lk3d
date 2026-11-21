@@ -62,3 +62,25 @@ test('the worked example is what the skill asks for', () => {
   assert.ok(!scene.parts.some((p) => p.cut === false), 'no invented stand');
   assert.equal(scene.check, undefined);
 });
+
+test("npm run evals grades a folder of answers: each eval's checks, and the pass rate", async () => {
+  const { grade } = await import('../scripts/evals.mjs');
+  const os = require('os'),
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lk3d-evals-'));
+  // the worked example as the microscope's answer, with a picture; a three-part pump; nothing for the others
+  fs.copyFileSync(path.join(SKILL, 'references/example/turbofan.json'), path.join(dir, 'microscope.json'));
+  fs.writeFileSync(path.join(dir, 'microscope-pen-rest.png'), '');
+  const pump = {
+    parts: ['a', 'b', 'c'].map((id, i) => ({ id, name: id, shapes: [{ box: [1, 1, 1], at: [0, i + 0.5, 0] }] })),
+  };
+  fs.writeFileSync(path.join(dir, 'bicycle-pump.json'), JSON.stringify(pump));
+  const by = Object.fromEntries(grade(dir).map((r) => [r.id, r]));
+  assert.equal(by.microscope.passed, true, by.microscope.failed.join('; '));
+  assert.equal(by['bicycle-pump'].passed, false);
+  assert.ok(
+    by['bicycle-pump'].failed.some((f) => /fewer than 30/.test(f)),
+    by['bicycle-pump'].failed.join('; '),
+  );
+  assert.ok(by['bicycle-pump'].failed.some((f) => /no picture/.test(f)));
+  assert.deepEqual(by['plant-cell'].failed, ['no plant-cell.json']);
+});

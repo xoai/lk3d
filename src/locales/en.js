@@ -3,7 +3,7 @@
 export default {
   model: '3D model',
   hintTouch: 'Drag sideways to turn, tap it to turn any way · pinch to zoom',
-  keys: 'Arrow keys turn it, + and − zoom, Page Down and Page Up go through its parts, Escape lets go.',
+  keys: 'Arrow keys turn it, + and − zoom, Page Down and Page Up go through its parts, Escape lets go, D describes it.',
   parts: 'Parts',
   dimensions: 'Dimensions',
   hintMouse: 'Drag to turn · Shift + drag to move · Ctrl + scroll to zoom',
@@ -39,4 +39,13 @@ export default {
   decimal: '.',
   // a control the page has locked against the reader (lock, fig.lock): its title
   locked: 'locked by the page',
+  // the figure in words (fig.describe(), D): each sentence left out when it does not apply
+  saidApart: 'Taken apart.',
+  saidTogether: 'Put together.',
+  saidCut: 'Cut open across {axis}.',
+  saidSlant: 'Cut open at a slant.',
+  saidQuarter: 'A quarter cut away.',
+  saidXray: 'See-through.',
+  describe: 'Describe',
+  describeTitle: 'Say what the figure shows (D)',
 };

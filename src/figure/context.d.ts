@@ -151,6 +151,10 @@ export interface Ctx {
    * replaces one not yet spoken, at most one a second, and the region is emptied first so the same words are heard
    * again (dom.js, B3) */
   say_(text: string): void;
+  /** the figure in words, [kind, sentence] each (describe.js) */
+  sentences_(): [string, string][];
+  /** after a change: what is new seen, and said when the reader made it */
+  saidChange_(byReader: boolean): void;
   /** the built-in controls' hooks, told when the page changes what they show (empty with controls: false) */
   controls_: { explode?(v: number): void; motion?(id: string): void; style?(): void; lock?(): void };
   motions_: any[];

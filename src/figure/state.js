@@ -116,8 +116,10 @@ export function makeState(c) {
 
   // ---- told once a frame (loop.js), when the state differs from the one last told
   c.changeFrame_ = () => {
+    if (inside) return;
+    if (marked && !c.dragging_) c.saidChange_(marked === 'reader'); // (the reader's change said in words: describe.js)
     const listen = c.opts_.onChange;
-    if (!listen || inside) return;
+    if (!listen) return void (marked = null);
     const now = JSON.stringify(c.stateOf_());
     if (!told) told = now; // (the first frame: where the figure starts is no change)
     if (now === told) return void (marked = null);

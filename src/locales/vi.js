@@ -2,7 +2,7 @@
 export default {
   model: 'Mô hình 3D',
   hintTouch: 'Kéo ngang để xoay, chạm vào hình để xoay mọi hướng · chụm hai ngón để phóng to',
-  keys: 'Phím mũi tên để xoay, + và − để phóng to hay thu nhỏ, Page Down và Page Up để đi qua từng bộ phận, Esc để bỏ chọn.',
+  keys: 'Phím mũi tên để xoay, + và − để phóng to hay thu nhỏ, Page Down và Page Up để đi qua từng bộ phận, Esc để bỏ chọn, D để nghe mô tả.',
   parts: 'Các bộ phận',
   dimensions: 'Kích thước',
   hintMouse: 'Kéo để xoay · Shift + kéo để dời · Ctrl + cuộn để phóng to',
@@ -37,4 +37,12 @@ export default {
   stepOf: 'Bước {n}/{count}',
   decimal: ',',
   locked: 'trang đã khoá điều khiển này',
+  saidApart: 'Đã tách rời.',
+  saidTogether: 'Đã lắp lại.',
+  saidCut: 'Cắt mở theo trục {axis}.',
+  saidSlant: 'Cắt mở theo mặt nghiêng.',
+  saidQuarter: 'Một phần tư đã được cắt bỏ.',
+  saidXray: 'Nhìn xuyên.',
+  describe: 'Mô tả',
+  describeTitle: 'Nói hình đang cho thấy gì (phím D)',
 };

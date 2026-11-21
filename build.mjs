@@ -23,9 +23,9 @@ export const MODELS_ENTRY = path.join(HERE, 'src/models-script.js');
 const EXPORTER = path.join(HERE, 'src/export-script.js'),
   MODULE = path.join(HERE, 'src/export.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this. It was 57 KB until November
-// 2026, then 60, 65 and 67; it is frozen at 67: a raise needs a written decision in the CHANGELOG. The add-ons have
-// budgets of their own.
-export const BUDGET_KB = 67;
+// 2026, then 60, 65 and 67, and 68 for 0.4.0 (the figure's state and descriptions: see the CHANGELOG); it is frozen at
+// 68: a raise needs a written decision in the CHANGELOG. The add-ons have budgets of their own.
+export const BUDGET_KB = 68;
 export const MODELS_BUDGET_KB = 5,
   EXPORT_BUDGET_KB = 3;
 

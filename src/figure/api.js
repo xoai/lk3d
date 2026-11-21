@@ -110,6 +110,12 @@ export function makeApi(c) {
     },
     // what the reader can change, as one plain object (or where it is going, while it glides): set() takes it back
     state: () => c.stateOf_(),
+    // the figure in words, as a screen reader hears it (D): describe.js
+    describe: () =>
+      c
+        .sentences_()
+        .map(([, text]) => text)
+        .join(' '),
     // what the reader may not change from now on (the page's own calls still may)
     lock(list) {
       c.lock_ = new Set(list || []);

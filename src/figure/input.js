@@ -408,7 +408,7 @@ export function makeInput(c) {
   c.canvas_.addEventListener('keydown', (event) => {
     const turn = { ArrowLeft: [0.12, 0], ArrowRight: [-0.12, 0], ArrowUp: [0, 0.1], ArrowDown: [0, -0.1] }[event.key],
       camera = !c.locked_('camera');
-    c.mark_('reader');
+    if (turn || event.key.startsWith('Page') || event.key === 'Escape') c.mark_('reader'); // (D, and others, change nothing)
     if (turn && camera) {
       c.cancelView_();
       c.state_.yaw += turn[0];
@@ -417,7 +417,7 @@ export function makeInput(c) {
       event.preventDefault();
     }
     const zoom = { '+': 1.15, '=': 1.15, '-': 1 / 1.15 }[event.key];
-    if (zoom && camera) c.zoom_(zoom);
+    if (zoom && camera) (c.mark_('reader'), c.zoom_(zoom));
     const step = { PageDown: 1, PageUp: -1 }[event.key],
       shown = c.namedParts_.filter((part) => !part.hidden);
     if ((step && shown.length) || (event.key === 'Escape' && c.state_.selected)) {

@@ -34,6 +34,7 @@ import { makeInput } from './figure/input.js';
 import { makeAdditions } from './figure/additions.js';
 import { makeApi } from './figure/api.js';
 import { makeState } from './figure/state.js';
+import { makeDescribe } from './figure/describe.js';
 import { encodeState, decodeState } from './statecodec.js';
 import { makeSteps } from './figure/steps.js';
 import { M, D2R } from './math.js';
@@ -148,6 +149,7 @@ function mount(el, spec, opts = {}) {
   makeLiquids(c);
   makeCamera(c);
   makeDom(c);
+  makeDescribe(c);
   makeBackend();
   const startWatching = makeLoop(c);
   makeLook(c);
@@ -178,6 +180,7 @@ function mount(el, spec, opts = {}) {
         seeThrough: built.parts.some((part) => part.xray),
         locked: c.locked_,
         asReader: c.asReader_,
+        say: c.say_,
       }),
     );
   }
@@ -187,6 +190,7 @@ function mount(el, spec, opts = {}) {
   c.goToStep_(opts.step ?? 0, { ms: 0 });
   if (c.controls_.lock) c.controls_.lock(); // (what the page locked at mount: opts.lock)
   c.syncSteps_();
+  c.saidChange_(false); // (what is seen at the start: a change says only what is new)
   startWatching();
   c.showInfo_();
   stats.setupMs = performance.now() - mountedAt;

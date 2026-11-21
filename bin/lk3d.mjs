@@ -9,7 +9,8 @@
 //       PNG pictures, one per look and pose (steps: one per guided step, when the scene has them), drawn by the real
 //       engine in a headless browser (Playwright); without Playwright it says so: the scene is then not checked by eye.
 //       --sheet: every picture on one (NAME-sheet.png) and the questions to answer looking at it (NAME-sheet.md);
-//       --names: a picture with every part labelled by its id
+//       --names: a picture with every part labelled by its id. Beside each picture, NAME-LOOK-POSE.txt: the figure in words
+//       there (fig.describe()), for its alt text
 //   lk3d place scene.json
 //       each part with place (on, under, in, against, alignedWith) gets the at it says, written into the file: only
 //       those numbers change, and a second run changes nothing; a scene a script makes is placed by that script
@@ -165,7 +166,7 @@ await Promise.race([fig.ready, new Promise((resolve) => setTimeout(resolve, 3000
 if (pose === 'apart') fig.set({ explode: 1 });
 if (pose === 'cut') fig.set({ cut: true });
 for (let k = 0; k < 3; k++) await new Promise((resolve) => requestAnimationFrame(resolve));
-window.__ready = { errors, renderer: fig.renderer };
+window.__ready = { errors, renderer: fig.renderer, words: fig.describe() };
 </script>`;
 
 // the engine render draws with, and its models add-on (a scene may draw glTF models): built from src/ now, in memory
@@ -275,6 +276,8 @@ async function render(scenePath) {
         const result = await (await tab.waitForFunction(() => window.__ready, null, { timeout: 60000 })).jsonValue();
         const png = path.join(out, `${name}-${look}-${picture}.png`);
         await tab.locator('.lk3d-stage').screenshot({ path: png });
+        // (its alt text beside it: the figure in words, as a screen reader hears it there)
+        fs.writeFileSync(png.replace(/\.png$/, '.txt'), result.words + '\n');
         console.log(png + (result.errors.length ? '  errors: ' + result.errors.join('; ') : ''));
         errorCount += result.errors.length;
         const step = pose === 'step' ? data.steps[Number(picture.slice(4)) - 1] : null;

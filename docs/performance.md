@@ -7,7 +7,7 @@ it, keep the tab in front, press Run).
 
 ## Size
 
-The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 67 KB gzipped (57 KB until November 2026; 60 when the engine began checking scenes and models itself; 65 for room to grow; 67 for guided steps, the cut the reader moves, the element, and streaks and crease shading off the main thread), and it is now frozen: a raise needs a written decision in the CHANGELOG. `npm run size` fails past
+The global script `dist/lk3d.min.js`, built by `npm run build`. The budget is 68 KB gzipped (57 KB until November 2026; 60 when the engine began checking scenes and models itself; 65 for room to grow; 67 for guided steps, the cut the reader moves, the element, and streaks and crease shading off the main thread; 68 in 0.4.0 for the figure's state and its description, a decision written in the CHANGELOG), and it is frozen: a raise needs a written decision in the CHANGELOG. `npm run size` fails past
 it, and the CI workflow runs it. Two add-ons are scripts of their own, outside it, each with a budget of its own: the
 glTF reader, `dist/lk3d-models.min.js` (7.7 KB, 3.9 KB gzipped; budget 5 KB), which a page loads only to show a model,
 and the glTF exporter, `dist/lk3d-export.min.js` (4.1 KB, 2.1 KB gzipped; budget 3 KB), only to export.

@@ -51,6 +51,32 @@ export function makeDom(c) {
   keys.id = uid + '-keys';
   c.canvas_.setAttribute('aria-describedby', keys.id);
   said.setAttribute('aria-live', 'polite');
+  // what is said aloud, picks and descriptions alike: a newer message takes the place of one not yet said, at most one
+  // a second, the region emptied first so the same words said again are heard again
+  let waiting = '',
+    saidAt = -1e9,
+    timer = 0;
+  c.say_ = (text) => {
+    waiting = text;
+    timer ||= setTimeout(
+      () => {
+        said.textContent = '';
+        timer = setTimeout(() => {
+          said.textContent = waiting;
+          saidAt = performance.now();
+          timer = 0;
+        }, 50);
+      },
+      Math.max(0, saidAt + 1000 - performance.now()),
+    );
+  };
+  c.cleanups_.push(() => clearTimeout(timer));
+  // D, from anywhere in the figure (the canvas, a handle's input, the controls): the figure in words (describe.js)
+  c.host_.addEventListener('keydown', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    if (event.key.toLowerCase() === 'd' && !event.ctrlKey && !event.metaKey && !event.altKey)
+      if (!target.matches('textarea,select,input:not([type=range])')) c.say_(c.api_.describe());
+  });
   const list = forReaders('ul');
   list.setAttribute('aria-label', c.words_.parts);
   for (const part of named) {
@@ -125,8 +151,7 @@ export function makeDom(c) {
       c.opts_.info.innerHTML = part
         ? `<b>${safeHTML(part.name)}</b>${part.note ? ' ' + safeHTML(part.note) : ''}`
         : safeHTML(c.opts_.infoIdle);
-    if (why === 'pick')
-      said.textContent = part ? plainText(part.name) + (part.note ? ': ' + plainText(part.note) : '') : '';
+    if (why === 'pick') c.say_(part ? plainText(part.name) + (part.note ? ': ' + plainText(part.note) : '') : '');
     const callback = why === 'pick' ? c.opts_.onPick : why === 'hover' ? c.opts_.onHover : null;
     if (callback) callback(why === 'hover' ? c.part_(c.state_.hover) || null : part || null);
   };

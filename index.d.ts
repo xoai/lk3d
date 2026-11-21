@@ -82,6 +82,16 @@ export interface Strings {
   decimal: string;
   /** a control the page has locked against the reader: its title */
   locked: string;
+  /** the figure in words (describe(), D): taken apart, put together, cut open across {axis}, at a slant, a quarter
+   * cut away, see-through; and the Describe button */
+  saidApart: string;
+  saidTogether: string;
+  saidCut: string;
+  saidSlant: string;
+  saidQuarter: string;
+  saidXray: string;
+  describe: string;
+  describeTitle: string;
 }
 
 export interface MountOptions {

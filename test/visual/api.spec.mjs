@@ -742,20 +742,22 @@ test('the keyboard goes through the parts: Page Down and Up choose each in turn 
   });
   expect(got).toEqual([]);
   await page.focus('#g canvas');
-  const step = async (key) => {
+  // (what is chosen is said through the figure's one queue of words, picks and descriptions alike: a moment later)
+  const step = async (key, words) => {
     await page.keyboard.press(key);
+    await expect.poll(() => page.evaluate(() => document.querySelector('#g [aria-live]').textContent)).toBe(words);
     return page.evaluate(() => [fig.selected, document.querySelector('#g [aria-live]').textContent]);
   };
-  expect(await step('PageDown')).toEqual(['base', 'Base']);
-  expect(await step('PageDown')).toEqual(['knob', 'Knob']);
-  expect(await step('PageDown')).toEqual(['base', 'Base']); // round again
-  expect(await step('PageUp')).toEqual(['knob', 'Knob']);
-  expect(await step('Escape')).toEqual([null, '']);
-  expect(await step('PageUp')).toEqual(['knob', 'Knob']); // from none, Page Up starts at the last
+  expect(await step('PageDown', 'Base')).toEqual(['base', 'Base']);
+  expect(await step('PageDown', 'Knob')).toEqual(['knob', 'Knob']);
+  expect(await step('PageDown', 'Base')).toEqual(['base', 'Base']); // round again
+  expect(await step('PageUp', 'Knob')).toEqual(['knob', 'Knob']);
+  expect(await step('Escape', '')).toEqual([null, '']);
+  expect(await step('PageUp', 'Knob')).toEqual(['knob', 'Knob']); // from none, Page Up starts at the last
   // a hidden part is passed over
   await page.evaluate(() => fig.set({ hide: ['knob'] }));
-  expect(await step('PageDown')).toEqual(['base', 'Base']);
-  expect(await step('PageDown')).toEqual(['base', 'Base']);
+  expect(await step('PageDown', 'Base')).toEqual(['base', 'Base']);
+  expect(await step('PageDown', 'Base')).toEqual(['base', 'Base']);
 });
 
 test('for screen readers: a figure worked by keys, which it describes; its parts listed; what is chosen said, not what is pointed at', async ({
@@ -1720,4 +1722,54 @@ test("the figure's state: read, set back the same, with liquids and a paused mot
   expect(after.dragged).toBe(0);
   expect(after.set).toBe(30);
   expect(after.cut).toBe(0);
+});
+
+test("the figure in words: the scene's own sentences with {value}, the Describe button, nothing cut in 2D, the page's change unsaid", async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    window.scene.title = 'A dial';
+    window.scene.section = { normal: [1, 0, 0], offset: 0 };
+    window.scene.motions = [
+      {
+        id: 'm',
+        range: [0, 2],
+        tracks: [
+          {
+            parts: ['knob'],
+            move: [
+              [0, [0, 0, 0]],
+              [2, [0, 0.1, 0]],
+            ],
+          },
+        ],
+      },
+    ];
+    window.scene.describe = { m: 'Lifted by {value} mm.', knob: 'The knob is at {value}°.' };
+    const fig = mountIt({ controls: true });
+    await fig.ready;
+    fig.motion('m').set(1.25);
+    fig.set({ cut: true });
+    const words = fig.describe();
+    // the Describe button says it aloud (the live region, emptied first)
+    const region = [...document.querySelectorAll('#g [aria-live]')].find((e) => !e.closest('.lk3d-steps'));
+    [...document.querySelectorAll('#g .lk3d-bar button')].find((b) => b.textContent === 'Describe').click();
+    await until(() => region.textContent.includes('A dial.'));
+    const spoken = region.textContent;
+    // the page's own change is not said (only the reader's are)
+    region.textContent = '';
+    fig.set({ xray: true });
+    await new Promise((done) => setTimeout(done, 1300));
+    const pageSaid = region.textContent;
+    // in the 2D fallback there is no cut, so none is said
+    const flat = mountIt({ force2d: true });
+    await flat.ready;
+    flat.set({ cut: true });
+    return { words, spoken, pageSaid, flat: flat.describe(), renderer: flat.renderer };
+  });
+  expect(r.words).toBe('A dial. Put together. Cut open across x. Lifted by 1.25 mm. The knob is at 0°.');
+  expect(r.spoken).toBe(r.words);
+  expect(r.pageSaid).toBe('');
+  expect(r.renderer).toBe('2d');
+  expect(r.flat).not.toMatch(/Cut open/);
 });

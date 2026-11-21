@@ -19,6 +19,7 @@
   "figure": [
     "camera",
     "currentStep",
+    "describe",
     "destroy",
     "drawNow",
     "explode",

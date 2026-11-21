@@ -3,6 +3,15 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
+## Unreleased (0.4.0)
+
+- **The size budget is raised from 67 to 68 KB, and frozen there** (a written decision, as the budget rule asks; the
+  maintainer's, 21 November 2026). 0.3.0 left 3 KB under 67 KB by moving the glTF reader out; 0.4.0 spends it on what
+  a page asks of a figure: its state, saved and set back, locked against the reader and carried in a link (about 2 KB),
+  and the figure in words for screen readers in English and Vietnamese (about 0.9 KB, the sentences 0.2 KB of it).
+  Trimming the code further saved 3 B (gzip already takes the repetition out), so the choice was between the ceiling
+  and leaving out parts of the release; the ceiling was raised by 1 KB.
+
 ## 0.3.0 (21 November 2026)
 
 - **A page that shows a glTF model loads one more script.** The glTF reader left the global script for an add-on,

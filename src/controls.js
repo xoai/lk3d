@@ -16,6 +16,7 @@ export function controls({
   moveCut,
   locked,
   asReader,
+  say,
 }) {
   const bar = document.createElement('div');
   bar.className = 'lk3d-bar';
@@ -34,14 +35,15 @@ export function controls({
     return element;
   };
   const act = (what, fn) => asReader(() => locked(what) || fn());
-  /** @param {string} label @param {string} title @param {() => void} onClick @param {HTMLElement} [into] */
-  const button = (label, title, onClick, into = bar) => {
+  /** @param {string} label @param {string} title @param {() => void} onClick @param {HTMLElement} [into]
+   * @param {boolean} [changes] whether it changes the figure (as the reader: onChange's cause) */
+  const button = (label, title, onClick, into = bar, changes = true) => {
     const element = document.createElement('button');
     element.type = 'button';
     element.className = buttonClass;
     element.textContent = label;
     if (title) element.title = title;
-    element.addEventListener('click', asReader(onClick));
+    element.addEventListener('click', changes ? asReader(onClick) : onClick);
     into.append(element);
     return element;
   };
@@ -162,6 +164,8 @@ export function controls({
   const LOOKS = ['pen', 'studio', 'ink'],
     next = () => LOOKS[(LOOKS.indexOf(state.style) + 1) % LOOKS.length];
   const lookButton = button(words[next()], words.styleTitle, () => fig.set({ style: next() }));
+  // the figure in words, said aloud (as the D key does): saying it changes nothing, so it is not the reader's change
+  button(words.describe, words.describeTitle, () => say(fig.describe()), bar, false);
 
   // the views
   const views = document.createElement('span');

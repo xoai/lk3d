@@ -37,4 +37,6 @@ export default {
   next: 'Next',
   stepOf: 'Step {n} of {count}',
   decimal: '.',
+  // a control the page has locked against the reader (lock, fig.lock): its title
+  locked: 'locked by the page',
 };

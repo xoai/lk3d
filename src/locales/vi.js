@@ -36,4 +36,5 @@ export default {
   next: 'Bước tiếp',
   stepOf: 'Bước {n}/{count}',
   decimal: ',',
+  locked: 'trang đã khoá điều khiển này',
 };

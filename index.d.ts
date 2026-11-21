@@ -80,6 +80,8 @@ export interface Strings {
   stepOf: string;
   /** the decimal mark in numbers read out (handles) */
   decimal: string;
+  /** a control the page has locked against the reader: its title */
+  locked: string;
 }
 
 export interface MountOptions {

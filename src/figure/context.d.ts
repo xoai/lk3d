@@ -119,9 +119,9 @@ export interface Ctx {
   canvas_: HTMLCanvasElement;
   /** running animations: each called with the clock's time every frame, kept while it returns true */
   animations_: Set<(now: number) => boolean | void>;
-  // ---- the figure's state (state.js, B2: lk3d 0.4.0)
-  /** where what is moving is going, stored where the move is made (pose.js: explode, cut; camera.js: the camera;
-   * steps.js: the step), so state() can return it; null when nothing is moving there */
+  // ---- the figure's state (state.js)
+  /** where what is gliding is going, stored where the glide is made (pose.js: explode; steps.js: the cut; camera.js:
+   * the camera), so state() can say it; null when nothing glides there */
   towards_: {
     explode: number | null;
     cut: number | null;
@@ -130,17 +130,29 @@ export interface Ctx {
   };
   /** what the reader may not change (opts_.lock, fig.lock) */
   lock_: Set<Lockable>;
-  /** whether the reader may change this now (each gesture asks where it starts) */
+  /** whether the page has locked this against the reader (each gesture asks where it starts) */
   locked_(what: Lockable): boolean;
-  /** the figure changed: onChange and lk3d-change, at most once a frame (every 250 ms during a drag or a playing
-   * motion), not again from inside onChange */
-  changed_(cause: ChangeCause): void;
+  /** who changes the figure now: onChange is told the strongest since it was last told (the reader, the page, a motion) */
+  mark_(cause: ChangeCause): void;
+  /** a function, made to act as the reader (the built-in controls, the steps' panel) */
+  asReader_<T extends (...args: any[]) => any>(fn: T): T;
+  /** whether the reader is dragging the view (or it glides on after a flick): onChange told every 250 ms */
+  dragging_: boolean;
+  /** the figure's state now, as fig.state() gives it */
+  stateOf_(): import('../../index.js').FigureState;
+  /** set()'s state keys: the step first, then rest() (set's own keys), then handles, the part chosen, which motions
+   * play, liquids, vessels and gases */
+  setState_(changes: any, rest: () => void): void;
+  /** once a frame (loop.js): onChange, if the state differs from the one last told */
+  changeFrame_(): void;
+  /** the steps' Back and Next said to be locked, or not (steps.js) */
+  syncSteps_(): void;
   /** speak to screen readers through the figure's live region (picks and descriptions share it): a newer message
    * replaces one not yet spoken, at most one a second, and the region is emptied first so the same words are heard
    * again (dom.js, B3) */
   say_(text: string): void;
   /** the built-in controls' hooks, told when the page changes what they show (empty with controls: false) */
-  controls_: { explode?(v: number): void; motion?(id: string): void; style?(): void };
+  controls_: { explode?(v: number): void; motion?(id: string): void; style?(): void; lock?(): void };
   motions_: any[];
   particles_: any[];
   flows_: any[];

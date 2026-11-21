@@ -98,7 +98,7 @@ const coreMaths = {
     }));
   },
 };
-const options = (format, entry) => ({
+export const options = (format, entry) => ({
   entryPoints: [entry],
   banner: { js: BANNER },
   bundle: true,

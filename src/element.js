@@ -3,12 +3,14 @@
 // system, any framework). The scene comes from `src` (its address) or from a JSON script inside the element:
 //   <lk3d-figure src="generator.json" look="pen" locale="vi"></lk3d-figure>
 //   <lk3d-figure><script type="application/json">{ "parts": [ … ] }</script></lk3d-figure>
-// Attributes: look, theme, labels (auto, all, none), step (a place from 0, or an id) change the figure as they change;
+// Attributes: look, theme, labels (auto, all, none), step (a place from 0, or an id), state (LK3D.encodeState's text,
+// applied after step) and lock ("handles camera": what the reader may not change) change the figure as they change;
 // src, locale, controls="false", steps="false", info="false" (no line for the part's name and note under it) and
 // transparent mount it again. A script reaches the figure's API as `element.figure` (null until mounted; a new one
 // each time it is mounted again) and `element.ready` (resolves with the first, once complete); the reader's moves come as events that bubble: lk3d-pick
-// ({ id }), lk3d-handle ({ id, value }), lk3d-step ({ index, step }), lk3d-section ({ normal, offset }); a scene that
-// cannot be read or drawn, as lk3d-error ({ message }), its words shown in the element.
+// ({ id }), lk3d-handle ({ id, value }), lk3d-step ({ index, step }), lk3d-section ({ normal, offset }), and every change
+// as lk3d-change ({ state, cause }); a scene that cannot be read or drawn, as lk3d-error ({ message }), its words shown in
+// the element. Mounted again (a new locale, say), the figure takes back the state it had.
 
 // elements refused because their scene draws glTF models and the page had no reader yet: drawn again once the models
 // add-on gives it (retryModels), even when the element comes before both of the page's scripts
@@ -21,10 +23,11 @@ export function retryModels() {
   }
 }
 
-/** @param {(el: HTMLElement, scene: any, opts?: any) => any} mount */
-export function defineElement(mount) {
+/** @param {(el: HTMLElement, scene: any, opts?: any) => any} mount @param {(text: string) => Promise<any>} decode */
+export function defineElement(mount, decode) {
   if (typeof customElements === 'undefined' || customElements.get('lk3d-figure')) return;
-  const LIVE = ['look', 'theme', 'labels', 'step'],
+  const LIVE = ['look', 'theme', 'labels', 'step', 'state', 'lock'],
+    words = (/** @type {string | null} */ list) => (list || '').split(/[\s,]+/).filter(Boolean),
     MOUNTED = ['src', 'locale', 'controls', 'steps', 'info', 'transparent'];
   class Lk3dFigure extends HTMLElement {
     // (a getter, not a static field: the bundle is built for ES2020, which would bring a helper for the field)
@@ -57,7 +60,17 @@ export function defineElement(mount) {
       if (name === 'src') this.scene = null;
       if (!LIVE.includes(name)) return void this.load();
       if (name === 'step') this.figure.step(/^-?\d+$/.test(now || '') ? +(now || 0) : now);
+      else if (name === 'lock') this.figure.lock(words(now));
+      else if (name === 'state') this.setState(now);
       else this.figure.set({ [name === 'look' ? 'style' : name]: now || (name === 'labels' ? 'auto' : null) });
+    }
+    /** the state attribute's text, decoded and set (after the step) @param {string | null} text */
+    setState(text) {
+      const figure = this.figure;
+      if (text)
+        decode(text)
+          .then((state) => this.figure === figure && figure.set(state))
+          .catch((/** @type {Error} */ error) => console.error(`lk3d: <lk3d-figure state>: ${error.message}`));
     }
     /** @param {string} type @param {object} detail */
     say(type, detail) {
@@ -85,6 +98,7 @@ export function defineElement(mount) {
           else throw new Error('lk3d: <lk3d-figure> needs a scene: src="scene.json", or a JSON script inside');
         }
         if (load !== this.loads || !this.isConnected) return;
+        const kept = this.figure && this.figure.state(); // (mounted again: the state it had, set back below)
         if (this.figure) this.figure.destroy();
         const info = off('info') ? null : document.createElement('p'),
           step = attribute('step');
@@ -104,7 +118,11 @@ export function defineElement(mount) {
           onStep: (/** @type {number} */ index, /** @type {any} */ stepShown) =>
             this.say('step', { index, step: stepShown }),
           onSection: (/** @type {any} */ section) => this.say('section', section),
+          onChange: (/** @type {any} */ state, /** @type {string} */ cause) => this.say('change', { state, cause }),
+          lock: words(attribute('lock')),
         });
+        if (kept) this.figure.set(kept);
+        else this.setState(attribute('state'));
         // (the name and note of the part pointed at, under the figure and its steps' words)
         if (info) (this.querySelector('.lk3d-steps') || this.querySelector('.lk3d-stage'))?.after(info);
         const figure = this.figure;

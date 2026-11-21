@@ -3,7 +3,9 @@
     "M",
     "build",
     "clock",
+    "decodeState",
     "defaults",
+    "encodeState",
     "format",
     "locales",
     "mount",
@@ -29,6 +31,7 @@
     "labels",
     "lines",
     "liquid",
+    "lock",
     "motion",
     "particles",
     "parts",
@@ -43,6 +46,7 @@
     "select",
     "selected",
     "set",
+    "state",
     "stats",
     "step",
     "steps",
@@ -57,8 +61,21 @@
     "zoomLevel"
   ],
   "element": {
-    "attributes": ["controls", "info", "labels", "locale", "look", "src", "step", "steps", "theme", "transparent"],
-    "events": ["lk3d-error", "lk3d-handle", "lk3d-pick", "lk3d-section", "lk3d-step"]
+    "attributes": [
+      "controls",
+      "info",
+      "labels",
+      "locale",
+      "lock",
+      "look",
+      "src",
+      "state",
+      "step",
+      "steps",
+      "theme",
+      "transparent"
+    ],
+    "events": ["lk3d-change", "lk3d-error", "lk3d-handle", "lk3d-pick", "lk3d-section", "lk3d-step"]
   },
   "scene": {
     "top": [

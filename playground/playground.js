@@ -214,22 +214,11 @@ picker.addEventListener('change', () => {
   history.replaceState(null, '', '#example=' + picker.value);
   example(picker.value);
 });
-const bytesToText = (bytes) =>
-  btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-const textToBytes = (text) =>
-  Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), (char) => char.charCodeAt(0));
-/** @param {Uint8Array} bytes @param {CompressionStream | DecompressionStream} stream */
-const through = async (bytes, stream) =>
-  new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
 $('share').addEventListener('click', async (event) => {
   // (the button read now: after an await the event no longer has it)
   const button = /** @type {HTMLButtonElement} */ (event.currentTarget);
-  const compact = JSON.stringify(JSON.parse(editor.value)),
-    packed = await through(new TextEncoder().encode(compact), new CompressionStream('deflate-raw')),
-    url = `${location.origin}${location.pathname}#scene=${bytesToText(packed)}`;
+  // (the core's codec, LK3D.encodeState: a link made before 0.4.0, with no marker, still opens below)
+  const url = `${location.origin}${location.pathname}#scene=${await LK3D.encodeState(JSON.parse(editor.value))}`;
   history.replaceState(null, '', url);
   try {
     await navigator.clipboard.writeText(url);
@@ -271,8 +260,8 @@ $('format').addEventListener('click', () => {
 // ---- the first scene: the link's, an example named in the address, else the bolt
 const hash = new URLSearchParams(location.hash.slice(1));
 if (hash.get('scene'))
-  through(textToBytes(hash.get('scene')), new DecompressionStream('deflate-raw'))
-    .then((bytes) => setText(layOut(JSON.parse(new TextDecoder().decode(bytes)))))
+  LK3D.decodeState(hash.get('scene'))
+    .then((scene) => setText(layOut(scene)))
     .catch(() => example('bolt'));
 else {
   const name = hash.get('example');

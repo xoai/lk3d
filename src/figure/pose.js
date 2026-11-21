@@ -82,6 +82,7 @@ export function makePose(c) {
   c.explodeNow_ = (amount) => {
     if (explodeTween) c.animations_.delete(explodeTween);
     explodeTween = null;
+    c.towards_.explode = null;
     setExplode(amount);
   };
   c.tweenExplode_ = (to) => {
@@ -91,17 +92,19 @@ export function makePose(c) {
     const tween = (now) => {
       const progress = Math.max(0, Math.min(1, (now - start) / ms)),
         eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-      setExplode(from + (to - from) * eased);
+      setExplode(progress >= 1 ? to : from + (to - from) * eased); // (exactly there at the end: no change left over)
       c.markDirty_();
       if (progress >= 1) {
         c.animations_.delete(tween);
         explodeTween = null;
+        c.towards_.explode = null;
         return false;
       }
       return true;
     };
     if (explodeTween) c.animations_.delete(explodeTween);
     explodeTween = tween;
+    c.towards_.explode = Math.max(0, Math.min(1, to)); // (where it is going: what state() says while it glides)
     c.animations_.add(tween);
     c.kick_();
   };

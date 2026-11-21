@@ -8,11 +8,17 @@
     <h1>An AC generator</h1>
     <p>
       Point at a part to read about it. Take the machine apart, cut it open, make the casing see-through. Drag the rotor
-      (the magnets or the shaft) round to turn it by hand: the lamp lights with the speed of your hand.
+      (the magnets or the shaft) round to turn it by hand: the lamp lights with the speed of your hand. The page can
+      keep what you have done as a link (<code>fig.state()</code> and <code>LK3D.encodeState</code>), and lock what you
+      may change (<code>fig.lock</code>).
     </p>
     <div id="fig"></div>
     <p class="info" id="info"></p>
-    <div class="row"><button id="run" type="button">Run the motor</button></div>
+    <div class="row">
+      <button id="run" type="button">Run the motor</button>
+      <button id="lock" type="button" aria-pressed="false">Lock the rotor</button>
+      <button id="link" type="button">Link to this view</button>
+    </div>
   </main>
   <script src="../dist/lk3d.min.js"></script>
   <script type="module">
@@ -32,6 +38,20 @@
         angle = deg;
         last = now;
       },
+    });
+    // a link holds the figure's state (the step, the camera, taken apart, the cut, the rotor…): opened, it comes back
+    const shared = new URLSearchParams(location.hash.slice(1)).get('state');
+    if (shared) fig.set(await LK3D.decodeState(shared));
+    document.getElementById('link').addEventListener('click', async (e) => {
+      history.replaceState(null, '', '#state=' + (await LK3D.encodeState(fig.state())));
+      e.target.textContent = 'Link in the address bar';
+      setTimeout(() => (e.target.textContent = 'Link to this view'), 2000);
+    });
+    // the rotor locked against the reader: it can no longer be dragged or moved by keys (the motor still turns it)
+    document.getElementById('lock').addEventListener('click', (e) => {
+      const on = e.target.getAttribute('aria-pressed') !== 'true';
+      fig.lock(on ? ['handles'] : []);
+      e.target.setAttribute('aria-pressed', String(on));
     });
     document.getElementById('run').addEventListener('click', (e) => {
       speed = speed ? 0 : 360;

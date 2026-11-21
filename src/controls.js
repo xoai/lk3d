@@ -14,9 +14,26 @@ export function controls({
   motions,
   cutRange,
   moveCut,
+  locked,
+  asReader,
 }) {
   const bar = document.createElement('div');
   bar.className = 'lk3d-bar';
+  // what the page may lock against the reader: each control's kind, and the control (seen, focusable, inert, said to
+  // be locked); every control acts as the reader (onChange's cause)
+  /** @type {[string, HTMLElement, string][]} */
+  const lockable = [];
+  /** @template {HTMLElement} T @param {string} what @param {T} element @returns {T} */
+  const gate = (what, element) => {
+    lockable.push([what, element, element.title]);
+    // (a locked slider does not move: neither by keys nor by the pointer)
+    for (const type of ['keydown', 'pointerdown'])
+      element.addEventListener(type, (event) => {
+        if (locked(what) && !(event instanceof KeyboardEvent && event.key === 'Tab')) event.preventDefault();
+      });
+    return element;
+  };
+  const act = (what, fn) => asReader(() => locked(what) || fn());
   /** @param {string} label @param {string} title @param {() => void} onClick @param {HTMLElement} [into] */
   const button = (label, title, onClick, into = bar) => {
     const element = document.createElement('button');
@@ -24,7 +41,7 @@ export function controls({
     element.className = buttonClass;
     element.textContent = label;
     if (title) element.title = title;
-    element.addEventListener('click', onClick);
+    element.addEventListener('click', asReader(onClick));
     into.append(element);
     return element;
   };
@@ -46,23 +63,39 @@ export function controls({
   };
 
   // taking apart: a slider for how far, and a button that goes all the way out or back
-  const apartSlider = slider(words.apart, words.apartLabel, 0, 1, 0.01, 0, explodable ? bar : null);
-  apartSlider.addEventListener('input', () => fig.set({ explode: +apartSlider.value }));
+  const apartSlider = gate('explode', slider(words.apart, words.apartLabel, 0, 1, 0.01, 0, explodable ? bar : null));
+  apartSlider.addEventListener(
+    'input',
+    act('explode', () => fig.set({ explode: +apartSlider.value })),
+  );
   const apartButton = explodable
-    ? button(words.takeApart, words.takeApartTitle, () => tweenExplode(state.explode > 0.5 ? 0 : 1))
+    ? gate(
+        'explode',
+        button(
+          words.takeApart,
+          words.takeApartTitle,
+          () => locked('explode') || tweenExplode(state.explode > 0.5 ? 0 : 1),
+        ),
+      )
     : null;
 
   // each named motion: a slider along its range, and a button that plays it or stops it
   const motionSyncs = motions.map((motion) => {
     const player = fig.motion(motion.id),
       [min, max] = motion.range.map(Number),
-      input = slider(motion.name, motion.name, min, max, (max - min) / 200, player.value);
-    input.addEventListener('input', () => {
-      const value = +input.value; // (read first: stopping puts the slider back where the motion is)
-      player.stop();
-      player.set(value);
-    });
-    const playButton = button(words.play, motion.name, () => (player.playing ? player.stop() : player.play()));
+      input = gate('motions', slider(motion.name, motion.name, min, max, (max - min) / 200, player.value));
+    input.addEventListener(
+      'input',
+      act('motions', () => {
+        const value = +input.value; // (read first: stopping puts the slider back where the motion is)
+        player.stop();
+        player.set(value);
+      }),
+    );
+    const playButton = gate(
+      'motions',
+      button(words.play, motion.name, () => locked('motions') || (player.playing ? player.stop() : player.play())),
+    );
     const sync = () => {
       input.value = player.value;
       playButton.textContent = player.playing ? words.pause : words.play;
@@ -73,12 +106,13 @@ export function controls({
 
   // toggles: each shows it is on (aria-pressed for screen readers), also when the page turns it on itself
   const toggles = [];
-  const toggle = (label, title, flip, isOn) => {
-    const element = button(label, title, flip),
-      sync = () => {
-        element.classList.toggle('on', isOn());
-        element.setAttribute('aria-pressed', String(isOn()));
-      };
+  const toggle = (label, title, flip, isOn, what) => {
+    const element = button(label, title, () => (what && locked(what)) || flip());
+    if (what) gate(what, element);
+    const sync = () => {
+      element.classList.toggle('on', isOn());
+      element.setAttribute('aria-pressed', String(isOn()));
+    };
     toggles.push(sync);
     sync();
   };
@@ -86,18 +120,22 @@ export function controls({
     toggle(
       words.cut,
       words.cutTitle,
-      () => fig.set({ cut: !state.cut }),
-      () => state.cut,
+      () => fig.set({ cut: state.cut ? 0 : 1 }), // (a cut half swept in: off)
+      () => !!state.cut,
+      'cut',
     );
   // where the cut is, while it is on (unless the scene fixes it): a slider across the parts it cuts, from one end to
   // the other (the same as dragging the cut face; the keys move it too)
   if (cuttable && moveCut) {
-    const cutSlider = slider(words.cutAt, words.cutAtLabel, 0, 1, 0.005, 0),
+    const cutSlider = gate('cut', slider(words.cutAt, words.cutAtLabel, 0, 1, 0.005, 0)),
       row = /** @type {HTMLElement} */ (cutSlider.parentElement);
-    cutSlider.addEventListener('input', () => {
-      const [from, to] = cutRange();
-      moveCut(from + (to - from) * +cutSlider.value);
-    });
+    cutSlider.addEventListener(
+      'input',
+      act('cut', () => {
+        const [from, to] = cutRange();
+        moveCut(from + (to - from) * +cutSlider.value);
+      }),
+    );
     const sync = () => {
       row.style.display = state.cut ? '' : 'none'; // (not the hidden attribute: the row's own display would win)
       const [from, to] = cutRange();
@@ -112,6 +150,7 @@ export function controls({
       words.xrayTitle,
       () => fig.set({ xray: !state.xray }),
       () => state.xray,
+      'xray',
     );
   toggle(
     words.labels,
@@ -127,7 +166,11 @@ export function controls({
   // the views
   const views = document.createElement('span');
   views.className = 'lk3d-views';
-  for (const view of ['front', 'side', 'top', 'home']) button(words[view], '', () => fig.view(view), views);
+  for (const view of ['front', 'side', 'top', 'home'])
+    gate(
+      'camera',
+      button(words[view], '', () => locked('camera') || fig.view(view), views),
+    );
   bar.append(views);
   el.append(bar);
 
@@ -143,6 +186,19 @@ export function controls({
     style() {
       lookButton.textContent = words[next()];
       for (const sync of toggles) sync();
+    },
+    // the page's lock changed: each locked control said to be so (and a slider put back where the figure is)
+    lock() {
+      for (const [what, element, title] of lockable) {
+        const on = locked(what);
+        element.classList.toggle('lk3d-locked', on);
+        if (on) element.setAttribute('aria-disabled', 'true');
+        else element.removeAttribute('aria-disabled');
+        element.title = on ? words.locked : title;
+      }
+      this.explode(state.explode);
+      for (const sync of toggles) sync();
+      for (const [id] of motionSyncs) this.motion(id);
     },
   };
 }

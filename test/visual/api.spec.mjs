@@ -1589,7 +1589,7 @@ test('a quarter cut: only what lies beyond both planes is cut away; the reader d
     out.dragged = fig.section;
     // the second plane taken away: a single cut, the front right cut away too
     fig.set({ section: { second: null } });
-    out.single = [at([0.6, 0.1, 0.9]), fig.section.second === undefined];
+    out.single = [at([0.6, 0.1, 0.9]), fig.section.second === null]; // (null without a second plane: 0.4.0)
     return out;
   });
   expect(r.frontLeft).not.toBe('base');
@@ -1647,4 +1647,77 @@ test('a glTF model needs the models add-on: the core alone refuses it by name; a
   await early.addScriptTag({ content: models }).catch(() => {});
   expect(said.join()).toMatch(/lk3d-models: load dist\/lk3d\.min\.js first/);
   await early.close();
+});
+
+test("the figure's state: read, set back the same, with liquids and a paused motion; who changed it; what the page locks", async ({
+  page,
+}) => {
+  const r = await page.evaluate(async () => {
+    const pour = await (await fetch('/test/visual/scenes/pour.json')).json(),
+      changes = [];
+    // (a motion of its own: the beaker slid along x)
+    pour.motions = [
+      {
+        id: 'slide',
+        range: [0, 2],
+        tracks: [
+          {
+            parts: ['beaker'],
+            move: [
+              [0, [0, 0, 0]],
+              [2, [2, 0, 0]],
+            ],
+          },
+        ],
+      },
+    ];
+    const fig = LK3D.mount(document.getElementById('g'), pour, {
+      onChange: (state, cause) => changes.push(cause),
+      lock: ['handles'],
+    });
+    await fig.ready;
+    // the liquids, the vessels and the motions as they are; a state set back is the same state
+    const motion = fig.motion(pour.motions[0].id);
+    motion.set(pour.motions[0].range[1] / 2);
+    fig.set({ cut: 0.5, liquids: { water: 20 }, vessels: { f: { open: 0 } } });
+    const before = fig.state();
+    fig.set({ cut: 0, explode: 1, xray: true });
+    fig.set(before);
+    const after = fig.state();
+    // set() is the page; the first frame told nothing
+    await until(() => changes.length >= 1);
+    // a motion played and paused by the state: paused stays paused, after the step too
+    motion.play();
+    fig.set({ ...fig.state(), playing: [] });
+    const paused = !motion.playing;
+    return { before, after, changes, paused, lock: fig.state().handles };
+  });
+  expect(r.after).toEqual(r.before);
+  expect(r.before.liquids.water).toBe(20);
+  expect(r.before.vessels).toEqual({ f: { open: 0 } });
+  expect(r.before.cut).toBe(0.5);
+  expect(r.changes[0]).toBe('page');
+  expect(r.paused).toBe(true);
+  // a locked handle cannot be dragged; the page still moves it; the cut button turns a half-swept cut off
+  const knob = await page.evaluate(async () => {
+    const fig = mountIt({ controls: true, lock: ['handles'] });
+    await fig.ready;
+    const [x, y] = fig.project([0, 0.15, 0.08]);
+    return { x, y, rect: document.getElementById('g').querySelector('canvas').getBoundingClientRect().toJSON() };
+  });
+  await page.mouse.move(knob.rect.x + knob.x, knob.rect.y + knob.y);
+  await page.mouse.down();
+  await page.mouse.move(knob.rect.x + knob.x + 60, knob.rect.y + knob.y + 10, { steps: 6 });
+  await page.mouse.up();
+  const after = await page.evaluate(async () => {
+    const fig = document.getElementById('g').lk3d,
+      dragged = fig.state().handles.knob;
+    fig.handle('knob').set(30);
+    fig.set({ cut: 0.5 });
+    document.querySelector('#g .lk3d-bar button[aria-pressed]').click(); // (the Cut button: pressed while it is on)
+    return { dragged, set: fig.state().handles.knob, cut: fig.state().cut, locked: fig.state().v };
+  });
+  expect(after.dragged).toBe(0);
+  expect(after.set).toBe(30);
+  expect(after.cut).toBe(0);
 });

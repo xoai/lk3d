@@ -54,6 +54,22 @@ test('a scene is drawn and checked as it is typed; a problem is shown where it i
   await other.goto(link);
   await expect(other.locator('#problems')).toContainText('No problems');
   expect(await other.locator('#editor').inputValue()).toBe(text);
+  // a link Share made before 0.4.0 (compressed, with no marker) still opens
+  const old = await page.evaluate(async (scene) => {
+    const bytes = new Uint8Array(
+      await new Response(
+        new Blob([JSON.stringify(JSON.parse(scene))]).stream().pipeThrough(new CompressionStream('deflate-raw')),
+      ).arrayBuffer(),
+    );
+    return btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  }, text);
+  const older = await page.context().newPage();
+  await older.goto(link.replace(/#scene=.*/, '#scene=' + old));
+  await expect(older.locator('#problems')).toContainText('No problems');
+  expect(await older.locator('#editor').inputValue()).toBe(text);
   // an example: the lens bench, with its dimensions drawn
   await page.selectOption('#example', 'lens');
   await expect(page.locator('#summary')).toHaveText('8 parts, 2,392 triangles');

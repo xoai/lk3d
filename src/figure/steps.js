@@ -17,6 +17,7 @@ export function makeSteps(c, buttonClass) {
   const steps = (c.spec_.steps || []).filter((step) => step && typeof step === 'object');
   c.stepAt_ = -1;
   c.goToStep_ = () => {};
+  c.syncSteps_ = () => {};
   if (!steps.length) return;
 
   // ---- the cut, swept in (or out) as the explode and the camera glide, rather than appearing at once
@@ -26,6 +27,7 @@ export function makeSteps(c, buttonClass) {
   const sweepCut = (to, ms) => {
     if (cutTween) c.animations_.delete(cutTween);
     cutTween = null;
+    c.towards_.cut = null;
     const amount = (/** @type {boolean | number} */ cut) => (cut === true ? 1 : Math.max(0, Math.min(1, +cut || 0))),
       from = amount(c.state_.cut),
       target = amount(to);
@@ -39,10 +41,12 @@ export function makeSteps(c, buttonClass) {
       if (progress < 1) return true;
       c.animations_.delete(tween);
       cutTween = null;
+      c.towards_.cut = null;
       if (c.controls_.style) c.controls_.style(); // (the Cut button pressed once the cut is in, not while it sweeps)
       return false;
     });
     c.animations_.add(tween);
+    c.towards_.cut = target; // (where it is going: what state() says while it sweeps)
   };
 
   // ---- the panel under the stage: the step's words, and Back and Next (unless the page drives the steps itself)
@@ -68,17 +72,35 @@ export function makeSteps(c, buttonClass) {
       button.textContent = label;
       // (at the first or last step it says so and does nothing, rather than being disabled: a disabled button would
       // drop the keyboard's focus to the page)
-      button.addEventListener('click', () => {
-        const to = c.stepAt_ + by;
-        if (to < 0 || to >= steps.length) return;
-        c.goToStep_(to);
-        if (c.opts_.onStep) c.opts_.onStep(to, steps[to]);
-      });
+      button.addEventListener(
+        'click',
+        c.asReader_(() => {
+          const to = c.stepAt_ + by;
+          if (to < 0 || to >= steps.length || c.locked_('steps')) return; // (locked: seen, and inert)
+          c.goToStep_(to);
+          if (c.opts_.onStep) c.opts_.onStep(to, steps[to]);
+        }),
+      );
       nav.append(button);
       buttons.push(button);
     }
     panel.append(words, nav);
     c.stage_.after(panel);
+    // (locked by the page: Back and Next stay, said to be locked)
+    c.syncSteps_ = () => {
+      for (const button of buttons) {
+        const locked = c.locked_('steps');
+        button.classList.toggle('lk3d-locked', locked);
+        if (locked) button.title = c.words_.locked;
+        else button.removeAttribute('title');
+        if (locked) button.setAttribute('aria-disabled', 'true');
+        else if (c.stepAt_ >= 0)
+          button.setAttribute(
+            'aria-disabled',
+            String(button === buttons[0] ? c.stepAt_ === 0 : c.stepAt_ === steps.length - 1),
+          );
+      }
+    };
     // (before the first step, opts.step -1: no words yet, Next goes to the first)
     buttons[0].setAttribute('aria-disabled', 'true');
     buttons[1].setAttribute('aria-disabled', 'false');
@@ -136,6 +158,7 @@ export function makeSteps(c, buttonClass) {
         safeHTML(step.text);
       buttons[0].setAttribute('aria-disabled', String(index === 0));
       buttons[1].setAttribute('aria-disabled', String(index === steps.length - 1));
+      c.syncSteps_();
     }
     c.kick_();
   };

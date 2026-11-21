@@ -309,6 +309,7 @@ export function makeLoop(c) {
         c.checkReady_();
       }
     }
+    c.changeFrame_(); // (onChange, when the state differs from the one last told: state.js)
     if (moving && visible && !frameRequest) frameRequest = requestAnimationFrame(frame); // one frame pending at most
   }
   // draw the state as it is now, before returning (a tool that screenshots right after setting it); false while the

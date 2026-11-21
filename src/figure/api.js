@@ -11,6 +11,52 @@ import LK3D from '../namespace.js';
 
 /** @param {import('./context').Ctx} c */
 export function makeApi(c) {
+  // (a change the page makes: onChange is told it was the page's)
+  const byPage =
+    (fn) =>
+    (...args) => {
+      c.mark_('page');
+      return fn(...args);
+    };
+  // what set() changes besides a state's step and the keys state.js sets
+  const set = (changes) => {
+    if ('explode' in changes) c.explodeNow_(changes.explode); // (the page's own value wins over a running tween)
+    for (const key of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection', 'dimensions'])
+      if (key in changes) c.state_[key] = changes[key];
+    if ('transparent' in changes) c.state_.transparent = !!changes.transparent;
+    if (changes.section) c.state_.section = { ...c.state_.section, ...changes.section };
+    if (changes.camera) c.view_(changes.camera, { ms: 0 }); // (placed at once: the page's camera wins over a gliding view)
+    if ('timeScale' in changes) c.state_.timeScale = Math.max(0, +changes.timeScale || 0);
+    if (c.controls_.style) c.controls_.style(); // (the buttons: the look's name, which toggles are on)
+    if (changes.move)
+      for (const [id, offset] of Object.entries(changes.move)) {
+        const part = c.part_(id);
+        if (part) part.offset = offset;
+      }
+    if (changes.glow)
+      for (const [id, strength] of Object.entries(changes.glow)) {
+        const part = c.part_(id);
+        if (part) part.emission = mulv(part.glowColor, strength);
+      }
+    if (changes.joints) {
+      c.state_.joints = { ...changes.joints }; // (each call says all the page sets: a joint not named follows its drive)
+      c.poseVersion_++;
+    }
+    if (changes.motion)
+      for (const [id, value] of Object.entries(changes.motion)) {
+        const motion = c.motions_.find((each) => each.id === id);
+        if (motion) c.setMotion_(motion, value);
+      }
+    if (changes.hide) {
+      for (const part of c.built_.parts)
+        part.hidden = part.hiddenByScene || changes.hide.includes(part.id) || changes.hide.includes(part.group);
+      c.syncHandleInputs_();
+      if (c.built_.parts.find((part) => part.id === c.state_.selected)?.hidden) {
+        c.state_.selected = null; // (a part out of sight is not the one chosen)
+        c.showInfo_();
+      }
+    }
+  };
   const api = (c.api_ = {
     get renderer() {
       return c.renderer_.kind;
@@ -21,13 +67,13 @@ export function makeApi(c) {
     parts: c.built_.parts,
     // resolves once the figure is complete: the first picture, the crease shading, every texture and model
     ready: c.ready_,
-    view: c.view_,
+    view: byPage(c.view_),
     // zoom by a factor (2: twice as close), towards a point of the stage (x, y in CSS pixels) if given
-    zoom: c.zoom_,
+    zoom: byPage(c.zoom_),
     get zoomLevel() {
       return c.baseDist_ / c.state_.dist;
     },
-    explode: c.tweenExplode_,
+    explode: byPage(c.tweenExplode_),
     // where the camera is (degrees and scene units), the part chosen, the labels and look in use
     camera() {
       return {
@@ -41,6 +87,7 @@ export function makeApi(c) {
       return c.state_.selected;
     },
     select(id) {
+      c.mark_('page');
       c.state_.selected = id ?? null;
       c.showInfo_();
       c.kick_();
@@ -57,53 +104,23 @@ export function makeApi(c) {
     get timeScale() {
       return c.state_.timeScale;
     },
-    // the cut's plane now: where the scene, a step, the page or the reader put it
+    // the cut's plane now: where the scene, a step, the page or the reader put it (second: a quarter cut's, or null)
     get section() {
-      const { normal, offset, second } = c.state_.section;
-      return {
-        normal: normal.slice(),
-        offset,
-        ...(second && { second: { normal: (second.normal || [1, 0, 0]).slice(), offset: second.offset || 0 } }),
-      };
+      return c.stateOf_().section;
+    },
+    // what the reader can change, as one plain object (or where it is going, while it glides): set() takes it back
+    state: () => c.stateOf_(),
+    // what the reader may not change from now on (the page's own calls still may)
+    lock(list) {
+      c.lock_ = new Set(list || []);
+      if (c.controls_.lock) c.controls_.lock();
+      c.syncHandleInputs_();
+      c.syncSteps_();
     },
     _state: c.state_, // the engine's own state: not an API, it may change
     set(changes) {
-      if ('explode' in changes) c.explodeNow_(changes.explode); // (the page's own value wins over a running tween)
-      for (const key of ['spin', 'cut', 'labels', 'xray', 'style', 'theme', 'projection', 'dimensions'])
-        if (key in changes) c.state_[key] = changes[key];
-      if ('transparent' in changes) c.state_.transparent = !!changes.transparent;
-      if (changes.section) c.state_.section = { ...c.state_.section, ...changes.section };
-      if (changes.camera) c.view_(changes.camera, { ms: 0 }); // (placed at once: the page's camera wins over a gliding view)
-      if ('timeScale' in changes) c.state_.timeScale = Math.max(0, +changes.timeScale || 0);
-      if (c.controls_.style) c.controls_.style(); // (the buttons: the look's name, which toggles are on)
-      if (changes.move)
-        for (const [id, offset] of Object.entries(changes.move)) {
-          const part = c.part_(id);
-          if (part) part.offset = offset;
-        }
-      if (changes.glow)
-        for (const [id, strength] of Object.entries(changes.glow)) {
-          const part = c.part_(id);
-          if (part) part.emission = mulv(part.glowColor, strength);
-        }
-      if (changes.joints) {
-        c.state_.joints = { ...changes.joints }; // (each call says all the page sets: a joint not named follows its drive)
-        c.poseVersion_++;
-      }
-      if (changes.motion)
-        for (const [id, value] of Object.entries(changes.motion)) {
-          const motion = c.motions_.find((each) => each.id === id);
-          if (motion) c.setMotion_(motion, value);
-        }
-      if (changes.hide) {
-        for (const part of c.built_.parts)
-          part.hidden = part.hiddenByScene || changes.hide.includes(part.id) || changes.hide.includes(part.group);
-        c.syncHandleInputs_();
-        if (c.built_.parts.find((part) => part.id === c.state_.selected)?.hidden) {
-          c.state_.selected = null; // (a part out of sight is not the one chosen)
-          c.showInfo_();
-        }
-      }
+      c.mark_('page');
+      c.setState_(changes, () => set(changes)); // (a state's step first, then the rest over it: state.js)
       c.kick_();
     },
     particles: c.addParticles_,
@@ -172,9 +189,7 @@ export function makeApi(c) {
           get value() {
             return grip.value;
           },
-          set(value) {
-            c.setHandle_(grip, HD.hold(grip.handle, value), false);
-          },
+          set: byPage((value) => c.setHandle_(grip, HD.hold(grip.handle, value), false)),
         }
       );
     },
@@ -192,10 +207,10 @@ export function makeApi(c) {
               layer = c.layersIn_(vessel).find((each) => each.liquid === liquid);
             return layer ? vessel.at[1] + layer.top : null;
           },
-          set(changes) {
+          set: byPage((changes) => {
             if ('volume' in changes) liquid.volume = Math.max(0, +changes.volume || 0);
             c.kick_();
-          },
+          }),
         }
       );
     },
@@ -210,10 +225,10 @@ export function makeApi(c) {
           get flow() {
             return vessel.flow || 0;
           },
-          set(changes) {
+          set: byPage((changes) => {
             if ('open' in changes) vessel.open = Math.max(0, Math.min(1, +changes.open || 0));
             c.kick_();
-          },
+          }),
         }
       );
     },
@@ -230,10 +245,10 @@ export function makeApi(c) {
           get T() {
             return gas.T;
           },
-          set(changes) {
+          set: byPage((changes) => {
             for (const key of ['n', 'T', 'p', 'mass']) if (key in changes) gas[key] = +changes[key];
             c.kick_();
-          },
+          }),
         }
       );
     },
@@ -255,21 +270,22 @@ export function makeApi(c) {
           get playing() {
             return c.playing_.has(id);
           },
-          set: (value) => c.setMotion_(motion, value),
-          play: () => c.playMotion_(motion),
-          stop: () => c.stopMotion_(motion),
+          set: byPage((value) => c.setMotion_(motion, value)),
+          play: byPage(() => c.playMotion_(motion)),
+          stop: byPage(() => c.stopMotion_(motion)),
         }
       );
     },
     // the scene's guided steps: go to one by its place (from 0) or id ({ ms: 0 }: at once), and which is shown (-1:
     // none). The figure starts at the first (or mount's opts.step); moving through them does not call onStep
     steps: c.spec_.steps || [],
-    step: (which, options) => c.goToStep_(which, options),
+    step: byPage((which, options) => c.goToStep_(which, options)),
     get currentStep() {
       return c.stepAt_;
     },
     // frame some parts (ids or groups): the camera looks at their middle, from far enough to see them all
     focus(ids, options = {}) {
+      c.mark_('page');
       const parts = c.built_.parts.filter((part) => ids.includes(part.id) || ids.includes(part.group));
       if (!parts.length) return;
       c.view_({ ...options, ...c.frame_(parts) }, options);

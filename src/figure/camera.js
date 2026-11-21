@@ -264,13 +264,18 @@ export function makeCamera(c) {
     const tween = (now) => {
       const progress = ms > 0 ? Math.max(0, Math.min(1, (now - start) / ms)) : 1,
         eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-      c.state_.yaw = from.yaw + (to.yaw - from.yaw) * eased;
-      c.state_.pitch = from.pitch + (to.pitch - from.pitch) * eased;
-      c.state_.dist = from.dist + (to.dist - from.dist) * eased;
-      c.state_.target = add(from.target, mulv(sub(to.target, from.target), eased));
+      if (progress >= 1)
+        Object.assign(c.state_, { ...to, target: to.target.slice() }); // (exactly there at the end)
+      else {
+        c.state_.yaw = from.yaw + (to.yaw - from.yaw) * eased;
+        c.state_.pitch = from.pitch + (to.pitch - from.pitch) * eased;
+        c.state_.dist = from.dist + (to.dist - from.dist) * eased;
+        c.state_.target = add(from.target, mulv(sub(to.target, from.target), eased));
+      }
       c.markDirty_();
       if (progress >= 1) {
         c.animations_.delete(tween);
+        if (viewTween === tween) ((viewTween = null), (c.towards_.camera = null));
         return false;
       }
       return true;
@@ -278,6 +283,8 @@ export function makeCamera(c) {
     c.cancelView_();
     if (!(ms > 0)) return (tween(start), c.kick_());
     viewTween = tween;
+    // (where it is going: what state() says while it glides)
+    c.towards_.camera = { yaw: to.yaw / D2R, pitch: to.pitch / D2R, dist: to.dist, target: to.target.slice() };
     c.animations_.add(tween);
     c.kick_();
   };
@@ -286,5 +293,6 @@ export function makeCamera(c) {
   c.cancelView_ = () => {
     if (viewTween) c.animations_.delete(viewTween);
     viewTween = null;
+    c.towards_.camera = null;
   };
 }

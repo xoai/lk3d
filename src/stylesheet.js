@@ -50,6 +50,7 @@ lk3d-figure{display:block}
 .lk3d-credit{font-size:13px; color:var(--lk3d-muted, #6b6670); margin:6px 0 0}
 .lk3d-bar{display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; margin-top:10px}
 .lk3d-bar .lk3d-btn.on{background:var(--lk3d-highlight, #f3d78f); color:var(--lk3d-highlight-ink, #1d1a1e)}
+.lk3d .lk3d-locked{opacity:.45; cursor:not-allowed}
 .lk3d-plain{font:inherit; font-size:14px; line-height:1.3; padding:3px 10px; border:1.2px solid var(--lk3d-ink, #1d1a1e); border-radius:5px; background:var(--lk3d-paper, #f7f5ef); color:var(--lk3d-ink, #1d1a1e); cursor:pointer}
 .lk3d-plain:hover{filter:brightness(.96)} .lk3d-plain:focus-visible{outline:2px solid var(--lk3d-accent, #2f5fb3); outline-offset:1px}
 .lk3d-range{display:flex; gap:8px; align-items:center; font-size:15.5px}

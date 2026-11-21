@@ -33,6 +33,8 @@ import { makeIdle } from './figure/idle.js';
 import { makeInput } from './figure/input.js';
 import { makeAdditions } from './figure/additions.js';
 import { makeApi } from './figure/api.js';
+import { makeState } from './figure/state.js';
+import { encodeState, decodeState } from './statecodec.js';
 import { makeSteps } from './figure/steps.js';
 import { M, D2R } from './math.js';
 import { buildFitting, useModels, modelsMissing, modelsError } from './geometry.js';
@@ -141,6 +143,7 @@ function mount(el, spec, opts = {}) {
   );
   const built = c.built_;
   c.part_ = (id) => built.parts.find((part) => part.id === id);
+  makeState(c);
   makePose(c);
   makeLiquids(c);
   makeCamera(c);
@@ -173,6 +176,8 @@ function mount(el, spec, opts = {}) {
         cutRange: c.cutRange_,
         moveCut: spec.section && spec.section.fixed ? null : c.moveCut_,
         seeThrough: built.parts.some((part) => part.xray),
+        locked: c.locked_,
+        asReader: c.asReader_,
       }),
     );
   }
@@ -180,6 +185,8 @@ function mount(el, spec, opts = {}) {
   // ---- guided steps (the scene's steps): their panel under the stage, and the first one (opts.step) set at once
   makeSteps(c, buttonClass);
   c.goToStep_(opts.step ?? 0, { ms: 0 });
+  if (c.controls_.lock) c.controls_.lock(); // (what the page locked at mount: opts.lock)
+  c.syncSteps_();
   startWatching();
   c.showInfo_();
   stats.setupMs = performance.now() - mountedAt;
@@ -187,13 +194,15 @@ function mount(el, spec, opts = {}) {
 }
 
 LK3D.mount = mount;
+LK3D.encodeState = encodeState; // (a figure's state as text for a link, and back: statecodec.js)
+LK3D.decodeState = decodeState;
 // the reader given (by the models add-on): figures refused for want of it are drawn again
 LK3D.useModels = (/** @type {any} */ reader) => {
   useModels(reader);
   if (reader) retryModels();
 };
 if (typeof window !== 'undefined') window.LK3D = LK3D;
-defineElement(mount); // <lk3d-figure>, for pages that write no script
+defineElement(mount, decodeState); // <lk3d-figure>, for pages that write no script
 // (this script run as the page's crease-shading worker, ao.js: it answers its jobs and draws nothing)
 if (typeof self !== 'undefined' && /** @type {any} */ (self).lk3dAO) serveAO();
 export default LK3D;

@@ -37,6 +37,7 @@ export function makeInput(c) {
       grip.input.value = String(grip.round ? mod360(value) : value);
       grip.input.setAttribute('aria-valuetext', valueText(grip));
     }
+    if (byReader) c.mark_('reader');
     c.kick_();
     if (byReader && c.opts_.onHandle) c.opts_.onHandle(grip.part.id, value);
   };
@@ -122,13 +123,18 @@ export function makeInput(c) {
   // fixes it: section.fixed). A drag reads depth by the normal's direction on the stage, or by up and down where the
   // cut face is seen nearly face on (the normal pointing at the eye has no direction on the stage)
   c.cutMovable_ = () =>
-    !!c.state_.cut && c.spec_.section !== false && !c.spec_.section?.fixed && c.renderer_.kind !== '2d';
+    !c.locked_('cut') &&
+    !!c.state_.cut &&
+    c.spec_.section !== false &&
+    !c.spec_.section?.fixed &&
+    c.renderer_.kind !== '2d';
   // (second: the quarter cut's other plane, section.second, moved instead)
   c.moveCut_ = (offset, second = false) => {
     const section = c.state_.section,
       [from, to] = c.cutRange_(second),
       held = Math.max(from, Math.min(to, offset));
     if (held === (second ? (section.second || {}).offset : section.offset)) return;
+    c.mark_('reader');
     c.state_.section = second
       ? { ...section, second: { ...section.second, offset: held } }
       : { ...section, offset: held };
@@ -193,7 +199,7 @@ export function makeInput(c) {
     }
     if (!pointers.size) {
       const [x, y] = local(event),
-        grip = handleAt(x, y),
+        grip = c.locked_('handles') ? null : handleAt(x, y),
         cut = grip ? null : cutAt(x, y);
       if (cut) {
         // the reader takes hold of the cut face: the plane moves, the view does not
@@ -230,6 +236,7 @@ export function makeInput(c) {
     moved = 0;
     setActive(true);
     drag = { pan: event.shiftKey || event.button === 2 };
+    c.dragging_ = !c.locked_('camera'); // (onChange told at most every 250 ms, and once more when the view stops)
     c.hint_.classList.add('gone');
   });
   c.canvas_.addEventListener('pointermove', (event) => {
@@ -257,6 +264,8 @@ export function makeInput(c) {
       const dx = event.clientX - prev[0],
         dy = event.clientY - prev[1];
       moved += Math.abs(dx) + Math.abs(dy);
+      if (c.locked_('camera')) return; // (locked by the page: the view stays; a tap still chooses a part)
+      c.mark_('reader');
       if (pointers.size === 2) {
         const [first, second] = [...pointers.values()],
           apart = Math.hypot(first[0] - second[0], first[1] - second[1]);
@@ -306,6 +315,7 @@ export function makeInput(c) {
         c.state_.selected = cutting.part === c.state_.selected ? null : cutting.part;
         c.showInfo_('pick');
       }
+      c.mark_('reader');
       cutting = null;
       c.canvas_.style.cursor = 'grab';
       c.kick_();
@@ -317,6 +327,7 @@ export function makeInput(c) {
         c.state_.selected = grab.grip.part.id === c.state_.selected ? null : grab.grip.part.id;
         c.showInfo_('pick');
       }
+      c.mark_('reader');
       grab = null;
       c.canvas_.style.cursor = 'grab';
       c.kick_();
@@ -325,6 +336,8 @@ export function makeInput(c) {
     if (!pointers.has(event.pointerId)) return;
     pointers.delete(event.pointerId);
     pinch = 0;
+    c.mark_('reader');
+    if (!pointers.size) c.dragging_ = false; // (a flick below keeps it, until the view stops)
     if (moved < 6 && event.type === 'pointerup') {
       const [x, y] = local(event),
         id = c.pickAt_(x, y);
@@ -333,6 +346,7 @@ export function makeInput(c) {
       c.kick_();
     } else if (
       !pointers.size &&
+      !c.locked_('camera') &&
       Math.hypot(velocity[0], velocity[1]) > 2 &&
       performance.now() - velocity[2] < 80 &&
       !LK3D.reduce
@@ -351,10 +365,13 @@ export function makeInput(c) {
         c.markDirty_();
         if (Math.hypot(speed[0], speed[1]) < 0.3) {
           momentum = null;
+          c.dragging_ = false; // (the view has stopped: onChange told once more)
+          c.mark_('reader');
           return false;
         }
         return true;
       };
+      c.dragging_ = true;
       momentum = glide;
       c.animations_.add(glide);
       c.kick_();
@@ -375,8 +392,9 @@ export function makeInput(c) {
   c.canvas_.addEventListener(
     'wheel',
     (event) => {
-      if (!(event.ctrlKey || active)) return; // never hijack the page's scrolling
+      if (!(event.ctrlKey || active) || c.locked_('camera')) return; // never hijack the page's scrolling
       event.preventDefault();
+      c.mark_('reader');
       const [x, y] = local(event);
       c.zoom_(Math.exp(-event.deltaY * 0.0015), x, y);
     },
@@ -388,8 +406,10 @@ export function makeInput(c) {
   document.addEventListener('pointerdown', outside);
   c.cleanups_.push(() => document.removeEventListener('pointerdown', outside));
   c.canvas_.addEventListener('keydown', (event) => {
-    const turn = { ArrowLeft: [0.12, 0], ArrowRight: [-0.12, 0], ArrowUp: [0, 0.1], ArrowDown: [0, -0.1] }[event.key];
-    if (turn) {
+    const turn = { ArrowLeft: [0.12, 0], ArrowRight: [-0.12, 0], ArrowUp: [0, 0.1], ArrowDown: [0, -0.1] }[event.key],
+      camera = !c.locked_('camera');
+    c.mark_('reader');
+    if (turn && camera) {
       c.cancelView_();
       c.state_.yaw += turn[0];
       c.state_.pitch = tilt(c.state_.pitch + turn[1]);
@@ -397,7 +417,7 @@ export function makeInput(c) {
       event.preventDefault();
     }
     const zoom = { '+': 1.15, '=': 1.15, '-': 1 / 1.15 }[event.key];
-    if (zoom) c.zoom_(zoom);
+    if (zoom && camera) c.zoom_(zoom);
     const step = { PageDown: 1, PageUp: -1 }[event.key],
       shown = c.namedParts_.filter((part) => !part.hidden);
     if ((step && shown.length) || (event.key === 'Escape' && c.state_.selected)) {
@@ -428,13 +448,19 @@ export function makeInput(c) {
       range.value = String(grip.value);
       range.setAttribute('aria-label', handle.label || plainText(grip.part.name) || grip.part.id);
       range.setAttribute('aria-valuetext', valueText(grip));
-      range.addEventListener('input', () =>
+      range.addEventListener('input', () => {
+        // (locked by the page: the input goes back to where the handle is)
+        if (c.locked_('handles')) return void (range.value = String(grip.round ? mod360(grip.value) : grip.value));
         c.setHandle_(
           grip,
           HD.hold(handle, grip.round ? grip.value + HD.unwrap(+range.value - mod360(grip.value)) : +range.value),
           true,
-        ),
-      );
+        );
+      });
+      // (locked: its keys do nothing, but it keeps the focus, and Tab still leaves it)
+      range.addEventListener('keydown', (event) => {
+        if (c.locked_('handles') && event.key !== 'Tab') (event.stopImmediatePropagation(), event.preventDefault());
+      });
       // (a range input stops at its ends: a handle that goes round and round is turned by its own keys instead)
       if (grip.round)
         range.addEventListener('keydown', (event) => {
@@ -461,10 +487,14 @@ export function makeInput(c) {
     }
     // a hidden part's handle is out of reach of the keyboard too: out of the Tab order and of what screen readers read
     (c.syncHandleInputs_ = () => {
+      const locked = c.locked_('handles');
       for (const { part, input } of c.handles_) {
         if (!input) continue;
         if (part.hidden) input.blur();
         input.disabled = input.hidden = !!part.hidden;
+        if (locked) input.setAttribute('aria-disabled', 'true');
+        else input.removeAttribute('aria-disabled');
+        input.title = locked ? c.words_.locked : '';
       }
     })();
   };

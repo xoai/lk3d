@@ -188,4 +188,81 @@ function aoJob(mesh, bvh, reach) {
   };
 }
 
-export { buildBVH, intersect, aoJob };
+// The distance from a point to the nearest place on the mesh's surface, looking no farther than `limit` (Infinity when
+// nothing is that near). Only lk3d check asks it (a turned copy against its mirror image), so the engine's bundle,
+// which never imports it, does not carry it.
+function nearest(mesh, bvh, p, limit = Infinity) {
+  if (!bvh.boxes.length) return Infinity;
+  const positions = mesh.positions,
+    indices = mesh.indices,
+    boxes = bvh.boxes,
+    stack = [0];
+  let best = limit * limit,
+    found = false;
+  for (let node; (node = stack.pop()) !== undefined;) {
+    let d2 = 0;
+    for (let axis = 0; axis < 3; axis++) {
+      const v = p[axis],
+        lo = boxes[6 * node + axis],
+        hi = boxes[6 * node + 3 + axis],
+        out = v < lo ? lo - v : v > hi ? v - hi : 0;
+      d2 += out * out;
+    }
+    if (d2 > best) continue;
+    const left = bvh.children[2 * node];
+    if (left >= 0) {
+      stack.push(left, bvh.children[2 * node + 1]);
+      continue;
+    }
+    const start = bvh.ranges[2 * node],
+      count = bvh.ranges[2 * node + 1];
+    for (let k = start; k < start + count; k++) {
+      const t = bvh.triangles[k],
+        corner = (j) => [
+          positions[3 * indices[3 * t + j]],
+          positions[3 * indices[3 * t + j] + 1],
+          positions[3 * indices[3 * t + j] + 2],
+        ],
+        q = closestOnTriangle(p, corner(0), corner(1), corner(2)),
+        dx = q[0] - p[0],
+        dy = q[1] - p[1],
+        dz = q[2] - p[2];
+      const distance = dx * dx + dy * dy + dz * dz;
+      if (distance <= best) [best, found] = [distance, true];
+    }
+  }
+  return found ? Math.sqrt(best) : Infinity;
+}
+// the point of triangle abc nearest p (Ericson, Real-Time Collision Detection, 5.1.5)
+function closestOnTriangle(p, a, b, c) {
+  const sub3 = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]],
+    dot3 = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2],
+    at = (u, v, w) => [a[0] + v * u[0] + w * c2[0], a[1] + v * u[1] + w * c2[1], a[2] + v * u[2] + w * c2[2]];
+  const ab = sub3(b, a),
+    c2 = sub3(c, a),
+    ap = sub3(p, a),
+    d1 = dot3(ab, ap),
+    d2 = dot3(c2, ap);
+  if (d1 <= 0 && d2 <= 0) return a;
+  const bp = sub3(p, b),
+    d3 = dot3(ab, bp),
+    d4 = dot3(c2, bp);
+  if (d3 >= 0 && d4 <= d3) return b;
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) return at(ab, d1 / (d1 - d3), 0);
+  const cp = sub3(p, c),
+    d5 = dot3(ab, cp),
+    d6 = dot3(c2, cp);
+  if (d6 >= 0 && d5 <= d6) return c;
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) return at(ab, 0, d2 / (d2 - d6));
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+    const w = (d4 - d3) / (d4 - d3 + (d5 - d6));
+    return [b[0] + w * (c[0] - b[0]), b[1] + w * (c[1] - b[1]), b[2] + w * (c[2] - b[2])];
+  }
+  const denom = 1 / (va + vb + vc);
+  return at(ab, vb * denom, vc * denom);
+}
+
+export { buildBVH, intersect, aoJob, nearest };

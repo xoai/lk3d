@@ -2,11 +2,14 @@
 // lk3d from the command line: check a scene, and draw it to pictures to look at (what an author, or an AI agent writing
 // a scene, runs after each step).
 //   lk3d check scene.json [--json]
-//       the format (lk3d/validate) and the geometry (lk3d/lint), with the scene's size: exit code 1 on any problem
+//       the format (lk3d/validate) and the geometry (lk3d/lint), what the scene expects (expect), with the scene's
+//       size: exit code 1 on any problem; warnings are said, and pass
 //   lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut,steps] [--theme NAME] [--ortho]
-//                          [--width 640] [--out DIR]
+//                          [--width 640] [--out DIR] [--sheet] [--names]
 //       PNG pictures, one per look and pose (steps: one per guided step, when the scene has them), drawn by the real
-//       engine in a headless browser (Playwright); without Playwright it says so: the scene is then not checked by eye
+//       engine in a headless browser (Playwright); without Playwright it says so: the scene is then not checked by eye.
+//       --sheet: every picture on one (NAME-sheet.png) and the questions to answer looking at it (NAME-sheet.md);
+//       --names: a picture with every part labelled by its id
 //   lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
 //       the scene as glTF 2.0 binary (Blender, game engines, viewers): parts as named nodes with their materials, posed
 //       at the motions' starts (or --motion), each motion an animation with --animate
@@ -43,7 +46,7 @@ const LOOKS = ['pen', 'studio', 'ink'],
   POSES = ['rest', 'apart', 'cut', 'steps'];
 const USAGE = `usage: lk3d check scene.json [--json]
        lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
-       lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut,steps] [--theme NAME] [--ortho] [--width 640] [--out DIR]`;
+       lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut,steps] [--theme NAME] [--ortho] [--width 640] [--out DIR] [--sheet] [--names]`;
 
 function load(scenePath) {
   const scene = JSON.parse(fs.readFileSync(scenePath, 'utf8'));
@@ -126,10 +129,12 @@ const PAGE = `<!doctype html><meta charset="utf-8"><title>lk3d render</title>
 const query = new URLSearchParams(location.search), scene = await (await fetch('/scene.json')).json(), errors = [];
 window.addEventListener('error', (e) => errors.push(String(e.message)));
 if (query.get('ortho')) scene.view = { ...scene.view, projection: 'ortho' };
+const names = !!query.get('names'); // (every part labelled with its id: the contact sheet's map of the parts)
+if (names) for (const part of scene.parts || []) if (part && part.id) part.name = part.id;
 const pose = query.get('pose');
 const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, adaptive: false, locale: 'en',
   style: query.get('look'), theme: query.get('theme') || undefined,
-  labels: pose === 'apart' ? 'auto' : pose === 'step' ? undefined : 'none',
+  labels: names ? 'all' : pose === 'apart' ? 'auto' : pose === 'step' ? undefined : 'none',
   step: pose === 'step' ? Number(query.get('step')) : -1 }); // (at rest, apart and cut: before the first step)
 await Promise.race([fig.ready, new Promise((resolve) => setTimeout(resolve, 30000))]);
 if (pose === 'apart') fig.set({ explode: 1 });
@@ -230,6 +235,7 @@ async function render(scenePath) {
     return;
   }
   let errorCount = 0;
+  const pictures = []; // (each picture drawn, with its caption: the contact sheet's tiles)
   try {
     const tab = await browser.newPage({ deviceScaleFactor: 2 });
     for (const look of looks)
@@ -246,13 +252,82 @@ async function render(scenePath) {
         await tab.locator('.lk3d-stage').screenshot({ path: png });
         console.log(png + (result.errors.length ? '  errors: ' + result.errors.join('; ') : ''));
         errorCount += result.errors.length;
+        const step = pose === 'step' ? data.steps[Number(picture.slice(4)) - 1] : null;
+        pictures.push({ png, caption: step ? `step ${picture.slice(4)}: ${step.title || ''}` : `${look} · ${pose}` });
       }
+    // every part named by its id, at rest in the first look: the sheet's map of which part is which
+    if (flag('names')) {
+      await tab.goto(
+        `${base}?look=${looks[0]}&pose=rest&names=1${theme ? '&theme=' + theme : ''}${ortho ? '&ortho=1' : ''}`,
+      );
+      await tab.waitForFunction(() => window.__ready, null, { timeout: 60000 });
+      const png = path.join(out, `${name}-names.png`);
+      await tab.locator('.lk3d-stage').screenshot({ path: png });
+      console.log(png);
+      pictures.unshift({ png, caption: 'the parts, by id' });
+    }
+    if (flag('sheet')) await contactSheet(browser, data, name, out, pictures);
   } finally {
     await browser.close();
     server.close();
   }
   console.log('look at each picture: is every part where it should be, and does it read at a glance?');
   process.exitCode = errorCount ? 1 : 0;
+}
+
+// The contact sheet: every picture drawn, on one image with its caption (NAME-sheet.png), and the questions to answer
+// while looking at it, made from the scene (NAME-sheet.md, also printed): what no check can see, the eye must.
+async function contactSheet(browser, data, name, out, pictures) {
+  const tiles = pictures
+    .map(
+      ({ png, caption }) =>
+        `<figure><img src="data:image/png;base64,${fs.readFileSync(png).toString('base64')}"><figcaption>${caption.replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'))}</figcaption></figure>`,
+    )
+    .join('');
+  const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+  await page.setContent(
+    `<style>body{margin:0;padding:12px;font:14px system-ui,sans-serif;background:#fff;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}` +
+      `figure{margin:0}img{width:100%;border:1px solid #ddd}figcaption{padding:4px 2px;color:#333}</style>${tiles}`,
+  );
+  const sheet = path.join(out, `${name}-sheet.png`);
+  await page.screenshot({ path: sheet, fullPage: true });
+  await page.close();
+  console.log(sheet);
+  // the questions, at most 20
+  const named = (id) => (data.parts || []).find((part) => part && part.id === id)?.name || id,
+    questions = [];
+  for (const item of data.expect || [])
+    if (item && item.seen != null) questions.push(`Is ${named(item.seen)} visible in step ${item.step}?`);
+  (data.steps || []).forEach((step, k) => {
+    const text = String(step.text || '').replace(/<[^>]+>/g, '');
+    const labels = Array.isArray(step.labels) ? step.labels.map(named).join(', ') : 'what it is about';
+    questions.push(`Step ${k + 1} says «${text}». Does the picture show ${labels}?`);
+  });
+  for (const dimension of data.dimensions || [])
+    questions.push(`Does «${dimension.name || dimension.id}» sit where it measures?`);
+  let contacts = {};
+  try {
+    contacts = lint(data).contacts || {};
+  } catch {
+    // (a scene the check cannot build: lk3d check says why)
+  }
+  for (const [id, touching] of Object.entries(contacts))
+    if (touching.length === 1)
+      questions.push(`Does ${named(id)} rest on ${named(touching[0])} as the real object does?`);
+  for (const part of data.parts || [])
+    if (part && part.mirrorOf)
+      questions.push(
+        `Are ${named(part.mirrorOf)} and ${named(part.id)} mirror images (a left and a right), not turned copies?`,
+      );
+  const text =
+    `# ${data.title || name}: questions to answer while looking at ${name}-sheet.png\n\n` +
+    questions
+      .slice(0, 20)
+      .map((q) => `- ${q}`)
+      .join('\n') +
+    '\n';
+  fs.writeFileSync(path.join(out, `${name}-sheet.md`), text);
+  console.log(text);
 }
 
 try {

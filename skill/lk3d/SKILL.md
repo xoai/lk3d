@@ -112,7 +112,10 @@ cut, nothing hidden), so write each as if the reader came straight to it. Label 
 
 ## 7. Look like a critic, then hand over
 
-Render rest, apart and cut in at least two looks, and at a narrow width (`--width 390`). For each picture ask:
+Render rest, apart and cut in at least two looks, and at a narrow width (`--width 390`), with `--sheet --names`: one
+contact sheet of every picture and a map of the parts by id, and a list of questions made from the scene
+(`NAME-sheet.md`); answer each in writing. State what must stay true under `expect` (inside, touches, clear, above,
+size, seen), so `check` proves it. For each picture ask:
 does it read at a glance? Is every part where it should be, resting on something? Does anything pass through
 anything? Is every label on its part, none stuck in a corner? Is the accent the thing the idea is about? Zoom into a
 detail (the wheel zooms to the pointer, up to 50 times): does it hold up close? Then go
@@ -120,5 +123,6 @@ through [anti-patterns](references/anti-patterns.md) once more.
 
 Hand over only when `check` says **no problems** and you have looked at every picture. Say what you checked, what you
 could not (no browser: not checked by eye), and what is not to scale. Never fix a check by moving it out of the way:
-`check.allow` and `check.float` are for what the scene **means** (two pictures of one molecule shown in turn, planets
-that float), each with a reason a reader would accept.
+`check.allow`, `check.float` and `check.mirror` are for what the scene **means** (two pictures of one molecule shown
+in turn, planets that float, a turned copy that is meant), each with a reason a reader would accept. A warning (a turned
+copy where a mirror image may be meant) passes the check; read it all the same.

@@ -120,3 +120,65 @@ test('render with Playwright but no browser says so and ends, never waits foreve
   assert.equal(r.status, 2, r.stderr);
   assert.match(r.stderr, /needs Playwright's Chromium: npx playwright install chromium/);
 });
+
+test('a warning is said and passes: lk3d check exits 0 on warnings alone', () => {
+  const L = [
+    { box: [0.6, 0.2, 0.2], at: [0.2, 0.2, 0] },
+    { box: [0.2, 0.2, 0.6], at: [0.4, 0.2, 0.3] },
+  ];
+  const scene = tmp(
+    'wings.json',
+    JSON.stringify({
+      parts: [
+        { id: 'base', name: 'Base', shapes: [{ box: [2, 0.2, 2] }] },
+        { id: 'wing-l', name: 'Left', shapes: L, at: [-0.5, 0, 0] },
+        { id: 'wing-r', name: 'Right', shapes: L, at: [0.5, 0, 0], rot: [0, 180, 0] },
+      ],
+    }),
+  );
+  const r = run('check', scene);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /warning: parts\[2\]: wing-l and wing-r are the same shapes turned 180° about y/);
+  assert.match(r.stdout, /no problems, 1 warning/);
+});
+
+test('render --sheet: every picture on one, and the questions to answer looking at it', (t) => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'lk3d-sheet-'));
+  let r = run(
+    'render',
+    path.join(ROOT, 'examples/scenes/lens.json'),
+    '--looks',
+    'pen',
+    '--poses',
+    'rest',
+    '--sheet',
+    '--names',
+    '--out',
+    out,
+  );
+  if (r.status === 2 && /needs Playwright/.test(r.stderr)) return t.skip('no Playwright here');
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(fs.statSync(path.join(out, 'lens-sheet.png')).size > 10000, 'the sheet');
+  assert.ok(fs.existsSync(path.join(out, 'lens-names.png')), 'the parts by id');
+  const questions = fs.readFileSync(path.join(out, 'lens-sheet.md'), 'utf8');
+  assert.match(questions, /«distance from the object to the lens» sit where it measures/);
+  assert.match(questions, /«focal length»/);
+  // a step's words, and a part that rests on one other only
+  const scene = tmp(
+    'small.json',
+    JSON.stringify({
+      parts: [
+        { id: 'base', name: 'Base', shapes: [{ box: [2, 0.2, 2] }] },
+        { id: 'post', name: 'Post', shapes: [{ box: [0.2, 1, 0.2], at: [0, 0.6, 0] }] },
+      ],
+      steps: [{ title: 'Step one', text: 'Look at the <b>post</b>', labels: ['post'] }],
+      expect: [{ seen: 'post', step: 1 }],
+    }),
+  );
+  r = run('render', scene, '--looks', 'pen', '--poses', 'rest', '--sheet', '--out', out);
+  assert.equal(r.status, 0, r.stderr);
+  const small = fs.readFileSync(path.join(out, 'small-sheet.md'), 'utf8');
+  assert.match(small, /Step 1 says «Look at the post»\. Does the picture show Post\?/);
+  assert.match(small, /Is Post visible in step 1\?/);
+  assert.match(small, /Does Post rest on Base as the real object does\?/);
+});

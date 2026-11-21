@@ -50,6 +50,12 @@ field of a shape, a motion, a joint, a vessel, a liquid, a gas or `check` is rep
 | `the gas in V would push its piston out of it: fewer moles, a lower temperature, or a taller vessel`                            | by pV = nRT, the piston would rest above the top of V's `inside`                                                     | fewer moles `n`, a lower `T`, a heavier piston (`mass`), or a taller `inside`                                                                                                                                                |
 | `the model X: no file …`                                                                                                        | a model's file is not beside the scene, the page or the working folder                                               | the right `file`, or the model's `data` (base64)                                                                                                                                                                             |
 
+## Warnings (said; the check still passes)
+
+| It says                                                                                             | It means                                                                                       | Fix                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `warning: A and B are the same shapes turned 180° about y, so one is a left-hand copy of the other` | a left and a right made as a turned copy: the same hand twice, unless the shapes are symmetric | make one a mirror (`"scale": [-1, 1, 1]`, the axis they lie apart along), or say why under `check.mirror: [{pair: [A, B], reason}]` |
+
 ## What the scene expects (expect)
 
 Each item of `expect` that does not hold is reported at its place, `expect[i]`. Fix the model, or the expectation if it

@@ -84,3 +84,10 @@ test("npm run evals grades a folder of answers: each eval's checks, and the pass
   assert.ok(by['bicycle-pump'].failed.some((f) => /no picture/.test(f)));
   assert.deepEqual(by['plant-cell'].failed, ['no plant-cell.json']);
 });
+
+test('the skill has the agent look at a contact sheet and answer its questions, and state what must stay true', () => {
+  const text = read('SKILL.md');
+  assert.match(text, /--sheet/);
+  assert.match(text, /expect/);
+  assert.match(text, /check\.mirror/);
+});

@@ -309,3 +309,29 @@ test('expect is validated: names that exist and are not both a part and a group,
   assert.match(problems([{ seen: 'post', step: 3 }], { steps: [{ title: 'S', text: 'x' }] }).join(), /3 is no step/);
   assert.match(problems([{ inside: 'post' }]).join(), /expect\[0\]/, 'a form missing its second name');
 });
+
+test('a turned copy where a mirror image may be meant is warned of (a warning, not a problem); a symmetric pair, or one excused, is not', () => {
+  const L = [
+      { box: [0.6, 0.2, 0.2], at: [0.2, 0.2, 0] },
+      { box: [0.2, 0.2, 0.6], at: [0.4, 0.2, 0.3] },
+    ],
+    pair = (shapes, check) =>
+      lint({
+        parts: [
+          base,
+          { id: 'l', name: 'L', shapes, at: [-0.5, 0, 0] },
+          { id: 'r', name: 'R', shapes, at: [0.5, 0, 0], rot: [0, 180, 0] },
+        ],
+        check,
+      }).problems;
+  const warned = pair(L);
+  assert.equal(warned.length, 1);
+  assert.equal(warned[0].level, 'warning');
+  assert.match(warned[0].message, /l and r are the same shapes turned 180° about y.*"scale": \[-1,1,1\]/);
+  assert.deepEqual(
+    pair([{ cylinder: { r: 0.1, x0: 0, x1: 0.5 }, at: [0, 0.2, 0] }]),
+    [],
+    'symmetric: the turn is a mirror',
+  );
+  assert.deepEqual(pair(L, { mirror: [{ pair: ['r', 'l'], reason: 'the same hand on purpose' }] }), []);
+});

@@ -14,7 +14,7 @@
 // scene whose parts all float.
 import './models.js'; // (the glTF reader: a scene's models are checked like its other parts)
 import { buildScene, flatten, isClosed } from './geometry.js';
-import { buildBVH, intersect } from './bvh.js';
+import { buildBVH, intersect, nearest } from './bvh.js';
 import { M, add, mulv, sub, cross, dot, len, norm } from './math.js';
 import { tracksOf, motionMatrix } from './motion.js';
 import { jointsOf, jointOf, motionsOf, solve as solveJoints } from './joints.js';
@@ -423,6 +423,8 @@ export function lint(scene, options = {}) {
         message: `the label of ${a.part.id} points inside ${hiding.part.id} when taken apart, where no one sees it: give the part a label point ("label": [x, y, z]) on its visible surface`,
       });
   }
+  // turned copies that may be meant as mirror images (a warning: said, and the check passes)
+  problems.push(...turnedCopies(scene, solids, tolerance, path));
   // what the scene says must be true (expect)
   if (Array.isArray(scene.expect)) problems.push(...expectations(scene, built, solids, tolerance, jointAt));
   const shapes = (scene.parts || []).reduce((count, part) => count + (part.shapes || []).length, 0);
@@ -681,3 +683,55 @@ function expectations(scene, built, solids, tolerance, jointAt) {
   return problems;
 }
 const isIdentity = (m) => m.every((v, i) => Math.abs(v - (i % 5 === 0 ? 1 : 0)) < 1e-12);
+
+// ---- turned copies: two parts of the same shapes, one turned 180° about an axis from the other, as a left and a right
+// pair is often made. A turn is not a reflection: unless the shapes are symmetric across the plane the turn also
+// flips, the copy is the same hand as the original, a left wing where a right one should be. Warned of, never failed;
+// check.mirror excuses a pair with its reason. (Copies made inside one part, by repeat, are not compared.)
+function turnedCopies(scene, solids, tolerance, path) {
+  const warnings = [],
+    excused = (a, b) =>
+      ((scene.check && scene.check.mirror) || []).some(
+        (entry) => entry && Array.isArray(entry.pair) && entry.pair.includes(a) && entry.pair.includes(b) && a !== b,
+      ),
+    raw = new Map((scene.parts || []).filter((part) => part && part.id != null).map((part) => [part.id, part])),
+    keyOf = (part) => JSON.stringify([part.shapes, part.edges ?? null]),
+    AXES = 'xyz';
+  for (let i = 0; i < solids.length; i++)
+    for (let j = i + 1; j < solids.length; j++) {
+      const A = raw.get(solids[i].part.id),
+        B = raw.get(solids[j].part.id);
+      if (!A || !B || !A.shapes || keyOf(A) !== keyOf(B) || excused(A.id, B.id)) continue;
+      // B's turn relative to A's: a half turn about one of the axes, the other two flipped
+      const R = M.mul(M.trs(null, B.rot), M.invert(M.trs(null, A.rot))),
+        diagonal = [R[0], R[5], R[10]],
+        offDiagonal = [R[1], R[2], R[4], R[6], R[8], R[9]];
+      if (offDiagonal.some((v) => Math.abs(v) > 1e-6)) continue;
+      const kept = diagonal.findIndex((v) => Math.abs(v - 1) < 1e-6);
+      if (kept < 0 || diagonal.some((v, k) => k !== kept && Math.abs(v + 1) > 1e-6)) continue;
+      // the pair lies apart along one of the flipped axes (the mirror's); a turned copy is the mirror image only if the
+      // part is symmetric across the plane of the other flipped axis, through its own middle
+      const centre = (solid) => [0, 1, 2].map((k) => (solid.part.min[k] + solid.part.max[k]) / 2),
+        a = solids[i],
+        ca = centre(a),
+        apart = sub(centre(solids[j]), ca),
+        flipped = [0, 1, 2].filter((k) => k !== kept),
+        across = Math.abs(apart[flipped[0]]) >= Math.abs(apart[flipped[1]]) ? flipped[0] : flipped[1],
+        other = flipped[0] === across ? flipped[1] : flipped[0];
+      const symmetric = samples(a).every((point) => {
+        const reflected = point.slice();
+        reflected[other] = 2 * ca[other] - point[other];
+        return nearest(a.mesh, a.bvh, reflected, tolerance * 2) <= tolerance * 2;
+      });
+      if (!symmetric) {
+        const scale = [1, 1, 1];
+        scale[across] = -1;
+        warnings.push({
+          path: path(solids[j].part),
+          level: 'warning',
+          message: `${A.id} and ${B.id} are the same shapes turned 180° about ${AXES[kept]}, so one is a left-hand copy of the other: make one a mirror ("scale": ${JSON.stringify(scale)}) if they are a left and a right, or say why not under check.mirror`,
+        });
+      }
+    }
+  return warnings;
+}

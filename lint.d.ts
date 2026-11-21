@@ -17,7 +17,7 @@ export interface Summary {
 export interface Finding extends Problem {
   level?: 'warning';
 }
-/** each part's id, and the ids of the parts its box touches at rest */
+/** each part's id, and the ids of the parts whose surfaces it meets at rest (within the lint's contact tolerance) */
 export type Contacts = Record<string, string[]>;
 export function lint(
   scene: Scene,

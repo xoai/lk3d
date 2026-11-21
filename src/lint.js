@@ -3,7 +3,7 @@
 // may sit inside others, an organelle in a cell, a filament in a bulb); parts that rest on nothing; labels that point
 // at a place inside another part once taken apart, when labels show. Not part of the runtime bundle: import 'lk3d/lint'.
 //   import { lint } from 'lk3d/lint';  lint(scene) → { problems: [{ path, message, level? }], summary: { parts, … },
-//                                                      contacts: { id: [ids its box touches at rest] } }
+//                                                      contacts: { id: [ids whose surfaces it meets at rest] } }
 //   node src/lint.js < scene.json        prints the summary and the findings; exit code 1 if there are problems
 // A finding with level: 'warning' is said and passes (lk3d check exits 0 on warnings alone); every other is a problem.
 // What a scene says must be true (expect: inside, touches, clear, above, size, seen) is checked here too, each failing
@@ -35,6 +35,7 @@ function solidOf(part) {
   return { part, mesh, bvh: buildBVH(mesh), closed };
 }
 const offsetAt = (solid, apart) => mulv(solid.part.explode, apart);
+const REST = M.id(); // (a part as built: where it is at rest)
 
 // how deep a point is inside a closed part (0: outside): the nearest hit of each of three rays must be the back of a
 // face, so the point is enclosed; its depth is the nearest of those hits
@@ -130,6 +131,35 @@ function boxAt(solid, m) {
 // is the point within the part's bounds at rest? (a cheap test before casting rays)
 const inBox = (solid, point) =>
   [0, 1, 2].every((axis) => point[axis] >= solid.part.min[axis] && point[axis] <= solid.part.max[axis]);
+// the points of a part tested against another's surface: its surface samples and its corners (a ball on a floor meets it
+// at one vertex), at most 4,000 corners, spread evenly
+function contactPoints(solid) {
+  if (solid.contactPoints) return solid.contactPoints;
+  const positions = solid.mesh.positions,
+    count = positions.length / 3,
+    stride = Math.max(1, Math.ceil(count / 4000)),
+    points = samples(solid).slice();
+  for (let k = 0; k < count; k += stride) points.push([positions[3 * k], positions[3 * k + 1], positions[3 * k + 2]]);
+  return (solid.contactPoints = points);
+}
+// do a and b touch, each placed by its matrix? Their surfaces come within `tolerance` (a point of one's within that of
+// the other's), or one reaches inside the other (a closed part). Boxes that meet are not enough: a post standing inside
+// a cage of bars is within the cage's box and touches none of its bars.
+function touching(a, matrixA, b, matrixB, tolerance) {
+  const [lowA, highA] = boxAt(a, matrixA),
+    [lowB, highB] = boxAt(b, matrixB);
+  if ([0, 1, 2].some((k) => lowA[k] > highB[k] + tolerance || lowB[k] > highA[k] + tolerance)) return false;
+  const meets = (p, matrixP, q, matrixQ) => {
+    const pToQ = M.mul(M.invert(matrixQ), matrixP);
+    return contactPoints(p).some((point) => {
+      const moved = M.pt(pToQ, point);
+      return (
+        nearest(q.mesh, q.bvh, moved, tolerance) <= tolerance || (q.closed && inBox(q, moved) && depthIn(q, moved) > 0)
+      );
+    });
+  };
+  return meets(a, matrixA, b, matrixB) || meets(b, matrixB, a, matrixA);
+}
 // do the bounds of a and b (moved apart by `apart`) overlap, give or take `tolerance`?
 function near(a, b, apart, tolerance) {
   const offsetA = offsetAt(a, apart),
@@ -257,7 +287,7 @@ export function lint(scene, options = {}) {
   for (const [i, j] of pairs) {
     const a = solids[i],
       b = solids[j];
-    if (near(a, b, 0, tolerance)) {
+    if (near(a, b, 0, tolerance) && touching(a, REST, b, REST, tolerance)) {
       touchesAtRest[i] = touchesAtRest[j] = true;
       contacts[a.part.id].push(b.part.id);
       contacts[b.part.id].push(a.part.id);
@@ -544,8 +574,10 @@ function expectations(scene, built, solids, tolerance, jointAt) {
         }
       }
     } else if (item.touches != null) {
+      // (by their surfaces, as "hangs in the air" and contacts measure: each of A's parts meets one of B's)
       const [lb, hb] = boxOf(B);
       for (const a of A) {
+        if (B.some((b) => b !== a && touching(solids[a], pose(a, {}), solids[b], pose(b, {}), tolerance))) continue;
         const [la, ha] = boxOf([a]);
         let gap = 0,
           axis = 0;
@@ -553,11 +585,14 @@ function expectations(scene, built, solids, tolerance, jointAt) {
           const g = Math.max(lb[j] - ha[j], la[j] - hb[j]);
           if (g > gap) [gap, axis] = [g, j];
         }
-        if (gap > tolerance)
-          return void fail(
-            k,
-            `${solids[a].part.id} does not touch ${other} (a gap of ${round(gap)} along ${AXES[axis]}): rest it on ${other}, or change the expectation`,
-          );
+        return void fail(
+          k,
+          `${solids[a].part.id} does not touch ${other} (` +
+            (gap > tolerance
+              ? `a gap of ${round(gap)} along ${AXES[axis]}`
+              : `within its bounds, but their surfaces do not meet`) +
+            `): rest it on ${other}, or change the expectation`,
+        );
       }
     } else if (item.clear != null) {
       for (const a of A)
@@ -595,7 +630,7 @@ function expectations(scene, built, solids, tolerance, jointAt) {
           if (found)
             return void fail(
               k,
-              `${sa.part.id} runs into ${sb.part.id} ${found[1]} (${Math.round(found[0] * 100)} % of one inside the other): move it, or change the expectation`,
+              `${sa.part.id} is not clear of ${sb.part.id}: it runs into it ${found[1]} (${Math.round(found[0] * 100)} % of one inside the other): move it, or change the expectation`,
             );
         }
     } else if (item.above != null) {

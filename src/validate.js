@@ -66,8 +66,10 @@ function check(subschema, value, path, out) {
       });
     }
     if (TYPES.object(value)) {
-      for (const field of subschema.required || []) if (!(field in value)) add(`needs ${field}`);
+      // (a key whose value is undefined is absent, as JSON.stringify leaves it out: { ...scene, expect: undefined })
+      for (const field of subschema.required || []) if (value[field] === undefined) add(`needs ${field}`);
       for (const [field, fieldValue] of Object.entries(value)) {
+        if (fieldValue === undefined) continue;
         const fieldSchema = subschema.properties && subschema.properties[field],
           additional = subschema.additionalProperties;
         if (fieldSchema) check(fieldSchema, fieldValue, path ? `${path}.${field}` : field, errors);
@@ -78,7 +80,7 @@ function check(subschema, value, path, out) {
           errors.push({ path: path ? `${path}.${field}` : field, message: unknown(field, subschema) });
       }
       for (const [field, dependent] of Object.entries(subschema.dependentSchemas || {}))
-        if (field in value) check(dependent, value, path, errors);
+        if (value[field] !== undefined) check(dependent, value, path, errors);
     }
     const fits = (form) => {
       const formErrors = [];

@@ -353,7 +353,11 @@ export interface ExpectationFields {
    * range.
    */
   inside?: string;
-  /** This part's box comes within the check's contact tolerance of the box of `with`, at rest. */
+  /**
+   * This part's surface comes within the check's contact tolerance of the surface of `with` (of one of its
+   * parts, for a group), or reaches inside it, at rest. Boxes that meet are not enough: a post inside a cage of
+   * bars touches none of them.
+   */
   touches?: string;
   /**
    * This part does not run into `of` (at least one of the two closed): at rest, all the way as the model is

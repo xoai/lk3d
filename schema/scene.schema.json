@@ -2272,7 +2272,7 @@
         },
         "touches": {
           "type": "string",
-          "description": "This part's box comes within the check's contact tolerance of the box of `with`, at rest."
+          "description": "This part's surface comes within the check's contact tolerance of the surface of `with` (of one of its parts, for a group), or reaches inside it, at rest. Boxes that meet are not enough: a post inside a cage of bars touches none of them."
         },
         "clear": {
           "type": "string",

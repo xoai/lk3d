@@ -58,6 +58,11 @@ test('a part hanging in the air is caught, unless the scene says it floats', () 
     [],
   );
   assert.deepEqual(lint({ parts: [base, post, ball], check: { float: true } }).problems, []);
+  // within another part's box is not resting on it: a ball hung in the middle of a cage of bars (its surface must meet
+  // another's), while one sitting on the base inside the cage rests
+  const caged = (y) => ({ id: 'ball', shapes: [{ sphere: 0.2, at: [0, y, 0] }] });
+  assert.ok(says(lint({ parts: [base, cage, caged(1.5)] }), 'ball touches no other part'));
+  assert.deepEqual(lint({ parts: [base, cage, caged(0.3)] }).problems, []);
 });
 
 test('a label pointing inside another part is caught; see-through parts do not hide it', () => {
@@ -200,7 +205,7 @@ test('expect: each predicate holds, or is reported at its item with what was fou
         },
         expect: [{ clear: 'lid', of: 'post' }],
       }),
-      /lid runs into post as the model is taken apart/,
+      /lid is not clear of post: it runs into it as the model is taken apart/,
     ],
     [
       'above, out of its range',
@@ -251,7 +256,7 @@ test('expect: groups (each part as the first, the box round all as the second); 
     expect: [{ inside: 'posts', of: 'cage' }],
   });
   assert.match(at(r, 0)[0], /^far is not inside cage/);
-  const rod = { id: 'rod', name: 'Rod', group: 'frame', shapes: [{ box: [0.1, 0.1, 3], at: [0, 2.15, 0] }] };
+  const rod = { id: 'rod', name: 'Rod', group: 'frame', shapes: [{ box: [0.1, 0.1, 3], at: [0.9, 2.15, 0] }] }; // (on two bars)
   assert.deepEqual(
     lint({ parts: [base, { ...cage, group: 'frame' }, post, rod], expect: [{ inside: 'post', of: 'frame' }] }).problems,
     [],
@@ -285,6 +290,32 @@ test('the check says which parts each touches at rest (contacts), for what is bu
   assert.deepEqual(lint({ parts: [base, post] }).contacts, { base: ['post'], post: ['base'] });
 });
 
+test('touches and contacts go by surfaces: a post inside a cage of bars touches none of them; a ball meets a floor', () => {
+  // (the post is within the cage's box, so a test of boxes would say they touch)
+  assert.deepEqual(lint({ parts: [base, cage, post] }).contacts, {
+    base: ['cage', 'post'],
+    cage: ['base'],
+    post: ['base'],
+  });
+  assert.match(
+    at(expecting([{ touches: 'post', with: 'cage' }]), 0).join(),
+    /post does not touch cage \(within its bounds, but their surfaces do not meet\)/,
+  );
+  assert.deepEqual(at(expecting([{ touches: 'post', with: 'base' }]), 0), []);
+  // a ball on a floor meets it at one point; a ball a little above it does not
+  const ball = (y) => ({ id: 'ball', name: 'Ball', shapes: [{ sphere: 0.3, at: [0, y, 0] }] }),
+    floor = { ...base, shapes: [{ box: [2, 0.2, 2], at: [0, -0.1, 0] }] };
+  assert.deepEqual(lint({ parts: [floor, ball(0.3)] }).contacts.ball, ['base']);
+  assert.deepEqual(lint({ parts: [floor, ball(0.4)], check: { float: ['ball'] } }).contacts.ball, []);
+  // a part sunk into a closed one touches it, though its surface is far from the other's
+  const sunk = { id: 'pin', name: 'Pin', shapes: [{ box: [0.05, 0.05, 0.05], at: [0, -0.1, 0] }] };
+  assert.deepEqual(lint({ parts: [floor, sunk], check: { float: true } }).contacts.pin, ['base']);
+  // a group as the second: touching one of its parts is enough
+  const bars = { ...cage, group: 'frame' },
+    rail = { id: 'rail', name: 'Rail', group: 'frame', shapes: [{ box: [0.1, 0.1, 2], at: [0.9, 2.15, 0] }] };
+  assert.deepEqual(at(lint({ parts: [base, bars, post, rail], expect: [{ touches: 'rail', with: 'cage' }] }), 0), []);
+});
+
 test('expect is validated: names that exist and are not both a part and a group, ranges in order, steps that exist', () => {
   const { validate } = require('../src/validate.js'),
     problems = (expect, extra = {}) =>
@@ -308,6 +339,15 @@ test('expect is validated: names that exist and are not both a part and a group,
   );
   assert.match(problems([{ seen: 'post', step: 3 }], { steps: [{ title: 'S', text: 'x' }] }).join(), /3 is no step/);
   assert.match(problems([{ inside: 'post' }]).join(), /expect\[0\]/, 'a form missing its second name');
+  // a key whose value is undefined is absent, as JSON leaves it out ({ ...scene, expect: undefined })
+  assert.deepEqual(validate({ parts: [base, post], expect: undefined, title: undefined }), []);
+  assert.match(
+    validate({ parts: [{ ...base, name: undefined, shapes: undefined }, post] })
+      .map((p) => `${p.path}: ${p.message}`)
+      .join(),
+    /parts\[0\].*shapes/,
+    'a required key that is undefined is missing',
+  );
 });
 
 test('a turned copy where a mirror image may be meant is warned of (a warning, not a problem); a symmetric pair, or one excused, is not', () => {

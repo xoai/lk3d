@@ -169,6 +169,21 @@ export function makeApi(c) {
       return LK3D.toGLB(c.built_, {
         matrix: c.modelMatrix_,
         animations,
+        spec: c.spec_,
+        alt: c.spec_.alt,
+        // (each guided step's pose, for its animation: the figure posed so a moment, then put back)
+        pose(values, explode) {
+          const motion = c.state_.motion,
+            apart = c.state_.explode;
+          c.state_.motion = { ...motion, ...values };
+          c.state_.explode = explode;
+          c.poseVersion_++;
+          const at = new Map(c.built_.parts.map((part) => [part, c.modelMatrix_(part)]));
+          c.state_.motion = motion;
+          c.state_.explode = apart;
+          c.poseVersion_++;
+          return (part) => at.get(part);
+        },
         unit: c.spec_.unit,
         title: c.spec_.title,
         author: c.spec_.author,

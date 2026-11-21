@@ -105,7 +105,11 @@ check` runs the motions through their range with the joints posed, as it does fo
 `fig.exportGLB({ animate })` gives the figure as glTF 2.0 binary (a `Uint8Array`), posed as it is now: each part a
 node named as the scene names it (its id and note under `extras.lk3d`), with its mesh, vertex colours and a material
 from its studio colour and material; one root node scaled from the scene's `unit` to metres. `animate: true` adds
-each motion as an animation along its range at its speed (keys and joints both). From the command line:
+each motion as an animation along its range at its speed (keys and joints both). Each guided step is an animation of
+its own, named by its id (else `step-N`): at time 0 every part where the step puts it (taken apart, and moved and
+turned by the step's motion values) and whether it shows (`KHR_node_visibility`, set through `KHR_animation_pointer`),
+so a viewer that plays animations can go through the steps. The title, the `alt` text and each part's note go in as
+XMP (`KHR_xmp_json_ld`: `dc:title`, `dc:description`) as well as under `extras`. From the command line:
 `lk3d export scene.json [out.glb] [--animate] [--motion crank=90]`. Textures, lines, labels and flows are not
 written.
 

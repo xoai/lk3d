@@ -5,7 +5,8 @@
 // along its range at its speed. One root node holds the parts, scaled from the scene's unit to metres (glTF's).
 // Not written: textures (a textured model keeps its geometry and base colour), lines, labels, liquids' flow.
 import { flatten, buildScene } from './geometry.js';
-import { M } from './math.js';
+import { M, mulv } from './math.js';
+import { stepState } from './stepstate.js';
 import { tracksOf, motionMatrix } from './motion.js';
 import { jointsOf, jointOf, solve } from './joints.js';
 
@@ -37,7 +38,9 @@ export function trs(m) {
 }
 
 // built: the built scene (buildScene); options.matrix(part): where each part is now (default: as drawn);
-// options.animations: [{ name, times: [s, …], matrix(part, k): the part's matrix at the k-th time }]; options.unit,
+// options.animations: [{ name, times: [s, …], matrix(part, k): the part's matrix at the k-th time }]; options.spec and
+// options.pose(values, explode) → (part) → matrix: each guided step as an animation (a pose and which parts show, at
+// time 0: KHR_node_visibility through KHR_animation_pointer); options.alt; options.unit,
 // options.title, options.author and options.license (glTF's copyright: "© author, licence"); options.flatten:
 // geometry.js's flatten, passed in, so the exporter's own script (export-script.js) carries no second copy of the
 // shapes. → the .glb's bytes
@@ -63,7 +66,14 @@ export function toGLB(built, options = {}) {
   };
   const addAccessor = (typed, type, extra = {}) => {
     const components = { SCALAR: 1, VEC3: 3, VEC4: 4 }[type],
-      componentType = typed instanceof Float32Array ? 5126 : typed instanceof Uint32Array ? 5125 : 5123;
+      componentType =
+        typed instanceof Float32Array
+          ? 5126
+          : typed instanceof Uint32Array
+            ? 5125
+            : typed instanceof Uint8Array
+              ? 5121
+              : 5123;
     accessors.push({
       bufferView: addView(typed, extra.target),
       componentType,
@@ -172,6 +182,61 @@ export function toGLB(built, options = {}) {
     }
     if (channels.length) animations.push({ name: animation.name, channels, samplers });
   }
+  // guided steps: an animation each (its id, else step-N), at time 0 every part where the step puts it (taken apart,
+  // moved and turned by the step's motion values) and shown or hidden by it
+  const spec = options.spec || {},
+    steps = options.pose ? (spec.steps || []).filter((step) => step && typeof step === 'object') : [],
+    used = steps.length ? ['KHR_node_visibility', 'KHR_animation_pointer'] : [];
+  /** @type {number | null} */
+  let zero = null;
+  for (const [i, step] of steps.entries()) {
+    const state = stepState(spec, step),
+      at = options.pose(Object.fromEntries((spec.motions || []).map((m) => [m.id, state.motion(m)])), state.explode),
+      channels = [],
+      samplers = [],
+      add = (output, target) => {
+        samplers.push({ input: zero, output, interpolation: 'STEP' });
+        channels.push({ sampler: samplers.length - 1, target });
+      };
+    zero ??= addAccessor(new Float32Array([0]), 'SCALAR', { minMax: { min: [0], max: [0] } });
+    for (const [part, node] of nodeIndexOf) {
+      const pose = !nodes[node].matrix && trs(at(part));
+      if (pose)
+        for (const [path, type] of [
+          ['translation', 'VEC3'],
+          ['rotation', 'VEC4'],
+        ])
+          add(addAccessor(new Float32Array(pose[path]), type), { node, path });
+      nodes[node].extensions = { KHR_node_visibility: { visible: true } };
+      add(addAccessor(new Uint8Array([state.hidden(part) ? 0 : 1]), 'SCALAR'), {
+        path: 'pointer',
+        extensions: { KHR_animation_pointer: { pointer: `/nodes/${node}/extensions/KHR_node_visibility/visible` } },
+      });
+    }
+    animations.push({ name: step.id || `step-${i + 1}`, channels, samplers });
+  }
+  // the title, the alt text and each part's note as XMP (dc:title, dc:description), besides extras
+  const words = (/** @type {string} */ text) => ({
+      '@type': 'rdf:Alt',
+      'rdf:_1': { '@language': 'x-default', '@value': text },
+    }),
+    packets = [
+      {
+        '@context': { dc: 'http://purl.org/dc/elements/1.1/', rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#' },
+        ...(options.title && { 'dc:title': words(options.title) }),
+        ...(options.alt && { 'dc:description': words(options.alt) }),
+      },
+    ];
+  for (const [part, node] of nodeIndexOf)
+    if (part.note) {
+      packets.push({
+        '@context': packets[0]['@context'],
+        'dc:title': words(part.name || part.id),
+        'dc:description': words(part.note),
+      });
+      nodes[node].extensions = { ...nodes[node].extensions, KHR_xmp_json_ld: { packet: packets.length - 1 } };
+    }
+  used.push('KHR_xmp_json_ld');
   const scale = UNIT[options.unit] ?? 1;
   nodes.push({
     name: options.title || 'lk3d',
@@ -182,6 +247,7 @@ export function toGLB(built, options = {}) {
     asset: {
       version: '2.0',
       generator: 'lk3d',
+      extensions: { KHR_xmp_json_ld: { packet: 0 } },
       ...((options.author || options.license) && {
         copyright: [options.author && '© ' + options.author, options.license].filter(Boolean).join(', '),
       }),
@@ -195,6 +261,8 @@ export function toGLB(built, options = {}) {
     bufferViews,
     buffers: [{ byteLength: binaryLength + ((4 - (binaryLength % 4)) % 4) }],
     ...(animations.length && { animations }),
+    extensionsUsed: used,
+    extensions: { KHR_xmp_json_ld: { packets } },
   };
   // the container: a 12-byte header, the JSON chunk (padded with spaces) and the binary chunk (padded with zeros)
   const text = new TextEncoder().encode(JSON.stringify(json)),
@@ -257,6 +325,13 @@ export function sceneToGLB(spec, options = {}) {
   return toGLB(built, {
     matrix: poseAt(now),
     animations,
+    spec,
+    alt: spec.alt,
+    // (a step's pose: the motions at its values, each part moved out along its explode path by its amount)
+    pose: (values, explode) => {
+      const at = poseAt(values);
+      return (part) => M.mul(M.trans(mulv(part.explode, explode)), at(part));
+    },
     unit: spec.unit,
     title: spec.title,
     author: spec.author,

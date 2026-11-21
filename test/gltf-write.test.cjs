@@ -137,3 +137,81 @@ test("the figure's author and licence go into the .glb as glTF's copyright, and 
   assert.equal(asset({ license: 'CC0' }).copyright, 'CC0');
   assert.equal(asset({}).copyright, undefined);
 });
+
+test('each guided step is an animation: the parts where the step puts them and which show, at time 0; XMP metadata; valid glTF', async () => {
+  const scene = {
+    title: 'A box and a lid',
+    alt: 'A box whose lid lifts off.',
+    parts: [
+      { id: 'box', name: 'Box', note: 'holds things', shapes: [{ box: [1, 0.5, 1] }] },
+      { id: 'lid', name: 'Lid', shapes: [{ box: [1, 0.1, 1], at: [0, 0.3, 0] }], explode: [0, 2, 0] },
+    ],
+    motions: [
+      {
+        id: 'turn',
+        range: [0, 90],
+        tracks: [
+          {
+            parts: ['box'],
+            turn: {
+              axis: [0, 1, 0],
+              keys: [
+                [0, 0],
+                [90, 90],
+              ],
+            },
+          },
+        ],
+      },
+    ],
+    steps: [
+      { id: 'shut', title: 'Shut' },
+      { title: 'Open', explode: 1, hide: ['box'], motion: { turn: 90 } },
+    ],
+  };
+  const glb = sceneToGLB(scene),
+    gltf = parseGLB(glb).json,
+    [shut, open] = gltf.animations,
+    node = (name) => gltf.nodes.findIndex((n) => n.name === name),
+    // the value a channel sets at time 0: read from the binary chunk
+    value = (animation, nodeIndex, path) => {
+      const channel = animation.channels.find((ch) =>
+        path === 'visible'
+          ? ch.target.extensions?.KHR_animation_pointer.pointer ===
+            `/nodes/${nodeIndex}/extensions/KHR_node_visibility/visible`
+          : ch.target.node === nodeIndex && ch.target.path === path,
+      );
+      const accessor = gltf.accessors[animation.samplers[channel.sampler].output],
+        view = gltf.bufferViews[accessor.bufferView],
+        binary = parseGLB(glb).bin,
+        Type = accessor.componentType === 5121 ? Uint8Array : Float32Array;
+      return Array.from(
+        new Type(binary.buffer, binary.byteOffset + view.byteOffset, view.byteLength / Type.BYTES_PER_ELEMENT),
+      );
+    };
+  assert.equal(shut.name, 'shut');
+  assert.equal(open.name, 'step-2');
+  assert.deepEqual(value(shut, node('Lid'), 'translation'), [0, 0, 0]);
+  assert.deepEqual(value(open, node('Lid'), 'translation'), [0, 2, 0]); // (taken apart: along its explode path)
+  assert.deepEqual(value(shut, node('Box'), 'visible'), [1]);
+  assert.deepEqual(value(open, node('Box'), 'visible'), [0]); // (hidden by the step)
+  const q = value(open, node('Box'), 'rotation'); // (turned 90° about y by the step's motion)
+  assert.ok(Math.abs(Math.abs(q[1]) - Math.SQRT1_2) < 1e-5 && Math.abs(Math.abs(q[3]) - Math.SQRT1_2) < 1e-5, `${q}`);
+  assert.ok(shut.samplers.every((sampler) => sampler.interpolation === 'STEP'));
+  for (const ext of ['KHR_node_visibility', 'KHR_animation_pointer', 'KHR_xmp_json_ld'])
+    assert.ok(gltf.extensionsUsed.includes(ext), ext);
+  const packets = gltf.extensions.KHR_xmp_json_ld.packets;
+  assert.equal(packets[gltf.asset.extensions.KHR_xmp_json_ld.packet]['dc:description']['rdf:_1']['@value'], scene.alt);
+  assert.equal(
+    packets[gltf.nodes[node('Box')].extensions.KHR_xmp_json_ld.packet]['dc:description']['rdf:_1']['@value'],
+    'holds things',
+  );
+  // valid by the Khronos validator, no error (nor warning)
+  const report = await require('gltf-validator').validateBytes(new Uint8Array(glb));
+  assert.equal(report.issues.numErrors, 0, JSON.stringify(report.issues.messages.slice(0, 5)));
+  assert.equal(report.issues.numWarnings, 0, JSON.stringify(report.issues.messages.slice(0, 5)));
+  // a scene without steps: no step animation, nothing about visibility
+  const plain = parseGLB(sceneToGLB({ parts: scene.parts.slice(0, 1) })).json;
+  assert.equal(plain.animations, undefined);
+  assert.deepEqual(plain.extensionsUsed, ['KHR_xmp_json_ld']);
+});

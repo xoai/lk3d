@@ -377,7 +377,8 @@ export interface Figure {
    * compile, in WebGL or 2D, on screen or not. It rejects for a figure the page hides (display: none) */
   picture(): Promise<string>;
   /** a motion of the scene, to set or play */
-  /** the figure as glTF 2.0 binary (.glb), posed as it is now; animate: each motion as an animation. Needs the
+  /** the figure as glTF 2.0 binary (.glb), posed as it is now; animate: each motion as an animation; each guided step
+   * an animation of its own (its pose and which parts show, at time 0). Needs the
    * exporter: import lk3d/export, or load dist/lk3d-export.min.js after dist/lk3d.min.js (it throws without) */
   exportGLB(o?: { animate?: boolean; samples?: number }): Uint8Array;
   motion(id: string): MotionHandle | undefined;

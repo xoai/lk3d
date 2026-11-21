@@ -111,6 +111,7 @@
     "esbuild": "0.25.0",
     "eslint": "10.14.0",
     "globals": "17.14.0",
+    "gltf-validator": "2.0.0-dev.3.10",
     "prettier": "3.9.10",
     "typescript": "7.0.2"
   }

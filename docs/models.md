@@ -21,8 +21,8 @@ The reader is an add-on: a page that loads the global script loads it after it, 
 needs it (a page importing lk3d as a module, `lk3d check` and `lk3d render` have it already):
 
 ```html
-<script src="https://unpkg.com/lk3d@0.3.0/dist/lk3d.min.js"></script>
-<script src="https://unpkg.com/lk3d@0.3.0/dist/lk3d-models.min.js"></script>
+<script src="https://unpkg.com/lk3d@0.4.0/dist/lk3d.min.js"></script>
+<script src="https://unpkg.com/lk3d@0.4.0/dist/lk3d-models.min.js"></script>
 ```
 
 Without it, a scene with a model is refused by name (`this scene draws glTF models (skull): load

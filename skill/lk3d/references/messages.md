@@ -55,9 +55,9 @@ field of a shape, a motion, a joint, a vessel, a liquid, a gas or `check` is rep
 
 ## Warnings (said; the check still passes)
 
-| It says                                                                                             | It means                                                                                       | Fix                                                                                                                                 |
-| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `warning: A and B are the same shapes turned 180° about y, so one is a left-hand copy of the other` | a left and a right made as a turned copy: the same hand twice, unless the shapes are symmetric | make one a mirror (`"scale": [-1, 1, 1]`, the axis they lie apart along), or say why under `check.mirror: [{pair: [A, B], reason}]` |
+| It says                                                                                             | It means                                                                                       | Fix                                                                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `warning: A and B are the same shapes turned 180° about y, so one is a left-hand copy of the other` | a left and a right made as a turned copy: the same hand twice, unless the shapes are symmetric | make the right the mirror of the left (`"mirrorOf": "A", "plane": "x"`, the axis they lie apart along, in place of its shapes and `at`), or say why under `check.mirror: [{pair: [A, B], reason}]` |
 
 ## What the scene expects (expect)
 

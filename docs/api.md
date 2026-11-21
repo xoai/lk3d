@@ -1,10 +1,10 @@
 # API
 
 ```js
-// a page: one script tag, the global LK3D (https://unpkg.com/lk3d@0.3.0/dist/lk3d.min.js, or a copy of dist/lk3d.min.js)
-<script src="https://unpkg.com/lk3d@0.3.0/dist/lk3d.min.js"></script>;
+// a page: one script tag, the global LK3D (https://unpkg.com/lk3d@0.4.0/dist/lk3d.min.js, or a copy of dist/lk3d.min.js)
+<script src="https://unpkg.com/lk3d@0.4.0/dist/lk3d.min.js"></script>;
 // and, on a page that shows a glTF model, its reader after it (docs/models.md)
-<script src="https://unpkg.com/lk3d@0.3.0/dist/lk3d-models.min.js"></script>;
+<script src="https://unpkg.com/lk3d@0.4.0/dist/lk3d-models.min.js"></script>;
 // or a module
 import LK3D, { mount, build, defaults, locales } from 'lk3d';
 ```

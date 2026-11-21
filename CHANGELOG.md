@@ -3,14 +3,57 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
-## Unreleased (0.4.0)
+## 0.4.0 (22 November 2026)
 
-- **The size budget is raised from 67 to 68 KB, and frozen there** (a written decision, as the budget rule asks; the
+Nothing a page or a scene already does changes, except two small things: `fig.section.second` is `null`, not left out,
+when there is no second plane; and what is chosen is said aloud through one queue with descriptions, so its words
+arrive a moment later (at most one message a second).
+
+- **Parts placed by what they rest on** (`place`): `{ "on": "pillar" }`, `{ "alignedWith": "shaft", "axes": ["y",
+"z"] }`, `{ "against": "body", "side": "-x", "gap": 0 }`, `under`, `in`, and an `offset`. `npx lk3d place
+scene.json` writes each placed part's `at` into the file (only those numbers change; a second run changes nothing);
+  `resolvePlace` (`lk3d/place`) does it for a scene a script makes; `lk3d check` refuses an `at` its `place` no longer
+  gives, a cycle, an unknown part and an axis fixed twice. The engine reads only `at`. The generator example places
+  eight of its parts, each exactly where it was.
+- **A left and a right as one part and its mirror** (`"mirrorOf": "wing-l", "plane": "x"`): the other's shapes, look,
+  label point and explode path, reflected, faces outward. Refused, with a sentence, where it would have its own shapes
+  or place, mirror a mirror, a part with a handle or a liquid's part. An engine before 0.4.0 draws a mirror part as
+  nothing. The turned-copy warning now suggests it.
+- **The figure's state**: `fig.state()` is what the reader can change, as one plain object (where a glide is going, while
+  it glides), and `fig.set(state)` puts it back, its step first. `onChange(state, cause)` (and `<lk3d-figure>`'s
+  `lk3d-change`) says each change and who made it: the reader, the page or a playing motion. `lock` (and `fig.lock`,
+  and the element's `lock` attribute) stops the reader changing what the page depends on; a locked control stays,
+  says it is locked and does nothing. `LK3D.encodeState` and `decodeState` carry a state in a link; the playground's
+  Share links use them, and links it made before still open. The element takes a `state` attribute and keeps its
+  state across a remount (a new locale, say).
+- **The figure in words**: `fig.describe()`, the D key from anywhere in the figure, or the controls' Describe: its title,
+  taken apart, the cut, see-through, the step, and the scene's own sentences (`describe`: `"The sky has turned {value}°
+from where it started."`), in English and Vietnamese. After a change the reader makes, only what changed is said.
+  `lk3d render` writes each picture's description beside it (`NAME-LOOK-POSE.txt`).
+- **Accessibility shown**: axe-core runs on every example and the playground in the image tests (no serious or critical
+  violation; it found two contrast faults, fixed). [docs/accessibility.md](docs/accessibility.md) sets out the tasks to
+  try with each screen reader.
+- **For agents**: `npx lk3d skill install` (and `skill pack`); `llms.txt` and `llms-full.txt` in the package and on the
+  site; the schema at `https://xoai.github.io/lk3d/schema/1/scene.schema.json`, now its `$id` (the old address still
+  works).
+- **The glTF export keeps the guided steps**: each an animation (its pose and which parts show, at time 0, by
+  `KHR_node_visibility` and `KHR_animation_pointer`), with the title, alt text and notes as XMP. Khronos's validator
+  finds no error.
+- **`fig.picture()`**: a PNG of the figure as drawn, in WebGL or 2D, on screen or not. [Recipes](docs/recipes.md): a
+  story told as the reader scrolls, printing each step, a state in a link.
+- **The gallery**: every example opens in the playground from the examples' index; the terrain, gauge and circuit
+  scenes are files of their own (checked for the first time: the terrain's blocks now meet at their fault, and the
+  gauge's needle sits on its dial); the playground checks a scene with a model file again once the model is read.
+- **The size budget is raised from 67 to 68 KB, and frozen there** (a written decision, as the budget rule asks: the
   maintainer's, 21 November 2026). 0.3.0 left 3 KB under 67 KB by moving the glTF reader out; 0.4.0 spends it on what
   a page asks of a figure: its state, saved and set back, locked against the reader and carried in a link (about 2 KB),
   and the figure in words for screen readers in English and Vietnamese (about 0.9 KB, the sentences 0.2 KB of it).
   Trimming the code further saved 3 B (gzip already takes the repetition out), so the choice was between the ceiling
   and leaving out parts of the release; the ceiling was raised by 1 KB.
+- Sizes: the global script 173.8 KB, 67.3 KB gzipped; the models add-on 3.9 KB and the exporter 2.9 KB gzipped. No
+  change in speed against 0.3.0 (`test/bench/ab.mjs`).
+- Still to do by hand: the skill's evals' pass rate (`npm run evals` grades a folder of agent answers; none were
+  graded for this release), the screen reader matrix (every cell not tested yet) and a low-end Android phone.
 
 ## 0.3.0 (21 November 2026)
 

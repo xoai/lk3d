@@ -10,7 +10,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 ```html
 <div id="fig"></div>
-<script src="https://unpkg.com/lk3d@0.3.0/dist/lk3d.min.js"></script>
+<script src="https://unpkg.com/lk3d@0.4.0/dist/lk3d.min.js"></script>
 <script>
   LK3D.mount(document.getElementById('fig'), {
     title: 'A bolt and a nut',
@@ -86,12 +86,12 @@ pack` (a zip to upload). The guides are also in [llms.txt](https://xoai.github.i
 
 |                                                                                                                                   | Minified | Gzipped |
 | --------------------------------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| lk3d                                                                                                                              | 164 KB   | 63.6 KB |
-| lk3d with the glTF reader (the models add-on), as three.js below has its loader                                                   | 172 KB   | 67.5 KB |
+| lk3d                                                                                                                              | 174 KB   | 67.3 KB |
+| lk3d with the glTF reader (the models add-on), as three.js below has its loader                                                   | 182 KB   | 71.2 KB |
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
-What each source file adds is in [docs/size.md](docs/size.md); the budget is frozen at 67 KB gzipped.
+What each source file adds is in [docs/size.md](docs/size.md); the budget is frozen at 68 KB gzipped.
 
 It draws only when something changes, pauses off screen, lowers its resolution while frames run late, compiles its
 realistic shaders in the background, never reads back from the GPU or the page layout while drawing, and falls back
@@ -116,7 +116,7 @@ link, or take it away as a .json or .glb file. From a checkout: `npm run playgro
 ## Use it
 
 A page loads one script, the global `LK3D`, as above: from a CDN with its version pinned
-(`https://unpkg.com/lk3d@0.3.0/dist/lk3d.min.js`, or `https://cdn.jsdelivr.net/npm/lk3d@0.3.0/dist/lk3d.min.js`), or a
+(`https://unpkg.com/lk3d@0.4.0/dist/lk3d.min.js`, or `https://cdn.jsdelivr.net/npm/lk3d@0.4.0/dist/lk3d.min.js`), or a
 copy of `dist/lk3d.min.js` next to the page. A page that shows a glTF model also loads the models add-on after it,
 `dist/lk3d-models.min.js` (a scene with a model is refused without it, and says so). A project with a bundler installs
 it and imports it (the module has the reader):
@@ -137,7 +137,7 @@ same script defines: the scene from `src`, or from a JSON script inside it, and 
 moves come as events ([the element](docs/api.md#the-element-lk3d-figure)).
 
 ```html
-<script src="https://unpkg.com/lk3d@0.3.0/dist/lk3d.min.js"></script>
+<script src="https://unpkg.com/lk3d@0.4.0/dist/lk3d.min.js"></script>
 <lk3d-figure src="generator.json" look="pen" locale="vi"></lk3d-figure>
 ```
 

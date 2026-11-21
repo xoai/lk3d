@@ -885,6 +885,25 @@ function buildScene(spec, quality = 1, max = 1e7) {
     room = Infinity;
   }
 }
+// A mirror part (mirrorOf: B, plane): B's shapes placed by B's placement reflected across the plane through the origin
+// (baked, as a mirrored placement is, with its faces kept outward); B's look unless it gives its own, and B's label
+// point and explode path reflected unless it gives them
+const INHERITED = ['material', 'color', 'studioColor', 'opacity', 'edges', 'surface', 'cut', 'xray'];
+function mirrored(a, b) {
+  const flip = [1, 1, 1];
+  flip['xyz'.indexOf(a.plane)] = -1;
+  const reflect = (v) => v.map((value, k) => value * flip[k]),
+    look = {};
+  for (const key of INHERITED) if (b[key] !== undefined) look[key] = b[key];
+  return {
+    ...look,
+    ...a,
+    shapes: b.shapes,
+    placement_: M.mul(M.trs(undefined, undefined, flip), M.trs(b.at, b.rot, b.scale)),
+    label: a.label !== undefined ? a.label : Array.isArray(b.label) ? reflect(b.label) : b.label,
+    explode: a.explode || (b.explode && reflect(b.explode)),
+  };
+}
 function build(spec, quality, max, partMax) {
   // shapes alike are made once; parts alike (the same shapes, placed elsewhere) share one merged geometry, in the
   // part's own frame and placed by its matrix, so their outlines, crease shading, edges and GPU buffers are made once
@@ -900,12 +919,15 @@ function build(spec, quality, max, partMax) {
     throw failedAt(e, 'vessels, liquids and gases');
   }
   let total = 0;
-  const parts = spec.parts.map((given, partIndex) => {
+  const byId = new Map(spec.parts.map((part) => [part.id, part]));
+  const parts = spec.parts.map((written, partIndex) => {
+    // (a mirror part: its B's shapes, reflected; the guard has refused what it may not be)
+    const given = written.mirrorOf === undefined ? written : mirrored(written, byId.get(written.mirrorOf));
     const part =
       fluidShapes && fluidShapes.has(given.id)
         ? { ...given, shapes: fluidShapes.get(given.id) ? [fluidShapes.get(given.id)] : [], fluid: true }
         : given;
-    const placement = M.trs(part.at, part.rot, part.scale),
+    const placement = part.placement_ || M.trs(part.at, part.rot, part.scale),
       keepsPlacement = rigid(placement), // (a stretched or mirrored part is baked, as its shapes are)
       baked = keepsPlacement ? M.id() : placement,
       key = keepsPlacement && !part.fluid && JSON.stringify([part.shapes, part.edges]),

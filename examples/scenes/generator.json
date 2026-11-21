@@ -60,6 +60,11 @@
       "material": "steel",
       "color": "#8d949c",
       "studioColor": "#5d646c",
+      "place": {
+        "alignedWith": "truc",
+        "axes": ["y", "z"]
+      },
+      "at": [0, 0, 0],
       "shapes": [
         {
           "cylinder": {
@@ -84,6 +89,11 @@
       "material": "copper",
       "color": "#d98a45",
       "studioColor": "#c8743a",
+      "place": {
+        "alignedWith": "truc",
+        "axes": ["y", "z"]
+      },
+      "at": [0, 0, 0],
       "shapes": [
         {
           "loop": {
@@ -115,6 +125,11 @@
         "moves": ["roto"]
       },
       "explode": [1.3, 0, 0],
+      "place": {
+        "alignedWith": "truc",
+        "axes": ["y", "z"]
+      },
+      "at": [0, 0, 0],
       "shapes": [
         {
           "cylinder": {
@@ -135,6 +150,11 @@
       "color": "#e0604f",
       "studioColor": "#c9402f",
       "explode": [1.3, 0, 0],
+      "place": {
+        "alignedWith": "truc",
+        "axes": ["y", "z"]
+      },
+      "at": [0, 0, 0],
       "shapes": [
         {
           "lathe": [
@@ -161,6 +181,11 @@
       "color": "#5b86c9",
       "studioColor": "#3a64ad",
       "explode": [1.3, 0, 0],
+      "place": {
+        "alignedWith": "truc",
+        "axes": ["y", "z"]
+      },
+      "at": [0, 0, 0],
       "shapes": [
         {
           "lathe": [
@@ -198,10 +223,10 @@
           "lathe": [
             [-1.25, 0],
             [-1.25, 0.05],
-            [-1.0, 0.05],
-            [-1.0, 0.065],
-            [1.0, 0.065],
-            [1.0, 0.05],
+            [-1, 0.05],
+            [-1, 0.065],
+            [1, 0.065],
+            [1, 0.05],
             [1.15, 0.05],
             [1.15, 0]
           ]
@@ -221,6 +246,12 @@
       "color": "#b3bcc5",
       "studioColor": "#8d969f",
       "explode": [-0.9, 0, 0],
+      "place": {
+        "against": "vo",
+        "side": "-x",
+        "gap": -0.02
+      },
+      "at": [0, 0, 0],
       "shapes": [
         {
           "lathe": [
@@ -259,47 +290,9 @@
       "name": "Rear cover",
       "note": "closes the other end and holds the second bearing.",
       "group": "vo",
-      "material": "metal",
-      "surface": {
-        "kind": "cast",
-        "strength": 0.35
-      },
-      "color": "#b3bcc5",
-      "studioColor": "#8d969f",
       "explode": [2.6, 0, 0],
-      "shapes": [
-        {
-          "lathe": [
-            [-0.55, 0.56],
-            [-0.6, 0.55],
-            [-0.67, 0.45],
-            [-0.71, 0.25],
-            [-0.71, 0.075],
-            [-0.63, 0.075],
-            [-0.63, 0.24],
-            [-0.6, 0.42],
-            [-0.55, 0.5]
-          ],
-          "closed": true,
-          "mirror": true
-        },
-        {
-          "torus": [0.085, 0.022],
-          "at": [0.67, 0, 0]
-        },
-        {
-          "cylinder": {
-            "r": 0.026,
-            "x0": 0.53,
-            "x1": 0.61
-          },
-          "at": [0, 0.53, 0],
-          "repeat": {
-            "n": 4,
-            "start": 45
-          }
-        }
-      ]
+      "mirrorOf": "nap-truoc",
+      "plane": "x"
     },
     {
       "id": "hop-dau-day",
@@ -376,10 +369,14 @@
       "opacity": 0.45,
       "glow": "#ffcc55",
       "explode": [0, 0.45, 0],
+      "place": {
+        "on": "de-den",
+        "offset": [0, -0.04, 0]
+      },
+      "at": [0.1, 1.2, 0],
       "shapes": [
         {
-          "sphere": 0.12,
-          "at": [0.1, 1.2, 0]
+          "sphere": 0.12
         }
       ]
     },
@@ -414,6 +411,12 @@
       "glow": "#ffb030",
       "explode": [0, 0.45, 0],
       "label": false,
+      "place": {
+        "alignedWith": "bong-den",
+        "axes": ["y"],
+        "offset": [0, 0.01, 0]
+      },
+      "at": [0.1, 1.21, 0],
       "shapes": [
         {
           "helix": {
@@ -422,8 +425,7 @@
             "x1": 0.04,
             "turns": 6,
             "wire": 0.004
-          },
-          "at": [0.1, 1.21, 0]
+          }
         }
       ]
     }

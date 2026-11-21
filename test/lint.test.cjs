@@ -367,7 +367,7 @@ test('a turned copy where a mirror image may be meant is warned of (a warning, n
   const warned = pair(L);
   assert.equal(warned.length, 1);
   assert.equal(warned[0].level, 'warning');
-  assert.match(warned[0].message, /l and r are the same shapes turned 180° about y.*"scale": \[-1,1,1\]/);
+  assert.match(warned[0].message, /l and r are the same shapes turned 180° about y.*"mirrorOf": "l", "plane": "x"/);
   assert.deepEqual(
     pair([{ cylinder: { r: 0.1, x0: 0, x1: 0.5 }, at: [0, 0.2, 0] }]),
     [],
@@ -394,4 +394,58 @@ test('expect size with a group: each of its parts', () => {
     expect: [{ size: 'posts', axis: 'y', is: [0.9, 1.1] }],
   });
   assert.match(at(r, 0)[0], /^tall is 2 along y, not 0\.9 to 1\.1/);
+});
+
+test('place: each relation puts the part where it says; drift, a missing at, a cycle and an axis fixed twice are refused', () => {
+  const { resolvePlace, placements } = require('../src/place.js'),
+    stick = { id: 'post', name: 'Post', shapes: [{ box: [0.2, 1, 0.2] }] }, // (a post whose shape is at its own origin)
+    posted = (place, extra = {}) => ({ parts: [base, { ...stick, place, ...extra }] }),
+    at = (place, extra) => resolvePlace(posted(place, extra)).parts[1].at;
+  assert.deepEqual(at({ on: 'base' }), [0, 0.6, 0]); // (the post's lowest point on the base's top, 0.1; centred)
+  assert.deepEqual(at({ under: 'base' }), [0, -0.6, 0]);
+  assert.deepEqual(at({ in: 'base' }), [0, 0, 0]);
+  assert.deepEqual(at({ against: 'base', side: '+x', gap: 0.1 }), [1.2, 0, 0]);
+  assert.deepEqual(at({ on: 'base', against: 'base', side: '-z' }), [0, 0.6, -1.1]); // (on's centring gives way along z)
+  assert.deepEqual(at({ alignedWith: 'base', axes: ['x'] }, { at: [5, 5, 5] }), [0, 5, 5]); // (the rest kept)
+  assert.deepEqual(at({ on: 'base', offset: [0.3, 0, 0] }), [0.3, 0.6, 0]);
+  // a part placed on a placed part, and on a mirror of one
+  const cap = { id: 'cap', shapes: [{ box: [0.2, 0.2, 0.2] }], place: { on: 'post' } };
+  assert.deepEqual(resolvePlace({ parts: [base, { ...stick, place: { on: 'base' } }, cap] }).parts[2].at, [0, 1.2, 0]);
+  const pin = { id: 'pin', shapes: [{ box: [0.2, 0.2, 0.2] }], place: { on: 'arm-r' } },
+    arm = { id: 'arm', shapes: [{ box: [0.2, 0.2, 0.2] }], place: { on: 'base', offset: [0.5, 0, 0] } };
+  assert.deepEqual(
+    resolvePlace({ parts: [base, arm, { id: 'arm-r', mirrorOf: 'arm', plane: 'x' }, pin] }).parts[3].at,
+    [-0.5, 0.4, 0],
+  );
+  const refused = (scene) =>
+    placements(scene)
+      .problems.map((p) => p.message)
+      .join('\n');
+  assert.match(
+    refused(posted({ on: 'base', against: 'base', side: '-y' })),
+    /fixes post along y twice \(on base, against base \(-y\)\)/,
+  );
+  assert.match(refused(posted({ on: 'nothing' })), /"nothing", which is no part/);
+  assert.match(
+    refused({ parts: [base, { ...cap, id: 'a', place: { on: 'b' } }, { ...cap, id: 'b', place: { on: 'a' } }] }),
+    /a, b place each other in a cycle/,
+  );
+  // the check: an at that drifted, a place with no at; a handle place has left behind is warned of
+  assert.match(
+    says(
+      lint(posted({ on: 'base' }, { at: [0, 0.7, 0] })),
+      "post's at [0, 0.7, 0] is not where place puts it ([0, 0.6, 0]): run lk3d place",
+    )
+      ? 'ok'
+      : '',
+    /ok/,
+  );
+  assert.ok(says(lint(posted({ on: 'base' })), 'post has place but no at'));
+  assert.deepEqual(lint(posted({ on: 'base' }, { at: [0, 0.6, 0] })).problems, []);
+  const handled = lint(
+    posted({ on: 'base' }, { at: [0, 0.6, 0], handle: { turn: { axis: [0, 1, 0], center: [0, 0, 0] } } }),
+  );
+  assert.equal(handled.problems.length, 1);
+  assert.equal(handled.problems[0].level, 'warning');
+  assert.match(handled.problems[0].message, /post's handle turns about \[0, 0, 0\], outside the part/);
 });

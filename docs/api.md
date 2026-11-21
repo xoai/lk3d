@@ -212,6 +212,7 @@ motion's `play()`) run on the same clock; a timeline sets their values instead (
 | `reduce`                                    | whether the reader asked for reduced motion (read once, at load); a page or a test may set `LK3D.reduce` to change it for every figure (the module's named export keeps the value read at load)                                                                                                                                                                                                                                                                                                                 |
 | `version`                                   | the page API's version (3): it goes up when a page's own code must change (3: a page that loads the global script and shows a glTF model loads the models add-on too)                                                                                                                                                                                                                                                                                                                                           |
 | `validate(scene)` from `lk3d/validate`      | the scene's problems, `[{ path, message }]` ([format](scene-format.md#validating)), the engine's guard's among them; `schema` from there is the scene format's JSON Schema                                                                                                                                                                                                                                                                                                                                      |
+| `resolvePlace(scene)` from `lk3d/place`     | the scene with each placed part's `at` worked out from its `place` (`on`, `under`, `in`, `against`, `alignedWith`, `offset`): for a scene a script makes, before it writes it; it throws, naming the part, on a cycle, an unknown part or an axis fixed twice. `lk3d place scene.json` does the same to a file, changing only those numbers                                                                                                                                                                     |
 | `lint(scene, { quality })` from `lk3d/lint` | the geometry check and what the scene expects (`expect`): `{ problems: [{ path, message, level? }], summary: { parts, shapes, placed, triangles, accents, named, size }, contacts: { id: [ids whose surfaces it meets at rest] } }`; a finding with `level: 'warning'` is said and passes; `quality` is the shape detail it builds at (0.5). From a shell: `node node_modules/lk3d/src/lint.js < scene.json` prints the summary and one finding per line, exit code 1 if there is a problem (warnings alone: 0) |
 
 Other paths of the package: `lk3d/schema.json` (the JSON Schema itself), `lk3d/bundle` (`dist/lk3d.min.js`, the script
@@ -247,12 +248,15 @@ give each named motion a slider and a play button. Labels whose place the cut ha
 
 ```sh
 npx lk3d check scene.json [--json]
+npx lk3d place scene.json
 npx lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut] [--theme NAME] [--ortho] [--width 640] [--out DIR]
 npx lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
 ```
 
 - `check`: the format (`lk3d/validate`), then the geometry (`lk3d/lint`), with the scene's size; exit code 1 on any
   problem. `--json` prints `{ summary, problems }` instead, failures included.
+- `place`: each part with `place` gets the `at` it says, written into the file (only those numbers change; a second
+  run changes nothing). A scene a script writes is placed by that script, with `resolvePlace`.
 - `render`: one PNG per look and pose (pen and ink, at rest, apart and cut, by default), drawn by the engine in a
   headless browser; `--theme` a colour theme, `--ortho` the orthographic camera, `--width` in pixels (64 to 4096),
   `--out` the folder (the working one). It needs Playwright, and draws with the engine built from `src/` as it runs

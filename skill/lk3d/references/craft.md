@@ -25,7 +25,9 @@ before building (an engine's length and fan diameter; a bench's length). A scene
 
 ## Parts, as lk3d recipes
 
-Coordinates are the part's own; `at`, `rot` (degrees) and `scale` place each shape. `repeat: n` (or `{n, step,
+A part goes where its `place` says (`on`, `under`, `in`, `against`, `alignedWith`, and an `offset`), worked out by `lk3d
+place` into its `at`; write `at` by hand only where no relation says it, and make a right-hand part the `mirrorOf` its
+left. Within a part, coordinates are the part's own; `at`, `rot` (degrees) and `scale` place each shape. `repeat: n` (or `{n, step,
 start, axis}`) copies a shape round an axis through the part's origin, after placing it: so a bolt at `[x, R, 0]` with
 `repeat: 12` makes a bolt circle of radius R round x.
 

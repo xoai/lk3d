@@ -10,6 +10,10 @@
 //       engine in a headless browser (Playwright); without Playwright it says so: the scene is then not checked by eye.
 //       --sheet: every picture on one (NAME-sheet.png) and the questions to answer looking at it (NAME-sheet.md);
 //       --names: a picture with every part labelled by its id
+//   lk3d place scene.json
+//       each part with place (on, under, in, against, alignedWith) gets the at it says, written into the file: only
+//       those numbers change, and a second run changes nothing; a scene a script makes is placed by that script
+//       (resolvePlace from lk3d/place), not here
 //   lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
 //       the scene as glTF 2.0 binary (Blender, game engines, viewers): parts as named nodes with their materials, posed
 //       at the motions' starts (or --motion), each motion an animation with --animate
@@ -23,6 +27,7 @@ import '../src/models.js'; // (the glTF reader: check and export read the scene'
 import { validate } from '../src/validate.js';
 import { lint } from '../src/lint.js';
 import { sceneToGLB } from '../src/gltf-write.js';
+import { patchPlace } from '../src/place.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 // the words on the command line: flags (--name, or --name value) anywhere, the rest in order (the command, the file)
@@ -45,6 +50,7 @@ const fail = (message, code = 2) => {
 const LOOKS = ['pen', 'studio', 'ink'],
   POSES = ['rest', 'apart', 'cut', 'steps'];
 const USAGE = `usage: lk3d check scene.json [--json]
+       lk3d place scene.json
        lk3d export scene.json [out.glb] [--animate] [--motion id=value,…]
        lk3d render scene.json [--looks pen,ink,studio] [--poses rest,apart,cut,steps] [--theme NAME] [--ortho] [--width 640] [--out DIR] [--sheet] [--names]`;
 
@@ -60,6 +66,25 @@ function load(scenePath) {
       model.data = fs.readFileSync(found).toString('base64');
     }
   return scene;
+}
+
+// the example scenes a script writes: placed there, before writing, so a rerun of the script keeps it
+const GENERATED = {
+  'cell-tour.json': 'examples/cell-tour.mjs',
+  'cell-tour-bilayer.json': 'examples/cell-tour.mjs',
+  'armillary.json': 'examples/armillary.mjs',
+};
+function place(scenePath) {
+  const script = GENERATED[path.basename(scenePath)];
+  if (script && path.resolve(path.dirname(scenePath)) === path.join(ROOT, 'examples/scenes'))
+    throw new Error(`${scenePath} is written by ${script}: place its parts there, with resolvePlace from lk3d/place`);
+  const text = fs.readFileSync(scenePath, 'utf8'),
+    placed = patchPlace(text);
+  if (placed === text) console.log(`${scenePath}: every placed part is where its place puts it`);
+  else {
+    fs.writeFileSync(scenePath, placed);
+    console.log(`${scenePath}: at written where place puts each part`);
+  }
 }
 
 function exportGLB(scenePath, outPath) {
@@ -334,6 +359,7 @@ try {
   if (command === 'check' && file) check(file);
   else if (command === 'render' && file) await render(file);
   else if (command === 'export' && file) exportGLB(file, words[2]);
+  else if (command === 'place' && file) place(file);
   else if (!command || command === 'help' || flags.help) console.log(USAGE);
   else {
     console.error(USAGE);

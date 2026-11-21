@@ -121,6 +121,59 @@ test('a scene in a form the engine cannot build is refused, naming the place', (
   ); // (said, not a stack overflow)
 });
 
+test('a mirror part (mirrorOf) is refused plainly when it has what it may not, or mirrors what it cannot', () => {
+  const b = { id: 'b', shapes: [{ box: [0.4, 0.2, 0.2], at: [0.4, 0, 0] }] },
+    m = (extra = {}) => ({ id: 'm', mirrorOf: 'b', plane: 'x', ...extra }),
+    scene = (...parts) => ({ parts });
+  refused(
+    () => LK3D.build(scene(b, m({ shapes: b.shapes }))),
+    /parts\[1\]: is a mirror \(mirrorOf\) and so has no shapes/,
+  );
+  refused(() => LK3D.build(scene(b, m({ at: [1, 0, 0], handle: { turn: { axis: [0, 1, 0] } } }))), /no at, handle/);
+  refused(
+    () => LK3D.build(scene({ ...b, handle: { turn: { axis: [0, 1, 0] } } }, m())),
+    /mirrors b, which has a handle/,
+  );
+  refused(() => LK3D.build(scene(b, m(), { id: 'n', mirrorOf: 'm', plane: 'z' })), /mirrors m, itself a mirror/);
+  refused(() => LK3D.build(scene(b, { id: 'self', mirrorOf: 'self', plane: 'x' })), /mirrors itself/);
+  refused(() => LK3D.build(scene(b, m({ mirrorOf: 'nothing' }))), /mirrors "nothing", which is no part/);
+  refused(
+    () =>
+      LK3D.build({
+        ...scene(b, { id: 'w', mirrorOf: 'water', plane: 'x' }, { id: 'water' }),
+        liquids: [{ part: 'water', vessel: 'v', volume: 1 }],
+        vessels: [
+          {
+            id: 'v',
+            part: 'b',
+            inside: [
+              [0, 0.1],
+              [1, 0.1],
+            ],
+          },
+        ],
+      }),
+    /a liquid's or a gas's part/,
+  );
+  // validate says the same, where lk3d check looks
+  assert.match(
+    validate(scene(b, m({ shapes: b.shapes })))
+      .map((p) => p.message)
+      .join(),
+    /is a mirror/,
+  );
+  // and an allowed one builds, as B reflected: across x, the box flipped
+  const built = LK3D.build(scene(b, m())).parts;
+  assert.deepEqual(
+    built[1].min.map((v) => +v.toFixed(6)),
+    [-0.6, -0.1, -0.1],
+  );
+  assert.deepEqual(
+    built[1].max.map((v) => +v.toFixed(6)),
+    [-0.2, 0.1, 0.1],
+  );
+});
+
 test('what a scene asks to be built is counted: refused at once, or as it reaches the limit, never after', () => {
   // asked in counts the estimate reads, or that multiply past reason: refused before building
   refused(() => LK3D.build(one({ tree: { levels: 1e6, branches: 1 } })), /would have at least/); // (no stack overflow)

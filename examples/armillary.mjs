@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolvePlace } from '../src/place.js'; // (a part placed by relation gets its at here, before writing)
 
 const LAT = 21.03; // Hà Nội
 const EPS = 23.44; // the obliquity of the ecliptic
@@ -436,5 +437,5 @@ const scene = {
 };
 fs.writeFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'scenes', 'armillary.json'),
-  JSON.stringify(scene),
+  JSON.stringify(resolvePlace(scene)),
 );

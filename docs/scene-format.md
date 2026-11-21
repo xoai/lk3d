@@ -81,6 +81,31 @@ A 3D figure as data: parts made of shapes, each with a name and a note, that the
 
 refract is for a glass part (material: glass).
 
+## Place
+
+Where the part goes, said by its relation to other parts: lk3d place works out its `at` from this and writes it into the file, and lk3d check refuses an `at` that no longer matches. The part's box is its shapes' after its own `rot` and `scale`, without its `at`; the other part's is as drawn at rest. An axis no relation fixes keeps the value in `at` (or 0), and two relations fixing one axis are refused. The engine reads only `at`. Write it first, and `at` by hand only where no relation says where a part goes; `lk3d place
+scene.json` (or `resolvePlace(scene)` from `lk3d/place`, for a scene a script makes) writes each placed part's
+`at`:
+
+```json
+{ "id": "rotor", "place": { "alignedWith": "shaft", "axes": ["y", "z"] }, "at": [0, 0, 0], "shapes": [ … ] },
+{ "id": "rear-cover", "mirrorOf": "front-cover", "plane": "x" }
+```
+
+| Field         | Type                                                     | Meaning                                                                                                          |
+| ------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `on`          | string                                                   | Its lowest point meets this part's highest, centred on it along x and z (unless another relation fixes them).    |
+| `under`       | string                                                   | Its highest point meets this part's lowest, centred under it along x and z (unless another relation fixes them). |
+| `in`          | string                                                   | Its centre is this part's centre, along each axis no other relation fixes.                                       |
+| `against`     | string                                                   | It touches this part's face on `side`, `gap` away.                                                               |
+| `side`        | `"+x"` \| `"-x"` \| `"+y"` \| `"-y"` \| `"+z"` \| `"-z"` | Which face of `against` it touches.                                                                              |
+| `gap`         | number                                                   | How far from the face of `against` (0).                                                                          |
+| `alignedWith` | string                                                   | Its centre matches this part's along `axes`.                                                                     |
+| `axes`        | list of `"x"` \| `"y"` \| `"z"`                          | The axes along which it is aligned with `alignedWith`.                                                           |
+| `offset`      | [x, y, z]                                                | Added last, after the relations.                                                                                 |
+
+At least one of `on`, `under`, `in`, `against` (with `side`) or `alignedWith` (with `axes`).
+
 ## Shape
 
 Exactly one kind per shape (see [shapes](shapes.md) for each kind's parameters and a picture), plus placement:

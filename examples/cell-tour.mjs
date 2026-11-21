@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolvePlace } from '../src/place.js'; // (a part placed by relation gets its at here, before writing)
 
 const HERE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'scenes'),
   base = JSON.parse(fs.readFileSync(path.join(HERE, 'cell.json'), 'utf8'));
@@ -441,7 +442,7 @@ const cell = {
   steps,
   extras: { mrna },
 };
-fs.writeFileSync(path.join(HERE, 'cell-tour.json'), JSON.stringify(cell));
+fs.writeFileSync(path.join(HERE, 'cell-tour.json'), JSON.stringify(resolvePlace(cell)));
 
 // ---- the close-up: a patch of the membrane's two layers of fats, a protein channel through them
 const heads = [],
@@ -492,7 +493,7 @@ const bilayer = {
     },
   ],
 };
-fs.writeFileSync(path.join(HERE, 'cell-tour-bilayer.json'), JSON.stringify(bilayer));
+fs.writeFileSync(path.join(HERE, 'cell-tour-bilayer.json'), JSON.stringify(resolvePlace(bilayer)));
 console.log(
   `cell-tour.json: ${parts.length} parts; ${proteins.length} membrane proteins, ${pores.length} pores, ${smoothTubes.length} smooth-ER tubes, ` +
     `${microtubules.length} microtubules, ${actin.length} actin filaments, ${filaments.length} intermediate filaments, ${mrna.length} mRNA paths`,

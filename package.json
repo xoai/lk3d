@@ -42,6 +42,10 @@
       "types": "./lint.d.ts",
       "default": "./src/lint.js"
     },
+    "./place": {
+      "types": "./place.d.ts",
+      "default": "./src/place.js"
+    },
     "./export": {
       "types": "./export.d.ts",
       "default": "./src/export.js"
@@ -63,6 +67,7 @@
     "skill/",
     "lint.d.ts",
     "export.d.ts",
+    "place.d.ts",
     "validate.d.ts",
     "docs/*.md",
     "README.md",

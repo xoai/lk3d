@@ -56,6 +56,21 @@ ${table(d.part, d.part.required)}
 
 ${d.part.dependentSchemas.refract['x-message']}.
 
+## Place
+
+${d.place.description} Write it first, and \`at\` by hand only where no relation says where a part goes; \`lk3d place
+scene.json\` (or \`resolvePlace(scene)\` from \`lk3d/place\`, for a scene a script makes) writes each placed part's
+\`at\`:
+
+\`\`\`json
+{ "id": "rotor", "place": { "alignedWith": "shaft", "axes": ["y", "z"] }, "at": [0, 0, 0], "shapes": [ … ] },
+{ "id": "rear-cover", "mirrorOf": "front-cover", "plane": "x" }
+\`\`\`
+
+${table(d.place)}
+
+At least one of \`on\`, \`under\`, \`in\`, \`against\` (with \`side\`) or \`alignedWith\` (with \`axes\`).
+
 ## Shape
 
 Exactly one kind per shape (see [shapes](shapes.md) for each kind's parameters and a picture), plus placement:

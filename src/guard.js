@@ -43,9 +43,38 @@ export function guard(scene) {
       (Array.isArray(list) && [...list].every(isObject)) || out.push({ path, message: 'should be a list of ' + what }); // (holes too)
   if (out.length) return out;
   if (!isObject(scene)) return [{ path: '', message: 'should be an object (a scene)' }];
-  if (listOfObjects(scene.parts, 'parts', 'parts') === true)
+  if (listOfObjects(scene.parts, 'parts', 'parts') === true) {
     scene.parts.forEach(
       (part, index) => part.shapes === undefined || listOfObjects(part.shapes, `parts[${index}].shapes`, 'shapes'),
     );
+    out.push(...mirrors(scene));
+  }
+  return out;
+}
+
+// A mirror part (mirrorOf: B, plane) is B's shapes reflected, and nothing of its own that would place or move it: what
+// it may not have, and the B it may not mirror, refused here, where validate, build and mount all look
+const OWN = ['shapes', 'at', 'rot', 'scale', 'place', 'spin', 'handle'];
+function mirrors(scene) {
+  const out = [],
+    byId = new Map(scene.parts.map((part) => [part.id, part])),
+    fluids = new Set(
+      [...(Array.isArray(scene.liquids) ? scene.liquids : []), ...(Array.isArray(scene.gases) ? scene.gases : [])].map(
+        (fluid) => fluid && fluid.part,
+      ),
+    );
+  scene.parts.forEach((part, index) => {
+    if (part.mirrorOf === undefined) return;
+    const say = (message) => out.push({ path: `parts[${index}]`, message }),
+      b = byId.get(part.mirrorOf),
+      own = OWN.filter((key) => part[key] !== undefined);
+    if (own.length)
+      say(`is a mirror (mirrorOf) and so has no ${own.join(', ')} of its own: it takes ${part.mirrorOf}'s, reflected`);
+    if (part.mirrorOf === part.id) say(`mirrors itself: mirrorOf names another part`);
+    else if (!b) say(`mirrors "${part.mirrorOf}", which is no part`);
+    else if (b.mirrorOf !== undefined) say(`mirrors ${b.id}, itself a mirror: mirror ${b.mirrorOf} instead`);
+    else if (b.handle) say(`mirrors ${b.id}, which has a handle: a mirror cannot follow it`);
+    else if (fluids.has(b.id)) say(`mirrors ${b.id}, a liquid's or a gas's part: lk3d makes its shape as it fills`);
+  });
   return out;
 }

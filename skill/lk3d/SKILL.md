@@ -83,6 +83,24 @@ later prove what this list promises: nothing floats, nothing collides.
 5. Labels: every part with a name gets a label; if one points at a hidden place, give the part a `label: [x, y, z]`
    on its visible surface.
 
+**Place parts by what they rest on, not by coordinates.** Say a part's relation to another with `place`, and let
+`lk3d place scene.json` work out its `at` (it writes only those numbers; `check` refuses an `at` that no longer
+matches, so a part cannot drift off its support when the support changes):
+
+```json
+{ "id": "cradle", "place": { "on": "pillar" }, "shapes": [ … ] },
+{ "id": "rotor", "place": { "alignedWith": "shaft", "axes": ["y", "z"] }, "shapes": [ … ] },
+{ "id": "cap", "place": { "against": "body", "side": "-x", "gap": 0 }, "shapes": [ … ] },
+{ "id": "bulb", "place": { "on": "socket", "offset": [0, -0.04, 0] }, "shapes": [ … ] },
+{ "id": "arm-r", "mirrorOf": "arm-l", "plane": "x" }
+```
+
+`on`/`under` (y; centred along x and z unless another relation says), `in` (centred), `against` with `side` (`±x`,
+`±y`, `±z`) and `gap`, `alignedWith` with `axes`, and an `offset` added last. A part's box is its shapes' without its
+own `at`; give its shapes their positions within the part, and the part its place. Write `at` by hand only where no
+relation says it (a terminal box on a ribbed casing, a wire's path). A left and a right are one part and its mirror:
+`mirrorOf` with a `plane` (through the origin) takes the other's shapes, look, label and explode path, reflected.
+
 Use repeats (`repeat: n` or `{n, step, axis}`) for blades, bolts and ribs: one shape, drawn many times at no extra cost. Keep
 every number in scene units with one scale for the whole object, and say what is not to scale (`scale: {note}`).
 

@@ -19,6 +19,7 @@ export default [
       'test/**/*.cjs',
       'src/validate.js',
       'src/lint.js',
+      'src/place.js',
     ],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },

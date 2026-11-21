@@ -205,8 +205,8 @@ function links(scene, out) {
     motionIds = new Set((Array.isArray(scene.motions) ? scene.motions : []).map((motion) => motion && motion.id)),
     isPart = (id) => parts.some((part) => part.id === id);
   parts.forEach((part, index) => {
-    if (!part.shapes && !fluidParts.has(part.id))
-      out.push({ path: `parts[${index}]`, message: 'needs shapes (or is a liquid or a gas)' });
+    if (!part.shapes && !fluidParts.has(part.id) && part.mirrorOf === undefined)
+      out.push({ path: `parts[${index}]`, message: 'needs shapes (or is a liquid or a gas, or a mirror)' });
   });
   for (const [list, what] of [
     [scene.vessels, 'vessels'],
@@ -291,6 +291,14 @@ function links(scene, out) {
   dimensions(scene, out, parts);
   steps(scene, out, names, parts);
   expectations(scene, out, parts);
+  // place: the parts it names exist (lk3d check works out the rest: lint.js, place.js)
+  parts.forEach((part, index) => {
+    const place = part.place;
+    if (!place || typeof place !== 'object') return;
+    for (const key of ['on', 'under', 'in', 'against', 'alignedWith'])
+      if (typeof place[key] === 'string' && !parts.some((other) => other.id === place[key]))
+        out.push({ path: `parts[${index}].place.${key}`, message: `${say(place[key])} is no part` });
+  });
   // motions: one id each; tracks that move parts that exist, with keys in order and within the range
   const seenMotions = new Set();
   (Array.isArray(scene.motions) ? scene.motions : []).forEach((motion, i) => {

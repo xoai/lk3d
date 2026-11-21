@@ -182,3 +182,36 @@ test('render --sheet: every picture on one, and the questions to answer looking 
   assert.match(small, /Is Post visible in step 1\?/);
   assert.match(small, /Does Post rest on Base as the real object does\?/);
 });
+
+test("lk3d place writes each placed part's at into the file, only those numbers, and a second run changes nothing", () => {
+  const text = JSON.stringify(
+    {
+      parts: [
+        { id: 'base', name: 'Base', shapes: [{ box: [2, 0.2, 2] }] },
+        { id: 'post', name: 'Post', place: { on: 'base' }, label: [0.1, 0.6, 0], shapes: [{ box: [0.2, 1, 0.2] }] },
+        { id: 'cap', name: 'Cap', place: { on: 'post' }, at: [0, 0, 0], shapes: [{ box: [0.4, 0.1, 0.4] }] },
+      ],
+    },
+    null,
+    2,
+  );
+  const file = tmp('placed.json', text + '\n');
+  let r = run('check', file);
+  assert.equal(r.status, 1, 'refused before: no at, and an at that drifted');
+  assert.match(
+    r.stdout,
+    /post has place but no at[\s\S]*cap's at \[0, 0, 0\] is not where place puts it \(\[0, 1.15, 0\]\)/,
+  );
+  r = run('place', file);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const once = fs.readFileSync(file, 'utf8');
+  assert.deepEqual(JSON.parse(once).parts[1].at, [0, 0.6, 0]);
+  assert.match(once, /"place": \{\n\s+"on": "base"\n\s+\},\n\s+"at": \[0, 0.6, 0\],/, 'at right after place');
+  assert.equal(run('check', file).status, 0);
+  run('place', file);
+  assert.equal(fs.readFileSync(file, 'utf8'), once, 'a second run changes nothing');
+  // a scene a script writes is placed by the script
+  r = run('place', path.join(ROOT, 'examples/scenes/armillary.json'));
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /written by examples\/armillary.mjs: place its parts there, with resolvePlace/);
+});

@@ -20,6 +20,7 @@ import { tracksOf, motionMatrix } from './motion.js';
 import { jointsOf, jointOf, motionsOf, solve as solveJoints } from './joints.js';
 import * as FX from './fluids.js';
 import { stepState } from './stepstate.js';
+import { placements } from './place.js';
 
 const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -0.64, -0.75])];
 
@@ -455,6 +456,7 @@ export function lint(scene, options = {}) {
   }
   // turned copies that may be meant as mirror images (a warning: said, and the check passes)
   problems.push(...turnedCopies(scene, solids, tolerance, path));
+  problems.push(...placed(scene, built));
   // what the scene says must be true (expect)
   if (Array.isArray(scene.expect)) problems.push(...expectations(scene, built, solids, tolerance, jointAt));
   const shapes = (scene.parts || []).reduce((count, part) => count + (part.shapes || []).length, 0);
@@ -770,9 +772,42 @@ function turnedCopies(scene, solids, tolerance, path) {
         warnings.push({
           path: path(solids[j].part),
           level: 'warning',
-          message: `${A.id} and ${B.id} are the same shapes turned 180° about ${AXES[kept]}, so one is a left-hand copy of the other: make one a mirror ("scale": ${JSON.stringify(scale)}) if they are a left and a right, or say why not under check.mirror`,
+          message: `${A.id} and ${B.id} are the same shapes turned 180° about ${AXES[kept]}, so one is a left-hand copy of the other: make one the mirror of the other ("mirrorOf": "${A.id}", "plane": "${AXES[across]}", in place of its shapes and at) if they are a left and a right, or say why not under check.mirror`,
         });
       }
     }
   return warnings;
+}
+
+// place (place.js): each placed part's at must be where its place puts it (lk3d place writes it), and a part that has
+// place has an at; its handle, which place does not move, should still be on it
+function placed(scene, built) {
+  if (!(scene.parts || []).some((part) => part && part.place)) return [];
+  let found;
+  try {
+    found = placements(scene);
+  } catch (e) {
+    return [{ path: 'parts', message: `place cannot be worked out: ${e.message}` }];
+  }
+  const out = found.problems.slice(),
+    say = (v) => `[${v.map((x) => +x.toFixed(4)).join(', ')}]`;
+  for (const [i, at] of found.at) {
+    const part = scene.parts[i];
+    if (!Array.isArray(part.at))
+      out.push({ path: `parts[${i}]`, message: `${part.id} has place but no at: run lk3d place, which writes it` });
+    else if (part.at.some((v, k) => Math.abs(v - at[k]) > 1e-4))
+      out.push({
+        path: `parts[${i}].at`,
+        message: `${part.id}'s at ${say(part.at)} is not where place puts it (${say(at)}): run lk3d place`,
+      });
+    const centre = part.handle && part.handle.turn && part.handle.turn.center,
+      box = built.parts[i];
+    if (Array.isArray(centre) && box && centre.some((v, k) => v < box.min[k] - 1e-6 || v > box.max[k] + 1e-6))
+      out.push({
+        path: `parts[${i}].handle`,
+        level: 'warning',
+        message: `${part.id}'s handle turns about ${say(centre)}, outside the part: place moves the part, not its handle, so move the handle's center with it`,
+      });
+  }
+  return out;
 }

@@ -208,14 +208,16 @@ motion's `play()`) run on the same clock; a timeline sets their values instead (
 | `format`                                    | the version of the scene format this engine reads (1; a scene says its own in `lk3d`)                                                                                                                                                                                                                                     |
 | `safeHTML(text)`                            | a part's words as the figure shows them: only `b i em strong sub sup br` kept as HTML                                                                                                                                                                                                                                     |
 | `reduce`                                    | whether the reader asked for reduced motion (read once, at load); a page or a test may set `LK3D.reduce` to change it for every figure (the module's named export keeps the value read at load)                                                                                                                           |
-| `version`                                   | the page API's version (2): it goes up when a page's own code must change                                                                                                                                                                                                                                                 |
+| `version`                                   | the page API's version (3): it goes up when a page's own code must change (3: a page that loads the global script and shows a glTF model loads the models add-on too)                                                                                                                                                     |
 | `validate(scene)` from `lk3d/validate`      | the scene's problems, `[{ path, message }]` ([format](scene-format.md#validating)), the engine's guard's among them; `schema` from there is the scene format's JSON Schema                                                                                                                                                |
 | `lint(scene, { quality })` from `lk3d/lint` | the geometry check: `{ problems: [{ path, message }], summary: { parts, shapes, placed, triangles, accents, named, size } }`; `quality` is the shape detail it builds at (0.5). From a shell: `node node_modules/lk3d/src/lint.js < scene.json` prints the summary and one problem per line, exit code 1 if there are any |
 
 Other paths of the package: `lk3d/schema.json` (the JSON Schema itself), `lk3d/bundle` (`dist/lk3d.min.js`, the script
 that sets the global `LK3D`), `lk3d/bundle.mjs` (`dist/lk3d.mjs`, the same as one ES module, with the glTF exporter),
 and the exporter apart: `lk3d/export` (lk3d with `fig.exportGLB()` working, and `sceneToGLB(scene)`) and
-`lk3d/bundle-export` (`dist/lk3d-export.min.js`, loaded after the global script). `dist/` is made by
+`lk3d/bundle-export` (`dist/lk3d-export.min.js`, loaded after the global script); `lk3d/bundle-models`
+(`dist/lk3d-models.min.js`), the glTF reader for a page that loads the global script and shows a model, loaded after
+it (an `<lk3d-figure>` refused before it came is drawn then; the ES module has the reader already). `dist/` is made by
 `npm run build`; the published package includes it.
 
 ## The reader's controls

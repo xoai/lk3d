@@ -4,7 +4,7 @@
 // preprocessor's lines (#ifdef …) keep theirs. The stylesheet (stylesheet.js) loses its line breaks and the spaces around
 // its punctuation the same way.
 //   node build.mjs            write dist/
-//   node build.mjs --size     and fail if the script grows past the budget (BUDGET_KB gzipped)
+//   node build.mjs --size     and fail if a script grows past its budget (gzipped: the core BUDGET_KB, the add-ons theirs)
 //   import { bundle } from './build.mjs'; const js = await bundle()     the global script, in memory (lk3d's own tools)
 import * as esbuild from 'esbuild';
 import fs from 'node:fs';
@@ -13,15 +13,20 @@ import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)),
-  ENTRY = path.join(HERE, 'src/index.js');
-// the glTF exporter is not in the global script (the budget's): dist/lk3d-export.min.js brings it to a page that
-// exports. The module bundle has it (src/export.js), so a page importing lk3d loses nothing.
+  ENTRY = path.join(HERE, 'src/script.js');
+// Two add-ons stay out of the global script (the budget's), each a script of its own that a page loads after it: the
+// glTF reader (dist/lk3d-models.min.js), for a page that shows a model, and the glTF exporter
+// (dist/lk3d-export.min.js), for a page that exports. The module bundle has both (src/export.js, src/index.js), so a
+// page importing lk3d loses nothing.
+export const MODELS_ENTRY = path.join(HERE, 'src/models-script.js');
 const EXPORTER = path.join(HERE, 'src/export-script.js'),
   MODULE = path.join(HERE, 'src/export.js');
-// lk3d's promise is to stay small: the global script, gzipped, may not grow past this without a decision to raise it
-// (57 KB until November 2026, raised to 60 for scenes and models checked inside the engine and the cut-face fix, then
-// to 65 to leave room for features to come: each still earns its bytes)
+// lk3d's promise is to stay small: the global script, gzipped, may not grow past this. It was 57 KB until November
+// 2026, then 60, 65 and 67; it is frozen at 67: a raise needs a written decision in the CHANGELOG. The add-ons have
+// budgets of their own.
 export const BUDGET_KB = 67;
+export const MODELS_BUDGET_KB = 5,
+  EXPORT_BUDGET_KB = 3;
 
 export const squeeze = (glsl) =>
   glsl
@@ -57,7 +62,7 @@ export const BANNER = `/*! lk3d ${version} | MIT License | Copyright (c) 2026 xo
 const LETTERS = 'etnoarisclpdhuxfmgybwvkjqzETNOARISCLPDHUXFMGYBWVKJQZ';
 function contextNames() {
   const src = path.join(HERE, 'src'),
-    files = ['index.js', ...fs.readdirSync(path.join(src, 'figure')).map((f) => 'figure/' + f)].filter((f) =>
+    files = ['core.js', ...fs.readdirSync(path.join(src, 'figure')).map((f) => 'figure/' + f)].filter((f) =>
       f.endsWith('.js'),
     ),
     uses = {};
@@ -74,6 +79,18 @@ function contextNames() {
       .map((k, i) => [k, names[i]]),
   );
 }
+// the models add-on's maths are the core's, read from LK3D._m on the page (the reader is all it carries); inside the
+// crease-shading worker, where the add-on does nothing, there is no LK3D: the names are then undefined, and unused
+const coreMaths = {
+  name: 'core-maths',
+  setup(b) {
+    b.onResolve({ filter: /^\.\/math\.js$/ }, () => ({ path: 'core-maths', namespace: 'core-maths' }));
+    b.onLoad({ filter: /.*/, namespace: 'core-maths' }, () => ({
+      contents: 'export const { M, sub, cross, norm, add } = (globalThis.LK3D && globalThis.LK3D._m) || {};',
+      loader: 'js',
+    }));
+  },
+};
 const options = (format, entry) => ({
   entryPoints: [entry],
   banner: { js: BANNER },
@@ -84,7 +101,7 @@ const options = (format, entry) => ({
   target: 'es2020', // (Chrome and Edge 80, Firefox 74, Safari 13.1: README; `?.` and `??` kept as written)
   mangleProps: /_$/,
   mangleCache: contextNames(),
-  plugins: [glsl],
+  plugins: entry === MODELS_ENTRY ? [glsl, coreMaths] : [glsl],
 });
 
 export async function bundle(format = 'iife', entry = ENTRY) {
@@ -96,19 +113,29 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   fs.mkdirSync(dist, { recursive: true });
   const iife = await bundle('iife'),
     esm = await bundle('esm', MODULE),
+    models = await bundle('iife', MODELS_ENTRY),
     exporter = await bundle('iife', EXPORTER);
   fs.writeFileSync(path.join(dist, 'lk3d.min.js'), iife);
   fs.writeFileSync(path.join(dist, 'lk3d.mjs'), esm);
+  fs.writeFileSync(path.join(dist, 'lk3d-models.min.js'), models);
   fs.writeFileSync(path.join(dist, 'lk3d-export.min.js'), exporter);
   const kb = (s) => (Buffer.byteLength(s) / 1024).toFixed(1),
-    gz = (s) => (zlib.gzipSync(s, { level: 9 }).length / 1024).toFixed(1);
+    bytes = (s) => zlib.gzipSync(s, { level: 9 }).length,
+    gz = (s) => (bytes(s) / 1024).toFixed(1);
   console.log(
     `dist/lk3d.min.js ${kb(iife)} KB (${gz(iife)} KB gzipped), dist/lk3d.mjs ${kb(esm)} KB, ` +
+      `dist/lk3d-models.min.js ${kb(models)} KB (${gz(models)} KB gzipped), ` +
       `dist/lk3d-export.min.js ${kb(exporter)} KB (${gz(exporter)} KB gzipped)`,
   );
   // (compared exactly: a rounded 42.0 may be a few bytes over)
-  if (process.argv.includes('--size') && zlib.gzipSync(iife, { level: 9 }).length > BUDGET_KB * 1024) {
-    console.error(`✗ dist/lk3d.min.js is ${gz(iife)} KB gzipped, over the budget of ${BUDGET_KB} KB`);
-    process.exitCode = 1;
-  } else if (process.argv.includes('--size')) console.log(`✓ within the budget of ${BUDGET_KB} KB gzipped`);
+  if (process.argv.includes('--size'))
+    for (const [file, js, budget] of [
+      ['lk3d.min.js', iife, BUDGET_KB],
+      ['lk3d-models.min.js', models, MODELS_BUDGET_KB],
+      ['lk3d-export.min.js', exporter, EXPORT_BUDGET_KB],
+    ])
+      if (bytes(js) > budget * 1024) {
+        console.error(`✗ dist/${file} is ${bytes(js)} B gzipped, over its budget of ${budget} KB`);
+        process.exitCode = 1;
+      } else console.log(`✓ dist/${file}: ${bytes(js)} B gzipped, within its budget of ${budget} KB`);
 }

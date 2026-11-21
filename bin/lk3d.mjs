@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
+import '../src/models.js'; // (the glTF reader: check and export read the scene's models)
 import { validate } from '../src/validate.js';
 import { lint } from '../src/lint.js';
 import { sceneToGLB } from '../src/gltf-write.js';
@@ -112,7 +113,7 @@ function check(scenePath) {
 // the page the pictures are drawn on: the built engine, the scene, a fixed width; window.__ready once it is complete
 const PAGE = `<!doctype html><meta charset="utf-8"><title>lk3d render</title>
 <style>body{margin:0;background:#fff;font-family:system-ui,sans-serif}#g{width:WIDTHpx}.lk3d{margin:0}.lk3d-hint{display:none}</style>
-<div id="g"></div><script src="/lk3d.min.js"></script><script type="module">
+<div id="g"></div><script src="/lk3d.min.js"></script><script src="/lk3d-models.min.js"></script><script type="module">
 const query = new URLSearchParams(location.search), scene = await (await fetch('/scene.json')).json(), errors = [];
 window.addEventListener('error', (e) => errors.push(String(e.message)));
 if (query.get('ortho')) scene.view = { ...scene.view, projection: 'ortho' };
@@ -128,14 +129,16 @@ for (let k = 0; k < 3; k++) await new Promise((resolve) => requestAnimationFrame
 window.__ready = { errors, renderer: fig.renderer };
 </script>`;
 
-// the engine render draws with: built from src/ now, in memory (not dist/, which a fresh clone lacks and an old build
-// would leave out of date); only where esbuild is not installed, an installed package without its development tools,
-// the bundle it shipped with (built from the same source when it was packed)
-async function engineScript() {
+// the engine render draws with, and its models add-on (a scene may draw glTF models): built from src/ now, in memory
+// (not dist/, which a fresh clone lacks and an old build would leave out of date); only where esbuild is not installed,
+// an installed package without its development tools, the bundles it shipped with (built from the same source when it
+// was packed)
+async function engineScript(models = false) {
   try {
-    return await (await import('../build.mjs')).bundle();
+    const build = await import('../build.mjs');
+    return await (models ? build.bundle('iife', build.MODELS_ENTRY) : build.bundle());
   } catch (error) {
-    const shipped = path.join(ROOT, 'dist/lk3d.min.js');
+    const shipped = path.join(ROOT, models ? 'dist/lk3d-models.min.js' : 'dist/lk3d.min.js');
     if (error.code === 'ERR_MODULE_NOT_FOUND' && fs.existsSync(shipped)) return fs.readFileSync(shipped);
     throw new Error(`could not build the engine from src/ (${error.message.split('\n')[0]}): run npm install in lk3d`, {
       cause: error,
@@ -181,15 +184,18 @@ async function render(scenePath) {
   if (poses.includes('steps') && !stepCount) return fail('--poses steps: the scene has no steps');
   const scene = JSON.stringify(data),
     engine = await engineScript(),
+    models = await engineScript(true),
     page = PAGE.replace('WIDTH', String(width));
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url, 'http://x').pathname;
     const [type, body] =
       pathname === '/lk3d.min.js'
         ? ['text/javascript', engine]
-        : pathname === '/scene.json'
-          ? ['application/json', scene]
-          : ['text/html', page];
+        : pathname === '/lk3d-models.min.js'
+          ? ['text/javascript', models]
+          : pathname === '/scene.json'
+            ? ['application/json', scene]
+            : ['text/html', page];
     res.writeHead(200, { 'content-type': type });
     res.end(body);
   });

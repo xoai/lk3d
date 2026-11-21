@@ -126,6 +126,8 @@ test('the exporter is apart from the engine: lk3d/export sets it, and the global
   if (!fs.existsSync(dist('lk3d-export.min.js'))) return; // (not built yet)
   const has = (f) => fs.readFileSync(dist(f), 'utf8').includes('generator:"lk3d"'); // (the writer's asset record)
   assert.deepEqual([has('lk3d.min.js'), has('lk3d-export.min.js'), has('lk3d.mjs')], [false, true, true]);
+  // the models add-on carries the reader only, not the writer; the global script neither
+  if (fs.existsSync(dist('lk3d-models.min.js'))) assert.equal(has('lk3d-models.min.js'), false);
 });
 
 test("the figure's author and licence go into the .glb as glTF's copyright, and nothing when it has neither", () => {

@@ -2,9 +2,38 @@
 // axis stays one shape drawn many times (instancing), so a ring of 28 fins costs the memory of one fin.
 import { D2R, M, sub, add, mulv, dot, cross, len, norm, carry, rgb } from './math.js';
 import science, { rng, earcut, signedArea } from './science.js';
-import { load as loadModel, parseGLB, bytes } from './gltf.js';
 import { fluidsOf, bodies } from './fluids.js';
 import { guard } from './guard.js';
+
+// The glTF reader (gltf.js: load, parseGLB, bytes) is given, not imported: the ES module, the check and the CLI give it
+// (models.js), and a page that loads the global script gets it from the models add-on (models-script.js), so a page
+// that shows no model downloads none of it. A scene that draws a model is refused, by name, until it has been given.
+/** @type {{ load: Function, parseGLB: Function, bytes: Function } | null} */
+let reader = null;
+/** @param {typeof reader} given */
+const useModels = (given) => {
+  reader = given;
+};
+/** the models a scene draws (its parts' model shapes, and scatter's), when nothing has given the reader yet; else null */
+function modelsMissing(spec) {
+  if (reader) return null;
+  const names = new Set(),
+    look = (shape) => {
+      if (!shape || typeof shape !== 'object') return;
+      if (typeof shape.model === 'string') names.add(shape.model);
+      if (shape.scatter) look(shape.scatter.shape);
+    };
+  for (const part of (spec && spec.parts) || []) for (const shape of part.shapes || []) look(shape);
+  return names.size ? [...names] : null;
+}
+/** the error a scene with models gets without the reader: what to load, naming the models */
+function modelsError(names) {
+  const error = new Error(
+    `lk3d: this scene draws glTF models (${names.join(', ')}): load dist/lk3d-models.min.js after dist/lk3d.min.js`,
+  );
+  /** @type {any} */ (error).models = names;
+  return error;
+}
 
 // vertices and triangles the scene being built may still make (buildScene sets it: three times its triangle limit): a
 // scene that asks for more is refused as it reaches it, whatever the estimate (least) said, before it can take the
@@ -513,8 +542,9 @@ function modelShape(shape, context) {
     key = 'model\u0000' + JSON.stringify([shape.model, shape.node, shape.color]);
   let mesh = context.cache && context.cache.get(key);
   if (!mesh) {
-    if (!files.has(shape.model)) files.set(shape.model, parseGLB(bytes(model.data)));
-    mesh = loadModel(Mesh, files.get(shape.model), shape.node);
+    if (!reader) throw modelsError([shape.model]);
+    if (!files.has(shape.model)) files.set(shape.model, reader.parseGLB(reader.bytes(model.data)));
+    mesh = reader.load(Mesh, files.get(shape.model), shape.node);
     if (shape.color) {
       mesh.paint(shape.color);
       if (mesh.textures) mesh.textures = { ...mesh.textures, base: null }; // (its colour in place of the base colour map; relief kept)
@@ -1025,6 +1055,9 @@ function flatten(part) {
 }
 
 export {
+  useModels,
+  modelsMissing,
+  modelsError,
   Mesh,
   SHAPES,
   buildShape,

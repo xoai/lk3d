@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- The image tests' page: ?scene=NAME&look=ink|studio|pen|2d|pen2d[&theme=NAME] draws scenes/NAME.json with the
-     built engine (dist/lk3d.min.js) at a fixed size and resolution, with the flows and streams its extras list if
+     built engine (dist/lk3d.min.js, and its models add-on) at a fixed size and resolution, with the flows and streams its extras list if
      any, waits until the figure is ready (the crease shading, texture maps), then sets window.__ready to what it drew.
      window.__ink() reads the next picture back as three numbers (how much is drawn, and its middle), for the test of
      transitions that jump. -->
@@ -24,6 +24,7 @@
   </style>
   <div id="g"></div>
   <script src="../../dist/lk3d.min.js"></script>
+  <script src="../../dist/lk3d-models.min.js"></script>
   <script type="module">
     const q = new URLSearchParams(location.search),
       look = q.get('look') || 'ink',

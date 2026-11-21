@@ -1,8 +1,8 @@
 // @ts-check
 // The LK3D object: the page API's entry (index.js puts mount on it) and the settings every figure reads live, so a
 // page may change them at any time (defaults, locales, themes, reduce, and toGLB, set by the exporter).
-import { buildScene, flatten } from './geometry.js';
-import { M } from './math.js';
+import { buildScene, flatten, useModels, modelsMissing, modelsError } from './geometry.js';
+import { M, sub, cross, norm, add } from './math.js';
 import { clock, refreshFrom } from './clock.js';
 import { safeHTML } from './figure/dom.js';
 import { THEMES } from './figure/look.js';
@@ -25,6 +25,8 @@ const LK3D = {
   // maxTriangles: the most triangles it may have (10 million)
   /** @param {import('../scene').Scene} spec @param {number} [quality] @param {number} [maxTriangles] */
   build(spec, quality = 1, maxTriangles) {
+    const missing = modelsMissing(spec);
+    if (missing) throw modelsError(missing);
     const built = buildScene(spec, quality, maxTriangles);
     for (const part of built.parts)
       Object.defineProperty(part, 'g', {
@@ -35,9 +37,14 @@ const LK3D = {
     return built;
   },
   safeHTML,
-  version: 2, // (the page API's version: it goes up when a page's own code must change)
+  // the glTF reader, given by the models add-on (dist/lk3d-models.min.js) or the ES module (models.js); core.js wraps it
+  // so that figures refused for want of it are drawn again
+  useModels,
+  version: 3, // (the page API's version: it goes up when a page's own code must change; 3: models need the add-on)
   // (for lk3d's own tests and tools; not part of the API)
   M,
   refreshFrom,
+  // (the maths the models add-on reads instead of carrying its own copy)
+  _m: { M, sub, cross, norm, add },
 };
 export default LK3D;

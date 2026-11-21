@@ -1424,6 +1424,7 @@ test("crease shading is worked out in a worker made of lk3d's own script (by src
   browser,
 }) => {
   const engine = (await import('node:fs')).readFileSync(new URL('../../dist/lk3d.min.js', import.meta.url), 'utf8'),
+    models = (await import('node:fs')).readFileSync(new URL('../../dist/lk3d-models.min.js', import.meta.url), 'utf8'),
     scene = JSON.parse(
       (await import('node:fs')).readFileSync(new URL('scenes/generator.json', import.meta.url), 'utf8'),
     );
@@ -1431,9 +1432,10 @@ test("crease shading is worked out in a worker made of lk3d's own script (by src
   const shade = async (how) => {
     const page = await browser.newPage();
     if (how === 'no worker') await page.addInitScript(() => delete window.Worker);
-    if (how === 'inline') {
+    if (how === 'inline' || how === 'inline with models') {
       await page.setContent('<div id="g" style="width:480px"></div>');
-      await page.addScriptTag({ content: engine });
+      // (as lessonkit inlines them: the core and, for a page with a model, the models add-on, in one script)
+      await page.addScriptTag({ content: how === 'inline' ? engine : engine + '\n' + models });
     } else await page.goto('/test/visual/api.html');
     const result = await page.evaluate(async (scene) => {
       const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
@@ -1453,10 +1455,12 @@ test("crease shading is worked out in a worker made of lk3d's own script (by src
   };
   const bySrc = await shade('src'),
     inline = await shade('inline'),
+    withModels = await shade('inline with models'),
     onPage = await shade('no worker');
   expect(bySrc.shaded).toBeGreaterThan(5);
-  expect([bySrc.worker, inline.worker, onPage.worker]).toEqual([true, true, false]);
+  expect([bySrc.worker, inline.worker, withModels.worker, onPage.worker]).toEqual([true, true, true, false]);
   expect(inline.hash).toBe(bySrc.hash);
+  expect(withModels.hash).toBe(bySrc.hash);
   expect(onPage.hash).toBe(bySrc.hash);
 });
 
@@ -1594,4 +1598,45 @@ test('a quarter cut: only what lies beyond both planes is cut away; the reader d
   expect(r.dragged.offset).toBe(0); // (the first plane where it was)
   expect(Math.abs(r.dragged.second.offset)).toBeGreaterThan(0.05); // (the second moved)
   expect(r.single).toEqual([expect.not.stringMatching(/^base$/), true]);
+});
+
+test('a glTF model needs the models add-on: the core alone refuses it by name; an <lk3d-figure> before both scripts draws once the add-on comes', async ({
+  browser,
+}) => {
+  // (a fresh page: beforeEach's has the engine already, which would have defined <lk3d-figure> before this test's)
+  const page = await browser.newPage();
+  const fs = await import('node:fs'),
+    { sceneToGLB } = await import('../../src/gltf-write.js');
+  const engine = fs.readFileSync(new URL('../../dist/lk3d.min.js', import.meta.url), 'utf8'),
+    models = fs.readFileSync(new URL('../../dist/lk3d-models.min.js', import.meta.url), 'utf8'),
+    glb = Buffer.from(sceneToGLB({ parts: [{ id: 'b', name: 'B', shapes: [{ box: [1, 1, 1] }] }] })).toString('base64'),
+    scene = { models: { cube: { data: glb } }, parts: [{ id: 'm', name: 'Model', shapes: [{ model: 'cube' }] }] };
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.setContent(
+    `<lk3d-figure id="f" style="display:block;width:400px"><script type="application/json">${JSON.stringify(scene)}</script></lk3d-figure><div id="g" style="width:400px"></div>`,
+  );
+  await page.addScriptTag({ content: engine });
+  const refused = await page.evaluate((s) => {
+    try {
+      LK3D.mount(document.getElementById('g'), s, { controls: false });
+      return 'mounted';
+    } catch (e) {
+      return e.message;
+    }
+  }, scene);
+  expect(refused).toMatch(/cube/);
+  expect(refused).toMatch(/lk3d-models\.min\.js/);
+  expect(await page.evaluate(() => document.getElementById('f').figure)).toBe(null); // (refused, waiting)
+  await page.addScriptTag({ content: models });
+  await page.waitForFunction(() => document.getElementById('f').figure, null, { timeout: 10000 });
+  expect(await page.evaluate(() => document.getElementById('f').figure.parts.length)).toBe(1);
+  // and a figure mounted by the page itself, now that the reader is here
+  expect(
+    await page.evaluate((s) => LK3D.mount(document.getElementById('g'), s, { controls: false }).parts.length, scene),
+  ).toBe(1);
+  // loaded again: nothing changes
+  await page.addScriptTag({ content: models });
+  expect(errors).toEqual([]);
+  await page.close();
 });

@@ -1,6 +1,7 @@
 {
   "LK3D": [
     "M",
+    "_m",
     "build",
     "clock",
     "defaults",
@@ -11,6 +12,7 @@
     "refreshFrom",
     "safeHTML",
     "themes",
+    "useModels",
     "version"
   ],
   "figure": [

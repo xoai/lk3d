@@ -153,8 +153,28 @@ function select([start, end]) {
   editor.scrollTop = Math.max(0, (line - 4) * height);
 }
 
+// an add-on of lk3d's (dist/), loaded the first time it is needed: the models reader, the glTF exporter
+/** @type {Map<string, Promise<void>>} */
+const addOns = new Map();
+/** @param {string} file */
+const addOn = (file) => {
+  if (!addOns.has(file))
+    addOns.set(
+      file,
+      new Promise((resolve, reject) => {
+        const script = Object.assign(document.createElement('script'), { src: '../dist/' + file });
+        script.onload = () => resolve();
+        script.onerror = reject;
+        document.head.append(script);
+      }),
+    );
+  return /** @type {Promise<void>} */ (addOns.get(file));
+};
+
 /** @param {any} scene */
 async function draw(scene) {
+  // a scene with models needs the reader (dist/lk3d-models.min.js), which the page loads only then
+  if (scene.models && Object.keys(scene.models).length) await addOn('lk3d-models.min.js');
   // models given as files (the examples'), read in as a build would; the rest as written
   for (const [name, model] of Object.entries(scene.models || {}))
     if (model && model.file && !model.data) {
@@ -237,13 +257,7 @@ const fileName = () => {
 $('download').addEventListener('click', () => save(editor.value, fileName() + '.json', 'application/json'));
 $('glb').addEventListener('click', async () => {
   if (!figure) return;
-  if (!LK3D.toGLB)
-    await new Promise((resolve, reject) => {
-      const script = Object.assign(document.createElement('script'), { src: '../dist/lk3d-export.min.js' });
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.append(script);
-    });
+  if (!LK3D.toGLB) await addOn('lk3d-export.min.js');
   save(figure.exportGLB(), fileName() + '.glb', 'model/gltf-binary');
 });
 $('format').addEventListener('click', () => {

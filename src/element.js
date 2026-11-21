@@ -10,6 +10,17 @@
 // ({ id }), lk3d-handle ({ id, value }), lk3d-step ({ index, step }), lk3d-section ({ normal, offset }); a scene that
 // cannot be read or drawn, as lk3d-error ({ message }), its words shown in the element.
 
+// elements refused because their scene draws glTF models and the page had no reader yet: drawn again once the models
+// add-on gives it (retryModels), whichever order the page's scripts come in
+/** @type {Set<any>} */
+const waiting = new Set();
+export function retryModels() {
+  for (const el of waiting) {
+    waiting.delete(el);
+    if (el.isConnected) el.load();
+  }
+}
+
 /** @param {(el: HTMLElement, scene: any, opts?: any) => any} mount */
 export function defineElement(mount) {
   if (typeof customElements === 'undefined' || customElements.get('lk3d-figure')) return;
@@ -100,6 +111,7 @@ export function defineElement(mount) {
         figure.ready.then(() => this.figure === figure && this.resolveReady(figure));
       } catch (error) {
         const message = String(/** @type {Error} */ (error).message || error);
+        if (/** @type {any} */ (error).models) waiting.add(this); // (the scene is kept: drawn when the reader comes)
         this.figure = null;
         this.textContent = message;
         console.error(message);

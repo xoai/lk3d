@@ -1740,7 +1740,7 @@ test('every built file carries the licence notice at its top (and so does every 
   const fs = require('node:fs'),
     path = require('node:path'),
     { version } = require('../package.json');
-  for (const f of ['lk3d.min.js', 'lk3d.mjs', 'lk3d-export.min.js']) {
+  for (const f of ['lk3d.min.js', 'lk3d.mjs', 'lk3d-models.min.js', 'lk3d-export.min.js']) {
     const p = path.join(__dirname, '..', 'dist', f);
     if (!fs.existsSync(p)) continue; // (not built yet)
     assert.ok(
@@ -1789,5 +1789,45 @@ test('every field is one of the format’s: a misspelt one is caught and the nea
   assert.deepEqual(
     validate({ parts: [part({ extras: { claim: 'c1', x: [1] } })], extras: { planets: [{ R: 1 }] } }),
     [],
+  );
+});
+
+test('the global script leaves the glTF reader to the models add-on: a model scene is refused, naming it and the add-on', () => {
+  // (in a child process: this file's own require of src/index.js gives the reader to the whole process)
+  const { spawnSync } = require('node:child_process'),
+    path = require('node:path'),
+    gltf = require('../src/gltf-write.js');
+  const glb = Buffer.from(gltf.sceneToGLB({ parts: [{ id: 'b', name: 'B', shapes: [{ box: [1, 1, 1] }] }] })).toString(
+    'base64',
+  );
+  const scene = { models: { cube: { data: glb } }, parts: [{ id: 'm', name: 'M', shapes: [{ model: 'cube' }] }] };
+  const run = (entry) =>
+    spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `import L from ${JSON.stringify(path.join(__dirname, '../src', entry))}; ` +
+          `try { console.log(L.build(${JSON.stringify(scene)}).parts.length) } catch (e) { console.log(e.message) }`,
+      ],
+      { encoding: 'utf8' },
+    ).stdout.trim();
+  const core = run('core.js');
+  assert.match(core, /cube/);
+  assert.match(core, /lk3d-models\.min\.js/);
+  assert.equal(run('index.js'), '1', 'the ES module has the reader');
+  // the reader given (as the add-on gives it): the same scene builds
+  assert.equal(
+    spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `import L from ${JSON.stringify(path.join(__dirname, '../src/core.js'))}; import * as G from ${JSON.stringify(path.join(__dirname, '../src/gltf.js'))}; ` +
+          `L.useModels({ load: G.load, parseGLB: G.parseGLB, bytes: G.bytes }); console.log(L.build(${JSON.stringify(scene)}).parts.length)`,
+      ],
+      { encoding: 'utf8' },
+    ).stdout.trim(),
+    '1',
   );
 });

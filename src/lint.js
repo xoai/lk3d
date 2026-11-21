@@ -8,6 +8,7 @@
 // may run into each other or hide each other's label (two pictures of one molecule, shown in turn), check: { float:
 // [ids or groups] } for parts that hang in the air (planets, a cell's own nucleus drawn beside it), or float: true for a
 // scene whose parts all float.
+import './models.js'; // (the glTF reader: a scene's models are checked like its other parts)
 import { buildScene, flatten, isClosed } from './geometry.js';
 import { buildBVH, intersect } from './bvh.js';
 import { M, add, mulv, sub, cross, dot, len, norm } from './math.js';

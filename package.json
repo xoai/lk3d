@@ -50,7 +50,8 @@
     "./bundle": "./dist/lk3d.min.js",
     "./package.json": "./package.json",
     "./bundle.mjs": "./dist/lk3d.mjs",
-    "./bundle-export": "./dist/lk3d-export.min.js"
+    "./bundle-export": "./dist/lk3d-export.min.js",
+    "./bundle-models": "./dist/lk3d-models.min.js"
   },
   "files": [
     "bin/",
@@ -71,6 +72,10 @@
   ],
   "sideEffects": [
     "./src/index.js",
+    "./src/core.js",
+    "./src/script.js",
+    "./src/models.js",
+    "./src/models-script.js",
     "./src/export.js",
     "./src/export-script.js",
     "./dist/*"

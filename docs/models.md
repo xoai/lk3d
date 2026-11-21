@@ -17,6 +17,17 @@ scene.models = {
 scene.parts = [{ id: 'skull', name: 'Skull', shapes: [{ model: 'skull' }] }]; // or { model, node: 'Jaw' }: one node
 ```
 
+The reader is an add-on: a page that loads the global script loads it after it, and only a page that shows a model
+needs it (a page importing lk3d as a module, `lk3d check` and `lk3d render` have it already):
+
+```html
+<script src="https://unpkg.com/lk3d/dist/lk3d.min.js"></script>
+<script src="https://unpkg.com/lk3d/dist/lk3d-models.min.js"></script>
+```
+
+Without it, a scene with a model is refused by name (`this scene draws glTF models (skull): load
+dist/lk3d-models.min.js after dist/lk3d.min.js`), and an `<lk3d-figure>` refused so is drawn once the add-on comes.
+
 Each model is credited under the figure: its title (linked to `url`), author and licence, after the figure's own
 credit when the scene has an `author` or `license` ("© author, licence. 3D model: …").
 

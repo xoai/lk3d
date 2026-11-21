@@ -82,7 +82,7 @@ A mounted figure is made of parts in `src/figure/` (the map: `docs/design.md`, "
 (`build.mjs` renames those fields short). So, like locals, they cost nothing: name them plainly (`c.renderer_`, not
 `c.R_`). The properties of parts, batches, frames and other objects keep their names in the bundle, and are named in
 words all the same. Read shared things as `c.state_.x`, `c.built_.parts`, `c.kick_()`, not through local copies: the
-bundle gzips smaller so. A new part goes into `mount()` (`src/index.js`) where its elements, listeners and timers
+bundle gzips smaller so. A new part goes into `mount()` (`src/core.js`) where its elements, listeners and timers
 belong, and its import with the others, in the same order. The sources are type-checked as JavaScript (`npm run
 typecheck`): JSDoc where the checker cannot tell, the scene's types from `scene.d.ts` (`/** @param
 {import('../scene').Scene} spec */`).

@@ -7,3 +7,5 @@ package-lock.json
 # (made by examples/cell-tour.mjs)
 examples/scenes/cell-tour.json
 examples/scenes/cell-tour-bilayer.json
+# (made by node build.mjs --table)
+docs/size.md

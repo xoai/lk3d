@@ -89,6 +89,8 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
+What each source file adds is in [docs/size.md](docs/size.md); the budget is frozen at 67 KB gzipped.
+
 It draws only when something changes, pauses off screen, lowers its resolution while frames run late, compiles its
 realistic shaders in the background, never reads back from the GPU or the page layout while drawing, and falls back
 from WebGL 2 to WebGL 1 to Canvas 2D. On a laptop every example scene holds a 120 Hz screen's rate with under 1 ms of

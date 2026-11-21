@@ -5,6 +5,7 @@
 // its punctuation the same way.
 //   node build.mjs            write dist/
 //   node build.mjs --size     and fail if a script grows past its budget (gzipped: the core BUDGET_KB, the add-ons theirs)
+//   node build.mjs --table    and write docs/size.md: each source file's share of the global script
 //   import { bundle } from './build.mjs'; const js = await bundle()     the global script, in memory (lk3d's own tools)
 import * as esbuild from 'esbuild';
 import fs from 'node:fs';
@@ -138,4 +139,38 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         console.error(`✗ dist/${file} is ${bytes(js)} B gzipped, over its budget of ${budget} KB`);
         process.exitCode = 1;
       } else console.log(`✓ dist/${file}: ${bytes(js)} B gzipped, within its budget of ${budget} KB`);
+  if (process.argv.includes('--table')) {
+    fs.writeFileSync(path.join(HERE, 'docs/size.md'), await sizeTable(bytes(iife)));
+    console.log('docs/size.md');
+  }
+}
+
+// docs/size.md: what each source file adds to the global script. esbuild says how many bytes of the minified script
+// each one makes (its shaders squeezed as the build squeezes them); gzip works on the whole, so each file's gzipped share
+// is an estimate: its share of the minified bytes, of the gzipped total.
+async function sizeTable(gzipped) {
+  const result = await esbuild.build({ ...options('iife', ENTRY), metafile: true }),
+    out = Object.values(result.metafile.outputs)[0],
+    rows = Object.entries(out.inputs)
+      .map(([file, { bytesInOutput }]) => [path.relative(HERE, file), bytesInOutput])
+      .filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)),
+    total = rows.reduce((sum, [, n]) => sum + n, 0),
+    kb = (n) => (n / 1024).toFixed(1);
+  return [
+    '# Size',
+    '',
+    `What each source file adds to the global script, \`dist/lk3d.min.js\`: ${kb(total)} KB minified and ${kb(gzipped)} KB`,
+    `gzipped, against a budget of ${BUDGET_KB} KB (frozen: see [performance](performance.md#size)). Made by`,
+    '`node build.mjs --size --table`. The minified bytes are exact; the gzipped share is an estimate (gzip compresses the',
+    "whole script, not each file): the file's share of the minified bytes, of the gzipped total.",
+    '',
+    '| File | Minified | Gzipped (estimate) | Share |',
+    '| ---- | -------: | -----------------: | ----: |',
+    ...rows.map(
+      ([file, n]) =>
+        `| \`${file}\` | ${kb(n)} KB | ${kb((n / total) * gzipped)} KB | ${((100 * n) / total).toFixed(1)} % |`,
+    ),
+    '',
+  ].join('\n');
 }

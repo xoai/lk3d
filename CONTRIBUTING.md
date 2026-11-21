@@ -50,9 +50,12 @@ npm run test:visual    # reference scenes compared with stored pictures
   between browsers and platforms, so each keeps its own (`test/visual/baselines/<browser>-<platform>/`). Stored today:
   Chromium and Firefox on macOS; Chromium, Firefox and WebKit on Linux. WebKit is skipped on macOS 14 and older
   (Playwright cannot drive its build there). The CI workflow is `.github/workflows/ci.yml`, run in this public
-  repository on Linux in all three browsers (lessonkit runs only the quick checks). A change that changes pictures
-  changes the Linux ones too: run the workflow by hand with "update" ticked, download the "baselines" artifact into
-  `test/visual/baselines/`, look at the pictures and commit them; until then its image tests fail.
+  repository on Linux (Ubuntu 26.04, pinned: WebKit draws with the system's libraries, so a new Ubuntu changes its
+  pictures) in all three browsers (lessonkit runs only the quick checks). A change that changes pictures changes the
+  Linux ones too: run the workflow by hand with "update" ticked, download the "baselines" artifact into
+  `test/visual/baselines/`, look at the pictures and commit them; until then its image tests fail. (The "update" run
+  needs every picture to come out the same twice in a row; when one will not, take the changed pictures from a normal
+  run's "image-test-results" artifact instead: each failing test's `-actual.png`.)
 - **A new shape, material, surface or environment** goes into the schema too (`schema/scene.schema.json`): a test
   checks that the schema names exactly what the engine draws. Then `npm run docs` makes the scene-format reference and
   the shape pictures again, and `npm run types` the scene's TypeScript types (`scene.d.ts`, generated from the schema:

@@ -17,7 +17,10 @@ permissions:
   contents: read
 jobs:
   engine:
-    runs-on: ubuntu-latest
+    # (pinned, not ubuntu-latest: WebKit draws with the system's libraries, so a new Ubuntu changes its pictures; when
+    # ubuntu-latest moved from 24.04 to 26.04 in November 2026, six WebKit 2D pictures did. A new Ubuntu here is a change
+    # of its own, made with the "update" run and its pictures looked at)
+    runs-on: ubuntu-26.04
     # (a full run takes about 11 minutes; a hang stops here, not at GitHub's six hours)
     timeout-minutes: 30
     steps:

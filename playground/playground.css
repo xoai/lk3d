@@ -116,7 +116,6 @@ main {
   min-width: 3.2em;
   text-align: right;
   color: var(--muted);
-  opacity: 0.7;
   overflow: hidden;
   user-select: none;
 }

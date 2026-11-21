@@ -43,7 +43,7 @@ lk3d-figure{display:block}
 .lk3d-stage[data-theme] .lk3d-tag{background:var(--lk3d-paper); color:var(--lk3d-ink); border:1px solid var(--lk3d-line); font-family:system-ui, sans-serif; font-size:12.5px}
 .lk3d-stage[data-theme] .lk3d-tag.on{background:var(--lk3d-highlight); color:var(--lk3d-ink)}
 .lk3d-stage[data-theme] .lk3d-lines line{stroke:var(--lk3d-line); stroke-width:.8} .lk3d-stage[data-theme] .lk3d-lines path.lk3d-dim{stroke:var(--lk3d-line)} .lk3d-stage[data-theme] .lk3d-dimtext{background:var(--lk3d-paper); color:var(--lk3d-ink)} .lk3d-stage[data-theme] .lk3d-lines circle{fill:var(--lk3d-line)}
-.lk3d-stage[data-theme] .lk3d-hint{color:var(--lk3d-muted); background:var(--lk3d-paper)} .lk3d-stage[data-theme] .lk3d-mark{color:var(--lk3d-muted)}
+.lk3d-stage[data-theme] .lk3d-hint{color:var(--lk3d-ink); background:var(--lk3d-paper)} .lk3d-stage[data-theme] .lk3d-mark{color:var(--lk3d-muted)}
 .lk3d-stage[data-theme] .lk3d-scale{color:var(--lk3d-ink)} .lk3d-stage[data-theme] .lk3d-note{background:var(--lk3d-paper); color:var(--lk3d-warn)}
 .lk3d-sr{position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 .lk3d-stage.lk3d-kbd{box-shadow:0 0 0 2px var(--lk3d-accent, #2f5fb3)}

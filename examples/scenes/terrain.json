@@ -1,0 +1,110 @@
+{
+  "w": 16,
+  "h": 10,
+  "title": "Rock layers and a fault",
+  "alt": "Two blocks of ground with tilted rock layers, one dropped down along a fault.",
+  "view": {
+    "yaw": -35,
+    "pitch": 22
+  },
+  "scale": {
+    "note": "A diagram: not to scale"
+  },
+  "section": false,
+  "parts": [
+    {
+      "id": "left",
+      "name": "Footwall",
+      "note": "the block that stayed in place.",
+      "material": "rock",
+      "surface": {
+        "kind": "grain",
+        "scale": 6,
+        "strength": 0.6
+      },
+      "explode": [-0.3, 0, 0],
+      "shapes": [
+        {
+          "terrain": {
+            "size": [1.4, 1.6],
+            "res": 28,
+            "base": 0.7,
+            "height": {
+              "amp": 0.12,
+              "freq": 1.4,
+              "seed": 3
+            },
+            "layers": [
+              {
+                "thick": 0.12,
+                "color": "#c9a46a"
+              },
+              {
+                "thick": 0.18,
+                "color": "#9b6b43"
+              },
+              {
+                "thick": 0.16,
+                "color": "#d8c7a0"
+              },
+              {
+                "thick": 0.3,
+                "color": "#7d7f86"
+              }
+            ],
+            "top": "#7a9a55",
+            "tilt": 9
+          },
+          "at": [-0.7, 0, 0]
+        }
+      ]
+    },
+    {
+      "id": "right",
+      "name": "Hanging wall",
+      "note": "the block that slipped down along the fault: the same layers, lower.",
+      "material": "rock",
+      "surface": {
+        "kind": "grain",
+        "scale": 6,
+        "strength": 0.6
+      },
+      "explode": [0.3, 0, 0],
+      "shapes": [
+        {
+          "terrain": {
+            "size": [1.4, 1.6],
+            "res": 28,
+            "base": 0.7,
+            "height": {
+              "amp": 0.12,
+              "freq": 1.4,
+              "seed": 5
+            },
+            "layers": [
+              {
+                "thick": 0.12,
+                "color": "#c9a46a"
+              },
+              {
+                "thick": 0.18,
+                "color": "#9b6b43"
+              },
+              {
+                "thick": 0.16,
+                "color": "#d8c7a0"
+              },
+              {
+                "thick": 0.3,
+                "color": "#7d7f86"
+              }
+            ],
+            "top": "#7a9a55",
+            "tilt": 9
+          },
+          "at": [0.7, -0.22, 0]
+        }
+      ]
+    }
+  ]
+}

@@ -76,3 +76,16 @@ test('a scene is drawn and checked as it is typed; a problem is shown where it i
   await expect.poll(() => page.locator('.lk3d-dimtext').allInnerTexts()).toEqual(['45 cm', '15 cm']);
   expect(errors).toEqual([]);
 });
+
+test('the gallery: every example the index links to opens in the playground, checked clean', async ({ page }) => {
+  await page.goto('/examples/index.html');
+  const links = await page.$$eval('a[href*="#example="]', (as) => as.map((a) => a.getAttribute('href')));
+  expect(links.length).toBeGreaterThanOrEqual(12);
+  for (const link of links) {
+    const name = link.split('=')[1];
+    await page.goto(new URL(link, page.url()).href);
+    await page.reload(); // (a new hash alone does not load a page again)
+    await expect(page.locator('#example')).toHaveValue(name);
+    await expect(page.locator('#problems')).toContainText('No problems', { timeout: 20000 });
+  }
+});

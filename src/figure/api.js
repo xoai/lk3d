@@ -192,6 +192,20 @@ export function makeApi(c) {
       });
     },
     redraw: c.kick_,
+    // a PNG of the figure as drawn now (no HTML labels), as a data URL: drawn first and read at once (WebGL keeps no
+    // picture after the frame), waiting while shaders compile; a figure that never had a WebGL context gets one
+    picture() {
+      return new Promise((resolve, reject) => {
+        const attempt = () => {
+          if (c.destroyed_ || !c.host_.getClientRects().length)
+            return reject(new Error('lk3d: picture() of a figure not on the page (hidden, or destroyed)'));
+          if (!c.renderer_.kind) c.claimGL_();
+          if (c.renderer_.kind && c.drawNow_()) resolve(c.drawCanvas_.toDataURL('image/png'));
+          else setTimeout(attempt, 30);
+        };
+        attempt();
+      });
+    },
     // draw the state as it is now, before returning (a tool that screenshots right after setting it); false while the
     // shaders are still compiling (it draws again on the next frame by itself)
     drawNow: c.drawNow_,

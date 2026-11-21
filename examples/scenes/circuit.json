@@ -1,0 +1,114 @@
+{
+  "w": 16,
+  "h": 9,
+  "title": "A simple circuit",
+  "alt": "A battery, wires and a lamp in a loop.",
+  "view": {
+    "yaw": -20,
+    "pitch": 25
+  },
+  "section": false,
+  "parts": [
+    {
+      "id": "wire",
+      "name": "Wire",
+      "note": "copper: the current flows along it.",
+      "material": "copper",
+      "color": "#c8743a",
+      "shapes": [
+        {
+          "tube": [
+            [-1, -0.5, 0],
+            [1, -0.5, 0],
+            [1, 0.5, 0],
+            [0.12, 0.5, 0],
+            [-0.12, 0.5, 0],
+            [-1, 0.5, 0]
+          ],
+          "r": 0.012,
+          "closed": true
+        }
+      ]
+    },
+    {
+      "id": "battery",
+      "name": "Battery",
+      "note": "pushes the charges round the circuit.",
+      "material": "paint",
+      "color": "#3a3a40",
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.12,
+            "x0": -0.25,
+            "x1": 0.25
+          },
+          "at": [0, -0.5, 0]
+        },
+        {
+          "cylinder": {
+            "r": 0.05,
+            "x0": 0.25,
+            "x1": 0.3
+          },
+          "at": [0, -0.5, 0],
+          "color": "#c9b27a"
+        }
+      ]
+    },
+    {
+      "id": "socket",
+      "name": "Lamp holder",
+      "note": "joins the lamp to the wire.",
+      "material": "metal",
+      "color": "#c9b27a",
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.05,
+            "r1": 0.06,
+            "x0": 0.5,
+            "x1": 0.6
+          },
+          "rot": [0, 0, 90]
+        }
+      ]
+    },
+    {
+      "id": "bulb",
+      "name": "Lamp",
+      "note": "its thin filament heats up and glows when current flows.",
+      "material": "glass",
+      "color": "#f4efe0",
+      "glow": "#ffcc55",
+      "opacity": 0.4,
+      "refract": 0.6,
+      "shapes": [
+        {
+          "sphere": 0.15,
+          "at": [0, 0.74, 0]
+        }
+      ]
+    },
+    {
+      "id": "filament",
+      "name": "Filament",
+      "material": "metal",
+      "color": "#7a5a3a",
+      "glow": "#ffb030",
+      "label": false,
+      "shapes": [
+        {
+          "helix": {
+            "r": 0.02,
+            "x0": -0.06,
+            "x1": 0.06,
+            "turns": 6,
+            "wire": 0.006
+          },
+          "at": [0, 0.74, 0]
+        }
+      ]
+    }
+  ]
+}

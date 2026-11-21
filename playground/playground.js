@@ -15,6 +15,10 @@ const EXAMPLES = {
   solar: 'The inner Solar System',
   flow: 'A ducted fan',
   skull: 'A fossil skull (a glTF model)',
+  armillary: 'An armillary sphere (steps, expect)',
+  terrain: 'Rock layers and a fault',
+  gauge: 'A pressure gauge',
+  circuit: 'Current in a circuit',
 };
 const BOLT = {
   title: 'A bolt and a nut',
@@ -183,6 +187,7 @@ async function draw(scene) {
         let binary = '';
         for (let k = 0; k < bytes.length; k += 0x8000) binary += String.fromCharCode(...bytes.subarray(k, k + 0x8000));
         modelData[name] = btoa(binary);
+        check(); // (checked again with the model read in: the first check ran before it came)
       }
       scene.models[name] = { ...model, data: modelData[name] };
     }

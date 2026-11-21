@@ -1,0 +1,102 @@
+{
+  "w": 16,
+  "h": 11,
+  "title": "A pressure gauge",
+  "alt": "A round pressure gauge with a scale from 0 to 10 bar and a needle.",
+  "view": {
+    "yaw": 0,
+    "pitch": 0
+  },
+  "section": false,
+  "ground": false,
+  "parts": [
+    {
+      "id": "case",
+      "name": "Case",
+      "note": "a steel ring around the dial.",
+      "material": "steel",
+      "color": "#9aa3ad",
+      "surface": {
+        "kind": "brushed",
+        "scale": 40,
+        "strength": 0.3
+      },
+      "shapes": [
+        {
+          "torus": [1.02, 0.07],
+          "rot": [0, -90, 0]
+        },
+        {
+          "cylinder": {
+            "r": 1.02,
+            "x0": -0.08,
+            "x1": -0.02
+          },
+          "rot": [0, -90, 0]
+        }
+      ]
+    },
+    {
+      "id": "dial",
+      "name": "Dial",
+      "note": "its scale runs from 0 to 10 bar.",
+      "label": [0, 0.55, 0.01],
+      "material": "paint",
+      "color": "#f4efe0",
+      "shapes": [
+        {
+          "cylinder": {
+            "r": 0.98,
+            "x0": -0.02,
+            "x1": 0
+          },
+          "rot": [0, -90, 0]
+        },
+        {
+          "box": [0.025, 0.14, 0.02],
+          "at": [0, 0.8, 0.01],
+          "repeat": {
+            "n": 11,
+            "step": 24,
+            "start": -120,
+            "axis": "z"
+          },
+          "color": "#1d1a1e"
+        }
+      ]
+    },
+    {
+      "id": "needle",
+      "name": "Needle",
+      "note": "drag it round, or Tab to it and use the arrow keys.",
+      "material": "paint",
+      "color": "#c0392b",
+      "glow": "#ff6a4a",
+      "handle": {
+        "turn": {
+          "axis": [0, 0, 1],
+          "center": [0, 0, 0.05]
+        },
+        "min": -120,
+        "max": 120,
+        "snap": 1,
+        "value": 0,
+        "label": "Pressure"
+      },
+      "shapes": [
+        {
+          "box": [0.05, 0.78, 0.02],
+          "at": [0, 0.34, 0.05]
+        },
+        {
+          "cylinder": {
+            "r": 0.07,
+            "x0": 0,
+            "x1": 0.08
+          },
+          "rot": [0, -90, 0]
+        }
+      ]
+    }
+  ]
+}

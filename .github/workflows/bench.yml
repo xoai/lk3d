@@ -1,0 +1,26 @@
+# Is the current build slower than the last one published? Nightly, and by hand: test/bench/ab.mjs draws the bench
+# scenes with this build and with lk3d@latest in turn, round after round, and flags a metric only when it is slower in
+# a paired t-test (p < 0.05) and by more than 15 %. It never blocks a push. In lk3d's own repository (public: its
+# runners cost nothing); GitHub ignores this folder inside lessonkit. Linux runners draw in software (SwiftShader), so
+# the times are only good for comparing the two builds.
+name: bench
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  speed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: node test/bench/ab.mjs

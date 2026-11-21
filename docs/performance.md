@@ -161,6 +161,17 @@ last picture on a 2D canvas until it comes back and draws again (design.md, "Man
 mounts 24 figures and scrolls through them: each draws, at most 8 hold a context, none falls back to 2D or is blank,
 and the first, scrolled back to, draws the same picture as before.
 
+## Is a build slower?
+
+`test/bench/ab.mjs` draws the bench scenes (`cell`, `engine`, `molecules`, `generator`) with the current build and with
+the published `lk3d@latest` (fetched with `npm pack`, or `BASE=path`), in turn and in fresh pages, 10 rounds, with the
+CPU at 1× and slowed 6×: the time to the first picture (from the page's call to `mount`) and the median frame while the
+view turns. A metric is flagged only when the candidate is slower in a paired t-test (p < 0.05) and by more than 15 %;
+one whose runs spread by more than 10 % is inconclusive and passes, and so is a run with no base. The `bench` workflow
+runs it nightly in lk3d's repository and by hand, and never blocks a push. On Linux runners Chromium draws in software
+(SwiftShader), so there the times only compare the two builds; they say nothing of a phone. A planted 150 ms in
+`mount` is flagged (+435 %, p < 0.001); two copies of one build come out "no change" or inconclusive.
+
 ## Devices still to measure
 
 - A recent iPhone (the adaptive resolution and the background shader compiling were tuned on one).

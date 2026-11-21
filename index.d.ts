@@ -110,6 +110,11 @@ export interface MountOptions {
   onSection?: (section: { normal: Vec3; offset: number }) => void;
   /** what a screen reader says for a handle's value */
   handleText?: (id: string, value: number) => string | undefined;
+  /** the figure changed, and who changed it: at most once a frame; while the reader drags, every 250 ms and once
+   * more when the view stops; a playing motion at most every 250 ms. A set() inside it does not call it again */
+  onChange?: (state: FigureState, cause: ChangeCause) => void;
+  /** what the reader may not change (the page's set, step and handle().set still may); fig.lock() changes it */
+  lock?: Lockable[];
   /** 'en' (default), 'vi', or any key of LK3D.locales */
   locale?: string;
   strings?: Partial<Strings>;
@@ -251,6 +256,47 @@ export interface CameraView {
   target?: Vec3;
 }
 
+/** what the page can lock against the reader: the camera (orbit, pan, zoom, the view buttons), taking apart, the
+ * cut, see-through, the steps' Back and Next, the handles, and playing or pausing motions */
+export type Lockable = 'camera' | 'explode' | 'cut' | 'xray' | 'steps' | 'handles' | 'motions';
+/** who changed the figure: the reader (gestures, the built-in controls, the steps' panel, the handles' inputs), the
+ * page (its own calls, fig.step too) or a playing motion */
+export type ChangeCause = 'reader' | 'page' | 'motion';
+/** what the reader can change, as one plain object (JSON): fig.state() gives it, fig.set() takes it (or any part of
+ * it), LK3D.encodeState() makes it a link. While something moves (a step, the camera, taking apart, the cut) it holds
+ * where that is going */
+export interface FigureState {
+  v: 1;
+  /** the step shown: its id, else its place from 0; -1 before the first (or none) */
+  step: string | number;
+  explode: number;
+  /** 0: whole; 1: cut at the section; between: the cut sweeping in */
+  cut: number;
+  section: { normal: Vec3; offset: number; second: { normal: Vec3; offset: number } | null };
+  xray: boolean;
+  labels: Labels;
+  style: Look;
+  /** null: none set */
+  theme: string | null;
+  camera: { yaw: number; pitch: number; dist: number; target: Vec3 };
+  /** motions' values, by id */
+  motion: Record<string, number>;
+  /** the motions playing, by id */
+  playing: string[];
+  /** handles' values, by their part's id */
+  handles: Record<string, number>;
+  joints: Record<string, number>;
+  selected: string | null;
+  /** the parts and groups hidden by the page */
+  hide: string[];
+  /** liquids' volumes, by their part's id */
+  liquids: Record<string, number>;
+  /** how open each vessel is, 0 to 1 (a vessel whose valve is a motion: not here, its motion says) */
+  vessels: Record<string, { open: number }>;
+  /** gases' moles and temperature (K), by their part's id */
+  gases: Record<string, { n: number; T: number }>;
+}
+
 export interface Figure {
   /** '' while the figure waits for a WebGL context (far off screen on a page holding many figures) */
   readonly renderer: 'webgl2' | 'webgl1' | '2d' | '';
@@ -258,14 +304,34 @@ export interface Figure {
   readonly parts: BuiltPart[];
   /** resolves once the figure is complete: its first picture, the crease shading, every texture */
   readonly ready: Promise<Figure>;
+  /** change the figure: any of these, or a whole state (fig.state()), whose step is applied first and the rest over
+   * it (onChange is called, with 'page'; onHandle is not) */
   set(o: {
+    /** a state's version (FigureState) */
+    v?: 1;
+    /** go to a step at once, by its place (from 0) or id; -1: before the first */
+    step?: number | string;
+    /** handles' values, by their part's id */
+    handles?: Record<string, number>;
+    /** choose a part (or null) */
+    selected?: string | null;
+    /** the motions playing, by id (the others are paused) */
+    playing?: string[];
+    liquids?: Record<string, number>;
+    vessels?: Record<string, { open: number }>;
+    gases?: Record<string, { n?: number; T?: number }>;
     /** the spin angle, degrees, of parts with `spin` */
     spin?: number;
     explode?: number;
     /** the cut: on, off, or how far its plane has swept in (0: just outside the model, nothing cut; 1: at the section) */
     cut?: boolean | number;
     /** the cut's plane: what lies on the side the normal points to, beyond offset along it, is cut away */
-    section?: { normal?: Vec3; offset?: number };
+    section?: {
+      normal?: Vec3;
+      offset?: number;
+      /** a quarter cut's second plane, or null for none */
+      second?: { normal?: Vec3; offset?: number } | null;
+    };
     xray?: boolean;
     labels?: Labels;
     style?: Look;
@@ -288,6 +354,16 @@ export interface Figure {
     /** the dimensions shown, by id ([]: none), or null: the scene's own (those not hidden) */
     dimensions?: string[] | null;
   }): void;
+  /** what the reader can change, now (or where it is going, while it moves): set(state()) leaves the picture as it is */
+  state(): FigureState;
+  /** what the reader may not change from now on ([]: nothing); the page's own calls still may */
+  lock(list: Lockable[]): void;
+  /** the figure in words, as a screen reader hears it (the D key): the title, taken apart or not, the cut,
+   * see-through, the step, and the scene's own sentences (scene.describe) */
+  describe(): string;
+  /** a PNG of the figure as drawn now (no HTML labels), as a data URL; it draws first, waiting while shaders
+   * compile, in WebGL or 2D, on screen or not. It rejects for a figure the page hides (display: none) */
+  picture(): Promise<string>;
   /** a motion of the scene, to set or play */
   /** the figure as glTF 2.0 binary (.glb), posed as it is now; animate: each motion as an animation. Needs the
    * exporter: import lk3d/export, or load dist/lk3d-export.min.js after dist/lk3d.min.js (it throws without) */
@@ -329,8 +405,9 @@ export interface Figure {
   /** choose a part (or null) without calling onPick */
   select(id: string | null): void;
   readonly labels: Labels;
-  /** the cut's plane now: the scene's, a step's, the page's or where the reader moved it */
-  readonly section: { normal: Vec3; offset: number };
+  /** the cut's plane now: the scene's, a step's, the page's or where the reader moved it; second: a quarter cut's
+   * second plane, or null */
+  readonly section: { normal: Vec3; offset: number; second: { normal: Vec3; offset: number } | null };
   readonly style: Look;
   readonly theme: string | null;
   readonly timeScale: number;
@@ -393,6 +470,10 @@ export interface Clock {
 export const clock: Clock;
 /** a part's words as HTML: plain text, keeping only bare b, i, em, strong, sub, sup and br */
 export function safeHTML(s: string): string;
+/** a state as text for a link (location.hash): compressed where the browser can (CompressionStream) */
+export function encodeState(state: Partial<FigureState>): Promise<string>;
+/** a state from encodeState's text, or from a Share link the playground made before 0.4.0 */
+export function decodeState(text: string): Promise<Partial<FigureState>>;
 
 declare const LK3D: {
   mount: typeof mount;
@@ -406,6 +487,8 @@ declare const LK3D: {
   /** the version of the scene format this engine reads */
   format: number;
   safeHTML: typeof safeHTML;
+  encodeState: typeof encodeState;
+  decodeState: typeof decodeState;
   /** the glTF writer, set by the exporter (lk3d/export, dist/lk3d-export.min.js): what exportGLB() calls */
   toGLB?: (scene: unknown, o?: object) => Uint8Array;
   /** gives the engine its glTF reader: called by dist/lk3d-models.min.js (a page that loads lk3d as a script and shows
@@ -421,7 +504,9 @@ export interface ModelReader {
 export default LK3D;
 
 /** <lk3d-figure>: a figure as an HTML element (src="scene.json", or a JSON script inside; attributes look, theme,
- * labels, step, locale, controls="false", steps="false", info="false", transparent), defined when lk3d loads */
+ * labels, step, locale, controls="false", steps="false", info="false", transparent; state: encodeState's text,
+ * applied after step, and again after each remount; lock="handles camera": what the reader may not change), defined
+ * when lk3d loads */
 export interface Lk3dFigureElement extends HTMLElement {
   /** the figure's API, once mounted (a new one each time the element mounts it again) */
   readonly figure: Figure | null;
@@ -435,6 +520,7 @@ export interface Lk3dFigureEvents {
   'lk3d-step': CustomEvent<{ index: number; step: Step }>;
   'lk3d-section': CustomEvent<{ normal: Vec3; offset: number }>;
   'lk3d-error': CustomEvent<{ message: string }>;
+  'lk3d-change': CustomEvent<{ state: FigureState; cause: ChangeCause }>;
 }
 declare global {
   interface HTMLElementTagNameMap {

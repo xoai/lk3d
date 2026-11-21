@@ -287,6 +287,14 @@
       },
       "description": "What must be true of the model, checked by lk3d check (lk3d/lint): a part inside another, touching it, clear of it, above it, its size, seen in a step. The engine does not read them."
     },
+    "describe": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "The figure's own sentences for describe() (and for screen readers), one per motion, handle (by its part's id), liquid or gas: \"The sky has turned {value}° from where it started.\" {value} is the number alone, written as the locale writes numbers; the sentence gives the unit."
+    },
     "dimensions": {
       "type": "array",
       "minItems": 1,
@@ -605,6 +613,17 @@
           "$ref": "#/$defs/vec3",
           "description": "Moves the whole part."
         },
+        "place": {
+          "$ref": "#/$defs/place"
+        },
+        "mirrorOf": {
+          "type": "string",
+          "description": "This part is that part's mirror image across `plane`: its shapes reflected (faces kept outward), and its material, color, studioColor, opacity, edges, surface, cut and xray unless this part gives them; its label and explode reflected unless given. A mirror part has no shapes, at, rot, scale, place, spin or handle of its own. Needs lk3d 0.4.0 or later (an older engine draws it as nothing)."
+        },
+        "plane": {
+          "enum": ["x", "y", "z"],
+          "description": "The plane mirrorOf reflects across, through the origin: x is the plane x = 0 (left and right swap)."
+        },
         "rot": {
           "$ref": "#/$defs/vec3",
           "description": "Turns the whole part (degrees about x, y, z)."
@@ -693,9 +712,98 @@
             }
           },
           "x-message": "refract is for a glass part (material: glass)"
+        },
+        "mirrorOf": {
+          "required": ["plane"]
+        },
+        "plane": {
+          "required": ["mirrorOf"]
         }
       },
       "additionalProperties": false
+    },
+    "place": {
+      "type": "object",
+      "description": "Where the part goes, said by its relation to other parts: lk3d place works out its `at` from this and writes it into the file, and lk3d check refuses an `at` that no longer matches. The part's box is its shapes' after its own `rot` and `scale`, without its `at`; the other part's is as drawn at rest. An axis no relation fixes keeps the value in `at` (or 0), and two relations fixing one axis are refused. The engine reads only `at`.",
+      "properties": {
+        "on": {
+          "type": "string",
+          "description": "Its lowest point meets this part's highest, centred on it along x and z (unless another relation fixes them)."
+        },
+        "under": {
+          "type": "string",
+          "description": "Its highest point meets this part's lowest, centred under it along x and z (unless another relation fixes them)."
+        },
+        "in": {
+          "type": "string",
+          "description": "Its centre is this part's centre, along each axis no other relation fixes."
+        },
+        "against": {
+          "type": "string",
+          "description": "It touches this part's face on `side`, `gap` away."
+        },
+        "side": {
+          "enum": ["+x", "-x", "+y", "-y", "+z", "-z"],
+          "description": "Which face of `against` it touches."
+        },
+        "gap": {
+          "type": "number",
+          "description": "How far from the face of `against` (0)."
+        },
+        "alignedWith": {
+          "type": "string",
+          "description": "Its centre matches this part's along `axes`."
+        },
+        "axes": {
+          "type": "array",
+          "items": {
+            "enum": ["x", "y", "z"]
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "description": "The axes along which it is aligned with `alignedWith`."
+        },
+        "offset": {
+          "$ref": "#/$defs/vec3",
+          "description": "Added last, after the relations."
+        }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": ["on"]
+        },
+        {
+          "required": ["under"]
+        },
+        {
+          "required": ["in"]
+        },
+        {
+          "required": ["against"]
+        },
+        {
+          "required": ["alignedWith"]
+        }
+      ],
+      "dependentSchemas": {
+        "against": {
+          "required": ["side"]
+        },
+        "side": {
+          "required": ["against"]
+        },
+        "gap": {
+          "required": ["against"]
+        },
+        "alignedWith": {
+          "required": ["axes"]
+        },
+        "axes": {
+          "required": ["alignedWith"]
+        }
+      },
+      "x-message": "place says where the part goes by its relation to another: on, under, in, against (with side, and a gap) or alignedWith (with axes), and an offset added last"
     },
     "shape": {
       "type": "object",

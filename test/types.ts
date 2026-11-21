@@ -21,6 +21,10 @@ import LK3D, {
   type Gas,
   type Step,
   type Lk3dFigureEvents,
+  type FigureState,
+  type ChangeCause,
+  type Lockable,
+  type Place,
 } from 'lk3d';
 import { validate } from 'lk3d/validate';
 import LK3DX, { sceneToGLB } from 'lk3d/export';
@@ -211,3 +215,44 @@ const maybe: Figure | null = element.figure;
 // dimensions: a page shows some, then the scene's own again
 fig.set({ dimensions: ['stroke'] });
 fig.set({ dimensions: null });
+// place and mirrorOf (lk3d place writes at), and the scene's own sentences for describe()
+const placed: Scene = {
+  describe: { day: 'The sky has turned {value}° from where it started.' },
+  parts: [
+    { id: 'pillar', shapes: [{ box: [1, 4, 1] }] },
+    { id: 'cradle', place: { on: 'pillar' }, at: [0, 2, 0], shapes: [{ box: [3, 0.2, 3] }] },
+    { id: 'cap', place: { in: 'cradle', offset: [0, 0.2, 0] }, at: [0, 2.3, 0], shapes: [{ sphere: 0.2 }] },
+    {
+      id: 'clamp',
+      place: { against: 'pillar', side: '-x', gap: 0.1 },
+      at: [-0.6, 0, 0],
+      shapes: [{ box: [0.1, 1, 1] }],
+    },
+    { id: 'wing-l', shapes: [{ box: [2, 0.1, 1], at: [1.5, 2, 0] }] },
+    { id: 'wing-r', mirrorOf: 'wing-l', plane: 'x' },
+  ],
+};
+const aligned: Place = { alignedWith: 'pillar', axes: ['x', 'z'] };
+// @ts-expect-error a place says at least one relation
+const bad12: Place = { offset: [0, 1, 0] };
+void [placed, aligned, bad12];
+// the figure's state: read, kept in a link, set back; who changed it; what the reader may not change
+const stated = mount(document.body, scene, {
+  onChange: (state: FigureState, cause: ChangeCause) => console.log(state.step, state.camera.yaw, cause),
+  lock: ['handles', 'camera'],
+});
+const now: FigureState = stated.state();
+stated.set(now);
+stated.set({ step: 'inside', playing: [], handles: { knob: 2 }, cut: 0.5 });
+const second: { normal: Vec3; offset: number } | null = stated.section.second;
+LK3D.encodeState(now).then((text: string) => LK3D.decodeState(text).then((back) => stated.set(back)));
+const locks: Lockable[] = ['steps'];
+stated.lock(locks);
+// @ts-expect-error only the reader's controls can be locked
+stated.lock(['zoom']);
+const words: string = stated.describe();
+stated.picture().then((png: string) => console.log(png.length, words, second));
+element.addEventListener('lk3d-change', (event) => {
+  const { state, cause } = (event as Lk3dFigureEvents['lk3d-change']).detail;
+  console.log(state.v, cause);
+});

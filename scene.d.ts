@@ -172,6 +172,12 @@ export interface Scene {
    */
   expect?: Expectation[];
   /**
+   * The figure's own sentences for describe() (and for screen readers), one per motion, handle (by its part's
+   * id), liquid or gas: "The sky has turned {value}° from where it started." {value} is the number alone,
+   * written as the locale writes numbers; the sentence gives the unit.
+   */
+  describe?: { [key: string]: string };
+  /**
    * Dimensions drawn on the figure: lengths between points and angles at vertices, with their values, as on a
    * technical drawing; worked out from the points as shown, so a length to a moving part changes as it moves.
    */
@@ -607,6 +613,16 @@ export interface Part {
   explode?: Vec3;
   /** Moves the whole part. */
   at?: Vec3;
+  place?: Place;
+  /**
+   * This part is that part's mirror image across `plane`: its shapes reflected (faces kept outward), and its
+   * material, color, studioColor, opacity, edges, surface, cut and xray unless this part gives them; its label
+   * and explode reflected unless given. A mirror part has no shapes, at, rot, scale, place, spin or handle of
+   * its own. Needs lk3d 0.4.0 or later (an older engine draws it as nothing).
+   */
+  mirrorOf?: string;
+  /** The plane mirrorOf reflects across, through the origin: x is the plane x = 0 (left and right swap). */
+  plane?: 'x' | 'y' | 'z';
   /** Turns the whole part (degrees about x, y, z). */
   rot?: Vec3;
   /** Stretches the whole part. */
@@ -809,6 +825,47 @@ export type Material =
  * @pattern ^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$
  */
 export type Color = string;
+
+/**
+ * Where the part goes, said by its relation to other parts: lk3d place works out its `at` from this and writes
+ * it into the file, and lk3d check refuses an `at` that no longer matches. The part's box is its shapes' after
+ * its own `rot` and `scale`, without its `at`; the other part's is as drawn at rest. An axis no relation fixes
+ * keeps the value in `at` (or 0), and two relations fixing one axis are refused. The engine reads only `at`.
+ */
+export type Place =
+  | Form<PlaceFields, 'on'>
+  | Form<PlaceFields, 'under'>
+  | Form<PlaceFields, 'in'>
+  | Form<PlaceFields, 'against'>
+  | Form<PlaceFields, 'alignedWith'>;
+
+/** the fields of Place, each optional (Place says which are required, together) */
+export interface PlaceFields {
+  /**
+   * Its lowest point meets this part's highest, centred on it along x and z (unless another relation fixes
+   * them).
+   */
+  on?: string;
+  /**
+   * Its highest point meets this part's lowest, centred under it along x and z (unless another relation fixes
+   * them).
+   */
+  under?: string;
+  /** Its centre is this part's centre, along each axis no other relation fixes. */
+  in?: string;
+  /** It touches this part's face on `side`, `gap` away. */
+  against?: string;
+  /** Which face of `against` it touches. */
+  side?: '+x' | '-x' | '+y' | '-y' | '+z' | '-z';
+  /** How far from the face of `against` (0). */
+  gap?: number;
+  /** Its centre matches this part's along `axes`. */
+  alignedWith?: string;
+  /** The axes along which it is aligned with `alignedWith`. */
+  axes?: Array<'x' | 'y' | 'z'>;
+  /** Added last, after the relations. */
+  offset?: Vec3;
+}
 
 /** The reader moves the part with the pointer or the keys, held to one rule. */
 export type Handle =

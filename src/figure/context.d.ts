@@ -2,7 +2,7 @@
 // passed to each part's factory, which reads what it needs and adds what it owns. Every field ends in _ : the bundle
 // renames them short (build.mjs, mangleProps), as it does locals; nothing public may end in _.
 import type { Scene, Look, SceneTheme, Vec3 } from '../../scene.js';
-import type { MountOptions, BuiltPart } from '../../index.js';
+import type { MountOptions, BuiltPart, Lockable, ChangeCause } from '../../index.js';
 
 /** mount()'s options (index.d.ts) */
 export type Options = MountOptions;
@@ -119,6 +119,26 @@ export interface Ctx {
   canvas_: HTMLCanvasElement;
   /** running animations: each called with the clock's time every frame, kept while it returns true */
   animations_: Set<(now: number) => boolean | void>;
+  // ---- the figure's state (state.js, B2: lk3d 0.4.0)
+  /** where what is moving is going, stored where the move is made (pose.js: explode, cut; camera.js: the camera;
+   * steps.js: the step), so state() can return it; null when nothing is moving there */
+  towards_: {
+    explode: number | null;
+    cut: number | null;
+    camera: { yaw: number; pitch: number; dist: number; target: number[] } | null;
+    step: number | null;
+  };
+  /** what the reader may not change (opts_.lock, fig.lock) */
+  lock_: Set<Lockable>;
+  /** whether the reader may change this now (each gesture asks where it starts) */
+  locked_(what: Lockable): boolean;
+  /** the figure changed: onChange and lk3d-change, at most once a frame (every 250 ms during a drag or a playing
+   * motion), not again from inside onChange */
+  changed_(cause: ChangeCause): void;
+  /** speak to screen readers through the figure's live region (picks and descriptions share it): a newer message
+   * replaces one not yet spoken, at most one a second, and the region is emptied first so the same words are heard
+   * again (dom.js, B3) */
+  say_(text: string): void;
   /** the built-in controls' hooks, told when the page changes what they show (empty with controls: false) */
   controls_: { explode?(v: number): void; motion?(id: string): void; style?(): void };
   motions_: any[];

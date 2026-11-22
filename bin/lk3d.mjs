@@ -10,7 +10,8 @@
 //       engine in a headless browser (Playwright); without Playwright it says so: the scene is then not checked by eye.
 //       --sheet: every picture on one (NAME-sheet.png) and the questions to answer looking at it (NAME-sheet.md);
 //       --names: a picture with every part labelled by its id. Beside each picture, NAME-LOOK-POSE.txt: the figure in words
-//       there (fig.describe()), for its alt text
+//       there (fig.describe()), for its alt text; and NAME-render.json: each picture, its caption, and the renderer that
+//       drew it (webgl2, webgl or 2d)
 //   lk3d place scene.json
 //       each part with place (on, under, in, against, alignedWith) gets the at it says, written into the file: only
 //       those numbers change, and a second run changes nothing; a scene a script makes is placed by that script
@@ -388,10 +389,19 @@ async function render(scenePath) {
         await tab.locator('.lk3d-stage').screenshot({ path: png });
         // (its alt text beside it: the figure in words, as a screen reader hears it there)
         fs.writeFileSync(png.replace(/\.png$/, '.txt'), result.words + '\n');
-        console.log(png + (result.errors.length ? '  errors: ' + result.errors.join('; ') : ''));
+        console.log(
+          png + ` (${result.renderer})` + (result.errors.length ? '  errors: ' + result.errors.join('; ') : ''),
+        );
         errorCount += result.errors.length;
         const step = pose === 'step' ? data.steps[Number(picture.slice(4)) - 1] : null;
-        pictures.push({ png, caption: step ? `step ${picture.slice(4)}: ${step.title || ''}` : `${look} · ${pose}` });
+        pictures.push({
+          png,
+          caption: step ? `step ${picture.slice(4)}: ${step.title || ''}` : `${look} · ${pose}`,
+          look,
+          pose: step ? picture : pose,
+          renderer: result.renderer,
+          errors: result.errors,
+        });
       }
     // every part named by its id, at rest in the first look: the sheet's map of which part is which
     if (flag('names')) {
@@ -405,6 +415,27 @@ async function render(scenePath) {
       pictures.unshift({ png, caption: 'the parts, by id' });
     }
     if (flag('sheet')) await contactSheet(browser, data, name, out, pictures);
+    // what was drawn, by what (WebGL 2, WebGL 1, or the 2D fallback), with each picture's errors: NAME-render.json, for
+    // a tool that shows the pictures (lessonkit's review sheet)
+    fs.writeFileSync(
+      path.join(out, `${name}-render.json`),
+      JSON.stringify(
+        {
+          pictures: pictures
+            .filter((picture) => picture.look)
+            .map(({ png, caption, look, pose, renderer, errors }) => ({
+              file: path.basename(png),
+              caption,
+              look,
+              pose,
+              renderer,
+              errors,
+            })),
+        },
+        null,
+        2,
+      ) + '\n',
+    );
   } finally {
     await browser.close();
     server.close();

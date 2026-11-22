@@ -80,6 +80,16 @@ export interface Strings {
   stepOf: string;
   /** the decimal mark in numbers read out (handles) */
   decimal: string;
+  /** between a pair's two numbers (a plane handle's value): ', ' in English, '; ' in Vietnamese */
+  coordinates: string;
+  /** a plane handle's input, named by the handle's label and its axis: '{label}, {axis}' */
+  planeAxis: string;
+  /** a plane handle's axis along x, y or z, or else its first and second */
+  alongX: string;
+  alongY: string;
+  alongZ: string;
+  firstAxis: string;
+  secondAxis: string;
   /** a control the page has locked against the reader: its title */
   locked: string;
   /** the figure in words (describe(), D): taken apart, put together, cut open across {axis}, at a slant, a quarter

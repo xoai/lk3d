@@ -81,8 +81,9 @@ export interface Grip {
   parts: Part[];
   /** an along handle's path, measured (handles.js: measure) */
   path: any;
-  /** its range input (input.js), for the keyboard and screen readers */
-  input: HTMLInputElement | null;
+  /** its range inputs (input.js), for the keyboard and screen readers: one, or a plane handle's two, each with its axis
+   * (null for a handle of one number) */
+  inputs: [HTMLInputElement, number | null][] | null;
   /** a turn with no stops: it goes round and round */
   round: boolean;
   /** the digits its value is read out to */

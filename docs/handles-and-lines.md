@@ -9,7 +9,18 @@ A part with a `handle` moves under the pointer (mouse, finger or pen), held to o
 { turn: { axis: [1, 0, 0] }, moves: ['rotor'], label: 'Rotor' }        // no min/max: it goes round and round
 { slide: { axis: [1, 0, 0] }, value: -4.5, min: -5.5, max: -0.3, snap: 0.1, moves: ['stand'] }      // a distance
 { along: { path: [[x, y, z], …], closed: true }, label: 'Earth' }       // a place on a path, 0 to 1 of its length
+{ plane: { axes: [[1, 0, 0], [0, 0, 1]], center: [6, 0, 6], names: ['left–right', 'front–back'] },
+  min: [-26, -20], max: [14, 8], snap: 0.1, label: 'Point P' }        // a place in a plane: [u, v]
 ```
+
+- **A plane handle** moves its part anywhere in a plane: through `center` (the part's middle by default), spanned by two
+  `axes` at right angles. Its value is a pair `[u, v]`, scene units along the axes from where the part is drawn, and so
+  are its `min`, `max` and `value`; each axis is held and snapped on its own. Dragged, the part follows the point of the
+  plane under the pointer (seen edge-on, it holds still). For the keyboard and screen readers it is two range inputs,
+  each named by the handle's `label` and its axis: `names`, else "along x" for an axis along x, y or z, else "first
+  direction" and "second direction". `onHandle` and `handleText(id, value, axis)` get the pair (`axis` 0 or 1: which
+  input), `state()` holds it, and the scene's `describe` writes it as the locale writes coordinates ("3.5, 2"; "3,5; 2"
+  in Vietnamese). A page that turns the part (`set({ move })`) turns its plane with it.
 
 - `value` is where the part is drawn (default 0, or `min`); a slide's value is in scene units along its axis.
 - `moves` lists other parts or groups carried with it.

@@ -1242,6 +1242,49 @@ test('a plane handle moves by the mouse in its plane, holds still seen edge-on, 
   expect(after.every(Number.isFinite)).toBe(true);
 });
 
+test('a plane handle is two inputs: Tab reaches each, its keys step its axis by snap, each says its own number', async ({
+  page,
+}) => {
+  await page.evaluate(async (scene) => {
+    window.fig = LK3D.mount(document.getElementById('g'), scene, {
+      controls: false,
+      handleText: (id, v, axis) => `axis ${axis}: ${Array.isArray(v) ? v[axis] : v}`,
+    });
+    await fig.ready;
+  }, PLANE);
+  const x = page.getByRole('slider', { name: 'Point P, along x' }),
+    z = page.getByRole('slider', { name: 'Point P, along z' });
+  await x.focus();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Tab'); // (the next input: the plane's other axis)
+  await expect(z).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  const value = await page.evaluate(() => fig.handle('p').value.map((v) => Math.round(v * 100) / 100 + 0));
+  expect(value).toEqual([0.2, -0.1]);
+  expect(await x.getAttribute('aria-valuetext')).toBe('axis 0: 0.2');
+  expect(await z.getAttribute('aria-valuetext')).toBe('axis 1: -0.1');
+  // named axes, and the Vietnamese words
+  const names = await page.evaluate(async (scene) => {
+    fig.destroy();
+    const named = JSON.parse(JSON.stringify(scene));
+    named.parts[1].handle.plane.names = ['trái–phải', 'trước–sau'];
+    named.parts[1].handle.plane.axes = [
+      [1, 0, 1],
+      [-1, 0, 1],
+    ];
+    const read = () => [...document.querySelectorAll('#g input[type=range]')].map((i) => i.getAttribute('aria-label'));
+    window.fig = LK3D.mount(document.getElementById('g'), named, { controls: false });
+    const given = read();
+    fig.destroy();
+    named.parts[1].handle.plane.names = undefined;
+    window.fig = LK3D.mount(document.getElementById('g'), named, { controls: false, locale: 'vi' });
+    return [given, read()];
+  }, PLANE);
+  expect(names[0]).toEqual(['Point P, trái–phải', 'Point P, trước–sau']);
+  expect(names[1]).toEqual(['Point P, hướng thứ nhất', 'Point P, hướng thứ hai']);
+});
+
 test('lines added to a figure still waiting for its first WebGL context draw in WebGL when it gets one, not in 2D', async ({
   page,
 }) => {

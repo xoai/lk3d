@@ -23,10 +23,12 @@ const tilt = (pitch) => Math.max(-1.45, Math.min(1.45, pitch));
  */
 /** @param {import('./context').Ctx} c @returns {() => void} what makes the range inputs, after the built-in controls */
 export function makeInput(c) {
-  // what a screen reader says for a handle: the page's words (opts.handleText(id, value), e.g. "d = 45 cm"), or the value
-  const valueText = (grip) =>
-    (c.opts_.handleText && c.opts_.handleText(grip.part.id, grip.value)) ||
-    `${+(grip.round ? mod360(grip.value) : grip.value).toFixed(grip.digits)}${grip.handle.unit || (grip.handle.turn ? '°' : '')}`.replace(
+  // what a screen reader says for a handle's input: the page's words (opts.handleText(id, value, axis), e.g. "d = 45 cm";
+  // axis 0 or 1 for a plane handle's two inputs), or the number the input stands for
+  const of = (grip, axis) => (axis == null ? (grip.round ? mod360(grip.value) : grip.value) : grip.value[axis]);
+  const valueText = (grip, axis) =>
+    (c.opts_.handleText && c.opts_.handleText(grip.part.id, grip.value, axis ?? undefined)) ||
+    `${+of(grip, axis).toFixed(grip.digits)}${grip.handle.unit || (grip.handle.turn ? '°' : '')}`.replace(
       '.',
       c.words_.decimal,
     );
@@ -39,9 +41,9 @@ export function makeInput(c) {
     )
       return;
     grip.value = value;
-    if (grip.input) {
-      grip.input.value = String(grip.round ? mod360(value) : value);
-      grip.input.setAttribute('aria-valuetext', valueText(grip));
+    for (const [input, axis] of grip.inputs || []) {
+      input.value = String(of(grip, axis));
+      input.setAttribute('aria-valuetext', valueText(grip, axis));
     }
     if (byReader) c.mark_('reader');
     c.kick_();
@@ -499,70 +501,102 @@ export function makeInput(c) {
   return () => {
     const stage = c.stage_;
     for (const grip of c.handles_) {
-      const handle = grip.handle;
-      if (handle.plane) continue; // (a plane handle's two inputs: made below, once it has them)
-      const range = document.createElement('input');
-      range.type = 'range';
-      range.className = 'lk3d-sr';
-      const step =
-        handle.snap || (handle.along ? 0.01 : handle.turn ? 1 : ((handle.max ?? 1) - (handle.min ?? 0)) / 100);
-      range.min = String(handle.min ?? 0);
-      range.max = String(handle.max ?? (handle.turn ? 360 : 1));
-      range.step = String(step);
-      grip.digits = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9)); // the value read out to the step's last digit
-      range.value = String(grip.value);
-      range.setAttribute('aria-label', handle.label || plainText(grip.part.name) || grip.part.id);
-      range.setAttribute('aria-valuetext', valueText(grip));
-      range.addEventListener('input', () => {
-        // (locked by the page: the input goes back to where the handle is)
-        if (c.locked_('handles')) return void (range.value = String(grip.round ? mod360(grip.value) : grip.value));
-        c.setHandle_(
-          grip,
-          HD.hold(handle, grip.round ? grip.value + HD.unwrap(+range.value - mod360(grip.value)) : +range.value),
-          true,
-        );
-      });
-      // (locked: its keys do nothing, but it keeps the focus, and Tab still leaves it)
-      range.addEventListener('keydown', (event) => {
-        // (D still says the figure: it changes nothing)
-        if (c.locked_('handles') && !/^(Tab|d|D)$/.test(event.key))
-          (event.stopImmediatePropagation(), event.preventDefault());
-      });
-      // (a range input stops at its ends: a handle that goes round and round is turned by its own keys instead)
-      if (grip.round)
-        range.addEventListener('keydown', (event) => {
-          const steps = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -10, PageUp: 10 }[
-            event.key
-          ];
-          if (!steps) return;
-          event.preventDefault();
-          c.setHandle_(grip, HD.hold(handle, grip.value + steps * step), true);
+      const handle = grip.handle,
+        plane = handle.plane,
+        w = c.words_;
+      grip.inputs = [];
+      // one range input for each number the handle holds: a plane handle's two, along each of its axes
+      for (const axis of plane ? [0, 1] : [null]) {
+        const range = document.createElement('input'),
+          end = (/** @type {any} */ v, /** @type {number} */ fallback) => (axis == null ? v : v?.[axis]) ?? fallback;
+        range.type = 'range';
+        range.className = 'lk3d-sr';
+        const min = end(handle.min, plane ? -1 : 0),
+          max = end(handle.max, handle.turn ? 360 : 1),
+          step = handle.snap || (handle.along ? 0.01 : handle.turn ? 1 : (max - min) / 100);
+        range.min = String(min);
+        range.max = String(max);
+        range.step = String(step);
+        grip.digits = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9)); // the value read out to the step's last digit
+        range.value = String(of(grip, axis));
+        const label = handle.label || plainText(grip.part.name) || grip.part.id;
+        // (a plane's axis: its name, or "along x" for an axis along x, y or z, else "first direction" or "second")
+        let name = label;
+        if (plane) {
+          const k = /** @type {number} */ (axis),
+            direction = plane.axes[k].map(Math.abs),
+            along = direction.findIndex((v) => v > 0.999 * Math.hypot(...direction));
+          name = w.planeAxis
+            .replace('{label}', label)
+            .replace(
+              '{axis}',
+              plane.names?.[k] ||
+                w[['alongX', 'alongY', 'alongZ', 'firstAxis', 'secondAxis'][along < 0 ? 3 + k : along]],
+            );
+        }
+        range.setAttribute('aria-label', name);
+        range.setAttribute('aria-valuetext', valueText(grip, axis));
+        range.addEventListener('input', () => {
+          // (locked by the page: the input goes back to where the handle is)
+          if (c.locked_('handles')) return void (range.value = String(of(grip, axis)));
+          const v = +range.value;
+          c.setHandle_(
+            grip,
+            HD.hold(
+              handle,
+              plane
+                ? axis
+                  ? [grip.value[0], v]
+                  : [v, grip.value[1]]
+                : grip.round
+                  ? grip.value + HD.unwrap(v - mod360(grip.value))
+                  : v,
+            ),
+            true,
+          );
         });
-      // (focused: the part lights up)
-      range.addEventListener('focus', () => {
-        if (grip.part.hidden) return;
-        c.state_.selected = grip.part.id;
-        stage.classList.add('lk3d-kbd');
-        c.showInfo_('pick');
-        c.kick_();
-      });
-      range.addEventListener('blur', () => {
-        stage.classList.remove('lk3d-kbd');
-      });
-      grip.input = range;
-      c.host_.append(range);
+        // (locked: its keys do nothing, but it keeps the focus, and Tab still leaves it)
+        range.addEventListener('keydown', (event) => {
+          // (D still says the figure: it changes nothing)
+          if (c.locked_('handles') && !/^(Tab|d|D)$/.test(event.key))
+            (event.stopImmediatePropagation(), event.preventDefault());
+        });
+        // (a range input stops at its ends: a handle that goes round and round is turned by its own keys instead)
+        if (grip.round)
+          range.addEventListener('keydown', (event) => {
+            const steps = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -10, PageUp: 10 }[
+              event.key
+            ];
+            if (!steps) return;
+            event.preventDefault();
+            c.setHandle_(grip, HD.hold(handle, grip.value + steps * step), true);
+          });
+        // (focused: the part lights up)
+        range.addEventListener('focus', () => {
+          if (grip.part.hidden) return;
+          c.state_.selected = grip.part.id;
+          stage.classList.add('lk3d-kbd');
+          c.showInfo_('pick');
+          c.kick_();
+        });
+        range.addEventListener('blur', () => {
+          stage.classList.remove('lk3d-kbd');
+        });
+        grip.inputs.push([range, axis]);
+        c.host_.append(range);
+      }
     }
     // a hidden part's handle is out of reach of the keyboard too: out of the Tab order and of what screen readers read
     (c.syncHandleInputs_ = () => {
       const locked = c.locked_('handles');
-      for (const { part, input } of c.handles_) {
-        if (!input) continue;
-        if (part.hidden) input.blur();
-        input.disabled = input.hidden = !!part.hidden;
-        if (locked) input.setAttribute('aria-disabled', 'true');
-        else input.removeAttribute('aria-disabled');
-        input.title = locked ? c.words_.locked : '';
-      }
+      for (const { part, inputs } of c.handles_)
+        for (const [input] of inputs || []) {
+          if (part.hidden) input.blur();
+          input.disabled = input.hidden = !!part.hidden;
+          if (locked) input.setAttribute('aria-disabled', 'true');
+          else input.removeAttribute('aria-disabled');
+          input.title = locked ? c.words_.locked : '';
+        }
     })();
   };
 }

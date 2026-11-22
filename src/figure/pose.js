@@ -30,7 +30,7 @@ export function makePose(c) {
         value: HD.hold(handle, handle.value ?? (handle.plane ? [0, 0] : 0)), // (a first value outside the range: at its end from the start, not on the first drag)
         parts,
         path: handle.along ? HD.measure(handle.along.path, handle.along.closed) : null,
-        input: null,
+        inputs: null,
         round: !!handle.turn && handle.min == null && handle.max == null, // (a turn with no stops, a rotor: it goes round and round)
       };
       handles.push(grip);

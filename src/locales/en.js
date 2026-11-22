@@ -38,6 +38,13 @@ export default {
   stepOf: 'Step {n} of {count}',
   decimal: '.',
   coordinates: ', ', // (between a pair's numbers: a plane handle's value)
+  // a plane handle's two inputs, each named by the handle and its axis: along x, y or z, else its first or second
+  planeAxis: '{label}, {axis}',
+  alongX: 'along x',
+  alongY: 'along y',
+  alongZ: 'along z',
+  firstAxis: 'first direction',
+  secondAxis: 'second direction',
   // a control the page has locked against the reader (lock, fig.lock): its title
   locked: 'locked by the page',
   // the figure in words (fig.describe(), D): each sentence left out when it does not apply

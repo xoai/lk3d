@@ -46,6 +46,10 @@
       "types": "./place.d.ts",
       "default": "./src/place.js"
     },
+    "./measure": {
+      "types": "./measure.d.ts",
+      "default": "./src/measure.js"
+    },
     "./export": {
       "types": "./export.d.ts",
       "default": "./src/export.js"
@@ -68,6 +72,7 @@
     "lint.d.ts",
     "export.d.ts",
     "place.d.ts",
+    "measure.d.ts",
     "validate.d.ts",
     "docs/*.md",
     "README.md",

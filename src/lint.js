@@ -21,6 +21,7 @@ import { jointsOf, jointOf, motionsOf, solve as solveJoints } from './joints.js'
 import * as FX from './fluids.js';
 import { stepState } from './stepstate.js';
 import { placements } from './place.js';
+import { extentAlong } from './posed.js';
 
 const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -0.64, -0.75])];
 
@@ -654,9 +655,10 @@ function expectations(scene, built, solids, tolerance, jointAt) {
       const axis = AXES.indexOf(item.axis),
         [least, most] = item.is,
         slack = 1e-6 * built.radius,
+        // (each part's vertices posed as lk3d/measure poses them: its size along the axis, not a turned box's)
         wrong = A.map((a) => {
-          const [low, high] = boxOf([a]);
-          return [a, high[axis] - low[axis]];
+          const [low, high] = extentAlong(solids[a].part, pose(a, {}), axis);
+          return [a, high - low];
         }).find(([, extent]) => extent < least - slack || extent > most + slack);
       if (wrong)
         fail(

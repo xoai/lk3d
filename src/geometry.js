@@ -1069,6 +1069,25 @@ function buildFitting(spec, quality, max) {
     }
 }
 
+// For tools (lk3d/measure), not the page: each shape of a part with the matrices it is drawn at in the scene at rest,
+// as build() places them: the part's placement times each of the shape's own (a copy for each repeat or scatter), a
+// mirror part's from its source, reflected. (A liquid's or a gas's body is not here: its shapes come from its vessel.)
+function shapesOf(spec, partIndex, quality, context = { models: spec.models, cache: new Map() }) {
+  const written = spec.parts[partIndex],
+    part =
+      written.mirrorOf === undefined
+        ? written
+        : mirrored(
+            written,
+            spec.parts.find((other) => other.id === written.mirrorOf),
+          ),
+    placement = part.placement_ || M.trs(part.at, part.rot, part.scale);
+  return (part.shapes || []).map((shape) => {
+    const built = buildShape(shape, quality, context);
+    return { shape, mesh: built.mesh, matrices: built.placements.map((m) => M.mul(placement, m)) };
+  });
+}
+
 // For tests and tools: a part as one plain geometry, every instance placed (what v1 drew).
 function flatten(part) {
   const mesh = new Mesh();
@@ -1087,6 +1106,7 @@ export {
   buildFitting,
   least,
   flatten,
+  shapesOf,
   outlineNormals,
   edgesOf,
   isClosed,

@@ -60,6 +60,23 @@ const RAMPS = {
     ['#2b5d9e', '#8cc4f2', '#e3f3ff'],
   ],
 };
+// a ramp's stops as given (a preset's name: its stops for a light or a dark page), not resampled: what balls and
+// surfaces are coloured along, 2 to 4 of them
+export function stops(given, dark) {
+  const list = typeof given === 'string' && RAMPS[given] ? RAMPS[given][dark ? 1 : 0] : [].concat(given);
+  if (list.length < 2 || list.length > 4) throw new Error("lk3d: colors takes 2 to 4 stops, or a ramp's name");
+  return list.map(rgb);
+}
+// which stop a tone (0 to 1) falls in, banded: three stops at 0.35 and 0.65 (as balls always were), else equal bands
+export const band = (count, tone) =>
+  count === 3 ? (tone < 0.35 ? 0 : tone < 0.65 ? 1 : 2) : Math.max(0, Math.min(count - 1, Math.floor(tone * count)));
+// the colour at a tone along stops evenly spaced
+export function along(colors, tone) {
+  const position = Math.max(0, Math.min(1, tone)) * (colors.length - 1),
+    k = Math.min(colors.length - 2, Math.floor(position)),
+    fraction = position - k;
+  return colors[k].map((value, j) => value + (colors[k + 1][j] - value) * fraction);
+}
 // a ramp (a preset's name, one colour or a list of them) as four evenly spaced colours, for a light or a dark page
 export function ramp(given, dark) {
   const stops =

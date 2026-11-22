@@ -1009,6 +1009,37 @@ test('flow streaks: along their paths, as many as the amount says, coloured by t
   assert.equal(F.flowIndices(2).length, 2 * (F.STREAK_POINTS - 1) * 6);
 });
 
+test('a ramp for balls and surfaces: its stops as given, banded or blended, and refused outside 2 to 4', () => {
+  const F = require('../src/flow.js');
+  // the stops as given (not resampled to four); a preset's own for a light or a dark page
+  assert.equal(F.stops(['#000000', '#ffffff'], false).length, 2);
+  assert.equal(F.stops(['#000', '#333', '#666', '#999'], true).length, 4);
+  assert.notDeepEqual(F.stops('heat', false), F.stops('heat', true));
+  for (const bad of [['#ffffff'], Array(5).fill('#ffffff'), '#336699', 'no-such-ramp'])
+    assert.throws(() => F.stops(bad, false), /colors takes 2 to 4 stops, or a ramp's name/, JSON.stringify(bad));
+  // banded: three stops keep the bands balls always had (0.35, 0.65); two and four, equal bands
+  assert.deepEqual(
+    [0, 0.34, 0.35, 0.64, 0.65, 1].map((t) => F.band(3, t)),
+    [0, 0, 1, 1, 2, 2],
+  );
+  assert.deepEqual(
+    [0, 0.49, 0.5, 1].map((t) => F.band(2, t)),
+    [0, 0, 1, 1],
+  );
+  assert.deepEqual(
+    [0, 0.24, 0.25, 0.5, 0.75, 0.99, 1, 1.4, -0.2].map((t) => F.band(4, t)),
+    [0, 0, 1, 2, 3, 3, 3, 3, 0],
+  );
+  // blended: evenly spaced stops, clamped at the ends
+  const grey = F.stops(['#000000', '#ffffff'], false);
+  assert.deepEqual(F.along(grey, 0), [0, 0, 0]);
+  assert.ok(Math.abs(F.along(grey, 0.25)[0] - 0.25) < 1e-9);
+  assert.deepEqual(F.along(grey, 2), [1, 1, 1]);
+  const three = F.stops(['#ff0000', '#00ff00', '#0000ff'], false);
+  assert.deepEqual(F.along(three, 0.5), [0, 1, 0], 'the middle stop, at the middle');
+  assert.deepEqual(F.along(three, 0.75), [0, 0.5, 0.5]);
+});
+
 test('the validator finds each planted mistake where it is, and passes a right scene', () => {
   const { validate } = require('../src/validate.js');
   const part = (o = {}) => ({ id: 'a', shapes: [{ sphere: 1 }], ...o });

@@ -12,14 +12,17 @@ void main() { gl_Position = uVP * vec4(aPos.xyz, 1.0); gl_PointSize = uSize / ma
 const POINT_FS = `uniform vec3 uColor; uniform float uAlpha;
 void main() { vec2 d = gl_PointCoord - 0.5; float r = length(d); if (r > 0.5) discard; gl_FragColor = vec4(uColor, uAlpha * (1.0 - smoothstep(0.15, 0.5, r))); }`;
 
-// balls (the molecules of a gas): a point sprite shaded as a sphere, in one of three colours by aPos.w (below 1/3, up
-// to 2/3, above: bands read better than a blend, whose middle is a muddy grey); in the drawn and pen looks, a rim
+// balls (the molecules of a gas): a point sprite shaded as a sphere, coloured along 2 to 4 stops by aPos.w: banded
+// (three stops: below 0.35, up to 0.65, above; else equal bands: bands read better than a blend, whose middle is a muddy
+// grey, for a few kinds), or blended (uSmooth: a quantity, like a heat map); in the drawn and pen looks, a rim
 const BALL_VS = `attribute vec4 aPos; uniform mat4 uVP; uniform float uSize; uniform vec3 uEye; uniform float uViewD; varying float vW;
 void main() { gl_Position = uVP * vec4(aPos.xyz, 1.0); gl_PointSize = max(2.0, uSize / max(0.05, uViewD > 0.0 ? uViewD : length(aPos.xyz - uEye))); vW = aPos.w; }`;
-const BALL_FS = `uniform vec3 uC0, uC1, uC2, uInk; uniform float uStudio; varying float vW;
+const BALL_FS = `uniform vec3 uC0, uC1, uC2, uC3, uInk; uniform float uStudio, uN, uSmooth; varying float vW;
 void main() {
   vec2 d = gl_PointCoord * 2.0 - 1.0; float r2 = dot(d, d); if (r2 > 1.0) discard;
-  vec3 c = vW < 0.35 ? uC0 : vW < 0.65 ? uC1 : uC2;
+  float w = clamp(vW, 0.0, 1.0), t = w * (uN - 1.0), b = uN == 3.0 ? (vW < 0.35 ? 0.0 : vW < 0.65 ? 1.0 : 2.0) : min(floor(w * uN), uN - 1.0);
+  vec3 c = uSmooth > 0.5 ? mix(mix(mix(uC0, uC1, clamp(t, 0.0, 1.0)), uC2, clamp(t - 1.0, 0.0, 1.0)), uC3, clamp(t - 2.0, 0.0, 1.0))
+    : b < 0.5 ? uC0 : b < 1.5 ? uC1 : b < 2.5 ? uC2 : uC3;
   vec3 n = vec3(d.x, -d.y, sqrt(1.0 - r2));
   float l = max(dot(n, normalize(vec3(-0.45, 0.6, 0.66))), 0.0);
   vec3 col = uStudio > 1.5 ? (r2 > 0.84 ? uInk : c * (l > 0.35 ? 1.0 : 0.93)) : uStudio > 0.5 ? c * (0.28 + 0.8 * l) + vec3(0.5) * pow(l, 24.0) : (r2 > 0.72 ? uInk : c * (l > 0.35 ? 1.0 : 0.85));
@@ -1199,9 +1202,10 @@ function glRenderer(gl, scene, options = {}) {
           }
           gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
           instancing.setDivisor(0, 0);
-          gl.uniform3fv(ballProgram.uniforms.uC0, particleSet.ramp[0]);
-          gl.uniform3fv(ballProgram.uniforms.uC1, particleSet.ramp[1]);
-          gl.uniform3fv(ballProgram.uniforms.uC2, particleSet.ramp[2]);
+          const ramp = particleSet.ramp;
+          for (let i = 0; i < 4; i++) gl.uniform3fv(ballProgram.uniforms['uC' + i], ramp[Math.min(i, ramp.length - 1)]);
+          gl.uniform1f(ballProgram.uniforms.uN, ramp.length);
+          gl.uniform1f(ballProgram.uniforms.uSmooth, particleSet.smooth ? 1 : 0);
           gl.uniform1f(ballProgram.uniforms.uSize, 2 * particleSet.radius * frame.pxPerUnit);
           gl.drawArrays(gl.POINTS, 0, particleSet.count);
         }

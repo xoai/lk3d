@@ -28,6 +28,8 @@ const runs = [
     [s, 'ink', 'sepia'],
   ]),
   ['flow', 'studio', 'dark'],
+  // balls along ramps (blended, and in four, three and two bands): a dark page has its own stops for a preset
+  ['ramp', 'pen', 'dark'],
   // streams of air: the exhaust jet and the intake, in pen, pen on a dark page, and studio
   ['stream', 'pen', 'dark'],
   ['stream', 'studio', 'dark'],

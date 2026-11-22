@@ -1,31 +1,31 @@
 # Size
 
-What each source file adds to the global script, `dist/lk3d.min.js`: 174.2 KB minified and 67.5 KB
+What each source file adds to the global script, `dist/lk3d.min.js`: 175.2 KB minified and 67.9 KB
 gzipped, against a budget of 70.5 KB (frozen: see [performance](performance.md#size)). Made by
 `node build.mjs --size --table`. The minified bytes are exact; the gzipped share is an estimate (gzip compresses the
 whole script, not each file): the file's share of the minified bytes, of the gzipped total.
 
 | File | Minified | Gzipped (estimate) | Share |
 | ---- | -------: | -----------------: | ----: |
-| `src/renderer-gl.js` | 32.3 KB | 12.5 KB | 18.6 % |
-| `src/shaders.js` | 19.3 KB | 7.5 KB | 11.1 % |
-| `src/geometry.js` | 16.7 KB | 6.5 KB | 9.6 % |
+| `src/renderer-gl.js` | 32.7 KB | 12.7 KB | 18.7 % |
+| `src/shaders.js` | 19.3 KB | 7.5 KB | 11.0 % |
+| `src/geometry.js` | 16.7 KB | 6.5 KB | 9.5 % |
 | `src/science.js` | 10.1 KB | 3.9 KB | 5.8 % |
 | `src/figure/input.js` | 8.0 KB | 3.1 KB | 4.6 % |
-| `src/stylesheet.js` | 5.8 KB | 2.3 KB | 3.4 % |
+| `src/stylesheet.js` | 5.8 KB | 2.3 KB | 3.3 % |
 | `src/figure/camera.js` | 4.7 KB | 1.8 KB | 2.7 % |
+| `src/figure/loop.js` | 4.7 KB | 1.8 KB | 2.7 % |
 | `src/figure/api.js` | 4.7 KB | 1.8 KB | 2.7 % |
-| `src/figure/loop.js` | 4.6 KB | 1.8 KB | 2.7 % |
+| `src/flow.js` | 3.7 KB | 1.4 KB | 2.1 % |
 | `src/figure/additions.js` | 3.5 KB | 1.4 KB | 2.0 % |
+| `src/renderer-2d.js` | 3.3 KB | 1.3 KB | 1.9 % |
 | `src/figure/labels.js` | 3.3 KB | 1.3 KB | 1.9 % |
-| `src/flow.js` | 3.3 KB | 1.3 KB | 1.9 % |
-| `src/renderer-2d.js` | 3.2 KB | 1.3 KB | 1.9 % |
 | `src/math.js` | 3.2 KB | 1.2 KB | 1.8 % |
 | `src/figure/dom.js` | 3.0 KB | 1.2 KB | 1.7 % |
 | `src/element.js` | 2.9 KB | 1.1 KB | 1.7 % |
 | `src/controls.js` | 2.9 KB | 1.1 KB | 1.6 % |
 | `src/figure/steps.js` | 2.8 KB | 1.1 KB | 1.6 % |
-| `src/bvh.js` | 2.7 KB | 1.0 KB | 1.6 % |
+| `src/bvh.js` | 2.7 KB | 1.0 KB | 1.5 % |
 | `src/figure/dimensions.js` | 2.6 KB | 1.0 KB | 1.5 % |
 | `src/stream.js` | 2.4 KB | 0.9 KB | 1.4 % |
 | `src/figure/state.js` | 2.3 KB | 0.9 KB | 1.3 % |
@@ -35,7 +35,7 @@ whole script, not each file): the file's share of the minified bytes, of the gzi
 | `src/locales/vi.js` | 2.1 KB | 0.8 KB | 1.2 % |
 | `src/figure/look.js` | 2.1 KB | 0.8 KB | 1.2 % |
 | `src/figure/pose.js` | 2.1 KB | 0.8 KB | 1.2 % |
-| `src/guard.js` | 2.0 KB | 0.8 KB | 1.2 % |
+| `src/guard.js` | 2.0 KB | 0.8 KB | 1.1 % |
 | `src/handles.js` | 1.9 KB | 0.7 KB | 1.1 % |
 | `src/figure/idle.js` | 1.9 KB | 0.7 KB | 1.1 % |
 | `src/figure/backend.js` | 1.7 KB | 0.7 KB | 1.0 % |

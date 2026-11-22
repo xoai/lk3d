@@ -1,14 +1,16 @@
 // The fallback where there is no WebGL: Canvas 2D, flat shading in the same bands, triangles sorted far to near.
 // Same interface as the WebGL renderer; it draws the coarser geometry the scene was built with for it.
 import { M, sub, cross, dot, norm } from './math.js';
-import { rampAt, STREAK_POINTS, STRIDE } from './flow.js';
+import { rampAt, band, along, STREAK_POINTS, STRIDE } from './flow.js';
 
 function canvasRenderer(canvas, scene) {
   const context = canvas.getContext('2d');
-  // balls, without depth: in the three colour bands of the WebGL renderer, one fill each
+  // balls, without depth: in the colour bands of the WebGL renderer (a smooth ramp: in eight), one fill each
   function balls(particleSet, frame, viewProjection, width, height) {
+    const smooth = particleSet.smooth,
+      count = smooth ? 8 : particleSet.ramp.length;
     /** @type {number[][]} */
-    const bands = [[], [], []];
+    const bands = Array.from({ length: count }, () => []);
     for (let i = 0; i < particleSet.count; i++) {
       const position = [
           particleSet.positionsAndColors[4 * i],
@@ -19,14 +21,14 @@ function canvasRenderer(canvas, scene) {
       if (!screen) continue;
       const distance = Math.hypot(position[0] - frame.eye[0], position[1] - frame.eye[1], position[2] - frame.eye[2]);
       const tone = particleSet.positionsAndColors[4 * i + 3];
-      bands[tone < 0.35 ? 0 : tone < 0.65 ? 1 : 2].push(
+      bands[smooth ? Math.max(0, Math.min(7, Math.floor(tone * 8))) : band(count, tone)].push(
         screen[0],
         screen[1],
         Math.max(1, (particleSet.radius * frame.pxPerUnit) / distance),
       );
     }
     bands.forEach((band, bandIndex) => {
-      const color = particleSet.ramp[bandIndex];
+      const color = smooth ? along(particleSet.ramp, (bandIndex + 0.5) / 8) : particleSet.ramp[bandIndex];
       context.fillStyle = css(color);
       context.beginPath();
       for (let j = 0; j < band.length; j += 3) {

@@ -6,7 +6,7 @@
 // add-on's surfaces and arrows); reads renderer_, and calls part_, travel_ and kick_.
 import { M, sub, mulv, len, norm, cross, rgb } from '../math.js';
 import { buildShape, outlineNormals } from '../geometry.js';
-import { pathOf, makeFlow } from '../flow.js';
+import { pathOf, makeFlow, stops } from '../flow.js';
 import { makeStream } from '../stream.js';
 
 /** @param {import('./context').Ctx} c */
@@ -36,8 +36,9 @@ export function makeAdditions(c) {
   }
 
   // ---- particles: points moving along paths (air, current, blood), whose speed the page sets; or, without a path,
-  // points the page places itself (molecules of a gas: solid balls of a radius in scene units, in one of the three
-  // `colors` by the fourth number of each point: below 0.35, up to 0.65, above)
+  // points the page places itself (molecules of a gas: solid balls of a radius in scene units, coloured along `colors`,
+  // 2 to 4 stops or a ramp's name, by the fourth number of each point, 0 to 1: banded (three stops: below 0.35, up to
+  // 0.65, above; else equal bands), or blended when `smooth`)
   c.addParticles_ = ({
     path,
     count = 30,
@@ -47,12 +48,17 @@ export function makeAdditions(c) {
     closed = false,
     radius = 0,
     colors = null,
+    smooth = false,
   }) => {
     if (!path) {
+      const given = colors || [color, color, color];
       const points = {
         solid: true,
         radius,
-        ramp: (colors || [color, color, color]).map(rgb),
+        given,
+        smooth: !!smooth,
+        ramp: stops(given, false), // (its stops for a light page; the frame loop changes them for a dark one)
+        dark: false,
         count,
         positionsAndColors: new Float32Array(count * 4),
         visible: true,

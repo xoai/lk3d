@@ -5,7 +5,7 @@
 // measure_, sizeCanvas_, drawNow_ and travel_ (and dpr_, resolution_ and refreshMs_ for stats); reads nearly everything else, to
 // draw it, and empties labelWidths_ when the layout changes.
 import { sub, add, norm } from '../math.js';
-import { ramp } from '../flow.js';
+import { ramp, stops } from '../flow.js';
 import { clock, awake, refreshFrom } from '../clock.js';
 import * as changed from '../changed.js';
 import LK3D from '../namespace.js';
@@ -225,6 +225,12 @@ export function makeLoop(c) {
             : 0.4;
       }
       const flows = c.flows_.filter((flow) => flow.visible && flow.amount > 0);
+      // balls coloured along a ramp: its stops for a light or a dark page (a preset's differ)
+      for (const set of c.particles_)
+        if (set.solid && set.dark !== look.dark) {
+          set.ramp = stops(set.given, look.dark);
+          set.dark = look.dark;
+        }
       for (const flow of flows.concat(c.streams_)) {
         // (placed by the renderer on the GPU where it can, WebGL 2: only how many show, here)
         if (flow.drawn && c.renderer_.placesFlow && c.renderer_.placesFlow(flow)) flow.drawn();

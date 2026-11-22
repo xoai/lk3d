@@ -1,7 +1,7 @@
 <!doctype html>
 <!-- The image tests' page: ?scene=NAME&look=ink|studio|pen|2d|pen2d[&theme=NAME] draws scenes/NAME.json with the
-     built engine (dist/lk3d.min.js, and its models add-on) at a fixed size and resolution, with the flows and streams its extras list if
-     any, waits until the figure is ready (the crease shading, texture maps), then sets window.__ready to what it drew.
+     built engine (dist/lk3d.min.js, and its models add-on) at a fixed size and resolution, with the flows, streams and
+     balls (particles: their points [x, y, z, tone]) its extras list if any, waits until the figure is ready (the crease shading, texture maps), then sets window.__ready to what it drew.
      window.__ink() reads the next picture back as three numbers (how much is drawn, and its middle), for the test of
      transitions that jump. -->
 <html lang="en">
@@ -55,6 +55,11 @@
     });
     for (const f of scene.extras?.flows || []) fig.flow(f);
     for (const f of scene.extras?.streams || []) fig.stream(f);
+    for (const { points, ...o } of scene.extras?.particles || []) {
+      const balls = fig.particles({ ...o, count: points.length });
+      balls.positionsAndColors.set(points.flat());
+      balls.version++;
+    }
     const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
     // complete: the crease shading, the edges, every texture (the cell's crease shading takes about 8 s in Firefox here,
     // over 30 s on CI's machines, which draw in software); at most 90 s, and the test says if it was not

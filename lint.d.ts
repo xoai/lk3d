@@ -12,6 +12,8 @@ export interface Summary {
   named: number;
   /** the model's size across, in scene units */
   size: number;
+  /** the elements whose bonds the chemistry check could not test (no covalent radius for them at that bond's order) */
+  unchecked: string[];
 }
 /** a finding of the check: a problem (lk3d check fails), or a warning (lk3d check says it and passes) */
 export interface Finding extends Problem {

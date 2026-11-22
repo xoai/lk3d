@@ -1,7 +1,9 @@
 // Checks a scene's geometry without drawing it (in Node, or a browser): what a reader would see as a mistake but no
 // schema can say. Parts that run into each other while the model is taken apart (more than they overlap at rest: parts
 // may sit inside others, an organelle in a cell, a filament in a bulb); parts that rest on nothing; labels that point
-// at a place inside another part once taken apart, when labels show. Not part of the runtime bundle: import 'lk3d/lint'.
+// at a place inside another part once taken apart, when labels show; molecules whose bonds are far from their atoms'
+// covalent radii, or whose atoms have more or fewer bonds than their valence (chemistry.js; check: {molecule: […]}
+// excuses a drawing that is not a molecule). Not part of the runtime bundle: import 'lk3d/lint'.
 //   import { lint } from 'lk3d/lint';  lint(scene) → { problems: [{ path, message, level? }], summary: { parts, … },
 //                                                      contacts: { id: [ids whose surfaces it meets at rest] } }
 //   node src/lint.js < scene.json        prints the summary and the findings; exit code 1 if there are problems
@@ -22,6 +24,7 @@ import * as FX from './fluids.js';
 import { stepState } from './stepstate.js';
 import { placements } from './place.js';
 import { extentAlong } from './posed.js';
+import { chemistry } from './chemistry.js';
 
 const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -0.64, -0.75])];
 
@@ -460,6 +463,9 @@ export function lint(scene, options = {}) {
   problems.push(...placed(scene, built));
   // what the scene says must be true (expect)
   if (Array.isArray(scene.expect)) problems.push(...expectations(scene, built, solids, tolerance, jointAt));
+  // molecules: each bond against its atoms' covalent radii, each atom's bonds against its valence (chemistry.js)
+  const molecules = chemistry(scene);
+  problems.push(...molecules.problems);
   const shapes = (scene.parts || []).reduce((count, part) => count + (part.shapes || []).length, 0);
   for (const list of Object.values(contacts)) list.sort();
   return {
@@ -476,6 +482,7 @@ export function lint(scene, options = {}) {
       accents: built.parts.filter((part) => part.accent).length,
       named: built.parts.filter((part) => part.name).length,
       size: solids.length ? built.radius * 2 : 0,
+      unchecked: molecules.unchecked,
     },
   };
 }

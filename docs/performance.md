@@ -106,6 +106,22 @@ time travelled, finding its place along the path by halving, so a frame sends on
 fallback still place them on the CPU. What this moves to the GPU (three lookups of up to 16 steps a corner) is still to
 be measured on a phone's GPU.
 
+## Surfaces a page reshapes
+
+A surface (the live add-on's `fig.surface`) reshaped every frame: lk3d's own work for each frame, after the page has
+written the heights and tones (the normals, the tones' colours, the refill and the drawing; not the page's writing, not
+the GPU's work), median / 95th percentile, `node test/bench/surface.mjs`, Apple M3 Pro laptop, Chrome, resolution 1,
+23 November 2026:
+
+| Grid      | 1× CPU       | 4× CPU         | 6× CPU         |
+| --------- | ------------ | -------------- | -------------- |
+| 128 × 128 | 0.8 / 1.6 ms | 3.0 / 5.0 ms   | 4.7 / 6.5 ms   |
+| 256 × 256 | 3.3 / 4.3 ms | 11.6 / 16.4 ms | 18.0 / 25.7 ms |
+
+On the laptop a 256 × 256 surface leaves most of a 120 Hz frame for the page. On a phone, take 128 × 128 or less: a
+6× slower CPU spends 18 ms a frame on 256 × 256, more than a 60 Hz frame has. The 2D fallback draws at most 64 × 64,
+sampled from the heights.
+
 ## Many parts
 
 How far lk3d scales with the number of parts, measured with `node lessonkit/js/bench.cjs`: n small assemblies on a

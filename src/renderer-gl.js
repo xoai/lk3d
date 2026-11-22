@@ -283,7 +283,7 @@ function glRenderer(gl, scene, options = {}) {
   function refill(batch) {
     const gpu = batch.gpu,
       encoded = encode(batch);
-    if (batch.mesh.colors) encoded.colors = Uint8Array.from(batch.mesh.colors);
+    if (batch.mesh.colors) encoded.colors = batch.mesh.colors;
     for (const key of ['positions', 'normals', 'outlineNormals', 'colors'])
       if (encoded[key]) {
         gl.bindBuffer(gl.ARRAY_BUFFER, gpu[key]);

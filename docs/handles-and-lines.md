@@ -150,6 +150,29 @@ instancing, so a field of a hundred arrows costs two draws. The head is 4 radii 
 radius }` for others), and at most 40 % of an arrow too short for it. They come with the live add-on
 (`dist/lk3d-live.min.js`, after the core; an ES module has them built in), which also brings surfaces.
 
+## Surfaces: water, membranes, graphs
+
+```js
+const water = fig.surface({ id: 'water', size: [40, 28], res: [161, 113], colors: 'cool', smooth: true });
+fig.tick((now) => {
+  for (let j = 0; j < 113; j++)
+    for (let i = 0; i < 161; i++) {
+      const h = wave(i, j, now); // the page's own sum of waves
+      water.heights[i + 161 * j] = h;
+      water.tones[i + 161 * j] = 0.5 + h;
+    }
+  water.update();
+  return true;
+});
+```
+
+The page writes a height for each point of a grid, and the live add-on draws one smooth mesh through them (normals by
+central differences, refilled in place on the GPU each update): water in a ripple tank, a drum skin, a graph of
+z = f(x, y). With `colors` (2 to 4 stops or a ramp's name) and `.tones`, each point is coloured along the ramp. A
+surface casts no shadow and draws no outline; it is not cut and not see-through. `fig.hit` finds it (marching over its
+heights), and `.heightAt(x, z)` reads it. See [performance](performance.md#surfaces-a-page-reshapes) for what a size
+costs a frame.
+
 ## Flow
 
 Streaks that run along paths: air through an engine, blood along a vessel, water round a bend. Each is a thin ribbon

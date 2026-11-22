@@ -22,7 +22,7 @@ function fakeHost() {
     unit: (kind) => ({ kind }),
     outlines: () => [],
     taken: (id) => id === 'base',
-    M: { trs: () => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] },
+    M: require('../src/math.js').M,
     ramp: () => [
       [0, 0, 0],
       [1, 1, 1],
@@ -162,6 +162,74 @@ test('a surface over 65,535 points is split into strips that share their edge ro
   assert.throws(() => surface(host, { id: 'base', size: [1, 1], res: [4, 4] }), /base/);
   s.remove();
   assert.equal(host.entries.length, 0);
+});
+
+test('a ray meets a surface where its heights are, at grazing angles too; heightAt reads them, NaN outside', async () => {
+  const { surface } = await import('../src/live.js');
+  const host = fakeHost(),
+    s = surface(host, { id: 'sheet', size: [2, 2], res: [33, 33], at: [1, 0.5, 0] }),
+    wave = (x, z) => 0.2 * Math.sin(4 * x) * Math.cos(3 * z);
+  shaped(host, s, 33, 33, wave);
+  const { hit } = host.entries[0],
+    cell = 2 / 32;
+  // straight down, and at grazing angles from the side: each crossing on the surface, to 1 % of a cell
+  for (const [origin, direction] of [
+    [
+      [1.3, 3, 0.2],
+      [0, -1, 0],
+    ],
+    [
+      [-2, 0.6, 0.1],
+      [1, -0.05, 0],
+    ],
+    [
+      [1, 0.62, -3],
+      [0.02, -0.06, 1],
+    ],
+    [
+      [3.5, 0.9, -1.8],
+      [-1, -0.12, 0.6],
+    ],
+  ]) {
+    const length = Math.hypot(...direction),
+      unit = direction.map((v) => v / length),
+      found = hit(origin, unit);
+    assert.ok(found, `a ray from ${origin}`);
+    assert.equal(found.id, 'sheet');
+    const [x, y, z] = found.point;
+    assert.ok(Math.abs(y - 0.5 - s.heightAt(x - 1, z)) < 0.01 * cell, `on the surface: ${found.point}`);
+    assert.ok(
+      found.point.every((v, i) => Math.abs(v - (origin[i] + unit[i] * found.t)) < 1e-9),
+      'at t along the ray',
+    );
+    assert.ok(found.normal[1] > 0, 'its normal points up');
+  }
+  assert.equal(hit([5, 3, 5], [0, -1, 0]), null, 'a ray beside it misses');
+  assert.equal(hit([1, 3, 0], [0, 1, 0]), null, 'a ray away from it misses');
+  assert.ok(Math.abs(s.heightAt(0.1, -0.3) - wave(0.1, -0.3)) < 0.01, 'heightAt: bilinear between the points');
+  assert.ok(Number.isNaN(s.heightAt(1.5, 0)), 'NaN outside');
+});
+
+test('a surface is refused with its res or size wrong, over the triangle limit, or its heights the wrong length', async () => {
+  const { surface } = await import('../src/live.js');
+  const host = fakeHost();
+  for (const [o, words] of [
+    [{ size: [1, 1], res: [1, 5] }, /res/],
+    [{ size: [1, 1], res: [600, 5] }, /res/],
+    [{ size: [1, 1], res: [4.5, 5] }, /res/],
+    [{ size: [0, 1], res: [4, 4] }, /size/],
+    [{ size: [1], res: [4, 4] }, /size/],
+  ])
+    assert.throws(() => surface(host, o), words, JSON.stringify(o));
+  host.maxTriangles = () => 1000;
+  host.triangles = () => 400;
+  assert.throws(
+    () => surface(host, { size: [1, 1], res: [20, 20] }),
+    /722 triangles; the limit here is 1000 with the scene's 400/,
+  );
+  const s = surface(host, { size: [1, 1], res: [10, 10] });
+  s.heights = new Float32Array(3);
+  assert.throws(() => s.update(), /heights/);
 });
 
 test('the built add-on carries no geometry or other part of the core, and says what it is for', () => {

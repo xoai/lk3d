@@ -1,6 +1,6 @@
 # Size
 
-What each source file adds to the global script, `dist/lk3d.min.js`: 179.0 KB minified and 69.3 KB
+What each source file adds to the global script, `dist/lk3d.min.js`: 178.9 KB minified and 69.3 KB
 gzipped, against a budget of 70.5 KB (frozen: see [performance](performance.md#size)). Made by
 `node build.mjs --size --table`. The minified bytes are exact; the gzipped share is an estimate (gzip compresses the
 whole script, not each file): the file's share of the minified bytes, of the gzipped total.

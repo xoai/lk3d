@@ -1127,6 +1127,47 @@ test('a surface is drawn as the page shapes it, refilled when it updates, and it
   expect(lightness(got.dark)).toBeGreaterThan(lightness(got.light) + 60); // (the dark page's stops: near white)
 });
 
+test('hit finds a surface where its heights are, and the 2D fallback draws a grid of at most 64 × 64 from it', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    const scene = {
+        view: { yaw: 0, pitch: 89, projection: 'ortho' },
+        parts: [{ id: 'base', name: 'Base', at: [0, -0.5, 0], shapes: [{ box: [2.4, 0.1, 2.4] }] }],
+      },
+      shape = (s, n) => {
+        for (let j = 0; j < n; j++)
+          for (let i = 0; i < n; i++) s.heights[i + n * j] = 0.2 * Math.sin((6 * i) / n) * Math.cos((5 * j) / n);
+        s.update();
+      };
+    window.fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+    await fig.ready;
+    const s = fig.surface({ id: 'sheet', size: [2, 2], res: [129, 129] });
+    shape(s, 129);
+    fig.drawNow();
+    const hits = [
+      [0.3, -0.4],
+      [-0.6, 0.5],
+      [0.05, 0.05],
+    ].map(([x, z]) => {
+      const h = fig.hit(...fig.project([x, 0.1, z]));
+      return h && { id: h.id, off: Math.abs(h.point[1] - s.heightAt(h.point[0], h.point[2])) };
+    });
+    fig.destroy();
+    window.fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, force2d: true });
+    await fig.ready;
+    const flat = fig.surface({ id: 'sheet', size: [2, 2], res: [129, 129] });
+    shape(flat, 129);
+    const drawn = fig.drawNow();
+    return { hits, renderer: fig.renderer, drawn, hit2d: fig.hit(...fig.project([0.3, 0.1, -0.4]))?.id };
+  });
+  for (const h of got.hits) {
+    expect(h.id).toBe('sheet');
+    expect(h.off).toBeLessThan(0.01 * (2 / 128)); // (within 1 % of a cell)
+  }
+  expect(got).toMatchObject({ renderer: '2d', drawn: true, hit2d: 'sheet' });
+});
+
 test('lines added to a figure still waiting for its first WebGL context draw in WebGL when it gets one, not in 2D', async ({
   page,
 }) => {

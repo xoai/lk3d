@@ -800,13 +800,14 @@ function placed(scene, built) {
         path: `parts[${i}].at`,
         message: `${part.id}'s at ${say(part.at)} is not where place puts it (${say(at)}): run lk3d place`,
       });
-    const centre = part.handle && part.handle.turn && part.handle.turn.center,
+    const handle = part.handle,
+      centre = handle && ((handle.turn && handle.turn.center) || (handle.plane && handle.plane.center)),
       box = built.parts[i];
     if (Array.isArray(centre) && box && centre.some((v, k) => v < box.min[k] - 1e-6 || v > box.max[k] + 1e-6))
       out.push({
         path: `parts[${i}].handle`,
         level: 'warning',
-        message: `${part.id}'s handle turns about ${say(centre)}, outside the part: place moves the part, not its handle, so move the handle's center with it`,
+        message: `${part.id}'s handle ${handle.turn ? 'turns about' : 'moves in a plane through'} ${say(centre)}, outside the part: place moves the part, not its handle, so move the handle's center with it`,
       });
   }
   return out;

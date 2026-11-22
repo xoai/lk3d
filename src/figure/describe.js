@@ -11,7 +11,9 @@ export function makeDescribe(c) {
     own = c.spec_.describe || {},
     steps = c.spec_.steps || [],
     apart = c.built_.parts.some((part) => part.explode.some((v) => v)),
-    number = (/** @type {number} */ v) => String(+v.toFixed(2)).replace('.', w.decimal);
+    // (a plane handle's pair: its two numbers as the locale writes coordinates, "3.5, 2" or "3,5; 2")
+    number = (/** @type {any} */ v) =>
+      Array.isArray(v) ? v.map(number).join(w.coordinates) : String(+v.toFixed(2)).replace('.', w.decimal);
   /** @returns {[string, string][]} [kind, sentence] */
   c.sentences_ = () => {
     const s = c.state_,

@@ -37,6 +37,7 @@ export default {
   next: 'Next',
   stepOf: 'Step {n} of {count}',
   decimal: '.',
+  coordinates: ', ', // (between a pair's numbers: a plane handle's value)
   // a control the page has locked against the reader (lock, fig.lock): its title
   locked: 'locked by the page',
   // the figure in words (fig.describe(), D): each sentence left out when it does not apply

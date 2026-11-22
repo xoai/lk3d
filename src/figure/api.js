@@ -252,7 +252,7 @@ export function makeApi(c) {
       return (
         grip && {
           get value() {
-            return grip.value;
+            return Array.isArray(grip.value) ? [...grip.value] : grip.value; // (a plane handle's pair: a copy)
           },
           set: byPage((value) => c.setHandle_(grip, HD.hold(grip.handle, value), false)),
         }

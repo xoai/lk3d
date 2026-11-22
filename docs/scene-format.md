@@ -131,20 +131,21 @@ Kinds: `lathe`, `cylinder`, `box`, `sphere`, `torus`, `tube`, `helix`, `loop`, `
 
 ## Handle
 
-The reader moves the part with the pointer or the keys, held to one rule. a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}.
+The reader moves the part with the pointer or the keys, held to one rule. a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}, plane: {axes, center}.
 
-| Field   | Type           | Meaning                                                                            |
-| ------- | -------------- | ---------------------------------------------------------------------------------- |
-| `turn`  | object         | Degrees about an axis through center; without min and max it goes round and round. |
-| `slide` | object         | A distance along an axis from where the part is drawn.                             |
-| `along` | object         | A place on a path, 0 at its start to 1 at its end.                                 |
-| `min`   | number         | The least value (degrees, distance or place).                                      |
-| `max`   | number         | The greatest value.                                                                |
-| `snap`  | number > 0     | Values move in these steps.                                                        |
-| `value` | number         | Where the part is drawn (default 0, or min).                                       |
-| `label` | string         | What a screen reader calls it.                                                     |
-| `unit`  | string         | A unit read out after the value.                                                   |
-| `moves` | list of string | Other parts or groups carried with it.                                             |
+| Field   | Type                       | Meaning                                                                                  |
+| ------- | -------------------------- | ---------------------------------------------------------------------------------------- |
+| `turn`  | object                     | Degrees about an axis through center; without min and max it goes round and round.       |
+| `slide` | object                     | A distance along an axis from where the part is drawn.                                   |
+| `along` | object                     | A place on a path, 0 at its start to 1 at its end.                                       |
+| `plane` | object                     | A place in a plane: [u, v], scene units along its two axes from where the part is drawn. |
+| `min`   | number or [number, number] | The least value (degrees, distance or place; for a plane, [u, v]).                       |
+| `max`   | number or [number, number] | The greatest value.                                                                      |
+| `snap`  | number > 0                 | Values move in these steps.                                                              |
+| `value` | number or [number, number] | Where the part is drawn (default 0, or min; for a plane, [u, v]).                        |
+| `label` | string                     | What a screen reader calls it.                                                           |
+| `unit`  | string                     | A unit read out after the value.                                                         |
+| `moves` | list of string             | Other parts or groups carried with it.                                                   |
 
 ## Model
 

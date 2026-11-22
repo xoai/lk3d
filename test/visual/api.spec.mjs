@@ -2,7 +2,7 @@
 // callback, tweens give way to the page and the reader, removed and destroyed things leave nothing behind. Each test
 // mounts a small scene of its own on api.html and drives it as a page would. (Chromium: the wiring is the same
 // everywhere.)
-/* global LK3D, mountIt, until, fig, els, figs */ // (in the page: the engine, and the helpers beforeEach puts there)
+/* global LK3D, mountIt, until, fig, els, figs, moves */ // (in the page: the engine, and the helpers beforeEach puts there)
 import { test, expect } from '@playwright/test';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'the wiring is the same in every browser');
@@ -1166,6 +1166,80 @@ test('hit finds a surface where its heights are, and the 2D fallback draws a gri
     expect(h.off).toBeLessThan(0.01 * (2 / 128)); // (within 1 % of a cell)
   }
   expect(got).toMatchObject({ renderer: '2d', drawn: true, hit2d: 'sheet' });
+});
+
+// a marker the reader moves across a tray: a plane handle
+const PLANE = {
+  view: { yaw: 0, pitch: 60 },
+  describe: { p: 'P is at {value}.' },
+  check: { float: ['p'] },
+  parts: [
+    { id: 'tray', name: 'Tray', shapes: [{ box: [4, 0.2, 4] }] },
+    {
+      id: 'p',
+      name: 'Point P',
+      at: [0, 0.3, 0],
+      shapes: [{ sphere: 0.2 }],
+      handle: {
+        plane: {
+          axes: [
+            [1, 0, 0],
+            [0, 0, 1],
+          ],
+        },
+        min: [-1.5, -1.5],
+        max: [1.5, 1.5],
+        snap: 0.1,
+        label: 'Point P',
+      },
+    },
+  ],
+};
+
+test('a plane handle moves by the mouse in its plane, holds still seen edge-on, and its pair goes through state', async ({
+  page,
+}) => {
+  const [from, to] = await page.evaluate(async (scene) => {
+    window.moves = [];
+    window.fig = LK3D.mount(document.getElementById('g'), scene, {
+      controls: false,
+      onHandle: (id, v) => moves.push(v),
+    });
+    await fig.ready;
+    fig.drawNow();
+    return [fig.project([0, 0.3, 0]), fig.project([0.5, 0.3, 0.5])];
+  }, PLANE);
+  const box = await page.locator('#g canvas[tabindex]').boundingBox();
+  await page.mouse.move(box.x + from[0], box.y + from[1]);
+  await page.mouse.down();
+  for (let k = 1; k <= 6; k++)
+    await page.mouse.move(box.x + from[0] + ((to[0] - from[0]) * k) / 6, box.y + from[1] + ((to[1] - from[1]) * k) / 6);
+  await page.mouse.up();
+  const got = await page.evaluate(async () => {
+    const value = fig.handle('p').value,
+      state = fig.state(),
+      text = fig.describe();
+    // seen edge-on (the eye in the plane): a drag moves nothing
+    fig.set({ camera: { yaw: 0, pitch: 0, target: [0, 0.3, 0] } });
+    fig.drawNow();
+    const held = fig.handle('p').value;
+    fig.set({ handles: { p: [0, 0] } });
+    fig.set(await LK3D.decodeState(await LK3D.encodeState(state)));
+    return { value, inState: state.handles.p, text, held, back: fig.handle('p').value, last: moves.at(-1) };
+  });
+  const tenths = (pair) => pair.map((v) => Math.round(v * 10) / 10 + 0);
+  expect(tenths(got.value)).toEqual([0.5, 0.5]);
+  expect(tenths(got.inState)).toEqual([0.5, 0.5]);
+  expect(tenths(got.last)).toEqual([0.5, 0.5]); // (onHandle hears the pair)
+  expect(got.text).toContain('P is at 0.5, 0.5.');
+  expect(tenths(got.back)).toEqual([0.5, 0.5]);
+  const [edge, beyond] = await page.evaluate(() => [fig.project([0.5, 0.3, 0.5]), fig.project([1, 0.3, 0.5])]);
+  await page.mouse.move(box.x + edge[0], box.y + edge[1]);
+  await page.mouse.down();
+  await page.mouse.move(box.x + beyond[0], box.y + beyond[1] - 30);
+  await page.mouse.up();
+  const after = await page.evaluate(() => fig.handle('p').value);
+  expect(after.every(Number.isFinite)).toBe(true);
 });
 
 test('lines added to a figure still waiting for its first WebGL context draw in WebGL when it gets one, not in 2D', async ({

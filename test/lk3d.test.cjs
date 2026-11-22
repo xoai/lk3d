@@ -1040,6 +1040,92 @@ test('a ramp for balls and surfaces: its stops as given, banded or blended, and 
   assert.deepEqual(F.along(three, 0.75), [0, 0.5, 0.5]);
 });
 
+test('a plane handle: the point of its plane under a ray, held and snapped per axis, and the part moved along its axes', () => {
+  const HD = require('../src/handles.js');
+  const handle = {
+    plane: {
+      axes: [
+        [1, 0, 0],
+        [0, 0, 2],
+      ],
+      center: [0, 0.5, 0],
+    },
+    min: [-1, -2],
+    max: [1, 2],
+    snap: 0.25,
+  };
+  // a ray straight down onto the plane y = 0.5, and one along it (edge-on: nothing)
+  assert.deepEqual(HD.planeAt([0.3, 3, -0.7], [0, -1, 0], handle.plane.axes, handle.plane.center), [0.3, -0.7]);
+  assert.equal(HD.planeAt([0, 0.5, -5], [0, 0, 1], handle.plane.axes, handle.plane.center), null);
+  // each axis on its own: held to its range, snapped; a new pair, the one given untouched
+  const given = [1.3, -0.37],
+    held = HD.hold(handle, given);
+  assert.deepEqual(held, [1, -0.25]);
+  assert.notEqual(held, given);
+  assert.deepEqual(given, [1.3, -0.37]);
+  // the part moved by the change from where it is drawn (value), along the axes made of length 1
+  const m = HD.matrix({ ...handle, value: [0.5, 0] }, [1, -1]);
+  assert.deepEqual([m[12], m[13], m[14]], [0.5, 0, -1]);
+});
+
+test('a plane handle in a scene: refused with its axes not at right angles, a number for a pair, or a pair out of range', () => {
+  const { validate } = require('../src/validate.js');
+  const scene = (handle) => ({
+    parts: [
+      {
+        id: 'p',
+        shapes: [{ sphere: 0.2 }],
+        handle: {
+          plane: {
+            axes: [
+              [1, 0, 0],
+              [0, 0, 1],
+            ],
+          },
+          ...handle,
+        },
+      },
+    ],
+  });
+  const said = (handle) =>
+    validate(scene(handle))
+      .map((p) => `${p.path}: ${p.message}`)
+      .join('\n');
+  assert.equal(said({ min: [-1, -1], max: [1, 1], value: [0.5, -1], snap: 0.1 }), '');
+  assert.match(
+    said({
+      plane: {
+        axes: [
+          [1, 0, 0],
+          [1, 0, 1],
+        ],
+      },
+    }),
+    /plane\.axes: its two axes are not perpendicular/,
+  );
+  assert.match(
+    said({
+      plane: {
+        axes: [
+          [0, 0, 0],
+          [0, 0, 1],
+        ],
+      },
+    }),
+    /plane\.axes/,
+  );
+  assert.match(said({ min: -1 }), /handle\.min: a plane handle's min, max and value are pairs/);
+  assert.match(said({ min: [-1, 1], max: [1, -1] }), /more than its max \(-1\) along its second axis/);
+  assert.match(
+    said({ min: [-1, -1], max: [1, 1], value: [0, 2] }),
+    /2 is outside its range \[-1, 1\] along its second axis/,
+  );
+  const slide = validate({
+    parts: [{ id: 's', shapes: [{ sphere: 1 }], handle: { slide: { axis: [1, 0, 0] }, min: [0, 0], max: 1 } }],
+  });
+  assert.match(slide.map((p) => `${p.path}: ${p.message}`).join(), /handle\.min: only a plane handle takes a pair/);
+});
+
 test('the validator finds each planted mistake where it is, and passes a right scene', () => {
   const { validate } = require('../src/validate.js');
   const part = (o = {}) => ({ id: 'a', shapes: [{ sphere: 1 }], ...o });

@@ -18,8 +18,8 @@ const tilt = (pitch) => Math.max(-1.45, Math.min(1.45, pitch));
 
 // ---- pointer: orbit, pan, pinch, wheel (only with Ctrl, or once the figure has been clicked), hover and pick
 /**
- * @typedef {{ grip: import('./context').Grip, id: number, start: number, turned: number, lastAngle: number | null,
- *   slideStart: number | null, moved: number }} Grab
+ * @typedef {{ grip: import('./context').Grip, id: number, start: any, turned: number, lastAngle: number | null,
+ *   slideStart: number | null, planeStart?: number[] | null, moved: number }} Grab
  */
 /** @param {import('./context').Ctx} c @returns {() => void} what makes the range inputs, after the built-in controls */
 export function makeInput(c) {
@@ -31,7 +31,13 @@ export function makeInput(c) {
       c.words_.decimal,
     );
   c.setHandle_ = (grip, value, byReader) => {
-    if (!Number.isFinite(value) || value === grip.value) return;
+    // (a plane handle's pair: finite, and compared by its numbers)
+    const pair = Array.isArray(value);
+    if (
+      !(pair ? value.every(Number.isFinite) : Number.isFinite(value)) ||
+      (pair ? value[0] === grip.value[0] && value[1] === grip.value[1] : value === grip.value)
+    )
+      return;
     grip.value = value;
     if (grip.input) {
       grip.input.value = String(grip.round ? mod360(value) : value);
@@ -39,7 +45,7 @@ export function makeInput(c) {
     }
     if (byReader) c.mark_('reader');
     c.kick_();
-    if (byReader && c.opts_.onHandle) c.opts_.onHandle(grip.part.id, value);
+    if (byReader && c.opts_.onHandle) c.opts_.onHandle(grip.part.id, pair ? [value[0], value[1]] : value);
   };
   const pointers = new Map(); // (each pointer down on the canvas → where it was last)
   /** @type {{ pan: boolean } | null} */
@@ -111,6 +117,21 @@ export function makeInput(c) {
       grab.turned += HD.unwrap(angle - grab.lastAngle);
       grab.lastAngle = angle;
       value = HD.hold(handle, grab.start + grab.turned);
+    } else if (handle.plane) {
+      // (the plane through its centre, spanned by its axes, both turned with the part; seen edge-on: it holds)
+      const at = HD.planeAt(
+        origin,
+        direction,
+        handle.plane.axes.map((/** @type {number[]} */ axis) => M.dir(base, axis)),
+        M.pt(base, handle.plane.center || grip.part.center),
+      );
+      if (at) {
+        if (!grab.planeStart) grab.planeStart = at;
+        value = HD.hold(handle, [
+          grab.start[0] + at[0] - grab.planeStart[0],
+          grab.start[1] + at[1] - grab.planeStart[1],
+        ]);
+      }
     } else if (handle.slide) {
       const along = HD.slideAt(
         origin,
@@ -250,6 +271,7 @@ export function makeInput(c) {
           turned: 0,
           lastAngle: null,
           slideStart: null,
+          planeStart: null,
           moved: 0,
         };
         capture(event.pointerId);
@@ -477,8 +499,9 @@ export function makeInput(c) {
   return () => {
     const stage = c.stage_;
     for (const grip of c.handles_) {
-      const handle = grip.handle,
-        range = document.createElement('input');
+      const handle = grip.handle;
+      if (handle.plane) continue; // (a plane handle's two inputs: made below, once it has them)
+      const range = document.createElement('input');
       range.type = 'range';
       range.className = 'lk3d-sr';
       const step =

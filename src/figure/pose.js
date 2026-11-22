@@ -27,7 +27,7 @@ export function makePose(c) {
       const grip = {
         part,
         handle,
-        value: HD.hold(handle, handle.value ?? 0), // (a first value outside the range: at its end from the start, not on the first drag)
+        value: HD.hold(handle, handle.value ?? (handle.plane ? [0, 0] : 0)), // (a first value outside the range: at its end from the start, not on the first drag)
         parts,
         path: handle.along ? HD.measure(handle.along.path, handle.along.closed) : null,
         input: null,

@@ -6,6 +6,7 @@
 //   handle: {turn: {axis, center}, min, max, snap, value}   degrees about an axis through center
 //   handle: {slide: {axis}, min, max, snap, value}          a distance along an axis from where the part is drawn
 //   handle: {along: {path, closed}, min, max, snap, value}  a place on a path, 0 at its start to 1 at its end
+//   handle: {plane: {axes, center}, min, max, snap, value}  a place in a plane, [u, v] along its two axes
 import { M, sub, add, mulv, dot, cross, len, norm } from './math.js';
 
 // two directions at right angles to an axis (and to each other)
@@ -83,7 +84,19 @@ function nearestAlong(path, screen, x, y) {
 // an angle step folded into (−180, 180], so dragging round and round keeps adding up
 const unwrap = (angleStep) => ((angleStep + 540) % 360) - 180;
 // a value held to the handle's range and snapped to its steps (a closed path wraps instead of stopping)
+// where a ray meets a plane handle's plane (through center, spanned by two axes at right angles, as the part's frame
+// carries them): [u, v] along the axes from center; null seen edge-on
+function planeAt(rayOrigin, rayDirection, axes, center) {
+  const [a, b] = axes.map(norm),
+    point = hitPlane(rayOrigin, rayDirection, center, cross(a, b));
+  return point && [dot(sub(point, center), a), dot(sub(point, center), b)];
+}
 function hold(handle, value) {
+  // (a plane handle's pair: each axis held and snapped on its own, a new pair)
+  if (handle.plane)
+    return value.map((/** @type {number} */ v, /** @type {number} */ k) =>
+      hold({ snap: handle.snap, min: handle.min?.[k], max: handle.max?.[k] }, v),
+    );
   if (handle.along && handle.along.closed && handle.min == null && handle.max == null) value = ((value % 1) + 1) % 1;
   if (handle.snap) value = Math.round(value / handle.snap) * handle.snap;
   if (handle.min != null) value = Math.max(handle.min, value);
@@ -99,6 +112,11 @@ function matrix(handle, value, path) {
   }
   if (handle.slide) return M.trans(mulv(norm(handle.slide.axis), value - (handle.value ?? 0)));
   if (handle.along) return M.trans(sub(pointAt(path, value), pointAt(path, handle.value ?? 0)));
+  if (handle.plane) {
+    const [a, b] = handle.plane.axes.map(norm),
+      [u0, v0] = handle.value || [0, 0];
+    return M.trans(add(mulv(a, value[0] - u0), mulv(b, value[1] - v0)));
+  }
   return M.id();
 }
 function rotAxis(axis, angle) {
@@ -127,4 +145,4 @@ function rotAxis(axis, angle) {
   ];
 }
 
-export { frame, hitPlane, turnAngle, slideAt, measure, pointAt, nearestAlong, unwrap, hold, matrix, rotAxis };
+export { frame, hitPlane, turnAngle, slideAt, planeAt, measure, pointAt, nearestAlong, unwrap, hold, matrix, rotAxis };

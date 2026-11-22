@@ -474,13 +474,81 @@
           "description": "A place on a path, 0 at its start to 1 at its end.",
           "additionalProperties": false
         },
+        "plane": {
+          "type": "object",
+          "required": ["axes"],
+          "properties": {
+            "axes": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/vec3"
+              },
+              "description": "Two directions at right angles: the plane the part moves in.",
+              "x-message": "a plane handle's axes are two directions [[x, y, z], [x, y, z]]"
+            },
+            "center": {
+              "$ref": "#/$defs/vec3",
+              "description": "A point of the plane, where the part is drawn (its box's middle by default)."
+            },
+            "names": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "What a screen reader calls each axis (\"left–right\"); by default \"along x\" for an axis along x, y or z."
+            }
+          },
+          "description": "A place in a plane: [u, v], scene units along its two axes from where the part is drawn.",
+          "additionalProperties": false
+        },
         "min": {
-          "type": "number",
-          "description": "The least value (degrees, distance or place)."
+          "description": "The least value (degrees, distance or place; for a plane, [u, v]).",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2,
+              "x-message": "two numbers [u, v]"
+            }
+          ]
         },
         "max": {
-          "type": "number",
-          "description": "The greatest value."
+          "description": "The greatest value.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2,
+              "x-message": "two numbers [u, v]"
+            }
+          ]
         },
         "snap": {
           "type": "number",
@@ -488,8 +556,26 @@
           "description": "Values move in these steps."
         },
         "value": {
-          "type": "number",
-          "description": "Where the part is drawn (default 0, or min)."
+          "description": "Where the part is drawn (default 0, or min; for a plane, [u, v]).",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2,
+              "x-message": "two numbers [u, v]"
+            }
+          ]
         },
         "label": {
           "type": "string",
@@ -516,9 +602,12 @@
         },
         {
           "required": ["along"]
+        },
+        {
+          "required": ["plane"]
         }
       ],
-      "x-message": "a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}",
+      "x-message": "a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}, plane: {axes, center}",
       "additionalProperties": false
     },
     "part": {

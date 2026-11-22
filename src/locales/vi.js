@@ -36,6 +36,7 @@ export default {
   next: 'Bước tiếp',
   stepOf: 'Bước {n}/{count}',
   decimal: ',',
+  coordinates: '; ',
   locked: 'trang đã khoá điều khiển này',
   saidApart: 'Đã tách rời.',
   saidTogether: 'Đã lắp lại.',

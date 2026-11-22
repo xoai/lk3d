@@ -11,6 +11,8 @@
 // stepAt_, and calls goToStep_, explodeNow_, view_, setMotion_, playMotion_, stopMotion_, setHandle_ and kick_.
 import { D2R } from '../math.js';
 
+// a handle's value as given out: a plane handle's pair copied (the page may change what it is given)
+const copy = (/** @type {any} */ value) => (Array.isArray(value) ? [...value] : value);
 /** @param {import('./context').Ctx} c */
 export function makeState(c) {
   c.towards_ = { explode: null, cut: null, camera: null };
@@ -77,7 +79,7 @@ export function makeState(c) {
         : { yaw: s.yaw / D2R, pitch: s.pitch / D2R, dist: s.dist, target: s.target.slice() },
       motion: { ...s.motion },
       playing: [...c.playing_.keys()],
-      handles: Object.fromEntries(c.handles_.map((grip) => [grip.part.id, grip.value])),
+      handles: Object.fromEntries(c.handles_.map((grip) => [grip.part.id, copy(grip.value)])),
       joints: { ...s.joints },
       selected: s.selected ?? null,
       hide: c.built_.parts.filter((part) => part.hidden && !part.hiddenByScene).map((part) => part.id),
@@ -107,7 +109,7 @@ export function makeState(c) {
     // (each through the API's own: fig.handle(id).set, fig.motion(id).play, fig.liquid(id).set…)
     const api = c.api_,
       each = (list, fn) => list && Object.entries(list).forEach(([id, value]) => fn(id, value));
-    each(changes.handles, (id, value) => api.handle(id)?.set(+value));
+    each(changes.handles, (id, value) => api.handle(id)?.set(Array.isArray(value) ? value : +value));
     if ('selected' in changes) ((c.state_.selected = changes.selected ?? null), c.showInfo_());
     if (changes.playing)
       for (const motion of c.motions_) {

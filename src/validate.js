@@ -157,19 +157,39 @@ function links(scene, out) {
       if (handle[kind] && zero(handle[kind].axis))
         out.push({ path: `parts[${index}].handle.${kind}.axis`, message: NO_WAY });
     const isNumber = (value) => typeof value === 'number';
-    if (isNumber(handle.min) && isNumber(handle.max) && handle.min > handle.max)
-      out.push({
-        path: `parts[${index}].handle`,
-        message: `its min (${handle.min}) is more than its max (${handle.max})`,
-      });
-    else if (
-      isNumber(handle.value) &&
-      ((isNumber(handle.min) && handle.value < handle.min) || (isNumber(handle.max) && handle.value > handle.max))
-    )
-      out.push({
-        path: `parts[${index}].handle.value`,
-        message: `${handle.value} is outside its range [${handle.min ?? '…'}, ${handle.max ?? '…'}]`,
-      });
+    // a plane handle: two axes at right angles, and its min, max and value pairs [u, v]; any other handle, numbers
+    const plane = handle.plane && typeof handle.plane === 'object' ? handle.plane : null,
+      axes =
+        plane && Array.isArray(plane.axes) && plane.axes.length === 2 && plane.axes.every(Array.isArray) && plane.axes;
+    if (axes && axes.some(zero)) out.push({ path: `parts[${index}].handle.plane.axes`, message: NO_WAY });
+    else if (axes) {
+      const [a, b] = axes.map((axis) => axis.map((v) => v / Math.hypot(...axis)));
+      if (Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) > 1e-6)
+        out.push({ path: `parts[${index}].handle.plane.axes`, message: 'its two axes are not perpendicular' });
+    }
+    for (const key of ['min', 'max', 'value'])
+      if (key in handle && Array.isArray(handle[key]) !== !!plane)
+        out.push({
+          path: `parts[${index}].handle.${key}`,
+          message: plane
+            ? "a plane handle's min, max and value are pairs [u, v]"
+            : 'only a plane handle takes a pair [u, v]',
+        });
+    // (each axis of a plane handle's range, or the one range of any other)
+    for (const k of plane ? [0, 1] : [null]) {
+      const pick = (/** @type {any} */ v) => (k == null ? v : Array.isArray(v) ? v[k] : undefined),
+        min = pick(handle.min),
+        max = pick(handle.max),
+        value = pick(handle.value),
+        axis = k == null ? '' : ` along its ${k ? 'second' : 'first'} axis`;
+      if (isNumber(min) && isNumber(max) && min > max)
+        out.push({ path: `parts[${index}].handle`, message: `its min (${min}) is more than its max (${max})${axis}` });
+      else if (isNumber(value) && ((isNumber(min) && value < min) || (isNumber(max) && value > max)))
+        out.push({
+          path: `parts[${index}].handle.value`,
+          message: `${value} is outside its range [${min ?? '…'}, ${max ?? '…'}]${axis}`,
+        });
+    }
     for (const moved of Array.isArray(handle.moves) ? handle.moves : []) {
       if (!names.has(moved))
         out.push({ path: `parts[${index}].handle.moves`, message: `moves ${say(moved)}, which is no part or group` });

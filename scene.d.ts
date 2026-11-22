@@ -871,10 +871,11 @@ export interface PlaceFields {
 export type Handle =
   | Form<HandleFields, 'turn', Exclude<HandleKind, 'turn'>>
   | Form<HandleFields, 'slide' | 'min' | 'max', Exclude<HandleKind, 'slide'>>
-  | Form<HandleFields, 'along', Exclude<HandleKind, 'along'>>;
+  | Form<HandleFields, 'along', Exclude<HandleKind, 'along'>>
+  | Form<HandleFields, 'plane', Exclude<HandleKind, 'plane'>>;
 
 /** the kinds of Handle: exactly one of these keys picks its form */
-export type HandleKind = 'turn' | 'slide' | 'along';
+export type HandleKind = 'turn' | 'slide' | 'along' | 'plane';
 
 /** the fields of Handle, each optional (Handle says which are required, together) */
 export interface HandleFields {
@@ -893,17 +894,28 @@ export interface HandleFields {
     path: Vec3[];
     closed?: boolean;
   };
-  /** The least value (degrees, distance or place). */
-  min?: number;
+  /** A place in a plane: [u, v], scene units along its two axes from where the part is drawn. */
+  plane?: {
+    /** Two directions at right angles: the plane the part moves in. */
+    axes: Vec3[];
+    /** A point of the plane, where the part is drawn (its box's middle by default). */
+    center?: Vec3;
+    /**
+     * What a screen reader calls each axis ("left–right"); by default "along x" for an axis along x, y or z.
+     */
+    names?: string[];
+  };
+  /** The least value (degrees, distance or place; for a plane, [u, v]). */
+  min?: number | [number, number];
   /** The greatest value. */
-  max?: number;
+  max?: number | [number, number];
   /**
    * Values move in these steps.
    * @exclusiveMinimum 0
    */
   snap?: number;
-  /** Where the part is drawn (default 0, or min). */
-  value?: number;
+  /** Where the part is drawn (default 0, or min; for a plane, [u, v]). */
+  value?: number | [number, number];
   /** What a screen reader calls it. */
   label?: string;
   /** A unit read out after the value. */

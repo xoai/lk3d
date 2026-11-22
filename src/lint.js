@@ -1,7 +1,9 @@
 // Checks a scene's geometry without drawing it (in Node, or a browser): what a reader would see as a mistake but no
 // schema can say. Parts that run into each other while the model is taken apart (more than they overlap at rest: parts
 // may sit inside others, an organelle in a cell, a filament in a bulb); parts that rest on nothing; labels that point
-// at a place inside another part once taken apart, when labels show. Not part of the runtime bundle: import 'lk3d/lint'.
+// at a place inside another part once taken apart, when labels show; molecules whose bonds are far from their atoms'
+// covalent radii, or whose atoms have more or fewer bonds than their valence (chemistry.js; check: {molecule: […]}
+// excuses a drawing that is not a molecule). Not part of the runtime bundle: import 'lk3d/lint'.
 //   import { lint } from 'lk3d/lint';  lint(scene) → { problems: [{ path, message, level? }], summary: { parts, … },
 //                                                      contacts: { id: [ids whose surfaces it meets at rest] } }
 //   node src/lint.js < scene.json        prints the summary and the findings; exit code 1 if there are problems
@@ -21,6 +23,8 @@ import { jointsOf, jointOf, motionsOf, solve as solveJoints } from './joints.js'
 import * as FX from './fluids.js';
 import { stepState } from './stepstate.js';
 import { placements } from './place.js';
+import { measure } from './measure.js';
+import { chemistry } from './chemistry.js';
 
 const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -0.64, -0.75])];
 
@@ -459,6 +463,9 @@ export function lint(scene, options = {}) {
   problems.push(...placed(scene, built));
   // what the scene says must be true (expect)
   if (Array.isArray(scene.expect)) problems.push(...expectations(scene, built, solids, tolerance, jointAt));
+  // molecules: each bond against its atoms' covalent radii, each atom's bonds against its valence (chemistry.js)
+  const molecules = chemistry(scene);
+  problems.push(...molecules.problems);
   const shapes = (scene.parts || []).reduce((count, part) => count + (part.shapes || []).length, 0);
   for (const list of Object.values(contacts)) list.sort();
   return {
@@ -475,6 +482,7 @@ export function lint(scene, options = {}) {
       accents: built.parts.filter((part) => part.accent).length,
       named: built.parts.filter((part) => part.name).length,
       size: solids.length ? built.radius * 2 : 0,
+      unchecked: molecules.unchecked,
     },
   };
 }
@@ -651,17 +659,21 @@ function expectations(scene, built, solids, tolerance, jointAt) {
       }
     } else if (item.size != null) {
       // (a group: each of its parts)
-      const axis = AXES.indexOf(item.axis),
-        [least, most] = item.is,
+      const [least, most] = item.is,
         slack = 1e-6 * built.radius,
-        wrong = A.map((a) => {
-          const [low, high] = boxOf([a]);
-          return [a, high[axis] - low[axis]];
-        }).find(([, extent]) => extent < least - slack || extent > most + slack);
+        // (each part measured by lk3d/measure itself, at its quality and with its error, so a size expected and a size
+        // measured are one: a round part's mesh at the check's own quality would come out short)
+        ids = A.map((a) => solids[a].part.id),
+        sized = measure(scene, Object.fromEntries(ids.map((id, n) => [`p${n}`, { size: id, axis: item.axis }]))),
+        wrong = A.map((a, n) => [a, sized.values[`p${n}`], sized.error[`p${n}`] || 0]).find(
+          ([, extent, e]) => extent === undefined || extent < least - e - slack || extent > most + e + slack,
+        );
       if (wrong)
         fail(
           k,
-          `${solids[wrong[0]].part.id} is ${round(wrong[1])} along ${item.axis}, not ${least} to ${most}: change its size, or the expectation`,
+          wrong[1] === undefined
+            ? `${solids[wrong[0]].part.id} could not be measured along ${item.axis}`
+            : `${solids[wrong[0]].part.id} is ${round(wrong[1])} along ${item.axis}, not ${least} to ${most}: change its size, or the expectation`,
         );
     } else if (item.seen != null) {
       const steps = (scene.steps || []).filter((step) => step && typeof step === 'object'),

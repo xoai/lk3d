@@ -1,6 +1,6 @@
 {
   "name": "lk3d",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "description": "A small engine for explorable, accessible 3D diagrams built from data: take apart, cut open, label, move parts by hand",
   "keywords": [
     "3d",
@@ -46,6 +46,10 @@
       "types": "./place.d.ts",
       "default": "./src/place.js"
     },
+    "./measure": {
+      "types": "./measure.d.ts",
+      "default": "./src/measure.js"
+    },
     "./export": {
       "types": "./export.d.ts",
       "default": "./src/export.js"
@@ -69,6 +73,7 @@
     "lint.d.ts",
     "export.d.ts",
     "place.d.ts",
+    "measure.d.ts",
     "validate.d.ts",
     "docs/*.md",
     "README.md",

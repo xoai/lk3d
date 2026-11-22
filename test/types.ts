@@ -31,6 +31,7 @@ import LK3D, {
   type Place,
 } from 'lk3d';
 import { validate } from 'lk3d/validate';
+import { measure, type Measured } from 'lk3d/measure';
 import LK3DX, { sceneToGLB } from 'lk3d/export';
 
 const scene: Scene = {
@@ -129,6 +130,18 @@ const problems: { path: string; message: string }[] = validate(scene);
 mount(document.body, scene, { validate, maxTriangles: 1e6 });
 // @ts-expect-error validate is a function of the scene, not a switch
 mount(document.body, scene, { validate: true });
+// what a page compares with its text: an angle at atoms, a radius, pieces counted, a value at a guided step
+const measured: Measured = measure(scene, {
+  angle: { angle: ['h2o.atom[1]', 'h2o.atom[0]', 'h2o.atom[2]'] },
+  radius: { size: 'lens', axis: 'y', half: true },
+  blades: { count: { parts: ['a', 'b'] } },
+  apart: { distance: ['lens', [0, 0, 0]], step: 'apart' },
+  focal: { read: ['lens', 'shapes', 0, 'lens', 'f'] },
+  more: { sum: ['apart', '-radius'] },
+});
+const angle: number = measured.values.angle + measured.error.angle;
+// @ts-expect-error an axis is x, y or z
+measure(scene, { r: { size: 'lens', axis: 'w' } });
 
 // @ts-expect-error a slide handle needs its range
 const bad1: Scene = { parts: [{ id: 'a', shapes: [{ sphere: 1 }], handle: { slide: { axis: [1, 0, 0] } } }] };

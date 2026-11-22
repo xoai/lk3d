@@ -1,5 +1,6 @@
 // The public surface lk3d offers a page, recorded in test/api-surface.json: the keys of LK3D, a figure's methods and
-// getters, <lk3d-figure>'s attributes and events, and the scene format's keys (top level, part, step). A change to any
+// getters, <lk3d-figure>'s attributes and events, the scene format's keys (top level, part, step), and what each
+// module subpath exports (lk3d/validate, lk3d/lint, lk3d/measure…). A change to any
 // of them fails here until api-surface.json is updated in the same commit, so every change to the surface is seen in
 // review. To record a change you mean:   API_SURFACE_WRITE=1 node --test test/api-surface.test.cjs
 const test = require('node:test');
@@ -30,11 +31,22 @@ function elementSurface(source) {
     events: [...new Set([...source.matchAll(/say\('([\w-]+)'/g)].map((m) => 'lk3d-' + m[1]))].sort(),
   };
 }
+// each module subpath of package.json's exports (not '.', not the bundles): the names it exports
+async function subpaths() {
+  const exports = JSON.parse(read('package.json')).exports,
+    out = {};
+  for (const [key, entry] of Object.entries(exports))
+    if (key !== '.' && typeof entry === 'object' && entry.default.startsWith('./src/'))
+      out[key] = Object.keys(await import(path.join(ROOT, entry.default))).sort();
+  return out;
+}
 async function surface() {
   const LK3D = (await import('../src/index.js')).default;
   const schema = JSON.parse(read('schema/scene.schema.json'));
+  const keys = Object.keys(LK3D).sort(); // (before the subpaths: lk3d/export adds toGLB to LK3D when imported)
   return {
-    LK3D: Object.keys(LK3D).sort(),
+    subpaths: await subpaths(),
+    LK3D: keys,
     figure: figureKeys(read('src/figure/api.js')),
     element: elementSurface(read('src/element.js')),
     scene: {
@@ -44,14 +56,16 @@ async function surface() {
     },
   };
 }
+// (a list against a list, key by key otherwise; a section missing on one side is empty there)
+const empty = (other) => (Array.isArray(other) ? [] : {});
 const diff = (was, now, at = '') =>
-  typeof was !== 'object' || Array.isArray(was)
+  Array.isArray(was) || Array.isArray(now)
     ? [
         ...now.filter((k) => !was.includes(k)).map((k) => `+ ${at}${k}`),
         ...was.filter((k) => !now.includes(k)).map((k) => `- ${at}${k}`),
       ]
     : [...new Set([...Object.keys(was), ...Object.keys(now)])].flatMap((k) =>
-        diff(was[k] ?? [], now[k] ?? [], `${at}${k}.`),
+        diff(was[k] ?? empty(now[k]), now[k] ?? empty(was[k]), `${at}${k}.`),
       );
 
 test('the public surface is the one recorded in test/api-surface.json', async () => {

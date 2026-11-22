@@ -20,6 +20,7 @@ export default [
       'src/validate.js',
       'src/lint.js',
       'src/place.js',
+      'src/measure.js',
     ],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },

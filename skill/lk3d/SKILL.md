@@ -23,8 +23,13 @@ own guides: [scene format](../../docs/scene-format.md), [shapes](../../docs/shap
 
 - **Check**: `npx lk3d check scene.json` (or `node node_modules/lk3d/bin/lk3d.mjs check …`). The format (every field
   and shape), then the geometry: parts that run into each other while the model is taken apart, parts hanging in the
-  air, labels that point inside another part. It prints the scene's size (parts, shapes placed, triangles). It must
-  say **no problems** before you hand anything over.
+  air, labels that point inside another part; a molecule's bonds against its atoms' covalent radii and its atoms'
+  valences (give an ion's atom its `charge`; excuse a drawing made of atoms that is not a molecule under
+  `check.molecule`). It prints the scene's size (parts, shapes placed, triangles). It must say **no problems** before
+  you hand anything over.
+- **Measure** what the words around the figure state (a bond angle, a radius, a gap, a count of blades) with
+  `lk3d/measure` rather than trusting the numbers you typed: each value comes with its error. In lessonkit, a figure's
+  `measures:` and a claim's `{measure: {of, value, unit}}` do it, and `{m:ID}` prints a measure into a note.
 - **Look**: `npx lk3d render scene.json --looks pen,ink --poses rest,apart,cut [--ortho] --out shots/` draws a PNG for
   each look and pose with the real engine (it needs Playwright: `npm i -D playwright && npx playwright install
 chromium`). **Open every picture and look at it.** If you cannot render, say plainly that the figure was not checked

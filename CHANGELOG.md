@@ -3,14 +3,61 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
-## Unreleased (0.6.0)
+## 0.6.0 (prepared 23 November 2026; not yet released)
 
-- **The budget.** The global script's budget goes from 68 KB to **70.5 KB** (72,192 bytes) gzipped, by the user's
-  decision of 22 November 2026: hits, the page's own drags, turned parts, colour ramps and plane handles go in the
-  core; surfaces and arrows go in an add-on of their own (`dist/lk3d-live.min.js`).
+Nothing a page or a scene already does changes. In TypeScript, a handle's value is now `number | [number, number]` (a
+plane handle's is a pair): a page that does arithmetic on `onHandle`'s value narrows it first (`typeof v === 'number'`).
+Surfaces and arrows come with a new add-on, `dist/lk3d-live.min.js`, which a page that loads lk3d as a script loads
+after it; an ES module has them built in. `LK3D.version` stays 3.
+
+- **Hits** (`fig.hit(x, y | event, { plane, surfaces, minAlpha })`, `fig.ray(x, y)`): the part or surface under a
+  point, the point, the face's normal facing the eye, the distance along the ray, and on a cut face the cut plane's
+  point and normal; or where the ray meets a plane the page names.
+- **The page's own drags** (`onPress`, `onDrag`, `onRelease`): a page takes a gesture, so the view does not turn and a
+  touch does not scroll the page; other pointers wait.
+- **Turning a part from the page** (`set({ move: { id: { by, turn: { axis, angle, center } } } })`): turned about a
+  point of it, then shifted in the scene's axes; labels, picking, the cut, framing and a handle's frame follow.
+- **Colour ramps** for balls the page places: 2 to 4 stops or a ramp's name, banded or blended (`smooth`), following
+  the page from light to dark.
+- **Plane handles** (`handle: { plane: { axes, center, names } }`): a place in a plane, its value `[u, v]`, held and
+  snapped per axis, two range inputs for the keyboard and screen readers, refused by `validate` with axes not at right
+  angles or a number for a pair.
+- **Surfaces** (`fig.surface`, the live add-on): heights the page writes on a grid drawn as one smooth, two-sided mesh,
+  refilled in place, tones along a ramp; found by `hit`, read by `heightAt`, a smaller grid in the 2D fallback. A
+  256 × 256 surface reshaped every frame costs lk3d 3.3 ms a frame on the reference laptop.
+- **Arrows** (`fig.arrows`, the live add-on): lines with a cone at each tip.
+- **The examples:** a pendulum's period, and a ripple tank, built on all of it.
 - **Fixed:** lines a page added to a figure still waiting for its first WebGL context (far off screen, on a page whose
   eight contexts were taken) made it fall back to 2D when it got one. Whatever a page adds is now given to each new or
-  restored context, and to the 2D fallback.
+  restored context, and to the 2D fallback. Picking in the 2D fallback no longer treats parts as cut away.
+- **The budget.** The global script's budget goes from 68 KB to **70.5 KB** (72,192 bytes) gzipped, by the user's
+  decision of 22 November 2026: hits, the page's own drags, turned parts, colour ramps and plane handles go in the
+  core; surfaces and arrows go in the live add-on (budget 4 KB).
+- Sizes: SIZES.
+
+## 0.5.0 (prepared 23 November 2026; not yet released)
+
+Nothing a page or a scene already does changes. A scene that draws a molecule whose bonds are far from their atoms'
+covalent radii, or an atom with too many or too few bonds, now fails `lk3d check`, as the examples' BF3 did: it drew
+each bond as two half-rods, small molecules of their own; it is one molecule again, drawn in the same colours.
+
+- **Molecules checked by chemistry** (`lk3d check`, `lk3d/lint`): each bond against the sum of its two atoms' covalent
+  radii for its order (Pyykkö and co-workers: single and double 2009, triple 2005), within 20 % (real bonds stray both
+  ways: BF3's B–F is 12 % short, H2O2's O–O 17 % long); each atom's bond orders against its element's usual valences,
+  an ion's atom counted as the element with as many electrons (`charge`, new: N⁺ as C, O⁻ as F); an atom with no bond
+  in a bonded molecule. Reported at its place (`parts[i].shapes[j].molecule.bonds[b]`). `check.molecule` excuses a
+  drawing made of atoms that is not a molecule, by part or by shape, and a name that matches no molecule shape is
+  refused. The summary names the elements it could not check (`unchecked`).
+- **`lk3d/measure`**: sizes, distances, gaps between surfaces, angles, counts of pieces or parts, numbers read from the
+  scene and sums of these, measured on the scene as built (at rest, or at a guided step), each with its error: how far
+  the value may be from the shapes the scene describes, worked out from each round shape's own segment counts (0 for
+  atoms, reads and counts). For a page or a tool that compares a figure with the numbers its text states; lessonkit's
+  measured claims use it. `expect`'s `size` now measures the posed part's vertices, as `measure` does, not its box
+  turned. A stdin mode for other tools.
+- **`lk3d render`** writes `NAME-render.json` beside its pictures: each one's file, caption, look, pose and the renderer
+  that drew it (`webgl2`, `webgl` or `2d`), which it also prints.
+- The API-surface test records what each module subpath exports.
+- Sizes: unchanged, 174.1 KB (67.4 KB gzipped): the new code is in tools, not the engine.
 
 ## 0.4.0 (22 November 2026)
 

@@ -1,4 +1,27 @@
 {
+  "subpaths": {
+    "./validate": ["schema", "validate"],
+    "./lint": ["lint"],
+    "./place": ["patchPlace", "placements", "resolvePlace"],
+    "./measure": ["measure"],
+    "./export": [
+      "M",
+      "build",
+      "clock",
+      "default",
+      "defaults",
+      "format",
+      "locales",
+      "mount",
+      "reduce",
+      "refreshFrom",
+      "safeHTML",
+      "sceneToGLB",
+      "themes",
+      "toGLB",
+      "version"
+    ]
+  },
   "LK3D": [
     "M",
     "build",

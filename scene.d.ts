@@ -109,6 +109,11 @@ export interface Scene {
      */
     float?: boolean | string[];
     /**
+     * Molecule shapes that are not molecules (a drawing made of atoms), excused from the chemistry check by name:
+     * a part's id (all its molecule shapes) or "id.shapes[j]" (one of them).
+     */
+    molecule?: string[];
+    /**
      * Pairs of parts that are the same shapes turned 180° on purpose, not a left and a right that should be mirror
      * images, each with the reason.
      */
@@ -1204,6 +1209,11 @@ export interface ShapeFields {
       r?: number;
       /** Its colour (default: the element's). */
       color?: Color;
+      /**
+       * Its formal charge (N⁺ in NH4⁺: 1), which changes how many bonds the geometry check expects of it.
+       * @integer
+       */
+      charge?: number;
     }>;
     /** Bonds between two atoms, by their place in atoms (from 0), single unless an order is given. */
     bonds?: [number, number, number?][];

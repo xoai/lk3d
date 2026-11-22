@@ -149,6 +149,14 @@
             }
           ]
         },
+        "molecule": {
+          "type": "array",
+          "description": "Molecule shapes that are not molecules (a drawing made of atoms), excused from the chemistry check by name: a part's id (all its molecule shapes) or \"id.shapes[j]\" (one of them).",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
         "mirror": {
           "type": "array",
           "description": "Pairs of parts that are the same shapes turned 180° on purpose, not a left and a right that should be mirror images, each with the reason.",
@@ -1227,9 +1235,13 @@
                   "color": {
                     "$ref": "#/$defs/color",
                     "description": "Its colour (default: the element's)."
+                  },
+                  "charge": {
+                    "type": "integer",
+                    "description": "Its formal charge (N⁺ in NH4⁺: 1), which changes how many bonds the geometry check expects of it."
                   }
                 },
-                "x-message": "an atom is {el: \"C\", at: [x, y, z]}, with r and color if they differ from the element's"
+                "x-message": "an atom is {el: \"C\", at: [x, y, z]}, with r, color and charge if it needs them"
               },
               "description": "The atoms, each an element at a place."
             },

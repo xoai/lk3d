@@ -241,6 +241,7 @@ export function surface(
   const part = host.part('surface', batches, { color, studioColor, material, tint: 0.4 });
   part.id = id ?? `surface-${++surfaces}`;
   part.soft = true; // (no shadow, no outline)
+  part.cut = false; // (an open sheet: cut, its underside would be drawn as a cap)
   shape(batches);
   // where a ray (in the scene) meets the surface: marched in the surface's frame a quarter of a cell at a time, within
   // the box of its heights, the crossing then found by halving
@@ -282,8 +283,25 @@ export function surface(
     const step = (0.25 * Math.min(dx, dz)) / Math.max(1e-12, Math.hypot(d[0], d[2])),
       first = above(enter);
     for (let t = enter, last = first; t < leave;) {
-      const next = Math.min(leave, t + step),
+      let next = Math.min(leave, t + step),
         here = above(next);
+      if (last > 0 && here > 0) {
+        // (both ends above: a crest between them may still reach the ray, a thin one too; the least gap between ray and
+        // surface on this stretch, found by thirds (a cell or two: near enough to one dip), and the crossing before it)
+        let a = t,
+          b = next;
+        for (let k = 0; k < 30; k++) {
+          const m1 = a + (b - a) / 3,
+            m2 = b - (b - a) / 3;
+          if (above(m1) < above(m2)) b = m2;
+          else a = m1;
+        }
+        const lowest = above((a + b) / 2);
+        if (lowest <= 0) {
+          next = (a + b) / 2;
+          here = lowest;
+        }
+      }
       if (Math.sign(here) !== Math.sign(last) || here === 0) {
         let a = t,
           b = next;
@@ -296,8 +314,12 @@ export function surface(
           local = [o[0] + d[0] * tHit, o[1] + d[1] * tHit, o[2] + d[2] * tHit],
           fi = Math.max(0, Math.min(nx - 1, (local[0] + sx / 2) / dx)),
           fj = Math.max(0, Math.min(nz - 1, (local[2] + sz / 2) / dz)),
-          gradX = (sample(Math.min(nx - 1, fi + 0.5), fj) - sample(Math.max(0, fi - 0.5), fj)) / dx,
-          gradZ = (sample(fi, Math.min(nz - 1, fj + 0.5)) - sample(fi, Math.max(0, fj - 0.5))) / dz;
+          i0 = Math.max(0, fi - 0.5),
+          i1 = Math.min(nx - 1, fi + 0.5),
+          j0 = Math.max(0, fj - 0.5),
+          j1 = Math.min(nz - 1, fj + 0.5),
+          gradX = (sample(i1, fj) - sample(i0, fj)) / ((i1 - i0) * dx), // (the span itself: half a cell less at an edge)
+          gradZ = (sample(fi, j1) - sample(fi, j0)) / ((j1 - j0) * dz);
         return { id: part.id, t: tHit, point: M.pt(placement, local), normal: M.dir(placement, [-gradX, 1, -gradZ]) };
       }
       t = next;

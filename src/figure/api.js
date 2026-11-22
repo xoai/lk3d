@@ -254,7 +254,11 @@ export function makeApi(c) {
           get value() {
             return Array.isArray(grip.value) ? [...grip.value] : grip.value; // (a plane handle's pair: a copy)
           },
-          set: byPage((value) => c.setHandle_(grip, HD.hold(grip.handle, value), false)),
+          // (a value of the handle's own shape only: a pair for a plane handle, a number for any other)
+          set: byPage(
+            (value) =>
+              Array.isArray(value) === !!grip.handle.plane && c.setHandle_(grip, HD.hold(grip.handle, value), false),
+          ),
         }
       );
     },

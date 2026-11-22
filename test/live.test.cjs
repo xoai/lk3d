@@ -232,6 +232,65 @@ test('a surface is refused with its res or size wrong, over the triangle limit, 
   assert.throws(() => s.update(), /heights/);
 });
 
+test('a ray meets a thin crest, and the normal at an edge is right; a surface is never cut; NaN is drawn at 0, said once', async () => {
+  const { surface } = await import('../src/live.js');
+  const host = fakeHost(),
+    unit = (v) => v.map((x) => x / Math.hypot(...v));
+  // a slope y = x / 2: its normal the same at the edges as in the middle
+  const slope = surface(host, { size: [10, 10], res: [11, 11] });
+  shaped(host, slope, 11, 11, (x) => 2.5 * x);
+  const { hit, parts } = host.entries[0];
+  assert.equal(parts[0].cut, false, 'not cut: an open sheet would be drawn with a cap');
+  for (const x of [0, 4.9, -4.9]) {
+    const n = unit(hit([x, 100, 0], [0, -1, 0]).normal);
+    assert.ok(Math.hypot(n[0] + 0.447214, n[1] - 0.894427, n[2]) < 1e-4, `the normal at x = ${x}: ${n}`);
+  }
+  // a spike at one point of a flat grid: rays passing just under its tip, every way, all meet it
+  const spike = surface(host, { size: [10, 10], res: [11, 11] });
+  spike.heights[5 + 11 * 5] = 1;
+  spike.update();
+  const crest = host.entries[1];
+  crest.place({});
+  let met = 0;
+  for (let k = 0; k < 200; k++) {
+    const angle = 0.3 + k * 0.01,
+      d = [Math.cos(angle), 0, Math.sin(angle)];
+    if (crest.hit([-20 * d[0], 0.97, -20 * d[2]], d)) met++;
+  }
+  assert.equal(met, 200);
+  // heights that are not numbers: drawn at 0, and said once
+  const said = [],
+    warn = console.warn;
+  console.warn = (...a) => said.push(a.join(' '));
+  try {
+    const odd = surface(host, { size: [1, 1], res: [3, 3] });
+    odd.heights.fill(NaN);
+    odd.update();
+    host.entries.at(-1).place({});
+    host.entries.at(-1).place({});
+    assert.ok(host.entries.at(-1).parts[0].batches[0].mesh.positions.every((v, k) => k % 3 !== 1 || v === 0));
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(said.length, 1, said.join('\n'));
+});
+
+test('in the 2D fallback a surface is drawn as a grid of at most 64 × 64, sampled from its heights', async () => {
+  const { surface } = await import('../src/live.js');
+  const host = fakeHost();
+  host.renderer = () => '2d';
+  const s = surface(host, { size: [2, 2], res: [200, 150] });
+  shaped(host, s, 200, 150, (x, z) => 0.2 * x * z);
+  const { parts } = host.entries[0],
+    count = parts[0].batches.reduce((sum, batch) => sum + batch.mesh.count, 0);
+  assert.equal(count, 64 * 64);
+  const { positions } = parts[0].batches[0].mesh;
+  for (let k = 0; k < 64 * 64; k += 97) {
+    const [x, y, z] = positions.subarray(3 * k, 3 * k + 3);
+    assert.ok(Math.abs(y - 0.2 * x * z) < 1e-3, `sampled at ${x}, ${z}`);
+  }
+});
+
 test('the built add-on carries no geometry or other part of the core, and says what it is for', () => {
   const dist = (f) => path.join(__dirname, '..', 'dist', f);
   if (!fs.existsSync(dist('lk3d-live.min.js'))) return; // (not built yet)

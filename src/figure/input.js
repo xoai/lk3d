@@ -25,10 +25,11 @@ const tilt = (pitch) => Math.max(-1.45, Math.min(1.45, pitch));
 export function makeInput(c) {
   // what a screen reader says for a handle's input: the page's words (opts.handleText(id, value, axis), e.g. "d = 45 cm";
   // axis 0 or 1 for a plane handle's two inputs), or the number the input stands for
+  const copy = (value) => (Array.isArray(value) ? [...value] : value); // (a plane handle's pair: never the handle's own)
   const of = (grip, axis) => (axis == null ? (grip.round ? mod360(grip.value) : grip.value) : grip.value[axis]);
-  const valueText = (grip, axis) =>
-    (c.opts_.handleText && c.opts_.handleText(grip.part.id, grip.value, axis ?? undefined)) ||
-    `${+of(grip, axis).toFixed(grip.digits)}${grip.handle.unit || (grip.handle.turn ? '°' : '')}`.replace(
+  const valueText = (grip, axis, digits) =>
+    (c.opts_.handleText && c.opts_.handleText(grip.part.id, copy(grip.value), axis ?? undefined)) ||
+    `${+of(grip, axis).toFixed(digits)}${grip.handle.unit || (grip.handle.turn ? '°' : '')}`.replace(
       '.',
       c.words_.decimal,
     );
@@ -41,9 +42,9 @@ export function makeInput(c) {
     )
       return;
     grip.value = value;
-    for (const [input, axis] of grip.inputs || []) {
+    for (const [input, axis, digits] of grip.inputs || []) {
       input.value = String(of(grip, axis));
-      input.setAttribute('aria-valuetext', valueText(grip, axis));
+      input.setAttribute('aria-valuetext', valueText(grip, axis, digits));
     }
     if (byReader) c.mark_('reader');
     c.kick_();
@@ -236,6 +237,8 @@ export function makeInput(c) {
     }
     if (
       !pointers.size &&
+      !grab &&
+      !cutting && // (a handle or the cut held by another finger: theirs, not the page's)
       c.opts_.onPress &&
       (event.pointerType !== 'mouse' || event.button === 0) &&
       c.opts_.onPress(pageHit(event), event) === true
@@ -517,7 +520,7 @@ export function makeInput(c) {
         range.min = String(min);
         range.max = String(max);
         range.step = String(step);
-        grip.digits = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9)); // the value read out to the step's last digit
+        const digits = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9)); // the value read out to the step's last digit
         range.value = String(of(grip, axis));
         const label = handle.label || plainText(grip.part.name) || grip.part.id;
         // (a plane's axis: its name, or "along x" for an axis along x, y or z, else "first direction" or "second")
@@ -535,7 +538,7 @@ export function makeInput(c) {
             );
         }
         range.setAttribute('aria-label', name);
-        range.setAttribute('aria-valuetext', valueText(grip, axis));
+        range.setAttribute('aria-valuetext', valueText(grip, axis, digits));
         range.addEventListener('input', () => {
           // (locked by the page: the input goes back to where the handle is)
           if (c.locked_('handles')) return void (range.value = String(of(grip, axis)));
@@ -582,7 +585,7 @@ export function makeInput(c) {
         range.addEventListener('blur', () => {
           stage.classList.remove('lk3d-kbd');
         });
-        grip.inputs.push([range, axis]);
+        grip.inputs.push([range, axis, digits]);
         c.host_.append(range);
       }
     }

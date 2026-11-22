@@ -33,8 +33,11 @@ after it; an ES module has them built in. `LK3D.version` stays 3.
 - **The budget.** The global script's budget goes from 68 KB to **70.5 KB** (72,192 bytes) gzipped, by the user's
   decision of 22 November 2026: hits, the page's own drags, turned parts, colour ramps and plane handles go in the
   core; surfaces and arrows go in the live add-on (budget 4 KB).
-- Sizes: the global script 180.6 KB (69.9 KB gzipped: 71,617 bytes, against 72,192), the live add-on 5.6 KB (2.8 KB
-  gzipped).
+- Sizes: the global script 180.7 KB (70.0 KB gzipped: 71,678 bytes, against 72,192), the live add-on 5.8 KB (2.9 KB
+  gzipped: 3,016 bytes).
+- **Still open before release:** the check on a real phone (a bob and P dragged without scrolling the page; Chromium's
+  touch emulation passes); and the Linux pictures of the new reference scenes (ramp, arrows, surface, plane-handle),
+  which come from CI's "update" run: until then the image tests fail on Linux.
 
 ## 0.5.0 (prepared 23 November 2026; not yet released)
 

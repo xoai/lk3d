@@ -877,7 +877,7 @@ export type Handle =
   | Form<HandleFields, 'turn', Exclude<HandleKind, 'turn'>>
   | Form<HandleFields, 'slide' | 'min' | 'max', Exclude<HandleKind, 'slide'>>
   | Form<HandleFields, 'along', Exclude<HandleKind, 'along'>>
-  | Form<HandleFields, 'plane', Exclude<HandleKind, 'plane'>>;
+  | Form<HandleFields, 'plane' | 'min' | 'max', Exclude<HandleKind, 'plane'>>;
 
 /** the kinds of Handle: exactly one of these keys picks its form */
 export type HandleKind = 'turn' | 'slide' | 'along' | 'plane';

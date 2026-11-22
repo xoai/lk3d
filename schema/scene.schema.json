@@ -612,10 +612,10 @@
           "required": ["along"]
         },
         {
-          "required": ["plane"]
+          "required": ["plane", "min", "max"]
         }
       ],
-      "x-message": "a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}, plane: {axes, center}",
+      "x-message": "a handle is exactly one of turn: {axis, center}, slide: {axis} (with min and max), along: {path}, plane: {axes, center} (with min and max)",
       "additionalProperties": false
     },
     "part": {

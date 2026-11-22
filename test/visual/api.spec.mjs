@@ -2,7 +2,7 @@
 // callback, tweens give way to the page and the reader, removed and destroyed things leave nothing behind. Each test
 // mounts a small scene of its own on api.html and drives it as a page would. (Chromium: the wiring is the same
 // everywhere.)
-/* global LK3D, mountIt, until, fig, els, figs, moves */ // (in the page: the engine, and the helpers beforeEach puts there)
+/* global LK3D, mountIt, until, fig, els, figs, moves, calls */ // (in the page: the engine, and the helpers beforeEach puts there)
 import { test, expect } from '@playwright/test';
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'the wiring is the same in every browser');
@@ -1031,18 +1031,23 @@ test('a touch the page takes with onPress does not scroll the page; one it decli
       [BOX, claim],
     );
     const cdp = await context.newCDPSession(page),
-      at = (y) => [{ x: 240, y }];
+      at = (y) => [{ x: 240, y }],
+      before = await page.evaluate(() => JSON.stringify(fig.camera()));
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(200) });
     for (let k = 1; k <= 8; k++)
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(200 - 20 * k) });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await page.waitForTimeout(300);
-    const y = await page.evaluate(() => scrollY);
+    const y = await page.evaluate(() => scrollY),
+      camera = await page.evaluate(() => JSON.stringify(fig.camera()));
     await context.close();
-    return y;
+    return { y, camera, before };
   };
-  expect(await scrolled(true)).toBe(0);
-  expect(await scrolled(false)).toBeGreaterThan(0);
+  const claimed = await scrolled(true),
+    declined = await scrolled(false);
+  expect(claimed.y).toBe(0);
+  expect(claimed.camera).toBe(claimed.before); // (the page's gesture: the view did not turn)
+  expect(declined.y).toBeGreaterThan(0);
 });
 
 test('surface() and arrows() say which script to load without the live add-on; with it, arrows draw and hit passes them by', async ({
@@ -1219,13 +1224,9 @@ test('a plane handle moves by the mouse in its plane, holds still seen edge-on, 
     const value = fig.handle('p').value,
       state = fig.state(),
       text = fig.describe();
-    // seen edge-on (the eye in the plane): a drag moves nothing
-    fig.set({ camera: { yaw: 0, pitch: 0, target: [0, 0.3, 0] } });
-    fig.drawNow();
-    const held = fig.handle('p').value;
     fig.set({ handles: { p: [0, 0] } });
     fig.set(await LK3D.decodeState(await LK3D.encodeState(state)));
-    return { value, inState: state.handles.p, text, held, back: fig.handle('p').value, last: moves.at(-1) };
+    return { value, inState: state.handles.p, text, back: fig.handle('p').value, last: moves.at(-1) };
   });
   const tenths = (pair) => pair.map((v) => Math.round(v * 10) / 10 + 0);
   expect(tenths(got.value)).toEqual([0.5, 0.5]);
@@ -1233,13 +1234,18 @@ test('a plane handle moves by the mouse in its plane, holds still seen edge-on, 
   expect(tenths(got.last)).toEqual([0.5, 0.5]); // (onHandle hears the pair)
   expect(got.text).toContain('P is at 0.5, 0.5.');
   expect(tenths(got.back)).toEqual([0.5, 0.5]);
-  const [edge, beyond] = await page.evaluate(() => [fig.project([0.5, 0.3, 0.5]), fig.project([1, 0.3, 0.5])]);
+  // seen edge-on (an orthographic view along the plane: every ray runs along it), a drag moves nothing
+  const [edge, beyond] = await page.evaluate(() => {
+    fig.set({ projection: 'ortho', camera: { yaw: 0, pitch: 0, target: [0, 0.3, 0] } });
+    fig.drawNow();
+    return [fig.project([0.5, 0.3, 0.5]), fig.project([1, 0.3, 0.5])];
+  });
   await page.mouse.move(box.x + edge[0], box.y + edge[1]);
   await page.mouse.down();
   await page.mouse.move(box.x + beyond[0], box.y + beyond[1] - 30);
   await page.mouse.up();
   const after = await page.evaluate(() => fig.handle('p').value);
-  expect(after.every(Number.isFinite)).toBe(true);
+  expect(tenths(after)).toEqual([0.5, 0.5]); // (held: the ray never meets the plane)
 });
 
 test('a plane handle is two inputs: Tab reaches each, its keys step its axis by snap, each says its own number', async ({
@@ -1283,6 +1289,118 @@ test('a plane handle is two inputs: Tab reaches each, its keys step its axis by 
   }, PLANE);
   expect(names[0]).toEqual(['Point P, trái–phải', 'Point P, trước–sau']);
   expect(names[1]).toEqual(['Point P, hướng thứ nhất', 'Point P, hướng thứ hai']);
+});
+
+test('onPress taking a press over a handle leaves the handle; a page press while a handle is held goes to the handle', async ({
+  page,
+}) => {
+  await page.evaluate(async (scene) => {
+    window.calls = 0;
+    window.claim = true;
+    window.fig = LK3D.mount(document.getElementById('g'), scene, {
+      controls: false,
+      onPress: () => (window.calls++, window.claim),
+    });
+    await fig.ready;
+    fig.drawNow();
+  }, PLANE);
+  const box = await page.locator('#g canvas[tabindex]').boundingBox(),
+    [from, to] = await page.evaluate(() => [fig.project([0, 0.3, 0]), fig.project([0.5, 0.3, 0.5])]),
+    drag = async () => {
+      await page.mouse.move(box.x + from[0], box.y + from[1]);
+      await page.mouse.down();
+      for (let k = 1; k <= 4; k++)
+        await page.mouse.move(
+          box.x + from[0] + ((to[0] - from[0]) * k) / 4,
+          box.y + from[1] + ((to[1] - from[1]) * k) / 4,
+        );
+      if (k2) await k2();
+      await page.mouse.up();
+    };
+  let k2 = null;
+  await drag();
+  expect(await page.evaluate(() => fig.handle('p').value)).toEqual([0, 0]); // (the page took it)
+  // the page declines: the reader holds the handle, and a second finger's press is not offered to the page
+  await page.evaluate(() => {
+    window.claim = false;
+    window.calls = 0;
+  });
+  k2 = () =>
+    page.evaluate(
+      ([x, y]) => {
+        window.claim = true;
+        const cv = document.querySelector('#g canvas[tabindex]');
+        cv.dispatchEvent(
+          new PointerEvent('pointerdown', {
+            pointerId: 9,
+            pointerType: 'touch',
+            clientX: x,
+            clientY: y,
+            bubbles: true,
+          }),
+        );
+        cv.dispatchEvent(
+          new PointerEvent('pointerup', { pointerId: 9, pointerType: 'touch', clientX: x, clientY: y, bubbles: true }),
+        );
+      },
+      [box.x + 20, box.y + 20],
+    );
+  await drag();
+  const after = await page.evaluate(() => ({
+    calls,
+    value: fig.handle('p').value.map((v) => Math.round(v * 10) / 10 + 0),
+  }));
+  expect(after).toEqual({ calls: 1, value: [0.5, 0.5] }); // (offered the first press only; the handle moved)
+});
+
+test('a handle takes only a value of its own shape; a turn on a mirror part is applied as given', async ({ page }) => {
+  const got = await page.evaluate(async (scene) => {
+    const plane = JSON.parse(JSON.stringify(scene));
+    plane.parts.push({
+      id: 'knob',
+      name: 'Knob',
+      at: [1.5, 0.2, -1.5],
+      shapes: [{ sphere: 0.1 }],
+      handle: { turn: { axis: [0, 1, 0] } },
+    });
+    plane.parts.push({ id: 'l', name: 'Peg', at: [1.5, 0.2, 1.5], shapes: [{ sphere: 0.1 }] });
+    plane.parts.push({ id: 'r', mirrorOf: 'l', plane: 'x' });
+    window.fig = LK3D.mount(document.getElementById('g'), plane, { controls: false });
+    await fig.ready;
+    fig.handle('p').set(5); // (a number for a plane handle: ignored)
+    fig.handle('knob').set([1, 2]); // (a pair for a turn: ignored)
+    fig.set({ handles: { p: 3 } });
+    const kept = [fig.handle('p').value, fig.handle('knob').value];
+    fig.set({ move: { r: { turn: { axis: [0, 0, 1], angle: 90, center: [-1.5, 0.2, 1.5] } } } });
+    fig.drawNow();
+    const at = fig.project([-1.5, 0.3, 1.5], 'r'),
+      want = fig.project([-1.6, 0.2, 1.5]); // (the point 0.1 above its centre, turned 90° about z: 0.1 to −x)
+    return { kept, off: Math.hypot(at[0] - want[0], at[1] - want[1]) };
+  }, PLANE);
+  expect(got.kept).toEqual([[0, 0], 0]);
+  expect(got.off).toBeLessThan(0.5);
+});
+
+test('a surface is never cut: drawn and hit whole with the model cut open', async ({ page }) => {
+  const got = await page.evaluate(async () => {
+    window.fig = LK3D.mount(
+      document.getElementById('g'),
+      {
+        view: { yaw: 0, pitch: 89, projection: 'ortho' },
+        section: { normal: [1, 0, 0], offset: 0 },
+        parts: [{ id: 'base', name: 'Base', at: [0, -0.5, 0], shapes: [{ box: [2.4, 0.1, 2.4] }] }],
+      },
+      { controls: false },
+    );
+    await fig.ready;
+    const s = fig.surface({ id: 'sheet', size: [2, 2], res: [9, 9] });
+    s.heights.fill(0.1);
+    s.update();
+    fig.set({ cut: 1 });
+    fig.drawNow();
+    return [0.6, -0.6].map((x) => fig.hit(...fig.project([x, 0.1, 0]))?.id);
+  });
+  expect(got).toEqual(['sheet', 'sheet']); // (beyond the plane and before it)
 });
 
 test('lines added to a figure still waiting for its first WebGL context draw in WebGL when it gets one, not in 2D', async ({

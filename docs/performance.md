@@ -23,7 +23,7 @@ and the glTF exporter, `dist/lk3d-export.min.js` (5.9 KB, 2.9 KB gzipped; budget
 | three.js r187, the smallest page (renderer, camera, box, basic material)                                                                | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, orbit controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
-Measured with esbuild (minify, ES2020) and gzip level 9 (lk3d by `npm run size`, 23 November 2026: 69 155 bytes, against a budget of 70.5 KB (72 192 bytes); three.js, 2 November 2026).
+Measured with esbuild (minify, ES2020) and gzip level 9 (lk3d by `npm run size`, 23 November 2026: 71 678 bytes, against a budget of 70.5 KB (72 192 bytes); the live add-on 3 016 bytes; three.js, 2 November 2026).
 
 ## Frames
 

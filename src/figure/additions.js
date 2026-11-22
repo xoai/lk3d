@@ -5,7 +5,7 @@
 // additions_, which the frame loop moves on and draws; additions_ holds whatever draws as parts: lines here, the live
 // add-on's surfaces and arrows); reads renderer_, and calls part_, travel_ and kick_.
 import { M, sub, mulv, len, norm, cross, rgb } from '../math.js';
-import { buildShape, outlineNormals } from '../geometry.js';
+import { buildShape, outlineNormals, MATERIALS } from '../geometry.js';
 import { pathOf, makeFlow, stops, band, along } from '../flow.js';
 import { makeStream } from '../stream.js';
 
@@ -210,7 +210,7 @@ export function makeAdditions(c) {
     batches,
     color: rgb(color),
     studioColor: rgb(studioColor || color),
-    metalRoughness: [0.1, 0.4, 0],
+    metalRoughness: [...(MATERIALS[material] || MATERIALS.paint), 0].slice(0, 3), // (lit as its material is)
     material,
     surfaceDetail: [0, 0, 0],
     refract: 0,

@@ -29,7 +29,7 @@ What axe cannot judge is whether a screen reader user can work the figure. Each 
 screen reader and browser, and its result written here: **pass**, **fail** or **partial**, with notes, the date and the
 version tried. A failure becomes an issue; its fix is weighed against the bytes left in the engine's budget.
 
-As of 0.4.0 no cell has been tried: it needs each device and a screen reader user, not yet found. Until then, what is
+As of 0.5.0 no cell has been tried: it needs each device and a screen reader user, not yet found. Until then, what is
 known is only what axe and the tests check, above.
 
 | Task                                   | NVDA + Firefox (Windows) | NVDA + Chrome (Windows) | VoiceOver + Safari (macOS) | VoiceOver (iOS) | TalkBack + Chrome (Android) |

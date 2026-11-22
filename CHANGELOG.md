@@ -3,6 +3,30 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
+## 0.5.0 (prepared 23 November 2026; not yet released)
+
+Nothing a page or a scene already does changes. A scene that draws a molecule whose bonds are far from their atoms'
+covalent radii, or an atom with too many or too few bonds, now fails `lk3d check` (as lessonkit's BF3 drawing made of
+half-bond rods did, from when boron had no colour of its own: it is one molecule again in the examples).
+
+- **Molecules checked by chemistry** (`lk3d check`, `lk3d/lint`): each bond against the sum of its two atoms' covalent
+  radii for its order (Pyykkö and co-workers: single and double 2009, triple 2005), within 20 % (real bonds stray both
+  ways: BF3's B–F is 12 % short, H2O2's O–O 17 % long); each atom's bond orders against its element's usual valences,
+  an ion's atom counted as the element with as many electrons (`charge`, new: N⁺ as C, O⁻ as F); an atom with no bond
+  in a bonded molecule. Reported at its place (`parts[i].shapes[j].molecule.bonds[b]`). `check.molecule` excuses a
+  drawing made of atoms that is not a molecule, by part or by shape, and a name that matches no molecule shape is
+  refused. The summary names the elements it could not check (`unchecked`).
+- **`lk3d/measure`**: sizes, distances, gaps between surfaces, angles, counts of pieces or parts, numbers read from the
+  scene and sums of these, measured on the scene as built (at rest, or at a guided step), each with its error: how far
+  the value may be from the shapes the scene describes, worked out from each round shape's own segment counts (0 for
+  atoms, reads and counts). For a page or a tool that compares a figure with the numbers its text states; lessonkit's
+  measured claims use it. `expect`'s `size` now measures the posed part's vertices, as `measure` does, not its box
+  turned. A stdin mode for other tools.
+- **`lk3d render`** writes `NAME-render.json` beside its pictures: each one's file, caption, look, pose and the renderer
+  that drew it (`webgl2`, `webgl` or `2d`), which it also prints.
+- The API-surface test records what each module subpath exports.
+- Sizes: unchanged, 174.1 KB (67.4 KB gzipped): the new code is in tools, not the engine.
+
 ## 0.4.0 (22 November 2026)
 
 Nothing a page or a scene already does changes, except two small things: `fig.section.second` is `null`, not left out,

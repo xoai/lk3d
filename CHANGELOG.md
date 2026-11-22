@@ -33,7 +33,8 @@ after it; an ES module has them built in. `LK3D.version` stays 3.
 - **The budget.** The global script's budget goes from 68 KB to **70.5 KB** (72,192 bytes) gzipped, by the user's
   decision of 22 November 2026: hits, the page's own drags, turned parts, colour ramps and plane handles go in the
   core; surfaces and arrows go in the live add-on (budget 4 KB).
-- Sizes: SIZES.
+- Sizes: the global script 180.6 KB (69.9 KB gzipped: 71,617 bytes, against 72,192), the live add-on 5.6 KB (2.8 KB
+  gzipped).
 
 ## 0.5.0 (prepared 23 November 2026; not yet released)
 

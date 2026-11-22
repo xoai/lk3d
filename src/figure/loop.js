@@ -210,6 +210,7 @@ export function makeLoop(c) {
         // the spin, its motions' values or the joints' pose (a camera turning thousands of parts costs nothing here)
         changed.start(part.matrixFor || (part.matrixFor = []));
         for (const coordinate of part.offset) changed.put(coordinate);
+        changed.put(part.turn); // (the page's turn: a new object each time it is set)
         changed.put(c.state_.explode);
         changed.put(part.handleOf && part.handleOf.value);
         changed.put(part.spin && c.state_.spin);

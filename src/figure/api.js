@@ -2,7 +2,7 @@
 // The figure's API, what mount returns (index.d.ts: Figure): reading and setting its state, what a page adds,
 // handles, motions, liquids and gases, exporting, and destroying it. Owns api_; reads the state and calls the
 // functions of every other part of the figure.
-import { D2R, M, mulv } from '../math.js';
+import { D2R, M, mulv, len } from '../math.js';
 import { flatten } from '../geometry.js';
 import * as HD from '../handles.js';
 import * as FX from '../fluids.js';
@@ -29,10 +29,17 @@ export function makeApi(c) {
     if (changes.camera) c.view_(changes.camera, { ms: 0 }); // (placed at once: the page's camera wins over a gliding view)
     if ('timeScale' in changes) c.state_.timeScale = Math.max(0, +changes.timeScale || 0);
     if (c.controls_.style) c.controls_.style(); // (the buttons: the look's name, which toggles are on)
+    // the page's move of a part: a shift, or { by, turn } (a turn about a point of the part at rest, then the shift in
+    // the scene's axes); each replaces the last
     if (changes.move)
-      for (const [id, offset] of Object.entries(changes.move)) {
+      for (const [id, move] of Object.entries(changes.move)) {
         const part = c.part_(id);
-        if (part) part.offset = offset;
+        if (!part) continue;
+        const turn = Array.isArray(move) ? null : move.turn;
+        if (turn && !(Number.isFinite(+turn.angle) && len(turn.axis || [0, 0, 0]) > 0))
+          throw new Error(`lk3d: move.${id}.turn needs a finite angle and an axis that is not zero`);
+        part.offset = Array.isArray(move) ? move : move.by || [0, 0, 0];
+        part.turn = turn && { axis: turn.axis, angle: +turn.angle, center: turn.center || [0, 0, 0] };
       }
     if (changes.glow)
       for (const [id, strength] of Object.entries(changes.glow)) {

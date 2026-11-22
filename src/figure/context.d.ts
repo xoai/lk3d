@@ -215,8 +215,10 @@ export interface Ctx {
   playing_: Map<string, (now: number) => boolean>;
   /** where taking apart and the page's offset move a part */
   offsetOf_(p: Part): number[];
-  /** a part's matrix from that move alone (a handle's frame, a spinning part's label) */
+  /** a part's matrix from that move alone, with the page's turn (a handle's frame, a spinning part's label) */
   baseMatrix_(p: Part): Mat;
+  /** the eight corners of a part's box where its move (taken apart, shifted, turned) puts them */
+  cornersOf_(p: Part): number[][];
   /** a part's whole matrix: moved, by its motions, joint, handle and spin */
   modelMatrix_(p: Part): Mat;
   /** taken apart this far at once (a tween running stops) */

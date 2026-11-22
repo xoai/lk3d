@@ -142,12 +142,8 @@ export function makeLabels(c) {
         past = plane && tag.part.cut ? beyond(anchor) : 0;
       let cutAway = false;
       if (past > 0) {
-        const offset = c.offsetOf_(tag.part),
-          { min, max } = tag.part,
-          nearer = along(cut, anchor) <= along(second, anchor) ? cut : second;
-        cutAway = [0, 1, 2, 3, 4, 5, 6, 7].every(
-          (corner) => beyond([0, 1, 2].map((axis) => offset[axis] + ((corner >> axis) & 1 ? max : min)[axis])) > 0,
-        );
+        const nearer = along(cut, anchor) <= along(second, anchor) ? cut : second;
+        cutAway = c.cornersOf_(tag.part).every((corner) => beyond(corner) > 0);
         anchor = anchor.map((value, axis) => value - nearer[axis] * past);
       }
       const at = which !== 'none' && wanted(tag.part) && !cutAway && c.project_(anchor);

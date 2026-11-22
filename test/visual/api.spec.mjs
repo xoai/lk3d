@@ -855,6 +855,82 @@ for (const style of ['pen', 'ink', 'studio'])
     expect((await stage.screenshot()).equals(before)).toBe(true);
   });
 
+// a part the page turns (set({ move: { id: { by, turn } } })): an arm along x from the origin, and a block with a slide
+// handle along x, seen face on
+const ARM = {
+  view: { yaw: 0, pitch: 0, projection: 'ortho' },
+  check: { float: true },
+  parts: [
+    { id: 'arm', name: 'Arm', shapes: [{ box: [1, 0.1, 0.1], at: [0.5, 0, 0] }] },
+    {
+      id: 'slider',
+      name: 'Slider',
+      at: [0, -1, 0],
+      shapes: [{ box: [0.3, 0.3, 0.3] }],
+      handle: { slide: { axis: [1, 0, 0] }, min: -1, max: 1, label: 'Slider' },
+    },
+  ],
+};
+
+test("a part the page turns is turned about its centre, then shifted in the scene's axes; a turn-only change moves it", async ({
+  page,
+}) => {
+  const got = await page.evaluate(async (scene) => {
+    window.fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, labels: 'all' });
+    await fig.ready;
+    const tip = (move) => {
+      fig.set({ move: { arm: move } });
+      fig.drawNow();
+      return fig.project([1, 0, 0], 'arm');
+    };
+    const label = () => document.querySelector('#g .lk3d-tag').getBoundingClientRect();
+    const before = label();
+    const z = (angle, extra = {}) => ({ turn: { axis: [0, 0, 1], angle, center: [0, 0, 0] }, ...extra });
+    const out = {
+      up: [tip(z(90)), fig.project([0, 1, 0])],
+      half: [tip(z(45)), fig.project([Math.SQRT1_2, Math.SQRT1_2, 0])],
+      shifted: [tip(z(90, { by: [0.5, 0, 0] })), fig.project([0.5, 1, 0])],
+      shift: [tip([0, 0.5, 0]), fig.project([1, 0.5, 0])],
+    };
+    tip(z(90));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    out.labelMoved = Math.hypot(label().x - before.x, label().y - before.y);
+    const refused = (turn) => {
+      try {
+        fig.set({ move: { arm: { turn } } });
+        return 'set';
+      } catch (e) {
+        return e.message;
+      }
+    };
+    out.refusals = [refused({ axis: [0, 0, 1], angle: 'x' }), refused({ axis: [0, 0, 0], angle: 30 })];
+    return out;
+  }, ARM);
+  for (const key of ['up', 'half', 'shifted', 'shift']) {
+    const [at, want] = got[key];
+    expect(Math.hypot(at[0] - want[0], at[1] - want[1]), key).toBeLessThan(0.5);
+  }
+  expect(got.labelMoved).toBeGreaterThan(5);
+  for (const message of got.refusals) expect(message).toMatch(/move\.arm\.turn/);
+});
+
+test("a turned part's slide handle follows the pointer along its turned axis", async ({ page }) => {
+  const [from, to] = await page.evaluate(async (scene) => {
+    window.fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+    await fig.ready;
+    fig.set({ move: { slider: { turn: { axis: [0, 0, 1], angle: 90, center: [0, -1, 0] } } } });
+    fig.drawNow();
+    return [fig.project([0, -1, 0]), fig.project([0, -0.5, 0])]; // (its axis, turned: the scene's +y)
+  }, ARM);
+  const box = await page.locator('#g canvas[tabindex]').boundingBox();
+  await page.mouse.move(box.x + from[0], box.y + from[1]);
+  await page.mouse.down();
+  for (let k = 1; k <= 5; k++)
+    await page.mouse.move(box.x + from[0] + ((to[0] - from[0]) * k) / 5, box.y + from[1] + ((to[1] - from[1]) * k) / 5);
+  await page.mouse.up();
+  expect(await page.evaluate(() => fig.handle('slider').value)).toBeGreaterThan(0.4);
+});
+
 test('lines added to a figure still waiting for its first WebGL context draw in WebGL when it gets one, not in 2D', async ({
   page,
 }) => {

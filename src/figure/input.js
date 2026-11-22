@@ -101,15 +101,21 @@ export function makeInput(c) {
       base = c.baseMatrix_(grip.part);
     let value = grip.value;
     if (handle.turn) {
+      // (its axis and centre in the scene now: turned with the part, by the page's turn)
       const angle = HD.turnAngle(origin, direction, {
-        turn: { axis: handle.turn.axis, center: M.pt(base, handle.turn.center || [0, 0, 0]) },
+        turn: { axis: M.dir(base, handle.turn.axis), center: M.pt(base, handle.turn.center || [0, 0, 0]) },
       });
       if (grab.lastAngle == null) grab.lastAngle = angle;
       grab.turned += HD.unwrap(angle - grab.lastAngle);
       grab.lastAngle = angle;
       value = HD.hold(handle, grab.start + grab.turned);
     } else if (handle.slide) {
-      const along = HD.slideAt(origin, direction, handle, M.pt(base, grip.part.center));
+      const along = HD.slideAt(
+        origin,
+        direction,
+        { slide: { axis: M.dir(base, handle.slide.axis) } },
+        M.pt(base, grip.part.center),
+      );
       if (along == null) return;
       if (grab.slideStart == null) grab.slideStart = along;
       value = HD.hold(handle, grab.start + (along - grab.slideStart));

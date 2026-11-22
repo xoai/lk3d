@@ -129,19 +129,8 @@ export function makeCamera(c) {
     let from = -Infinity;
     if (swept < 1) {
       for (const part of c.built_.parts)
-        if (part.cut && !part.hidden) {
-          const offset = c.offsetOf_(part);
-          from = Math.max(
-            from,
-            dot(
-              normal,
-              add(
-                offset,
-                [0, 1, 2].map((axis) => (normal[axis] > 0 ? part.max[axis] : part.min[axis])),
-              ),
-            ),
-          );
-        }
+        if (part.cut && !part.hidden)
+          for (const corner of c.cornersOf_(part)) from = Math.max(from, dot(normal, corner));
       from = Math.max(to, from + c.built_.radius * 0.01);
     }
     return [normal[0], normal[1], normal[2], -(swept < 1 ? from + (to - from) * swept : to)];
@@ -161,11 +150,19 @@ export function makeCamera(c) {
     const min = [1e9, 1e9, 1e9],
       max = [-1e9, -1e9, -1e9];
     for (const part of parts) {
-      const offset = c.offsetOf_(part);
-      for (let axis = 0; axis < 3; axis++) {
-        min[axis] = Math.min(min[axis], part.min[axis] + offset[axis]);
-        max[axis] = Math.max(max[axis], part.max[axis] + offset[axis]);
-      }
+      // (a part the page turned: its turned corners; any other, its box shifted, as cheaply as before every frame)
+      const offset = c.offsetOf_(part),
+        corners = part.turn ? c.cornersOf_(part) : null;
+      for (let axis = 0; axis < 3; axis++)
+        if (corners)
+          for (const corner of corners) {
+            min[axis] = Math.min(min[axis], corner[axis]);
+            max[axis] = Math.max(max[axis], corner[axis]);
+          }
+        else {
+          min[axis] = Math.min(min[axis], part.min[axis] + offset[axis]);
+          max[axis] = Math.max(max[axis], part.max[axis] + offset[axis]);
+        }
     }
     return { center: mulv(add(min, max), 0.5), radius: len(sub(max, min)) / 2 || 1, min, max };
   };
@@ -175,20 +172,12 @@ export function makeCamera(c) {
     let from = Infinity,
       to = -Infinity;
     for (const part of c.built_.parts)
-      if (part.cut && !part.hidden) {
-        const offset = c.offsetOf_(part);
-        for (let corner = 0; corner < 8; corner++) {
-          const along = dot(
-            normal,
-            add(
-              offset,
-              [0, 1, 2].map((axis) => ((corner >> axis) & 1 ? part.max[axis] : part.min[axis])),
-            ),
-          );
+      if (part.cut && !part.hidden)
+        for (const corner of c.cornersOf_(part)) {
+          const along = dot(normal, corner);
           from = Math.min(from, along);
           to = Math.max(to, along);
         }
-      }
     return from <= to ? [from, to] : [-1, 1];
   };
   // a point of the scene on the stage, in CSS pixels (null behind the eye), by the camera as last placed

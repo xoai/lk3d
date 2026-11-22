@@ -55,9 +55,29 @@ export function makePose(c) {
     return pose.matrix.get(part.joint.id);
   };
 
-  // where taking apart and the page's offset put a part (a move), and its frame there
+  // where taking apart and the page's offset put a part (a move), and its frame there: T(explode + by), then the page's
+  // turn about its center (a point of the part at rest)
   c.offsetOf_ = (part) => add(mulv(part.explode, c.state_.explode), part.offset);
-  c.baseMatrix_ = (part) => M.trans(c.offsetOf_(part));
+  c.baseMatrix_ = (part) => {
+    const shift = M.trans(c.offsetOf_(part)),
+      turn = part.turn;
+    return turn
+      ? M.mul(
+          shift,
+          M.mul(M.trans(turn.center), M.mul(HD.rotAxis(turn.axis, turn.angle * D2R), M.trans(mulv(turn.center, -1)))),
+        )
+      : shift;
+  };
+  // the eight corners of a part's box where its move puts them (taken apart, shifted, turned by the page; not its
+  // motions, joints, handle or spin, which boxes leave out)
+  c.cornersOf_ = (part) => {
+    const offset = c.offsetOf_(part),
+      turned = part.turn && c.baseMatrix_(part);
+    return [0, 1, 2, 3, 4, 5, 6, 7].map((corner) => {
+      const point = [0, 1, 2].map((axis) => ((corner >> axis) & 1 ? part.max : part.min)[axis]);
+      return turned ? M.pt(turned, point) : add(point, offset);
+    });
+  };
   c.modelMatrix_ = (part) => {
     let m = c.baseMatrix_(part);
     if (part.tracks.length) m = M.mul(m, motionMatrix(part.tracks, c.state_.motion));

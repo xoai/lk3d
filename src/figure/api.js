@@ -147,6 +147,16 @@ export function makeApi(c) {
       return () => c.animations_.delete(animation);
     }, // animation(now) returns true while it keeps moving
     pick: c.pickAt_,
+    // the ray from the eye through a point of the stage, and what it meets (fig.hit(x, y, o), or fig.hit(event, o))
+    ray(x, y) {
+      const { origin, direction } = c.rayAt_(x, y);
+      return { origin: [...origin], direction: [...direction] };
+    },
+    hit(x, y, options) {
+      if (typeof x !== 'object') return c.hit_(x, y, options);
+      const rect = c.canvas_.getBoundingClientRect();
+      return c.hit_(x.clientX - rect.left, x.clientY - rect.top, y);
+    },
     // the figure as glTF 2.0 binary (.glb bytes), posed as it is now (taken apart, moved, its motions and joints);
     // { animate: true } adds each motion as an animation along its range (samples: 120 poses). The exporter is apart
     // from the engine (export.js), set as LK3D.toGLB by importing lk3d/export or loading dist/lk3d-export.min.js

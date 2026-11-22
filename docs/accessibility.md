@@ -15,6 +15,9 @@ is still to try).
   reader makes, only what changed is said. See [the API](api.md#the-figure).
 - **The controls** are buttons and sliders with names, and say when they are on (`aria-pressed`). A control the page has
   locked stays in reach, says so (`aria-disabled`, "locked by the page") and does nothing.
+- **The page's own drags** (`onPress`) have no keyboard path of their own: a page that lets the reader drag a part
+  this way gives the keyboard another, a slider or a button that does the same (the pendulum's angle and Release, the
+  ripple tank's point P as a plane handle).
 - **Reduced motion.** With `prefers-reduced-motion`, glides and flicks are cut short (`LK3D.reduce`).
 
 ## Checked on every change

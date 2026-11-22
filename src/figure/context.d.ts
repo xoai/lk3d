@@ -176,6 +176,14 @@ export interface Ctx {
   }[];
   /** the most triangles this figure may have (mount's maxTriangles, as worked out) */
   maxTriangles_: number;
+  /** what is under a point of the stage, for the page (fig.hit): a part, a surface, or a point on the page's plane */
+  hit_(
+    x: number,
+    y: number,
+    o?: { plane?: { point: number[]; normal: number[] }; surfaces?: boolean; minAlpha?: number },
+  ): import('../../index').Hit | null;
+  /** where a ray crosses the cut (the first plane's face, or a quarter cut's second), or null */
+  cutCrossing_(origin: number[], direction: number[]): { point: number[]; plane: number[]; second: boolean } | null;
   /** a unit shape along x from 0 to 1, of radius 1, built once: what rods and arrows are drawn with */
   unit_(kind: 'cylinder' | 'cone'): any;
   /** what destroy() runs: listeners removed, observers and timers stopped */
@@ -316,7 +324,15 @@ export interface Ctx {
     px: number,
     py: number,
     see?: number,
-  ): { id: string | null; t: number; origin: number[]; direction: number[]; onCut: boolean };
+  ): {
+    id: string | null;
+    t: number;
+    origin: number[];
+    direction: number[];
+    onCut: boolean;
+    /** the triangle hit: its mesh, its index, and the matrix into its shape's frame */
+    seen: { mesh: any; triangle: number; toShape: number[] | Float32Array } | null;
+  };
   pickAt_(px: number, py: number, see?: number): string | null;
 
   // ---- idle.js

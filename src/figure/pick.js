@@ -3,7 +3,7 @@
 // built when first needed, or in idle time: idle.js); the nearest hit on a part that is drawn and not cut away, and
 // whether what is seen there is the part's cut face. Owns bvhOf_, pickHit_ and pickAt_; reads built_ and state_, and
 // calls rayAt_, cutPlane_ and cutPlane2_.
-import { M, add, sub, mulv, cross, dot } from '../math.js';
+import { M, add, sub, mulv, cross, dot, norm } from '../math.js';
 import { buildBVH, intersect } from '../bvh.js';
 
 // whether a triangle's outward face (its corners anticlockwise) is turned away from a ray going this way
@@ -63,7 +63,9 @@ export function makePick(c) {
     let best = Infinity,
       /** @type {string | null} */
       id = null,
-      onCut = false;
+      onCut = false,
+      /** @type {any} */
+      seen = null; // (the triangle hit, for hit()'s normal: its mesh, its index, and the ray into its frame)
     for (const part of c.built_.parts) {
       if (part.drawAlpha < minAlpha || rayBox(origin, direction, part) >= best) continue; // (missed by the ray, or behind a nearer hit)
       for (const batch of part.batches)
@@ -74,7 +76,7 @@ export function makePick(c) {
             shapeDirection = M.dir(toShape, direction);
           // (a hit on the side the cut takes away does not count)
           const accept =
-            c.state_.cut && part.cut
+            c.state_.cut && part.cut && c.renderer_.kind !== '2d' // (the 2D fallback draws no cut)
               ? (t) => {
                   const point = add(origin, mulv(direction, t)),
                     beyond = (p) => p[0] * point[0] + p[1] * point[1] + p[2] * point[2] + p[3] > 0;
@@ -88,10 +90,83 @@ export function makePick(c) {
             // (a cut part's surface seen from inside, its outward face turned away from the eye: the ray came in
             // through the cut, so what is seen there is the cut face, filled at the plane)
             onCut = !!accept && facesAway(batch.mesh, hit.triangle, shapeDirection);
+            seen = { mesh: batch.mesh, triangle: hit.triangle, toShape };
           }
         }
     }
-    return { id, t: best, origin, direction, onCut };
+    return { id, t: best, origin, direction, onCut, seen };
   };
   c.pickAt_ = (x, y, minAlpha) => c.pickHit_(x, y, minAlpha).id;
+  // where a ray seen to meet a cut face crosses the cut: the first plane's face, or in a quarter cut the second's, where
+  // the ray's crossing of the first lies outside the cut-away wedge; null if the ray runs along it
+  c.cutCrossing_ = (origin, direction) => {
+    const crossing = (/** @type {number[]} */ plane) => {
+      const facing = dot(plane.slice(0, 3), direction);
+      return Math.abs(facing) < 1e-9
+        ? null
+        : add(origin, mulv(direction, -(dot(plane.slice(0, 3), origin) + plane[3]) / facing));
+    };
+    const first = c.cutPlane_(),
+      other = c.cutPlane2_();
+    let plane = first,
+      point = crossing(first);
+    const second = !point || dot(other.slice(0, 3), point) + other[3] < 0;
+    if (second) point = crossing((plane = other));
+    return point && { point, plane, second };
+  };
+  // what is under a point of the stage, for the page (fig.hit): the nearest part or surface (an addition with a hit),
+  // the point there, the face's direction (facing the eye), how far along the ray, and whether it is a cut face; or
+  // where the ray meets a plane the page names
+  c.hit_ = (x, y, { plane, surfaces = true, minAlpha = 0.3 } = {}) => {
+    const { origin, direction } = c.rayAt_(x, y),
+      facingEye = (/** @type {number[]} */ normal) => (dot(normal, direction) > 0 ? mulv(normal, -1) : normal);
+    if (plane) {
+      const normal = norm(plane.normal),
+        facing = dot(normal, direction),
+        t = Math.abs(facing) < 1e-9 ? -1 : dot(normal, sub(plane.point, origin)) / facing;
+      return t > 0
+        ? { id: null, point: add(origin, mulv(direction, t)), normal: facingEye(normal), distance: t, cut: false }
+        : null;
+    }
+    const found = c.pickHit_(x, y, minAlpha);
+    /** @type {any} */
+    let best = null;
+    if (found.id) {
+      const cutAt = found.onCut && c.cutCrossing_(origin, direction);
+      if (cutAt)
+        best = {
+          id: found.id,
+          point: cutAt.point,
+          normal: facingEye(norm(cutAt.plane.slice(0, 3))),
+          distance: dot(sub(cutAt.point, origin), direction),
+          cut: true,
+        };
+      else {
+        // (the triangle's normal in its shape's frame, into the scene by the inverse transpose of its matrix)
+        const { mesh, triangle, toShape } = /** @type {any} */ (found.seen),
+          corner = (/** @type {number} */ k) => {
+            const i = 3 * mesh.indices[3 * triangle + k];
+            return [mesh.positions[i], mesh.positions[i + 1], mesh.positions[i + 2]];
+          },
+          n = cross(sub(corner(1), corner(0)), sub(corner(2), corner(0)));
+        best = {
+          id: found.id,
+          point: add(origin, mulv(direction, found.t)),
+          normal: facingEye(
+            norm([0, 1, 2].map((r) => toShape[4 * r] * n[0] + toShape[4 * r + 1] * n[1] + toShape[4 * r + 2] * n[2])),
+          ),
+          distance: found.t,
+          cut: false,
+        };
+      }
+    }
+    if (surfaces)
+      for (const addition of c.additions_)
+        if (addition.hit && addition.visible) {
+          const h = addition.hit(origin, direction);
+          if (h && (!best || h.t < best.distance))
+            best = { id: h.id, point: h.point, normal: facingEye(norm(h.normal)), distance: h.t, cut: false };
+        }
+    return best;
+  };
 }

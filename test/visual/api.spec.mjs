@@ -931,6 +931,120 @@ test("a turned part's slide handle follows the pointer along its turned axis", a
   expect(await page.evaluate(() => fig.handle('slider').value)).toBeGreaterThan(0.4);
 });
 
+// what is under a point: a box seen face on, with its section free to move
+const BOX = { view: { yaw: 0, pitch: 0 }, parts: [{ id: 'b', name: 'Box', shapes: [{ box: [1, 1, 1] }] }] };
+
+test("hit: a part's surface along the ray, facing the eye; a plane the page names; a pointer event; a cut face", async ({
+  page,
+}) => {
+  const got = await page.evaluate(async (scene) => {
+    window.fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+    await fig.ready;
+    fig.drawNow();
+    const cv = document.querySelector('#g canvas[tabindex]'),
+      r = cv.getBoundingClientRect(),
+      [x, y] = [r.width / 2, r.height / 2];
+    const ray = fig.ray(x, y),
+      hit = fig.hit(x, y),
+      byEvent = fig.hit(new PointerEvent('pointermove', { clientX: r.left + x, clientY: r.top + y })),
+      plane = fig.hit(x, y, { plane: { point: [0, 0, -3], normal: [0, 0, 1] } }),
+      corner = fig.hit(2, 2),
+      toward = ray.direction.map((d) => -d);
+    fig.set({ section: { normal: toward, offset: 0 }, cut: 1 });
+    fig.drawNow();
+    return { ray, hit, byEvent, plane, corner, cut: fig.hit(x, y), toward };
+  }, BOX);
+  const { ray, hit } = got,
+    at = (t) => ray.origin.map((o, i) => o + ray.direction[i] * t),
+    near = (a, b, tolerance) => a.every((v, i) => Math.abs(v - b[i]) <= tolerance);
+  expect(Math.hypot(...ray.direction)).toBeCloseTo(1, 9);
+  expect(hit.id).toBe('b');
+  expect(Math.max(...hit.point.map(Math.abs))).toBeCloseTo(0.5, 4); // (on the box's surface)
+  expect(near(hit.point, at(hit.distance), 1e-4)).toBe(true);
+  expect(hit.normal.reduce((sum, n, i) => sum + n * ray.direction[i], 0)).toBeLessThan(0); // (facing the eye)
+  expect(near(got.byEvent.point, hit.point, 1e-6)).toBe(true);
+  expect(got.plane.id).toBe(null);
+  expect(got.plane.point[2]).toBeCloseTo(-3, 6);
+  expect(got.corner).toBe(null);
+  expect(got.cut.cut).toBe(true);
+  expect(got.cut.point.reduce((sum, p, i) => sum + p * got.toward[i], 0)).toBeCloseTo(0, 4); // (on the cut plane)
+  expect(near(got.cut.normal, got.toward, 1e-3)).toBe(true);
+});
+
+test('a drag the page takes with onPress leaves the view still and ignores another pointer; one it declines turns it', async ({
+  page,
+}) => {
+  await page.evaluate(async (scene) => {
+    window.calls = { press: 0, drag: 0, release: 0, hits: [] };
+    window.fig = LK3D.mount(document.getElementById('g'), scene, {
+      controls: false,
+      onPress: (hit) => (calls.press++, calls.hits.push(hit && hit.id), hit?.id === 'b'),
+      onDrag: () => calls.drag++,
+      onRelease: () => calls.release++,
+    });
+    await fig.ready;
+  }, BOX);
+  const camera = () => page.evaluate(() => JSON.stringify(fig.camera()));
+  const box = await page.locator('#g canvas[tabindex]').boundingBox(),
+    [x, y] = [box.x + box.width / 2, box.y + box.height / 2],
+    before = await camera();
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let k = 1; k <= 5; k++) await page.mouse.move(x + 20 * k, y + 8 * k);
+  await page.evaluate(
+    ([x, y]) => {
+      const cv = document.querySelector('#g canvas[tabindex]');
+      for (const type of ['pointerdown', 'pointermove', 'pointerup'])
+        cv.dispatchEvent(
+          new PointerEvent(type, { pointerId: 7, pointerType: 'touch', clientX: x, clientY: y, bubbles: true }),
+        );
+    },
+    [x - 80, y],
+  );
+  await page.mouse.up();
+  expect(await camera()).toBe(before);
+  const calls = await page.evaluate(() => calls);
+  expect(calls).toMatchObject({ press: 1, release: 1, hits: ['b'] });
+  expect(calls.drag).toBeGreaterThanOrEqual(4);
+  // a press beside the box: declined, so the view turns, as ever
+  await page.mouse.move(box.x + 10, box.y + 10);
+  await page.mouse.down();
+  for (let k = 1; k <= 5; k++) await page.mouse.move(box.x + 10 + 25 * k, box.y + 10);
+  await page.mouse.up();
+  expect(await camera()).not.toBe(before);
+});
+
+test('a touch the page takes with onPress does not scroll the page; one it declines does', async ({
+  browser,
+  baseURL,
+}) => {
+  const scrolled = async (claim) => {
+    const context = await browser.newContext({ baseURL, viewport: { width: 520, height: 420 }, hasTouch: true }),
+      page = await context.newPage();
+    await page.goto('/test/visual/api.html');
+    await page.evaluate(
+      async ([scene, claim]) => {
+        document.body.append(Object.assign(document.createElement('div'), { style: 'height: 3000px' }));
+        window.fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, onPress: () => claim });
+        await fig.ready;
+      },
+      [BOX, claim],
+    );
+    const cdp = await context.newCDPSession(page),
+      at = (y) => [{ x: 240, y }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(200) });
+    for (let k = 1; k <= 8; k++)
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(200 - 20 * k) });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForTimeout(300);
+    const y = await page.evaluate(() => scrollY);
+    await context.close();
+    return y;
+  };
+  expect(await scrolled(true)).toBe(0);
+  expect(await scrolled(false)).toBeGreaterThan(0);
+});
+
 test('lines added to a figure still waiting for its first WebGL context draw in WebGL when it gets one, not in 2D', async ({
   page,
 }) => {

@@ -6,7 +6,7 @@
 // host_, canvas_, spec_, state_, opts_, words_, stage_, hint_, namedParts_, handles_, animations_, controls_ and
 // height_, and calls pickAt_, pickHit_, rayAt_, project_, cutPlane_, cutRange_, baseMatrix_, zoom_, cancelView_,
 // showInfo_, part_, markDirty_ and kick_.
-import { M, sub, add, mulv, len, dot, cross, norm } from '../math.js';
+import { M, sub, add, mulv, len, cross, norm } from '../math.js';
 import * as HD from '../handles.js';
 import { plainText } from './dom.js';
 import LK3D from '../namespace.js';
@@ -49,7 +49,9 @@ export function makeInput(c) {
     moved = 0,
     pinch = 0, // (the fingers' distance apart, last move)
     velocity = [0, 0, 0], // (the last drag's px a frame, x and y, and when)
-    wasOnHandle; // (whether the pointer was last over a handle: the cursor shows it)
+    wasOnHandle, // (whether the pointer was last over a handle: the cursor shows it)
+    /** @type {number | null} */
+    pressed = null; // (the pointer whose gesture the page took, with onPress: the figure leaves it alone)
   // active: the reader has taken hold of the figure (clicked or touched it). Until then the wheel and a finger moved up
   // or down scroll the page (the stage's touch-action, pan-y); then the figure takes every gesture, until a touch elsewhere
   const setActive = (on) => {
@@ -155,22 +157,11 @@ export function makeInput(c) {
     if (!c.cutMovable_()) return null;
     const hit = c.pickHit_(x, y);
     if (!hit.onCut || !hit.id) return null;
-    // (the face taken hold of: the first plane's, or in a quarter cut the second's, where the ray's crossing of the
-    // first lies outside the cut-away wedge)
-    const crossing = (/** @type {number[]} */ plane) => {
-      const facing = dot(plane.slice(0, 3), hit.direction);
-      return Math.abs(facing) < 1e-9
-        ? null
-        : add(hit.origin, mulv(hit.direction, -(dot(plane.slice(0, 3), hit.origin) + plane[3]) / facing));
-    };
-    const first = c.cutPlane_(),
-      other = c.cutPlane2_();
-    let plane = first,
-      point = crossing(first);
-    const second = !point || dot(other.slice(0, 3), point) + other[3] < 0;
-    if (second) point = crossing((plane = other));
-    if (!point) return null;
-    const normal = plane.slice(0, 3),
+    // (the face taken hold of: where the ray crosses the cut, pick.js)
+    const crossed = c.cutCrossing_(hit.origin, hit.direction);
+    if (!crossed) return null;
+    const { point, plane, second } = crossed,
+      normal = plane.slice(0, 3),
       across = norm(cross(normal, Math.abs(normal[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])),
       here = c.project_(point),
       deeper = c.project_(add(point, normal)),
@@ -197,11 +188,42 @@ export function makeInput(c) {
       // (not a pointer the browser tracks: nothing to capture)
     }
   };
+  // the page's own drags (onPress, onDrag, onRelease): what is under the pointer, as fig.hit gives it
+  const pageHit = (event) => {
+    const [x, y] = local(event);
+    return c.hit_(x, y);
+  };
+  // (a touch the page took: its scrolling stopped where it starts, which pointer events alone cannot do while the stage
+  // lets the page scroll, touch-action pan-y; only with onPress, so other figures scroll the page as ever. On the stage,
+  // not the canvas: Chrome treats a listener under the labels' layers, pointer-events none, as passive)
+  if (c.opts_.onPress)
+    c.stage_.addEventListener(
+      'touchstart',
+      (event) => {
+        if (pressed != null) event.preventDefault();
+      },
+      { passive: false },
+    );
   c.canvas_.addEventListener('pointerdown', (event) => {
+    if (pressed != null) return; // (the page holds a gesture: other pointers wait)
     if (!c.locked_('camera')) c.cancelView_(); // the reader takes over from a gliding view (unless the page locked it)
     if (momentum) {
       c.animations_.delete(momentum); // a grab stops the model
       momentum = null;
+    }
+    if (
+      !pointers.size &&
+      c.opts_.onPress &&
+      (event.pointerType !== 'mouse' || event.button === 0) &&
+      c.opts_.onPress(pageHit(event), event) === true
+    ) {
+      // the page takes the gesture: the view, the handles and the cut stay as they are
+      pressed = event.pointerId;
+      capture(event.pointerId);
+      c.hint_.classList.add('gone');
+      setActive(true);
+      event.preventDefault();
+      return;
     }
     if (!pointers.size) {
       const [x, y] = local(event),
@@ -248,6 +270,10 @@ export function makeInput(c) {
     c.hint_.classList.add('gone');
   });
   c.canvas_.addEventListener('pointermove', (event) => {
+    if (pressed != null) {
+      if (event.pointerId === pressed && c.opts_.onDrag) c.opts_.onDrag(pageHit(event), event);
+      return;
+    }
     if (cutting && event.pointerId === cutting.id) {
       const [x, y] = local(event),
         dx = x - cutting.x,
@@ -317,6 +343,12 @@ export function makeInput(c) {
     }
   });
   const end = (event) => {
+    if (pressed != null) {
+      if (event.pointerId !== pressed) return;
+      pressed = null;
+      if (c.opts_.onRelease) c.opts_.onRelease(pageHit(event), event);
+      return;
+    }
     if (cutting && event.pointerId === cutting.id) {
       // let go of the cut; a tap without moving chooses the part, as elsewhere
       if (cutting.moved < 4 && event.type === 'pointerup') {

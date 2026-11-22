@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · two-source interference</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 6px 20px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .controls label {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 0 8px;
+    }
+    .controls input[type='range'] {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+    .controls output {
+      font-variant-numeric: tabular-nums;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+    }
+    td {
+      padding: 4px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    td:last-child {
+      text-align: right;
+      font-weight: 600;
+    }
+    .key {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      margin: 0 4px 0 10px;
+    }
+    #verdict {
+      font-weight: 600;
+    }
+  </style>
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>Two-source interference</h1>
+    <p>
+      A ripple tank: two dippers beat on the water and their circular waves cross. The water is about 7 300 beads the
+      page lifts and colours each frame (<code>particles({ count, radius, colors })</code>), each the sum of the two
+      waves where it is; the dippers slide along the bar (<code>set({ move })</code>), the lines of still water and the
+      paths to P are <code>lines</code>. Click the water to put the point P where you like.
+    </p>
+    <div id="fig"></div>
+    <p class="muted" aria-hidden="true">
+      <span id="legend"></span>
+      <span id="clock" style="float: right; font-variant-numeric: tabular-nums"></span>
+    </p>
+    <p class="muted">
+      The ripples are drawn higher than they are, and slowed down: in a real tank the dippers beat about ten times a
+      second.
+    </p>
+    <div class="controls">
+      <label
+        >Distance apart, d <output id="d-out"></output><input id="d" type="range" min="3" max="16" step="0.5"
+      /></label>
+      <label
+        >Wavelength, λ <output id="lambda-out"></output><input id="lambda" type="range" min="1.6" max="6" step="0.1"
+      /></label>
+      <label
+        >S₂ behind S₁ by, φ <output id="phi-out"></output><input id="phi" type="range" min="0" max="360" step="15"
+      /></label>
+      <label
+        >Amplitude of S₁ <output id="a1-out"></output><input id="a1" type="range" min="0" max="1" step="0.05"
+      /></label>
+      <label
+        >Amplitude of S₂ <output id="a2-out"></output><input id="a2" type="range" min="0" max="1" step="0.05"
+      /></label>
+      <label
+        >Damping, β <output id="beta-out"></output><input id="beta" type="range" min="0" max="0.1" step="0.005"
+      /></label>
+    </div>
+    <div class="row">
+      <label
+        >Sources
+        <select id="sources">
+          <option value="1">S₁ only</option>
+          <option value="2">S₁ and S₂</option>
+        </select>
+      </label>
+      <label
+        >Show
+        <select id="mode">
+          <option value="surface">the water's surface</option>
+          <option value="map">how much it moves</option>
+        </select>
+      </label>
+      <label><input id="nodal" type="checkbox" /> Lines of still water</label>
+      <button id="pause" type="button" aria-pressed="false">Pause</button>
+      <button id="restart" type="button">Start again</button>
+    </div>
+    <div class="pair">
+      <section>
+        <h2>The point P</h2>
+        <table>
+          <tr>
+            <td>r₁ = PS₁</td>
+            <td id="r1"></td>
+          </tr>
+          <tr>
+            <td>r₂ = PS₂</td>
+            <td id="r2"></td>
+          </tr>
+          <tr>
+            <td>Path difference, Δd = r₂ − r₁</td>
+            <td id="dd"></td>
+          </tr>
+          <tr>
+            <td>Δd in wavelengths</td>
+            <td id="ddl"></td>
+          </tr>
+          <tr>
+            <td>The two waves out of step by</td>
+            <td id="dphi"></td>
+          </tr>
+          <tr>
+            <td>P's swing, of the most it could be</td>
+            <td id="gain"></td>
+          </tr>
+        </table>
+        <p class="info" id="verdict" aria-live="polite"></p>
+      </section>
+      <section>
+        <h2>Why</h2>
+        <p class="muted">
+          Each source sends out y = A·e<sup>−βr</sup>/√(1 + r/λ)·sin(ωt − 2πr/λ + φ): smaller as it spreads round a
+          longer circle and as the water damps it. At P the two add. When S₂ beats with S₁ (φ = 0), they arrive in step
+          where Δd = kλ, the water there swinging most, and in opposition where Δd = (k + ½)λ, the water there still. A
+          delay φ moves every line: still water where Δd = (k + ½ + φ/360°)λ.
+        </p>
+        <p class="muted">
+          Each line of still water is a hyperbola with S₁ and S₂ as its foci: the points whose distances to them differ
+          by one amount.
+        </p>
+      </section>
+    </div>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    import { scene as load } from './load.js';
+
+    const $ = (id) => document.getElementById(id);
+    // the tank as the scene draws it (cm): water inside x ±20.5, z ±14.5; the dippers on the bar at z = −6, 8 cm apart
+    const ZS = -6,
+      REST = 4, // half the distance apart the scene draws the dippers at
+      X0 = -20.2,
+      Z0 = -14.2,
+      STEP = 0.4,
+      NX = 102,
+      NZ = 72,
+      N = NX * NZ,
+      HEIGHT = 0.6, // how high a wave of amplitude 1 is drawn (cm): far higher than a real ripple
+      ABOVE = 1.1, // the lines drawn over the water, clear of its crests
+      F = 1; // beats a second, slowed down
+    const SURFACE = ['#2b6cb0', '#9fc3d9', '#f2a541'],
+      MAP = ['#1c2740', '#5b7fa6', '#ffe08a'];
+    $('legend').innerHTML =
+      `<span class="key" style="background:${SURFACE[0]}"></span>trough <span class="key" style="background:${SURFACE[2]}"></span>crest` +
+      ` · in the map: <span class="key" style="background:${MAP[0]}"></span>still <span class="key" style="background:${MAP[2]}"></span>large swing`;
+
+    const s = { d: 8, lambda: 3, phi: 0, a1: 1, a2: 1, beta: 0.03, two: true, mode: 'surface', nodal: false },
+      P = [6, 6];
+    let t = 0,
+      running = !LK3D.reduce;
+
+    const fig = LK3D.mount($('fig'), await load('ripple-tank'), {
+      onStep: (index, step) => apply(step.id),
+    });
+
+    // ---- the water: one bead for each point of a grid, lifted and coloured each frame
+    const beads = {
+      surface: fig.particles({ count: N, radius: 0.3, colors: SURFACE }),
+      map: fig.particles({ count: N, radius: 0.3, colors: MAP }),
+    };
+    for (const set of Object.values(beads))
+      for (let i = 0; i < N; i++) {
+        set.positionsAndColors[4 * i] = X0 + (i % NX) * STEP;
+        set.positionsAndColors[4 * i + 2] = Z0 + Math.floor(i / NX) * STEP;
+      }
+
+    // the waves: source i at x = ∓d/2 on z = ZS; a wave reaches as far as it has travelled since the start (v = λf)
+    const sources = () => [
+      { x: -s.d / 2, A: s.a1, phase: 0 },
+      { x: s.d / 2, A: s.two ? s.a2 : 0, phase: (s.phi * Math.PI) / 180 },
+    ];
+    function wave(src, x, z) {
+      // its amplitude where (x, z) is (0 if it has not got there yet), and its phase there
+      const r = Math.hypot(x - src.x, z - ZS),
+        front = Math.max(0, Math.min(1, (s.lambda * F * t - r) / (0.5 * s.lambda)));
+      return {
+        r,
+        a: (src.A * front * Math.exp(-s.beta * r)) / Math.sqrt(1 + r / s.lambda),
+        psi: src.phase - (2 * Math.PI * r) / s.lambda,
+      };
+    }
+    function water() {
+      const [s1, s2] = sources(),
+        wt = 2 * Math.PI * F * t,
+        set = beads[s.mode],
+        data = set.positionsAndColors;
+      for (let i = 0; i < N; i++) {
+        const x = data[4 * i],
+          z = data[4 * i + 2],
+          w1 = wave(s1, x, z),
+          w2 = wave(s2, x, z),
+          y = w1.a * Math.sin(wt + w1.psi) + w2.a * Math.sin(wt + w2.psi);
+        data[4 * i + 1] = HEIGHT * y;
+        if (s.mode === 'surface') data[4 * i + 3] = 0.5 + y / 0.8;
+        else {
+          // how much the water here swings, of the most the two waves could make it: the length of the sum of their
+          // phasors over the sum of their lengths
+          const sum = Math.hypot(
+            w1.a * Math.cos(w1.psi) + w2.a * Math.cos(w2.psi),
+            w1.a * Math.sin(w1.psi) + w2.a * Math.sin(w2.psi),
+          );
+          data[4 * i + 3] = w1.a + w2.a > 1e-3 ? sum / (w1.a + w2.a) : 0.5;
+        }
+      }
+      set.version++;
+      beads.surface.visible = s.mode === 'surface';
+      beads.map.visible = s.mode === 'map';
+      // the dippers slide to ∓d/2 and bob with their beat; P rides on the water
+      const bob = (src) => (src.A ? 0.3 * Math.sin(wt + src.phase) : 0);
+      const pw1 = wave(s1, ...P),
+        pw2 = wave(s2, ...P);
+      fig.set({
+        move: {
+          's1-motor': [REST - s.d / 2, 0, 0],
+          's1-dipper': [REST - s.d / 2, bob(s1), 0],
+          's2-motor': [s.d / 2 - REST, 0, 0],
+          's2-dipper': [s.d / 2 - REST, bob(s2), 0],
+          p: [P[0] - 6, HEIGHT * (pw1.a * Math.sin(wt + pw1.psi) + pw2.a * Math.sin(wt + pw2.psi)), P[1] - 6],
+        },
+      });
+    }
+
+    // ---- the lines: still water (each a hyperbola, foci S₁ and S₂), and the two paths to P
+    const still = fig.lines({ count: 2400, radius: 0.07, color: '#ffffff', studioColor: '#ffffff' });
+    const paths = [
+      fig.lines({ count: 1, radius: 0.08, color: '#e0a040' }),
+      fig.lines({ count: 1, radius: 0.08, color: '#3fb0b8' }),
+    ];
+    const inside = (x, z) => Math.abs(x) <= 20.3 && Math.abs(z) <= 14.3;
+    function stillLines() {
+      still.clear();
+      still.visible = s.nodal && s.two;
+      if (!still.visible) return;
+      // still water where r₂ − r₁ = D = (k + ½ + φ/360°)λ; a hyperbola exists for |D| < d
+      const c = s.d / 2;
+      let k = 0;
+      for (let n = -40; n <= 40; n++) {
+        const D = (n + 0.5 + s.phi / 360) * s.lambda;
+        if (Math.abs(D) >= s.d) continue;
+        const a = Math.abs(D) / 2,
+          b = Math.sqrt(c * c - a * a),
+          side = D > 0 ? -1 : 1; // (farther from S₂: on S₁'s side)
+        let last = null;
+        for (let j = 0; j <= 160 && k < 2400; j++) {
+          const u = -4 + (8 * j) / 160,
+            x = side * a * Math.cosh(u),
+            z = ZS + b * Math.sinh(u),
+            here = inside(x, z) ? [x, ABOVE, z] : null;
+          if (last && here) still.set(k++, last, here);
+          last = here;
+        }
+      }
+    }
+    function report() {
+      const [s1, s2] = sources(),
+        w1 = wave(s1, ...P),
+        w2 = wave(s2, ...P),
+        dd = w2.r - w1.r;
+      paths[0].set(0, [s1.x, ABOVE, ZS], [P[0], ABOVE, P[1]]);
+      paths[1].set(0, s.two ? [s2.x, ABOVE, ZS] : null, [P[0], ABOVE, P[1]]);
+      // how far out of step the two waves arrive at P, folded into 0…180°
+      const apart = Math.abs(((((w1.psi - w2.psi) * 180) / Math.PI) % 360) + 360) % 360,
+        dphi = apart > 180 ? 360 - apart : apart,
+        sum = Math.hypot(
+          w1.a * Math.cos(w1.psi) + w2.a * Math.cos(w2.psi),
+          w1.a * Math.sin(w1.psi) + w2.a * Math.sin(w2.psi),
+        );
+      const cm = (v) => v.toFixed(2) + ' cm';
+      $('r1').textContent = cm(w1.r);
+      $('r2').textContent = s.two ? cm(w2.r) : '—';
+      $('dd').textContent = s.two ? cm(dd) : '—';
+      $('ddl').textContent = s.two ? (dd / s.lambda).toFixed(2) + ' λ' : '—';
+      $('dphi').textContent = s.two ? Math.round(dphi) + '°' : '—';
+      $('gain').textContent = w1.a + w2.a > 1e-3 ? Math.round((100 * sum) / (w1.a + w2.a)) + ' %' : '—';
+      $('verdict').textContent = !s.two
+        ? 'One source: P just rises and falls with the waves of S₁. Nothing to interfere with.'
+        : w1.a < 1e-3 || w2.a < 1e-3
+          ? 'The waves of one source have not reached P yet.'
+          : dphi < 30
+            ? 'P is on a line of large waves: the two arrive nearly in step, crest on crest.'
+            : dphi > 150
+              ? 'P is on a line of still water: a crest of one arrives with a trough of the other.'
+              : 'P is between a line of large waves and a line of still water.';
+      $('clock').textContent = `t = ${t.toFixed(1)} s`;
+    }
+
+    // ---- the reader: a click on the water puts P there
+    const canvas = $('fig').querySelector('canvas');
+    const pointer = (e) => {
+      const r = canvas.getBoundingClientRect();
+      return [e.clientX - r.left, e.clientY - r.top];
+    };
+    // the point of the water (y = 0) under a point of the stage: Newton's method on the figure's own projection
+    function onWater(x, y) {
+      let [u, v] = P;
+      for (let i = 0; i < 10; i++) {
+        const p = fig.project([u, 0, v]),
+          pu = fig.project([u + 1e-2, 0, v]),
+          pv = fig.project([u, 0, v + 1e-2]);
+        if (!p || !pu || !pv) return null;
+        const a = (pu[0] - p[0]) / 1e-2,
+          c = (pu[1] - p[1]) / 1e-2,
+          b = (pv[0] - p[0]) / 1e-2,
+          d = (pv[1] - p[1]) / 1e-2,
+          det = a * d - b * c;
+        if (Math.abs(det) < 1e-9) return null;
+        u += (d * (x - p[0]) - b * (y - p[1])) / det;
+        v += (a * (y - p[1]) - c * (x - p[0])) / det;
+      }
+      return [u, v];
+    }
+    let down = null;
+    canvas.addEventListener('pointerdown', (e) => (down = pointer(e)));
+    canvas.addEventListener('pointerup', (e) => {
+      const [x, y] = pointer(e),
+        moved = down ? Math.hypot(x - down[0], y - down[1]) : 99;
+      down = null;
+      if (moved > 5) return; // (a drag turned the view)
+      const id = fig.pick(x, y);
+      if (id && id !== 'floor' && id !== 'p') return; // (a click on the tank or a dipper: its note, as usual)
+      const at = onWater(x, y);
+      if (!at || !inside(...at)) return;
+      P[0] = at[0];
+      P[1] = at[1];
+      fig.select('p');
+      report();
+    });
+
+    // ---- the controls
+    const sliders = {
+      d: (v) => v.toFixed(1) + ' cm',
+      lambda: (v) => v.toFixed(1) + ' cm',
+      phi: (v) => v + '°',
+      a1: (v) => v.toFixed(2),
+      a2: (v) => v.toFixed(2),
+      beta: (v) => v.toFixed(3) + ' /cm',
+    };
+    function show() {
+      for (const [key, text] of Object.entries(sliders)) {
+        $(key).value = s[key];
+        $(key + '-out').textContent = text(s[key]);
+      }
+      $('sources').value = s.two ? '2' : '1';
+      $('mode').value = s.mode;
+      $('nodal').checked = s.nodal;
+      fig.set({ hide: s.two ? [] : ['s2-motor', 's2-dipper'] });
+      stillLines();
+      report();
+    }
+    for (const key of Object.keys(sliders))
+      $(key).addEventListener('input', (e) => {
+        s[key] = +e.target.value;
+        show();
+      });
+    $('sources').addEventListener('change', (e) => {
+      s.two = e.target.value === '2';
+      show();
+    });
+    $('mode').addEventListener('change', (e) => {
+      s.mode = e.target.value;
+      show();
+    });
+    $('nodal').addEventListener('change', (e) => {
+      s.nodal = e.target.checked;
+      show();
+    });
+    function setRunning(on) {
+      running = on;
+      $('pause').textContent = on ? 'Pause' : 'Run';
+      $('pause').setAttribute('aria-pressed', String(!on));
+    }
+    $('pause').addEventListener('click', () => setRunning(!running));
+    $('restart').addEventListener('click', () => (t = 0));
+
+    // ---- the guided steps: each sets the page as its words say
+    const STEPS = {
+      one: { two: false, d: 8, lambda: 3, phi: 0, mode: 'surface', nodal: false, restart: true },
+      two: { two: true, d: 8, lambda: 3, phi: 0, mode: 'surface', nodal: false, restart: true },
+      p: { two: true, d: 8, lambda: 3, phi: 0, mode: 'surface', nodal: true },
+      phase: { two: true, d: 8, lambda: 3, phi: 180, mode: 'surface', nodal: true },
+      lambda: { two: true, d: 8, lambda: 1.8, phi: 0, mode: 'map', nodal: true },
+    };
+    function apply(id) {
+      const step = STEPS[id];
+      if (!step) return;
+      const { restart, ...rest } = step;
+      Object.assign(s, rest);
+      if (restart) t = 0;
+      show();
+    }
+    apply('one');
+    setRunning(running);
+
+    let last = 0,
+      shown = 0;
+    fig.tick((now) => {
+      const dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
+      last = now;
+      if (running) t += dt;
+      water();
+      if (now - shown > 150) {
+        report();
+        shown = now;
+      }
+      return true;
+    });
+  </script>
+</html>

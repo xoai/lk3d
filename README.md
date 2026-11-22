@@ -149,7 +149,7 @@ To build it yourself, or to work on it: `git clone https://github.com/xoai/lk3d.
   [Looks and materials](docs/looks-and-materials.md) · [Models](docs/models.md) · [How it works](docs/design.md) ·
   [Performance](docs/performance.md) · [Accessibility](docs/accessibility.md) · [Recipes](docs/recipes.md).
 - [Examples](examples/): a generator, a lens bench, a cell (and a guided tour of one), molecules, the Solar System, rock layers, a gauge, a fossil
-  skull, the three looks, a circuit, air through a fan, and a figure on a page that writes no script. `npm run examples` serves them.
+  skull, the three looks, a circuit, air through a fan, a pendulum, a ripple tank, and a figure on a page that writes no script. `npm run examples` serves them.
 - Reading a figure: drag to turn it, Shift-drag or right-drag to pan, pinch to zoom; the wheel zooms only with Ctrl
   held or once the figure has been clicked, and a finger moved up or down scrolls the page until the figure has been
   touched, so it never takes over the page's scrolling. On the keyboard, the arrow keys turn it, `+` and `-` zoom,

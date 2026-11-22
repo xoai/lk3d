@@ -19,6 +19,8 @@ const EXAMPLES = {
   terrain: 'Rock layers and a fault',
   gauge: 'A pressure gauge',
   circuit: 'Current in a circuit',
+  pendulum: 'Two pendulums (steps, a dimension)',
+  'ripple-tank': 'A ripple tank (steps)',
 };
 const BOLT = {
   title: 'A bolt and a nut',

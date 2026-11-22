@@ -1,0 +1,160 @@
+{
+  "w": 16,
+  "h": 11,
+  "title": "Two pendulums on a stand",
+  "alt": "A stand of two posts and a crossbar. Two balls of the same size hang from it on strings: an aluminium one and a brass one.",
+  "unit": "m",
+  "style": "studio",
+  "view": {
+    "yaw": -18,
+    "pitch": 10
+  },
+  "section": false,
+  "check": {
+    "float": ["bob-a", "bob-b"]
+  },
+  "dimensions": [
+    {
+      "id": "theta",
+      "name": "the angle of string A from the vertical",
+      "angle": [[-0.5, 1.92, 0.11], [-0.5, 2.52, 0.11], { "part": "bob-a", "at": [-0.5, 1.52, 0.11] }],
+      "radius": 0.3,
+      "digits": 0
+    }
+  ],
+  "parts": [
+    {
+      "id": "foot-l",
+      "name": "Foot",
+      "note": "keeps the stand from tipping as the bobs swing.",
+      "group": "stand",
+      "material": "paint",
+      "color": "#4a4f5a",
+      "cut": false,
+      "explode": [-0.3, -0.15, 0],
+      "at": [-1.4, 0.02, 0],
+      "shapes": [{ "box": [0.12, 0.04, 0.6] }]
+    },
+    {
+      "id": "foot-r",
+      "mirrorOf": "foot-l",
+      "plane": "x"
+    },
+    {
+      "id": "post-l",
+      "name": "Post",
+      "note": "holds the crossbar 2.6 m up, high enough for a 2 m string.",
+      "group": "stand",
+      "material": "paint",
+      "color": "#5a606c",
+      "cut": false,
+      "explode": [-0.3, 0, 0],
+      "place": { "on": "foot-l" },
+      "at": [-1.4, 1.29, 0],
+      "shapes": [{ "box": [0.07, 2.5, 0.07] }]
+    },
+    {
+      "id": "post-r",
+      "mirrorOf": "post-l",
+      "plane": "x"
+    },
+    {
+      "id": "bar",
+      "name": "Crossbar",
+      "note": "a rigid bar: the pivots must not move, or the swing would lose its rhythm.",
+      "group": "stand",
+      "material": "paint",
+      "color": "#5a606c",
+      "cut": false,
+      "explode": [0, 0.35, 0],
+      "at": [0, 2.575, 0],
+      "shapes": [{ "box": [2.94, 0.07, 0.07] }]
+    },
+    {
+      "id": "clamp-a",
+      "name": "Pivot A",
+      "note": "a clamp on the front of the bar and a pin the string hangs from: the point the bob swings about.",
+      "material": "steel",
+      "color": "#9aa3ad",
+      "explode": [0, 0.5, 0.25],
+      "place": { "against": "bar", "side": "+z", "gap": 0 },
+      "at": [-0.5, 2.56, 0.055],
+      "label": [-0.5, 2.52, 0.075],
+      "shapes": [
+        { "box": [0.06, 0.12, 0.04] },
+        { "cylinder": { "r": 0.008, "x0": 0, "x1": 0.055 }, "rot": [0, -90, 0], "at": [0, -0.04, 0.02] }
+      ]
+    },
+    {
+      "id": "clamp-b",
+      "name": "Pivot B",
+      "note": "the same clamp and pin on the back of the bar, so the two bobs swing in planes 22 cm apart and never meet.",
+      "material": "steel",
+      "color": "#9aa3ad",
+      "explode": [0, 0.5, -0.25],
+      "place": { "against": "bar", "side": "-z", "gap": 0 },
+      "at": [0.5, 2.56, -0.055],
+      "label": [0.5, 2.52, -0.075],
+      "shapes": [
+        { "box": [0.06, 0.12, 0.04] },
+        { "cylinder": { "r": 0.008, "x0": 0, "x1": 0.055 }, "rot": [0, 90, 0], "at": [0, -0.04, -0.02] }
+      ]
+    },
+    {
+      "id": "bob-a",
+      "name": "Bob A (aluminium)",
+      "note": "a 12 cm aluminium ball: 2.44 kg.",
+      "material": "metal",
+      "color": "#c8473b",
+      "studioColor": "#b9c0c8",
+      "accent": true,
+      "explode": [0, -0.25, 0.3],
+      "at": [-0.5, 1.52, 0.11],
+      "shapes": [{ "sphere": 0.06 }, { "cylinder": { "r": 0.01, "x0": 0.055, "x1": 0.072 }, "rot": [0, 0, 90] }]
+    },
+    {
+      "id": "bob-b",
+      "name": "Bob B (brass)",
+      "note": "a 12 cm brass ball: 7.69 kg, 3.15 times as heavy as A and the same size, so the air slows both alike.",
+      "material": "gold",
+      "color": "#2f5fb3",
+      "studioColor": "#c9a54a",
+      "accent": true,
+      "explode": [0, -0.25, -0.3],
+      "at": [0.5, 1.52, -0.11],
+      "shapes": [{ "sphere": 0.06 }, { "cylinder": { "r": 0.01, "x0": 0.055, "x1": 0.072 }, "rot": [0, 0, 90] }]
+    }
+  ],
+  "steps": [
+    {
+      "id": "stand",
+      "title": "Two pendulums",
+      "text": "Two balls of the same size hang from one bar: <b>A</b> is aluminium, <b>B</b> brass, about three times as heavy. Drag a ball aside and let go, or set the angle and press <b>Release</b>.",
+      "labels": "all"
+    },
+    {
+      "id": "small",
+      "title": "A small swing",
+      "text": "Released at 8°, each swing takes 2π√(ℓ/g), the textbook's period, to a tenth of a percent. Watch the measured period settle.",
+      "labels": ["bob-a"]
+    },
+    {
+      "id": "wide",
+      "title": "A wide swing",
+      "text": "Released at 50°, a swing takes about 5% longer than the formula says. The formula assumes sin θ ≈ θ, true only for small angles.",
+      "labels": ["bob-a"]
+    },
+    {
+      "id": "mass",
+      "title": "Three times the mass",
+      "text": "Both released together at 30°: the brass ball keeps step with the aluminium one. Gravity pulls it three times as hard, but it is three times as hard to speed up.",
+      "labels": ["bob-a", "bob-b"]
+    },
+    {
+      "id": "length",
+      "title": "A quarter of the length",
+      "text": "With the string at 25 cm instead of 1 m, the period halves: it grows with the square root of the length.",
+      "labels": ["bob-a"]
+    }
+  ]
+}

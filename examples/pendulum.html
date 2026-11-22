@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · a pendulum's period</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .readout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      justify-content: space-between;
+      font-variant-numeric: tabular-nums;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+    }
+    td {
+      padding: 4px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    td:last-child {
+      text-align: right;
+      font-weight: 600;
+    }
+    #chart {
+      width: 100%;
+      height: auto;
+      font:
+        12px system-ui,
+        sans-serif;
+    }
+    #chart .axis {
+      stroke: var(--muted);
+      fill: none;
+    }
+    #chart text {
+      fill: var(--muted);
+    }
+    .key {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin: 0 4px 0 10px;
+    }
+  </style>
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>A pendulum's period</h1>
+    <p>
+      Drag a ball aside and let go. The page solves the swing itself, θ″ = −(g/ℓ)·sin θ, and moves the bobs (<code
+        >set({ move })</code
+      >); the strings, the arcs and the forces are <code>lines</code>, and the angle at pivot A is one of the scene's
+      <code>dimensions</code>, measured from the bob as it is drawn. The textbook's period, 2π√(ℓ/g), is right only for
+      small swings: release them at 50° to see by how much.
+    </p>
+    <div id="fig"></div>
+    <p class="muted readout" aria-hidden="true">
+      <span>
+        <span class="key" style="background: #c8473b"></span>bob A
+        <span class="key" style="background: #2f5fb3"></span>bob B
+        <span class="key" style="background: #2f9e44"></span>tension
+        <span class="key" style="background: #e8590c"></span>weight
+      </span>
+      <span id="clock"></span>
+    </p>
+    <div class="row">
+      <label>String length ℓ <input id="len" type="range" min="0.1" max="2" step="0.05" value="1" /></label>
+      <output id="len-out"></output>
+      <label>Release angle α₀ <input id="amp" type="range" min="1" max="80" step="1" value="20" /></label>
+      <output id="amp-out"></output>
+    </div>
+    <div class="row">
+      <button id="release" type="button">Release both</button>
+      <button id="pause" type="button" aria-pressed="false">Pause</button>
+      <button id="reset" type="button">Reset</button>
+      <label
+        >Speed
+        <select id="speed">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+        </select>
+      </label>
+      <label><input id="forces" type="checkbox" checked /> Forces on A</label>
+      <label><input id="arcs" type="checkbox" checked /> Arcs</label>
+    </div>
+    <p class="info" id="note" aria-live="polite"></p>
+    <div class="pair">
+      <section>
+        <h2>Results</h2>
+        <table>
+          <tr>
+            <td>Small-swing formula, 2π√(ℓ/g)</td>
+            <td id="t0"></td>
+          </tr>
+          <tr>
+            <td>Exact, for A's swing</td>
+            <td id="texact"></td>
+          </tr>
+          <tr>
+            <td>Measured, A (aluminium)</td>
+            <td id="ta"></td>
+          </tr>
+          <tr>
+            <td>Measured, B (brass)</td>
+            <td id="tb"></td>
+          </tr>
+          <tr>
+            <td>A against the formula</td>
+            <td id="diff"></td>
+          </tr>
+        </table>
+        <p class="muted">
+          A period is measured from one upward crossing of the vertical to the next. The exact period of a swing of
+          amplitude α₀ is 2π√(ℓ/g) / M(1, cos ½α₀), M the arithmetic–geometric mean.
+        </p>
+      </section>
+      <section>
+        <h2>Period against length</h2>
+        <svg id="chart" viewBox="0 0 360 230" role="img" aria-label="The period against the string's length"></svg>
+        <p class="muted">
+          Solid: 2π√(ℓ/g). Dashed: the exact period for A's swing. The dot is bob A as measured: on the solid line for a
+          small swing, above it for a wide one.
+        </p>
+      </section>
+    </div>
+    <p class="muted">
+      The model: no air drag, a string with no mass that does not stretch, g = 9.81 m/s²; θ″ = −(g/ℓ)·sin θ solved by
+      Runge–Kutta (RK4) in steps of 2 ms. The force arrows are to scale, 1.5 cm for each newton. The stand and the balls
+      are drawn at their true size.
+    </p>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script type="module">
+    import { scene as load } from './load.js';
+
+    const g = 9.81,
+      D2R = Math.PI / 180,
+      REST = 1, // the string's length as the scene draws the bobs (m): a bob is moved by where it is less where it rests
+      FORCE = 0.015; // metres of arrow for each newton
+    // each pendulum: its pivot (the pin in the scene), its bob's mass (a 12 cm ball: aluminium 2700, brass 8500 kg/m³)
+    const bobs = {
+      a: { id: 'bob-a', pivot: [-0.5, 2.52, 0.11], m: 2.443, color: '#c8473b' },
+      b: { id: 'bob-b', pivot: [0.5, 2.52, -0.11], m: 7.691, color: '#2f5fb3' },
+    };
+    for (const p of Object.values(bobs)) Object.assign(p, { th: 0, w: 0, amp: 0, held: false, cross: null, T: null });
+    let len = 1,
+      t = 0,
+      running = true,
+      speed = 1;
+
+    const $ = (id) => document.getElementById(id);
+    const el = $('fig');
+    const fig = LK3D.mount(el, await load('pendulum'), {
+      info: $('note'),
+      infoIdle: 'Drag a ball to pull it aside; let go to release it.',
+      onStep: (index, step) => apply(step.id),
+    });
+
+    // ---- the physics: the pull along the arc, −m·g·sin θ, over the bob's inertia along it, m·ℓ (the mass cancels,
+    // but it is written in so that it visibly does)
+    const accel = (p, th) => (-p.m * g * Math.sin(th)) / (p.m * len);
+    function step(p, h) {
+      const k1t = p.w,
+        k1w = accel(p, p.th),
+        k2t = p.w + (h / 2) * k1w,
+        k2w = accel(p, p.th + (h / 2) * k1t),
+        k3t = p.w + (h / 2) * k2w,
+        k3w = accel(p, p.th + (h / 2) * k2t),
+        k4t = p.w + h * k3w,
+        k4w = accel(p, p.th + h * k3t);
+      const before = p.th;
+      p.th += (h / 6) * (k1t + 2 * k2t + 2 * k3t + k4t);
+      p.w += (h / 6) * (k1w + 2 * k2w + 2 * k3w + k4w);
+      // a period: from one upward crossing of the vertical to the next (the crossing found between the two samples)
+      if (before < 0 && p.th >= 0) {
+        const at = t + (h * -before) / (p.th - before);
+        if (p.cross != null) p.T = at - p.cross;
+        p.cross = at;
+      }
+    }
+    function advance(dt) {
+      const n = Math.ceil(dt / 0.002);
+      for (let i = 0; i < n; i++) {
+        for (const p of Object.values(bobs)) if (!p.held) step(p, dt / n);
+        t += dt / n;
+      }
+    }
+    const T0 = (l) => 2 * Math.PI * Math.sqrt(l / g);
+    function agm(a, b) {
+      for (let i = 0; i < 20 && Math.abs(a - b) > 1e-15; i++) [a, b] = [(a + b) / 2, Math.sqrt(a * b)];
+      return a;
+    }
+    const exact = (l, amp) => T0(l) / agm(1, Math.cos(amp / 2));
+
+    // ---- drawing: the bobs moved, the strings, a dashed vertical under each pivot, each bob's arc, the forces on A
+    const at = (p, th = p.th, l = len) => [p.pivot[0] + l * Math.sin(th), p.pivot[1] - l * Math.cos(th), p.pivot[2]];
+    const strings = fig.lines({ count: 2, radius: 0.003, color: '#2b2b2b', studioColor: '#d8d2c4' });
+    const plumb = fig.lines({ count: 60, radius: 0.0018, color: '#8a8f99' });
+    const arcs = {
+      a: fig.lines({ count: 40, radius: 0.0025, color: bobs.a.color }),
+      b: fig.lines({ count: 40, radius: 0.0025, color: bobs.b.color }),
+    };
+    const tension = fig.lines({ count: 3, radius: 0.007, color: '#2f9e44', glow: '#2f9e44' });
+    const weight = fig.lines({ count: 3, radius: 0.007, color: '#e8590c' });
+    function arrow(lines, from, vec) {
+      const size = Math.hypot(vec[0], vec[1]);
+      if (size < 1e-3) return lines.clear();
+      const tip = [from[0] + vec[0], from[1] + vec[1], from[2]],
+        ux = vec[0] / size,
+        uy = vec[1] / size,
+        head = Math.min(0.05, size / 3);
+      lines.set(0, from, tip);
+      for (const [k, s] of [
+        [1, 1],
+        [2, -1],
+      ]) {
+        const c = Math.cos(s * 0.45),
+          sn = Math.sin(s * 0.45); // the head's two strokes, 26° off the shaft
+        lines.set(k, tip, [tip[0] - head * (ux * c - uy * sn), tip[1] - head * (ux * sn + uy * c), tip[2]]);
+      }
+    }
+    const showForces = $('forces'),
+      showArcs = $('arcs');
+    function draw() {
+      const move = {};
+      let k = 0;
+      for (const [key, p] of Object.entries(bobs)) {
+        const here = at(p),
+          rest = at(p, 0, REST);
+        move[p.id] = [here[0] - rest[0], here[1] - rest[1], 0];
+        strings.set(key === 'a' ? 0 : 1, p.pivot, here);
+        for (let i = 0; i < 30; i++) {
+          const y0 = p.pivot[1] - (i / 30) * len * 1.12;
+          plumb.set(k++, [p.pivot[0], y0, p.pivot[2]], [p.pivot[0], y0 - (0.5 / 30) * len * 1.12, p.pivot[2]]);
+        }
+        const arc = arcs[key];
+        arc.visible = showArcs.checked && p.amp > 0.5 * D2R;
+        if (arc.visible)
+          for (let i = 0; i < 40; i++)
+            arc.set(i, at(p, -p.amp + (2 * p.amp * i) / 40), at(p, -p.amp + (2 * p.amp * (i + 1)) / 40));
+      }
+      const a = bobs.a,
+        here = at(a);
+      tension.visible = weight.visible = showForces.checked;
+      if (showForces.checked) {
+        // the string pulls towards the pivot with m(g cos θ + ℓω²) (held by hand: no swing yet, ω = 0)
+        const pull = a.m * (g * Math.cos(a.th) + len * a.w * a.w) * FORCE;
+        arrow(tension, here, [-Math.sin(a.th) * pull, Math.cos(a.th) * pull]);
+        arrow(weight, here, [0, -a.m * g * FORCE]);
+      }
+      fig.set({ move });
+    }
+
+    // ---- the numbers
+    const fmt = (v, d = 2) => (v == null ? '—' : v.toFixed(d) + ' s');
+    function report() {
+      const a = bobs.a,
+        b = bobs.b;
+      $('t0').textContent = fmt(T0(len));
+      $('texact').textContent = a.amp ? fmt(exact(len, a.amp)) + ` (α₀ = ${Math.round(a.amp / D2R)}°)` : '—';
+      $('ta').textContent = fmt(a.T);
+      $('tb').textContent = fmt(b.T);
+      $('diff').textContent = a.T ? `${a.T > T0(len) ? '+' : ''}${((a.T / T0(len) - 1) * 100).toFixed(1)} %` : '—';
+      $('clock').textContent = `t = ${t.toFixed(1)} s · θA = ${Math.round(a.th / D2R)}°`;
+      chart();
+    }
+
+    // the chart: T against ℓ, by the small-swing formula and exactly for A's swing, and A as measured
+    const svg = $('chart'),
+      X = (l) => 40 + (l / 2) * 305,
+      Y = (T) => 200 - (T / 3.2) * 188;
+    const NS = 'http://www.w3.org/2000/svg';
+    function el$(name, attrs, text) {
+      const e = document.createElementNS(NS, name);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+      if (text != null) e.textContent = text;
+      svg.appendChild(e);
+      return e;
+    }
+    el$('path', { class: 'axis', d: `M${X(0)} ${Y(3.2)}V${Y(0)}H${X(2)}` });
+    for (const l of [0, 0.5, 1, 1.5, 2]) el$('text', { x: X(l), y: 218, 'text-anchor': 'middle' }, l.toFixed(1));
+    for (const T of [0, 1, 2, 3]) el$('text', { x: 32, y: Y(T) + 4, 'text-anchor': 'end' }, T);
+    el$('text', { x: X(2), y: 190, 'text-anchor': 'end' }, 'ℓ (m)');
+    el$('text', { x: X(0) + 6, y: 16 }, 'T (s)');
+    const curve = (T) =>
+      Array.from(
+        { length: 81 },
+        (_, i) => `${i ? 'L' : 'M'}${X((i / 80) * 2).toFixed(1)} ${Y(T((i / 80) * 2)).toFixed(1)}`,
+      ).join('');
+    el$('path', { d: curve(T0), fill: 'none', stroke: '#7048e8', 'stroke-width': 2 });
+    const dashed = el$('path', { fill: 'none', stroke: '#7048e8', 'stroke-width': 1.5, 'stroke-dasharray': '4 4' });
+    const guide = el$('path', { stroke: 'currentColor', opacity: 0.25 });
+    const dot = el$('circle', { r: 5, fill: bobs.a.color, stroke: 'white', 'stroke-width': 1.5 });
+    function chart() {
+      const a = bobs.a;
+      dashed.setAttribute('d', a.amp > 2 * D2R ? curve((l) => exact(l, a.amp)) : '');
+      const T = a.T ?? (a.amp ? exact(len, a.amp) : T0(len));
+      guide.setAttribute('d', `M${X(len)} ${Y(0)}V${Y(T)}`);
+      dot.setAttribute('cx', X(len));
+      dot.setAttribute('cy', Y(T));
+    }
+
+    // ---- the reader: dragging a bob (the page's own: the bob follows the pointer in its plane of swing)
+    const canvas = el.querySelector('canvas');
+    let drag = null;
+    // the point of the plane z = z0 under a point of the stage: Newton's method on the figure's own projection
+    function onPlane(z0, x, y, from) {
+      let [u, v] = from;
+      for (let i = 0; i < 8; i++) {
+        const p = fig.project([u, v, z0]),
+          pu = fig.project([u + 1e-3, v, z0]),
+          pv = fig.project([u, v + 1e-3, z0]);
+        if (!p || !pu || !pv) break;
+        const a = (pu[0] - p[0]) / 1e-3,
+          c = (pu[1] - p[1]) / 1e-3,
+          b = (pv[0] - p[0]) / 1e-3,
+          d = (pv[1] - p[1]) / 1e-3,
+          det = a * d - b * c,
+          ex = x - p[0],
+          ey = y - p[1];
+        if (Math.abs(det) < 1e-9) break;
+        u += (d * ex - b * ey) / det;
+        v += (a * ey - c * ex) / det;
+      }
+      return [u, v];
+    }
+    function pointer(e) {
+      const r = canvas.getBoundingClientRect();
+      return [e.clientX - r.left, e.clientY - r.top];
+    }
+    // (in the capture phase, before the figure's own handler, so that a drag on a bob does not turn the view)
+    el.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (e.button !== 0 || e.target !== canvas) return;
+        const id = fig.pick(...pointer(e));
+        const p = Object.values(bobs).find((each) => each.id === id);
+        if (!p) return;
+        e.stopPropagation();
+        e.preventDefault();
+        drag = { p, pointerId: e.pointerId };
+        p.held = true;
+        p.w = 0;
+        canvas.setPointerCapture(e.pointerId);
+      },
+      { capture: true },
+    );
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const p = drag.p,
+        [u, v] = onPlane(p.pivot[2], ...pointer(e), at(p));
+      p.th = Math.max(-80 * D2R, Math.min(80 * D2R, Math.atan2(u - p.pivot[0], p.pivot[1] - v)));
+      p.amp = Math.abs(p.th);
+      p.T = p.cross = null;
+      $('amp').value = Math.round(p.amp / D2R);
+      $('amp-out').textContent = $('amp').value + '°';
+    });
+    const letGo = (e) => {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      drag.p.held = false;
+      drag.p.w = 0;
+      drag = null;
+    };
+    canvas.addEventListener('pointerup', letGo);
+    canvas.addEventListener('pointercancel', letGo);
+
+    // ---- the controls
+    function release(keys, deg) {
+      for (const key of keys) Object.assign(bobs[key], { th: deg * D2R, w: 0, amp: deg * D2R, cross: null, T: null });
+      t = 0;
+    }
+    function setLength(l) {
+      len = l;
+      $('len').value = l;
+      $('len-out').textContent = l.toFixed(2) + ' m';
+      for (const p of Object.values(bobs)) p.T = p.cross = null; // (a new length: a new period to measure)
+    }
+    function setAmp(deg) {
+      $('amp').value = deg;
+      $('amp-out').textContent = deg + '°';
+    }
+    function setRunning(on) {
+      running = on;
+      $('pause').textContent = on ? 'Pause' : 'Run';
+      $('pause').setAttribute('aria-pressed', String(!on));
+    }
+    $('len').addEventListener('input', (e) => setLength(+e.target.value));
+    $('amp').addEventListener('input', (e) => setAmp(+e.target.value));
+    $('release').addEventListener('click', () => {
+      release(['a', 'b'], +$('amp').value);
+      setRunning(true);
+    });
+    $('pause').addEventListener('click', () => setRunning(!running));
+    $('reset').addEventListener('click', () => {
+      for (const p of Object.values(bobs)) Object.assign(p, { th: 0, w: 0, amp: 0, cross: null, T: null });
+      t = 0;
+    });
+    $('speed').addEventListener('change', (e) => (speed = +e.target.value));
+
+    // ---- the guided steps: each sets the page as its words say
+    const STEPS = {
+      stand: { len: 1, amp: 20, release: false },
+      small: { len: 1, amp: 8, release: true },
+      wide: { len: 1, amp: 50, release: true },
+      mass: { len: 1, amp: 30, release: true },
+      length: { len: 0.25, amp: 8, release: true },
+    };
+    function apply(id) {
+      const s = STEPS[id];
+      if (!s) return;
+      setLength(s.len);
+      setAmp(s.amp);
+      if (s.release) {
+        release(['a', 'b'], s.amp);
+        setRunning(true);
+      } else $('reset').click();
+    }
+    apply('stand');
+
+    let last = 0,
+      shown = 0;
+    fig.tick((now) => {
+      const dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
+      last = now;
+      if (running) advance(dt * speed);
+      draw();
+      if (now - shown > 100) {
+        report();
+        shown = now;
+      }
+      return true;
+    });
+  </script>
+</html>

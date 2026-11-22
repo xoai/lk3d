@@ -51,11 +51,12 @@
     <nav><a href="index.html">← examples</a></nav>
     <h1>A pendulum's period</h1>
     <p>
-      Drag a ball aside and let go. The page solves the swing itself, θ″ = −(g/ℓ)·sin θ, and moves the bobs (<code
-        >set({ move })</code
-      >); the strings, the arcs and the forces are <code>lines</code>, and the angle at pivot A is one of the scene's
-      <code>dimensions</code>, measured from the bob as it is drawn. The textbook's period, 2π√(ℓ/g), is right only for
-      small swings: release them at 50° to see by how much.
+      Drag a ball aside and let go. The page solves the swing itself, θ″ = −(g/ℓ)·sin θ, and turns each bob about its
+      pivot (<code>set({ move: { bob: { turn, by } } })</code>), so its hook points along the string; the drag is the
+      page's own (<code>onPress</code>, and <code>fig.hit</code> on the plane of the swing). The forces are
+      <code>arrows</code>, the strings and arcs <code>lines</code>, and the angle at pivot A one of the scene's
+      <code>dimensions</code>. The textbook's period, 2π√(ℓ/g), is right only for small swings: release them at 50° to
+      see by how much. On the keyboard: the angle slider and Release.
     </p>
     <div id="fig"></div>
     <p class="muted readout" aria-hidden="true">
@@ -136,6 +137,7 @@
     </p>
   </main>
   <script src="../dist/lk3d.min.js"></script>
+  <script src="../dist/lk3d-live.min.js"></script>
   <script type="module">
     import { scene as load } from './load.js';
 
@@ -156,10 +158,33 @@
 
     const $ = (id) => document.getElementById(id);
     const el = $('fig');
+    // ---- the reader: dragging a bob, the page's own gesture (onPress takes it, so the view does not turn): the bob
+    // follows the point of its plane of swing under the pointer (fig.hit with a plane)
+    let drag = null;
     const fig = LK3D.mount(el, await load('pendulum'), {
       info: $('note'),
       infoIdle: 'Drag a ball to pull it aside; let go to release it.',
       onStep: (index, step) => apply(step.id),
+      onPress(hit) {
+        drag = Object.values(bobs).find((p) => p.id === hit?.id) || null;
+        if (drag) Object.assign(drag, { held: true, w: 0 });
+        return !!drag;
+      },
+      onDrag(hit, event) {
+        const p = drag,
+          on = fig.hit(event, { plane: { point: p.pivot, normal: [0, 0, 1] } });
+        if (!on) return;
+        const [u, v] = on.point;
+        p.th = Math.max(-80 * D2R, Math.min(80 * D2R, Math.atan2(u - p.pivot[0], p.pivot[1] - v)));
+        p.amp = Math.abs(p.th);
+        p.T = p.cross = null;
+        $('amp').value = Math.round(p.amp / D2R);
+        $('amp-out').textContent = $('amp').value + '°';
+      },
+      onRelease() {
+        Object.assign(drag, { held: false, w: 0 });
+        drag = null;
+      },
     });
 
     // ---- the physics: the pull along the arc, −m·g·sin θ, over the bob's inertia along it, m·ℓ (the mass cancels,
@@ -198,7 +223,8 @@
     }
     const exact = (l, amp) => T0(l) / agm(1, Math.cos(amp / 2));
 
-    // ---- drawing: the bobs moved, the strings, a dashed vertical under each pivot, each bob's arc, the forces on A
+    // ---- drawing: the bobs turned about their pivots, the strings, a dashed vertical under each pivot, each bob's arc,
+    // the forces on A
     const at = (p, th = p.th, l = len) => [p.pivot[0] + l * Math.sin(th), p.pivot[1] - l * Math.cos(th), p.pivot[2]];
     const strings = fig.lines({ count: 2, radius: 0.003, color: '#2b2b2b', studioColor: '#d8d2c4' });
     const plumb = fig.lines({ count: 60, radius: 0.0018, color: '#8a8f99' });
@@ -206,34 +232,20 @@
       a: fig.lines({ count: 40, radius: 0.0025, color: bobs.a.color }),
       b: fig.lines({ count: 40, radius: 0.0025, color: bobs.b.color }),
     };
-    const tension = fig.lines({ count: 3, radius: 0.007, color: '#2f9e44', glow: '#2f9e44' });
-    const weight = fig.lines({ count: 3, radius: 0.007, color: '#e8590c' });
-    function arrow(lines, from, vec) {
-      const size = Math.hypot(vec[0], vec[1]);
-      if (size < 1e-3) return lines.clear();
-      const tip = [from[0] + vec[0], from[1] + vec[1], from[2]],
-        ux = vec[0] / size,
-        uy = vec[1] / size,
-        head = Math.min(0.05, size / 3);
-      lines.set(0, from, tip);
-      for (const [k, s] of [
-        [1, 1],
-        [2, -1],
-      ]) {
-        const c = Math.cos(s * 0.45),
-          sn = Math.sin(s * 0.45); // the head's two strokes, 26° off the shaft
-        lines.set(k, tip, [tip[0] - head * (ux * c - uy * sn), tip[1] - head * (ux * sn + uy * c), tip[2]]);
-      }
-    }
+    const forces = fig.arrows({ count: 2, radius: 0.007, color: '#2f9e44' }),
+      weights = fig.arrows({ count: 1, radius: 0.007, color: '#e8590c' });
     const showForces = $('forces'),
       showArcs = $('arcs');
     function draw() {
       const move = {};
       let k = 0;
       for (const [key, p] of Object.entries(bobs)) {
-        const here = at(p),
-          rest = at(p, 0, REST);
-        move[p.id] = [here[0] - rest[0], here[1] - rest[1], 0];
+        const here = at(p);
+        // (the bob drawn hanging REST below its pivot: turned by θ about the pivot, then shifted along the string to ℓ)
+        move[p.id] = {
+          turn: { axis: [0, 0, 1], angle: p.th / D2R, center: p.pivot },
+          by: [(len - REST) * Math.sin(p.th), -(len - REST) * Math.cos(p.th), 0],
+        };
         strings.set(key === 'a' ? 0 : 1, p.pivot, here);
         for (let i = 0; i < 30; i++) {
           const y0 = p.pivot[1] - (i / 30) * len * 1.12;
@@ -247,12 +259,12 @@
       }
       const a = bobs.a,
         here = at(a);
-      tension.visible = weight.visible = showForces.checked;
+      forces.visible = weights.visible = showForces.checked;
       if (showForces.checked) {
         // the string pulls towards the pivot with m(g cos θ + ℓω²) (held by hand: no swing yet, ω = 0)
         const pull = a.m * (g * Math.cos(a.th) + len * a.w * a.w) * FORCE;
-        arrow(tension, here, [-Math.sin(a.th) * pull, Math.cos(a.th) * pull]);
-        arrow(weight, here, [0, -a.m * g * FORCE]);
+        forces.set(0, here, [here[0] - Math.sin(a.th) * pull, here[1] + Math.cos(a.th) * pull, here[2]]);
+        weights.set(0, here, [here[0], here[1] - a.m * g * FORCE, here[2]]);
       }
       fig.set({ move });
     }
@@ -305,70 +317,6 @@
       dot.setAttribute('cx', X(len));
       dot.setAttribute('cy', Y(T));
     }
-
-    // ---- the reader: dragging a bob (the page's own: the bob follows the pointer in its plane of swing)
-    const canvas = el.querySelector('canvas');
-    let drag = null;
-    // the point of the plane z = z0 under a point of the stage: Newton's method on the figure's own projection
-    function onPlane(z0, x, y, from) {
-      let [u, v] = from;
-      for (let i = 0; i < 8; i++) {
-        const p = fig.project([u, v, z0]),
-          pu = fig.project([u + 1e-3, v, z0]),
-          pv = fig.project([u, v + 1e-3, z0]);
-        if (!p || !pu || !pv) break;
-        const a = (pu[0] - p[0]) / 1e-3,
-          c = (pu[1] - p[1]) / 1e-3,
-          b = (pv[0] - p[0]) / 1e-3,
-          d = (pv[1] - p[1]) / 1e-3,
-          det = a * d - b * c,
-          ex = x - p[0],
-          ey = y - p[1];
-        if (Math.abs(det) < 1e-9) break;
-        u += (d * ex - b * ey) / det;
-        v += (a * ey - c * ex) / det;
-      }
-      return [u, v];
-    }
-    function pointer(e) {
-      const r = canvas.getBoundingClientRect();
-      return [e.clientX - r.left, e.clientY - r.top];
-    }
-    // (in the capture phase, before the figure's own handler, so that a drag on a bob does not turn the view)
-    el.addEventListener(
-      'pointerdown',
-      (e) => {
-        if (e.button !== 0 || e.target !== canvas) return;
-        const id = fig.pick(...pointer(e));
-        const p = Object.values(bobs).find((each) => each.id === id);
-        if (!p) return;
-        e.stopPropagation();
-        e.preventDefault();
-        drag = { p, pointerId: e.pointerId };
-        p.held = true;
-        p.w = 0;
-        canvas.setPointerCapture(e.pointerId);
-      },
-      { capture: true },
-    );
-    canvas.addEventListener('pointermove', (e) => {
-      if (!drag || e.pointerId !== drag.pointerId) return;
-      const p = drag.p,
-        [u, v] = onPlane(p.pivot[2], ...pointer(e), at(p));
-      p.th = Math.max(-80 * D2R, Math.min(80 * D2R, Math.atan2(u - p.pivot[0], p.pivot[1] - v)));
-      p.amp = Math.abs(p.th);
-      p.T = p.cross = null;
-      $('amp').value = Math.round(p.amp / D2R);
-      $('amp-out').textContent = $('amp').value + '°';
-    });
-    const letGo = (e) => {
-      if (!drag || e.pointerId !== drag.pointerId) return;
-      drag.p.held = false;
-      drag.p.w = 0;
-      drag = null;
-    };
-    canvas.addEventListener('pointerup', letGo);
-    canvas.addEventListener('pointercancel', letGo);
 
     // ---- the controls
     function release(keys, deg) {

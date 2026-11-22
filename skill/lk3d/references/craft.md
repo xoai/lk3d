@@ -88,3 +88,13 @@ part. Motion follows the true model (a fan's speed from the throttle, a current 
 for a reader who asks for less motion. Air or gas outside a machine (the jet leaving a nozzle, the air drawn into an intake, a
 plume) is a `stream`: a volume with a radius along its path (an annulus for a bypass duct), filaments that move with
 its speed, as thick as `density` says; streaks (`flow`) stay for what runs inside, through a cut.
+
+## When the page drives the figure
+
+Use the scene's own `motions` and `joints` when the movement is a mechanism's: a crank, a piston, a sleeve, values
+along a range that a slider or a play button runs. Drive the figure from the page when a simulation decides where things
+are (a pendulum's swing solved each frame, waves summed at each point): turn and shift parts with
+`set({ move: { id: { turn, by } } })` (a bob turned about its pivot keeps its hook on the string), draw forces as
+`arrows` and a changing sheet (water, a membrane, a graph of z = f(x, y)) as a `surface`, both from the live add-on.
+Let the reader place a point with a `plane` handle (it is two sliders for the keyboard too); take a drag for the page
+only when no handle fits (`onPress`, with `fig.hit` on a plane), and give the keyboard another way to do it.

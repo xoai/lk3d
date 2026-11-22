@@ -69,14 +69,16 @@
       </li>
       <li>
         <a href="pendulum.html">A pendulum's period</a>: two bobs on a stand that the page swings by solving the
-        equation itself; drag a bob aside to release it, and see the period grow past 2π√(ℓ/g) on wide swings. The angle
-        is a live <code>dimension</code>, the strings and forces are <code>lines</code>.
+        equation itself, each turned about its pivot (<code>set({ move: { bob: { turn } } })</code>); drag a bob aside
+        to release it (the page's own drag: <code>onPress</code> and <code>fig.hit</code>), and see the period grow past
+        2π√(ℓ/g) on wide swings. The angle is a live <code>dimension</code>, the forces <code>arrows</code>.
         <a href="../playground/index.html#example=pendulum">In the playground</a>
       </li>
       <li>
-        <a href="ripple-tank.html">Two-source interference</a>: a ripple tank whose water is thousands of beads the page
-        lifts and colours each frame, two dippers that slide apart, the lines of still water drawn as hyperbolas, and a
-        point P placed by clicking the water.
+        <a href="ripple-tank.html">Two-source interference</a>: a ripple tank whose water is a surface the page shapes
+        and colours each frame (<code>fig.surface</code>), two dippers that slide apart, the lines of still water drawn
+        as hyperbolas, and a point P that is a plane handle: dragged across the water, reached by Tab, or put where the
+        water is clicked.
         <a href="../playground/index.html#example=ripple-tank">In the playground</a>
       </li>
       <li>

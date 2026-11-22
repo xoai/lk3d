@@ -53,10 +53,12 @@
     <nav><a href="index.html">← examples</a></nav>
     <h1>Two-source interference</h1>
     <p>
-      A ripple tank: two dippers beat on the water and their circular waves cross. The water is about 7 300 beads the
-      page lifts and colours each frame (<code>particles({ count, radius, colors })</code>), each the sum of the two
-      waves where it is; the dippers slide along the bar (<code>set({ move })</code>), the lines of still water and the
-      paths to P are <code>lines</code>. Click the water to put the point P where you like.
+      A ripple tank: two dippers beat on the water and their circular waves cross. The water is a surface the page
+      shapes each frame (<code>fig.surface</code>, from the live add-on): a height and a tone for each of 161 × 113
+      points, each the sum of the two waves there. The dippers slide along the bar (<code>set({ move })</code>), the
+      lines of still water and the paths to P are <code>lines</code>, and P is a plane handle: drag it across the water,
+      reach it with Tab (two sliders, one for each direction), or click the water to put it there (<code>onPress</code>
+      and <code>fig.hit</code>).
     </p>
     <div id="fig"></div>
     <p class="muted" aria-hidden="true">
@@ -153,6 +155,7 @@
     </div>
   </main>
   <script src="../dist/lk3d.min.js"></script>
+  <script src="../dist/lk3d-live.min.js"></script>
   <script type="module">
     import { scene as load } from './load.js';
 
@@ -160,12 +163,11 @@
     // the tank as the scene draws it (cm): water inside x ±20.5, z ±14.5; the dippers on the bar at z = −6, 8 cm apart
     const ZS = -6,
       REST = 4, // half the distance apart the scene draws the dippers at
-      X0 = -20.2,
-      Z0 = -14.2,
-      STEP = 0.4,
-      NX = 102,
-      NZ = 72,
+      NX = 161, // (the water's grid: 40.4 × 28.4 cm, x and z from −20.2 to 20.2 and −14.2 to 14.2)
+      NZ = 113,
       N = NX * NZ,
+      xs = Array.from({ length: NX }, (_, i) => -20.2 + (40.4 * i) / (NX - 1)),
+      zs = Array.from({ length: NZ }, (_, j) => -14.2 + (28.4 * j) / (NZ - 1)),
       HEIGHT = 0.6, // how high a wave of amplitude 1 is drawn (cm): far higher than a real ripple
       ABOVE = 1.1, // the lines drawn over the water, clear of its crests
       F = 1; // beats a second, slowed down
@@ -176,24 +178,32 @@
       ` · in the map: <span class="key" style="background:${MAP[0]}"></span>still <span class="key" style="background:${MAP[2]}"></span>large swing`;
 
     const s = { d: 8, lambda: 3, phi: 0, a1: 1, a2: 1, beta: 0.03, two: true, mode: 'surface', nodal: false },
-      P = [6, 6];
+      P = [6, 6]; // (where P is on the water: its handle's [u, v] from where the scene draws it, at x 6, z 6)
     let t = 0,
       running = !LK3D.reduce;
 
+    // a press on the water: kept, to put P there if it is let go of without moving (a drag still turns the view)
+    let pressed = null;
     const fig = LK3D.mount($('fig'), await load('ripple-tank'), {
       onStep: (index, step) => apply(step.id),
+      onPress(hit, event) {
+        pressed = hit && hit.id !== 'p' && hit.id !== 's1-dipper' && hit.id !== 's2-dipper' ? event : null;
+        return false; // (the figure goes on as ever: P's handle, the view)
+      },
+      onHandle: () => report(), // (P dragged, or moved with the keys)
     });
-
-    // ---- the water: one bead for each point of a grid, lifted and coloured each frame
-    const beads = {
-      surface: fig.particles({ count: N, radius: 0.3, colors: SURFACE }),
-      map: fig.particles({ count: N, radius: 0.3, colors: MAP }),
+    const placeP = () => {
+      const [u, v] = fig.handle('p').value;
+      P[0] = 6 + u;
+      P[1] = 6 + v;
     };
-    for (const set of Object.values(beads))
-      for (let i = 0; i < N; i++) {
-        set.positionsAndColors[4 * i] = X0 + (i % NX) * STEP;
-        set.positionsAndColors[4 * i + 2] = Z0 + Math.floor(i / NX) * STEP;
-      }
+
+    // ---- the water: a surface the page shapes each frame; its tones a ramp from trough to crest, or, in the map, how
+    // much the water swings there (a second surface, shown in its place)
+    const sheets = {
+      surface: fig.surface({ id: 'water', size: [40.4, 28.4], res: [NX, NZ], colors: SURFACE, smooth: true }),
+      map: fig.surface({ id: 'map', size: [40.4, 28.4], res: [NX, NZ], colors: MAP, smooth: true }),
+    };
 
     // the waves: source i at x = ∓d/2 on z = ZS; a wave reaches as far as it has travelled since the start (v = λf)
     const sources = () => [
@@ -213,16 +223,15 @@
     function water() {
       const [s1, s2] = sources(),
         wt = 2 * Math.PI * F * t,
-        set = beads[s.mode],
-        data = set.positionsAndColors;
+        sheet = sheets[s.mode];
       for (let i = 0; i < N; i++) {
-        const x = data[4 * i],
-          z = data[4 * i + 2],
+        const x = xs[i % NX],
+          z = zs[Math.floor(i / NX)],
           w1 = wave(s1, x, z),
           w2 = wave(s2, x, z),
           y = w1.a * Math.sin(wt + w1.psi) + w2.a * Math.sin(wt + w2.psi);
-        data[4 * i + 1] = HEIGHT * y;
-        if (s.mode === 'surface') data[4 * i + 3] = 0.5 + y / 0.8;
+        sheet.heights[i] = HEIGHT * y;
+        if (s.mode === 'surface') sheet.tones[i] = 0.5 + y / 0.8;
         else {
           // how much the water here swings, of the most the two waves could make it: the length of the sum of their
           // phasors over the sum of their lengths
@@ -230,12 +239,13 @@
             w1.a * Math.cos(w1.psi) + w2.a * Math.cos(w2.psi),
             w1.a * Math.sin(w1.psi) + w2.a * Math.sin(w2.psi),
           );
-          data[4 * i + 3] = w1.a + w2.a > 1e-3 ? sum / (w1.a + w2.a) : 0.5;
+          sheet.tones[i] = w1.a + w2.a > 1e-3 ? sum / (w1.a + w2.a) : 0.5;
         }
       }
-      set.version++;
-      beads.surface.visible = s.mode === 'surface';
-      beads.map.visible = s.mode === 'map';
+      sheet.update();
+      sheets.surface.visible = s.mode === 'surface';
+      sheets.map.visible = s.mode === 'map';
+      placeP();
       // the dippers slide to ∓d/2 and bob with their beat; P rides on the water
       const bob = (src) => (src.A ? 0.3 * Math.sin(wt + src.phase) : 0);
       const pw1 = wave(s1, ...P),
@@ -246,7 +256,7 @@
           's1-dipper': [REST - s.d / 2, bob(s1), 0],
           's2-motor': [s.d / 2 - REST, 0, 0],
           's2-dipper': [s.d / 2 - REST, bob(s2), 0],
-          p: [P[0] - 6, HEIGHT * (pw1.a * Math.sin(wt + pw1.psi) + pw2.a * Math.sin(wt + pw2.psi)), P[1] - 6],
+          p: [0, HEIGHT * (pw1.a * Math.sin(wt + pw1.psi) + pw2.a * Math.sin(wt + pw2.psi)), 0], // (riding the water)
         },
       });
     }
@@ -315,47 +325,20 @@
       $('clock').textContent = `t = ${t.toFixed(1)} s`;
     }
 
-    // ---- the reader: a click on the water puts P there
-    const canvas = $('fig').querySelector('canvas');
-    const pointer = (e) => {
-      const r = canvas.getBoundingClientRect();
-      return [e.clientX - r.left, e.clientY - r.top];
-    };
-    // the point of the water (y = 0) under a point of the stage: Newton's method on the figure's own projection
-    function onWater(x, y) {
-      let [u, v] = P;
-      for (let i = 0; i < 10; i++) {
-        const p = fig.project([u, 0, v]),
-          pu = fig.project([u + 1e-2, 0, v]),
-          pv = fig.project([u, 0, v + 1e-2]);
-        if (!p || !pu || !pv) return null;
-        const a = (pu[0] - p[0]) / 1e-2,
-          c = (pu[1] - p[1]) / 1e-2,
-          b = (pv[0] - p[0]) / 1e-2,
-          d = (pv[1] - p[1]) / 1e-2,
-          det = a * d - b * c;
-        if (Math.abs(det) < 1e-9) return null;
-        u += (d * (x - p[0]) - b * (y - p[1])) / det;
-        v += (a * (y - p[1]) - c * (x - p[0])) / det;
-      }
-      return [u, v];
-    }
-    let down = null;
-    canvas.addEventListener('pointerdown', (e) => (down = pointer(e)));
-    canvas.addEventListener('pointerup', (e) => {
-      const [x, y] = pointer(e),
-        moved = down ? Math.hypot(x - down[0], y - down[1]) : 99;
-      down = null;
-      if (moved > 5) return; // (a drag turned the view)
-      const id = fig.pick(x, y);
-      if (id && id !== 'floor' && id !== 'p') return; // (a click on the tank or a dipper: its note, as usual)
-      const at = onWater(x, y);
-      if (!at || !inside(...at)) return;
-      P[0] = at[0];
-      P[1] = at[1];
-      fig.select('p');
-      report();
-    });
+    // ---- the reader: a click on the water puts P there (where the pointer meets the water's plane, y = 0)
+    $('fig')
+      .querySelector('canvas')
+      .addEventListener('pointerup', (event) => {
+        const press = pressed;
+        pressed = null;
+        if (!press || Math.hypot(event.clientX - press.clientX, event.clientY - press.clientY) > 5) return;
+        const on = fig.hit(event, { plane: { point: [0, 0, 0], normal: [0, 1, 0] } });
+        if (!on || !inside(on.point[0], on.point[2])) return;
+        fig.handle('p').set([on.point[0] - 6, on.point[2] - 6]); // (held within the tank by the handle's limits)
+        placeP();
+        fig.select('p');
+        report();
+      });
 
     // ---- the controls
     const sliders = {

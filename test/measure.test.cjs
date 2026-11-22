@@ -211,3 +211,60 @@ test('what does not exist, or is not a measure, is reported at its name; the oth
   assert.match(said.atom, /atom 3/);
   assert.match(said.mixed, /length|count/);
 });
+
+test('a gap is not lost to an edge tested after a nearer vertex elsewhere (crossed beams 0.1 apart, two decoys)', () => {
+  // two beams turned 45° about their length, so their nearest features are two edges crossing 0.1 apart; a small box on
+  // each, listed first and about 2.5 from the other beam, is tested first and must not hide the edges' 0.1
+  const h = 0.5 / Math.SQRT2; // (half the diagonal of the beams' 0.5 square)
+  const r = measure(
+    {
+      parts: [
+        {
+          id: 'a',
+          at: [0, h + 0.1, 0],
+          shapes: [
+            { box: [0.3, 0.3, 0.3], at: [3, -h - 0.5, 2.5] },
+            { box: [10, 0.5, 0.5], rot: [45, 0, 0] },
+          ],
+        },
+        {
+          id: 'b',
+          at: [0, -h, 0],
+          shapes: [
+            { box: [0.3, 0.3, 0.3], at: [-2.5, 2 * h + 0.5, -3] },
+            { box: [0.5, 0.5, 10], rot: [0, 0, 45] },
+          ],
+        },
+      ],
+    },
+    { gap: { gap: ['a', 'b'] } },
+  );
+  ok(r);
+  within(r, 'gap', 0.1);
+});
+
+test('a measure may be called constructor or toString', () => {
+  const r = measure(scene('molecules.json'), { constructor: { count: 'h2o' }, toString: { count: 'co2' } });
+  ok(r);
+  assert.equal(r.values.constructor, 1);
+  assert.equal(r.values.toString, 1);
+});
+
+test('expect size is measured as measure measures it: a ten-sided cylinder is 2 across, as its error allows', () => {
+  const { lint } = require('../src/lint.js');
+  const s = {
+    title: 't',
+    scale: { note: 'n' },
+    check: { float: true },
+    parts: [{ id: 'c', name: 'c', shapes: [{ cylinder: { r: 1 }, seg: 10 }] }],
+    expect: [{ size: 'c', axis: 'z', is: [1.95, 2.05] }],
+  };
+  assert.deepEqual(lint(s).problems, []);
+  s.expect[0].is = [2.5, 3];
+  assert.match(
+    lint(s)
+      .problems.map((p) => p.message)
+      .join('\n'),
+    /c is 2 along z, not 2\.5 to 3/,
+  );
+});

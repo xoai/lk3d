@@ -23,7 +23,7 @@ import { jointsOf, jointOf, motionsOf, solve as solveJoints } from './joints.js'
 import * as FX from './fluids.js';
 import { stepState } from './stepstate.js';
 import { placements } from './place.js';
-import { extentAlong } from './posed.js';
+import { measure } from './measure.js';
 import { chemistry } from './chemistry.js';
 
 const RAYS = [norm([0.31, 0.83, 0.47]), norm([-0.72, 0.15, 0.68]), norm([0.18, -0.64, -0.75])];
@@ -659,18 +659,21 @@ function expectations(scene, built, solids, tolerance, jointAt) {
       }
     } else if (item.size != null) {
       // (a group: each of its parts)
-      const axis = AXES.indexOf(item.axis),
-        [least, most] = item.is,
+      const [least, most] = item.is,
         slack = 1e-6 * built.radius,
-        // (each part's vertices posed as lk3d/measure poses them: its size along the axis, not a turned box's)
-        wrong = A.map((a) => {
-          const [low, high] = extentAlong(solids[a].part, pose(a, {}), axis);
-          return [a, high - low];
-        }).find(([, extent]) => extent < least - slack || extent > most + slack);
+        // (each part measured by lk3d/measure itself, at its quality and with its error, so a size expected and a size
+        // measured are one: a round part's mesh at the check's own quality would come out short)
+        ids = A.map((a) => solids[a].part.id),
+        sized = measure(scene, Object.fromEntries(ids.map((id, n) => [`p${n}`, { size: id, axis: item.axis }]))),
+        wrong = A.map((a, n) => [a, sized.values[`p${n}`], sized.error[`p${n}`] || 0]).find(
+          ([, extent, e]) => extent === undefined || extent < least - e - slack || extent > most + e + slack,
+        );
       if (wrong)
         fail(
           k,
-          `${solids[wrong[0]].part.id} is ${round(wrong[1])} along ${item.axis}, not ${least} to ${most}: change its size, or the expectation`,
+          wrong[1] === undefined
+            ? `${solids[wrong[0]].part.id} could not be measured along ${item.axis}`
+            : `${solids[wrong[0]].part.id} is ${round(wrong[1])} along ${item.axis}, not ${least} to ${most}: change its size, or the expectation`,
         );
     } else if (item.seen != null) {
       const steps = (scene.steps || []).filter((step) => step && typeof step === 'object'),

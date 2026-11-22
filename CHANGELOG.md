@@ -6,8 +6,8 @@ format or the API, and says how to move.
 ## 0.5.0 (prepared 23 November 2026; not yet released)
 
 Nothing a page or a scene already does changes. A scene that draws a molecule whose bonds are far from their atoms'
-covalent radii, or an atom with too many or too few bonds, now fails `lk3d check` (as lessonkit's BF3 drawing made of
-half-bond rods did, from when boron had no colour of its own: it is one molecule again in the examples).
+covalent radii, or an atom with too many or too few bonds, now fails `lk3d check`, as the examples' BF3 did: it drew
+each bond as two half-rods, small molecules of their own; it is one molecule again, drawn in the same colours.
 
 - **Molecules checked by chemistry** (`lk3d check`, `lk3d/lint`): each bond against the sum of its two atoms' covalent
   radii for its order (Pyykkö and co-workers: single and double 2009, triple 2005), within 20 % (real bonds stray both

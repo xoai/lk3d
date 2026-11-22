@@ -88,8 +88,9 @@ const stretch = (m) =>
  * @returns {{ values: Record<string, number>, error: Record<string, number>, problems: { path: string, message: string }[] }}
  */
 export function measure(scene, measures) {
-  const values = {},
-    error = {},
+  // (with no prototype: a measure may be called constructor or toString)
+  const values = Object.create(null),
+    error = Object.create(null),
     problems = [];
   let built;
   try {
@@ -122,7 +123,7 @@ export function measure(scene, measures) {
                 const e = shape.scatter
                   ? shapeError(
                       shape.scatter.shape,
-                      built.quality * (shape.detail || 1) * (shape.scatter.detail ?? 0.5),
+                      Math.min(16, Math.min(16, built.quality * (shape.detail || 1)) * (shape.scatter.detail ?? 0.5)), // (clamped as geometry.js's detail() is)
                       mesh,
                     )
                   : shapeError(shape, built.quality, mesh);
@@ -227,11 +228,12 @@ export function measure(scene, measures) {
           ix = from.indices;
         let least = Infinity;
         const test = (x, y, z) => {
-          const d = nearest(to, bvh, M.pt(into, [x, y, z]), least);
+          const before = least,
+            d = nearest(to, bvh, M.pt(into, [x, y, z]), least);
           if (d < least) least = d;
-          return d;
+          return Number.isFinite(d) ? d : before; // (nearest looks no farther than least: past it, least is what is known)
         };
-        // (each vertex's distance, or Infinity when it was farther than the nearest found so far: farther still now)
+        // (each vertex's distance, or at least the nearest found when it was tested: a lower bound either way)
         const atVertex = new Float64Array(p.length / 3);
         for (let k = 0; k < p.length; k += 3) atVertex[k / 3] = test(p[k], p[k + 1], p[k + 2]);
         for (let t = 0; t < ix.length; t += 3)
@@ -284,7 +286,7 @@ export function measure(scene, measures) {
     }, 0);
   };
   // each measure, once (a sum asks for others; a loop of sums is refused)
-  const kinds = {},
+  const kinds = Object.create(null),
     doing = new Set();
   const take = (name) => {
     if (name in values) return;

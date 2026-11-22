@@ -855,6 +855,62 @@ for (const style of ['pen', 'ink', 'studio'])
     expect((await stage.screenshot()).equals(before)).toBe(true);
   });
 
+test('lines added to a figure still waiting for its first WebGL context draw in WebGL when it gets one, not in 2D', async ({
+  page,
+}) => {
+  const said = [];
+  page.on('console', (m) => said.push(m.text()));
+  const got = await page.evaluate(async () => {
+    window.els = [];
+    window.figs = [];
+    // eight figures hold the contexts; a ninth, far below, waits for one (backend.js: MAX_GL)
+    for (let k = 0; k < 9; k++) {
+      const d = document.createElement('div');
+      d.style.cssText = k === 8 ? 'width: 480px; margin-top: 6000px' : 'width: 120px; display: inline-block';
+      document.body.append(d);
+      els.push(d);
+      figs.push(LK3D.mount(d, window.scene, { controls: false }));
+    }
+    const late = figs[8],
+      waited = late.renderer;
+    // (lines made while it has no context: their buffers belong to none until it gets one)
+    late.lines({ count: 1, radius: 0.05, color: '#d00000' }).set(0, [-1, 0.5, 0], [1, 0.5, 0]);
+    els[8].scrollIntoView();
+    await until(() => late.renderer && late.drawNow());
+    return { waited, renderer: late.renderer };
+  });
+  expect(said.filter((s) => /2D instead/.test(s))).toEqual([]);
+  expect(got).toEqual({ waited: '', renderer: 'webgl2' });
+});
+
+test('lines drawn before a lost WebGL context are drawn again, the same, once it comes back', async ({ page }) => {
+  await page.evaluate(async () => {
+    window.fig = mountIt();
+    await fig.ready;
+    fig.lines({ count: 1, radius: 0.05, color: '#d00000' }).set(0, [-1, 0.5, 0], [1, 0.5, 0]);
+    fig.drawNow();
+  });
+  const stage = page.locator('#g .lk3d-stage'),
+    before = await stage.screenshot();
+  const got = await page.evaluate(async () => {
+    const cv = document.querySelector('#g canvas[tabindex]'),
+      gl = cv.getContext('webgl2'),
+      x = gl.getExtension('WEBGL_lose_context');
+    let gone = false,
+      back = false;
+    cv.addEventListener('webglcontextlost', () => (gone = true));
+    cv.addEventListener('webglcontextrestored', () => (back = true));
+    x.loseContext();
+    await until(() => gone);
+    x.restoreContext();
+    await until(() => back);
+    await until(() => fig.drawNow());
+    return { renderer: fig.renderer, error: gl.getError() };
+  });
+  expect(got).toEqual({ renderer: 'webgl2', error: 0 });
+  expect((await stage.screenshot()).equals(before)).toBe(true);
+});
+
 test('a page of 24 figures: each draws when scrolled to, at most 8 hold a WebGL context, none falls back to 2D or ends blank', async ({
   page,
 }) => {

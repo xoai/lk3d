@@ -1,8 +1,9 @@
 // @ts-check
 // What a page adds to a figure: particles (along paths, or placed by the page), flows (streaks, flow.js),
 // streams (volumes the GPU marches, stream.js; streaks without WebGL) and lines (rods between points). Owns
-// addParticles_, addFlow_, addStream_ and addLines_ (the lists themselves are particles_, flows_, streams_ and lines_,
-// which the frame loop moves on and draws); reads renderer_, and calls part_, travel_ and kick_.
+// addParticles_, addFlow_, addStream_ and addLines_ (the lists themselves are particles_, flows_, streams_ and
+// additions_, which the frame loop moves on and draws; additions_ holds whatever draws as parts: lines here, the live
+// add-on's surfaces and arrows); reads renderer_, and calls part_, travel_ and kick_.
 import { M, sub, mulv, len, norm, cross, rgb } from '../math.js';
 import { buildShape, outlineNormals } from '../geometry.js';
 import { pathOf, makeFlow } from '../flow.js';
@@ -175,15 +176,32 @@ export function makeAdditions(c) {
     return forPage;
   };
 
+  // the unit shapes rods and arrows are drawn with (along x from 0 to 1, of radius 1), built once for a figure and lent
+  // to the live add-on (its arrows' shafts and heads)
+  const units = {};
+  c.unit_ = (kind) =>
+    (units[kind] ||= buildShape(
+      kind === 'cone'
+        ? {
+            lathe: [
+              [0, 0],
+              [0, 1],
+              [1, 0],
+            ],
+          }
+        : { cylinder: { r: 1, x0: 0, x1: 1 } },
+      0.5,
+    ).mesh);
+
   // ---- lines: rods between points the page sets (rays of light, field lines, forces), drawn by instancing one
   // cylinder, so a hundred rays cost one draw; they are shaded, outlined and can glow like any part
   /** @param {{ count?: number, radius?: number, color?: string, studioColor?: string, glow?: string | null }} [options] */
   c.addLines_ = ({ count = 8, radius = 0.01, color = '#ffcc55', studioColor, glow = null } = {}) => {
-    const unit = buildShape({ cylinder: { r: 1, x0: 0, x1: 1 } }, 0.5).mesh,
+    const unit = c.unit_('cylinder'),
       /** @type {{ mesh: any, placements: (number[] | Float32Array)[], outlineNormals: any, dynamic: boolean }} */
       batch = { mesh: unit, placements: [], outlineNormals: outlineNormals(unit), dynamic: true };
     const part = {
-      id: '__lines' + c.lines_.length,
+      id: '__lines' + c.additions_.length,
       name: '',
       note: '',
       label: false,
@@ -212,6 +230,7 @@ export function makeAdditions(c) {
     const segments = new Array(count).fill(null);
     const lines = {
       part,
+      parts: [part],
       visible: true,
       dirty: true,
       radius,
@@ -231,7 +250,8 @@ export function makeAdditions(c) {
         part.emission = mulv(part.glowColor, strength);
         c.kick_();
       },
-      remove: () => drop(c.lines_, lines, batch),
+      remove: () => drop(c.additions_, lines, batch),
+      reupload: (renderer) => renderer.upload?.(batch),
       place() {
         // each segment: the unit cylinder along x, stretched to the segment and thinned to the radius
         batch.placements = segments
@@ -271,7 +291,7 @@ export function makeAdditions(c) {
     live(lines, ['radius', 'visible'], (key) => {
       if (key === 'radius') lines.dirty = true;
     });
-    c.lines_.push(lines);
+    c.additions_.push(lines);
     c.kick_();
     return lines;
   };

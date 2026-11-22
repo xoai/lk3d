@@ -3,6 +3,15 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
+## Unreleased (0.6.0)
+
+- **The budget.** The global script's budget goes from 68 KB to **70.5 KB** (72,192 bytes) gzipped, by the user's
+  decision of 22 November 2026: hits, the page's own drags, turned parts, colour ramps and plane handles go in the
+  core; surfaces and arrows go in an add-on of their own (`dist/lk3d-live.min.js`).
+- **Fixed:** lines a page added to a figure still waiting for its first WebGL context (far off screen, on a page whose
+  eight contexts were taken) made it fall back to 2D when it got one. Whatever a page adds is now given to each new or
+  restored context, and to the 2D fallback.
+
 ## 0.4.0 (22 November 2026)
 
 Nothing a page or a scene already does changes, except two small things: `fig.section.second` is `null`, not left out,

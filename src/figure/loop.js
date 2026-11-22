@@ -234,16 +234,18 @@ export function makeLoop(c) {
           flow.dark = look.dark;
         }
       }
-      for (const lines of c.lines_)
-        if (lines.dirty) {
-          lines.place();
-          lines.dirty = false;
+      // what the page added (lines; the live add-on's surfaces and arrows): placed when changed, drawn after the scene
+      for (const addition of c.additions_)
+        if (addition.dirty) {
+          addition.place(c.renderer_);
+          addition.dirty = false;
         }
-      const shown = c.lines_.length
+      const shown = c.additions_.length
         ? drawOrder.concat(
-            c.lines_
-              .filter((lines) => lines.visible && lines.part.batches[0].placements.length)
-              .map((lines) => lines.part),
+            c.additions_
+              .filter((addition) => addition.visible)
+              .flatMap((addition) => addition.parts)
+              .filter((part) => part.batches.some((batch) => batch.placements.length)),
           )
         : drawOrder;
       const box = c.shownBox_(),

@@ -129,7 +129,7 @@ function mount(el, spec, opts = {}) {
     particles_: [],
     flows_: [],
     streams_: [],
-    lines_: [],
+    additions_: [],
     cleanups_: [],
   });
   const [webgl, makeBackend] = openGL(c);
@@ -137,11 +137,8 @@ function mount(el, spec, opts = {}) {
   // and at most so many triangles: a million where memory is small (a phone's screen, or what the browser says it has),
   // so a heavy scene is drawn coarser (down to a quarter of its detail) or refused rather than taking the tab down;
   // elsewhere 10 million (2 million a part)
-  c.built_ = buildFitting(
-    spec,
-    (opts.quality ?? (smallScreen ? 0.6 : 1)) * (webgl ? 1 : 0.5),
-    opts.maxTriangles ?? (smallScreen || /** @type {any} */ (navigator).deviceMemory < 4 ? 1e6 : 1e7),
-  );
+  c.maxTriangles_ = opts.maxTriangles ?? (smallScreen || /** @type {any} */ (navigator).deviceMemory < 4 ? 1e6 : 1e7);
+  c.built_ = buildFitting(spec, (opts.quality ?? (smallScreen ? 0.6 : 1)) * (webgl ? 1 : 0.5), c.maxTriangles_);
   const built = c.built_;
   c.part_ = (id) => built.parts.find((part) => part.id === id);
   makeState(c);

@@ -1,7 +1,7 @@
 // @ts-check
 // What draws a figure: its WebGL context (at most MAX_GL held by the figures of a page), the renderer on it, the 2D
 // fallback, and a context given up, lost and restored. Owns renderer_, drawCanvas_, keptPicture_, contextLost_,
-// glSlot_, fallback2d_, claimGL_ and gpuName_; reads host_, canvas_, opts_, built_, smallScreen_, spec_, lines_,
+// glSlot_, fallback2d_, claimGL_ and gpuName_; reads host_, canvas_, opts_, built_, smallScreen_, spec_, additions_,
 // width_ and height_, and calls kick_, drawNow_ and sizeCanvas_.
 import { glRenderer } from '../renderer-gl.js';
 import { canvasRenderer } from '../renderer-2d.js';
@@ -69,7 +69,16 @@ export function openGL(c) {
         canvas.style.opacity = '0';
         c.renderer_ = canvasRenderer(c.drawCanvas_, built);
         host.dataset.renderer = c.renderer_.kind;
+        renew();
         c.sizeCanvas_();
+      };
+      // what the page added, given to a new renderer: a first context that came late, a lost one back, or the 2D
+      // fallback (what was uploaded before belonged to no context, or to the old one)
+      const renew = () => {
+        for (const addition of c.additions_) {
+          addition.reupload(c.renderer_);
+          addition.dirty = true;
+        }
       };
       // the WebGL renderer on the context, made again when a lost one comes back; true if it could not be made. A
       // context lost meanwhile (taken by the browser) waits to come back too: never the 2D fallback for that
@@ -77,6 +86,7 @@ export function openGL(c) {
         try {
           c.renderer_ = glRenderer(gl, built, rendererOptions);
           host.dataset.renderer = c.renderer_.kind;
+          renew();
           loseExtension = gl.getExtension('WEBGL_lose_context');
           holding.add(slot);
         } catch (e) {
@@ -138,12 +148,7 @@ export function openGL(c) {
       });
       canvas.addEventListener('webglcontextrestored', () => {
         c.contextLost_ = false;
-        if (c.renderer_.kind === '2d' || makeGL()) return; // (drawing in 2D already, or now)
-        // (the lines' buffers were the old context's)
-        for (const lines of c.lines_) {
-          c.renderer_.upload?.(lines.part.batches[0]);
-          lines.dirty = true;
-        }
+        if (c.renderer_.kind === '2d' || makeGL()) return; // (drawing in 2D already, or now: makeGL gave it the additions)
         c.kick_();
       });
     },

@@ -94,6 +94,43 @@ export interface Strings {
   describeTitle: string;
 }
 
+/** a handle's value: a number (degrees, scene units, or a share of a path), or for a plane handle [u, v], scene units
+ * along its two axes from where the part is drawn (narrow it with typeof) */
+export type HandleValue = number | [number, number];
+
+/** the ray from the eye through a point of the stage: origin on the near plane, direction of length 1 */
+export interface Ray {
+  origin: Vec3;
+  direction: Vec3;
+}
+/** what fig.hit() finds: the part's id (a surface's id; null for a page's plane), the point and the face's direction
+ * there (facing the eye), how far along the ray from its origin, and whether what is seen is a cut face */
+export interface Hit {
+  id: string | null;
+  point: Vec3;
+  normal: Vec3;
+  distance: number;
+  cut: boolean;
+}
+export interface HitOptions {
+  /** where the ray meets this plane instead (id null); null when parallel or behind */
+  plane?: { point: Vec3; normal: Vec3 };
+  /** false: parts only */
+  surfaces?: boolean;
+  /** parts fainter than this let the ray through (0.3) */
+  minAlpha?: number;
+}
+/** a page's turn of a part: degrees about axis, through center (a point of the part at rest; the origin by default) */
+export interface Turn {
+  axis: Vec3;
+  angle: number;
+  center?: Vec3;
+}
+/** a page's move of a part: a shift, or a shift (in the scene's axes, after the turn) and a turn */
+export type Move = Vec3 | { by?: Vec3; turn?: Turn };
+/** a colour ramp: 2 to 4 stops, or a ramp's name ('cool', 'heat') */
+export type Ramp = Color[] | string;
+
 export interface MountOptions {
   /** an element for the name and note of the part pointed at, and what it says when none is */
   info?: HTMLElement;
@@ -117,11 +154,18 @@ export interface MountOptions {
   /** the part under the pointer, as it moves onto one or off it (null) */
   onHover?: (part: BuiltPart | null) => void;
   /** a handle moved by the reader (not by the page's own set()) */
-  onHandle?: (id: string, value: number) => void;
+  onHandle?: (id: string, value: HandleValue) => void;
   /** the cut moved by the reader, by its face or its slider (not by the page's own set()) */
   onSection?: (section: { normal: Vec3; offset: number }) => void;
-  /** what a screen reader says for a handle's value */
-  handleText?: (id: string, value: number) => string | undefined;
+  /** what a screen reader says for a handle's value; axis: 0 or 1 for a plane handle's two inputs */
+  handleText?: (id: string, value: HandleValue, axis?: 0 | 1) => string | undefined;
+  /** a press over the figure (the mouse's main button, a touch, a pen), before handles, the cut face and the camera:
+   * return true to take the gesture (the view does not turn, a touch does not scroll the page) */
+  onPress?: (hit: Hit | null, event: PointerEvent) => boolean | void;
+  /** each move of a gesture onPress took */
+  onDrag?: (hit: Hit | null, event: PointerEvent) => void;
+  /** the end of a gesture onPress took (released or cancelled) */
+  onRelease?: (hit: Hit | null, event: PointerEvent) => void;
   /** the figure changed, and who changed it: at most once a frame; while the reader drags, every 250 ms and once
    * more when the view stops; a playing motion at most every 250 ms. A set() inside it does not call it again */
   onChange?: (state: FigureState, cause: ChangeCause) => void;
@@ -171,7 +215,8 @@ export interface Particles {
   visible: boolean;
   remove(): void;
 }
-/** balls the page places (x, y, z and a colour band in positionsAndColors); add one to version after moving them */
+/** balls the page places (x, y, z and a place on the colour ramp, 0 to 1, in positionsAndColors); add one to version
+ * after moving them */
 export interface Balls {
   positionsAndColors: Float32Array;
   count: number;
@@ -247,6 +292,58 @@ export interface StreamOptions {
   ramp?: 'cool' | 'heat' | Color | Color[];
 }
 
+/** a surface the page shapes: heights for each point of a grid (index i + nx * j, i along x, j along z), drawn as one
+ * smooth mesh (the live add-on, dist/lk3d-live.min.js, or the ES module) */
+export interface SurfaceOptions {
+  /** what hit() returns for it ('surface-1', … by default) */
+  id?: string;
+  /** across x and z, in scene units */
+  size: [number, number];
+  /** points along x and z, 2 to 512 each */
+  res: [number, number];
+  /** the grid's centre */
+  at?: Vec3;
+  /** degrees about x, y, z */
+  rot?: Vec3;
+  material?: string;
+  color?: Color;
+  studioColor?: Color;
+  /** a ramp for its tones */
+  colors?: Ramp;
+  smooth?: boolean;
+}
+export interface Surface {
+  readonly id: string;
+  /** scene units above `at`, written by the page */
+  heights: Float32Array;
+  /** 0 to 1 along the ramp, when colors was given */
+  tones: Float32Array | null;
+  /** after writing heights or tones: drawn in the next frame */
+  update(): void;
+  /** the height at a point of the surface's own frame (bilinear); NaN outside it */
+  heightAt(x: number, z: number): number;
+  visible: boolean;
+  remove(): void;
+}
+/** arrows: lines with a cone at each tip (the live add-on, or the ES module) */
+export interface ArrowsOptions {
+  count?: number;
+  radius?: number;
+  /** the cone at the tip: by default 4 times the radius long and 2.2 times as wide, at most 40 % of the arrow */
+  head?: { length?: number; radius?: number };
+  color?: Color;
+  studioColor?: Color;
+  glow?: Color;
+}
+export interface Arrows {
+  /** arrow k from `from` to its tip at `to` (its own radius if given); set(k, null) hides it */
+  set(k: number, from: Vec3 | null, to?: Vec3, radius?: number): void;
+  clear(): void;
+  glow(v: number): void;
+  remove(): void;
+  visible: boolean;
+}
+
 export interface Lines {
   set(k: number, a: Vec3 | null, b?: Vec3): void;
   clear(): void;
@@ -296,7 +393,7 @@ export interface FigureState {
   /** the motions playing, by id */
   playing: string[];
   /** handles' values, by their part's id */
-  handles: Record<string, number>;
+  handles: Record<string, HandleValue>;
   joints: Record<string, number>;
   selected: string | null;
   /** the parts and groups hidden by the page */
@@ -324,7 +421,7 @@ export interface Figure {
     /** go to a step at once, by its place (from 0) or id; -1: before the first */
     step?: number | string;
     /** handles' values, by their part's id */
-    handles?: Record<string, number>;
+    handles?: Record<string, HandleValue>;
     /** choose a part (or null) */
     selected?: string | null;
     /** the motions playing, by id (the others are paused) */
@@ -358,7 +455,8 @@ export interface Figure {
     projection?: 'perspective' | 'ortho';
     glow?: Record<string, number>;
     hide?: string[];
-    move?: Record<string, Vec3>;
+    /** a shift, or { by, turn }: T(explode + by) · R(center, axis, angle), before motions, joints and handles */
+    move?: Record<string, Move>;
     /** motions' values, by id */
     motion?: Record<string, number>;
     /** joints' values, by id, over their drives (a joint held by a rod or an aim keeps to it); each call replaces the last */
@@ -432,13 +530,23 @@ export interface Figure {
     part?: string;
     closed?: boolean;
   }): Particles;
-  particles(o: { count: number; radius: number; colors?: [Color, Color, Color] }): Balls;
+  /** balls the page places, coloured along a ramp: banded (three stops: at 0.35 and 0.65; else equal bands), or smooth */
+  particles(o: { count: number; radius: number; colors?: Ramp; smooth?: boolean }): Balls;
+  /** a surface the page shapes (needs the live add-on with dist/lk3d.min.js) */
+  surface(o: SurfaceOptions): Surface;
+  /** arrows (needs the live add-on with dist/lk3d.min.js) */
+  arrows(o?: ArrowsOptions): Arrows;
+  /** the ray through a point of the stage (CSS pixels from its top left) */
+  ray(x: number, y: number): Ray;
+  /** what is under a point of the stage, or under a pointer event: a part, a surface, or the point on a page's plane */
+  hit(x: number, y: number, o?: HitOptions): Hit | null;
+  hit(event: MouseEvent, o?: HitOptions): Hit | null;
   flow(o: FlowOptions): Flow;
   /** air, gas or liquid as a moving volume along a path: a jet, an intake, a plume (WebGL; streaks in 2D) */
   stream(o: StreamOptions): Stream;
   lines(o?: { count?: number; radius?: number; color?: Color; studioColor?: Color; glow?: Color }): Lines;
   /** a handle's value, read or set by the page (setting it does not call onHandle) */
-  handle(id: string): { readonly value: number; set(v: number): void } | undefined;
+  handle(id: string): { readonly value: HandleValue; set(v: HandleValue): void } | undefined;
   /** call fn every frame while it returns true; returns a function that removes it */
   tick(fn: (now: number) => boolean): () => void;
   pick(x: number, y: number): string | null;
@@ -507,6 +615,13 @@ declare const LK3D: {
   /** gives the engine its glTF reader: called by dist/lk3d-models.min.js (a page that loads lk3d as a script and shows
    * models), and by the ES module itself; a scene with a model shape is refused until it has been */
   useModels: (reader: ModelReader | null) => void;
+  /** the version of what the core lends the live add-on (internal): an add-on made for another refuses to run */
+  hostVersion: number;
+  /** surfaces and arrows, set by the live add-on (dist/lk3d-live.min.js) or the ES module (internal) */
+  live?: {
+    surface: (host: unknown, o: SurfaceOptions) => Surface;
+    arrows: (host: unknown, o?: ArrowsOptions) => Arrows;
+  };
 };
 /** the glTF reader the models add-on brings (the reader's own types are internal) */
 export interface ModelReader {
@@ -529,7 +644,7 @@ export interface Lk3dFigureElement extends HTMLElement {
 /** what the element's events carry (they bubble) */
 export interface Lk3dFigureEvents {
   'lk3d-pick': CustomEvent<{ id: string | null }>;
-  'lk3d-handle': CustomEvent<{ id: string; value: number }>;
+  'lk3d-handle': CustomEvent<{ id: string; value: HandleValue }>;
   'lk3d-step': CustomEvent<{ index: number; step: Step }>;
   'lk3d-section': CustomEvent<{ normal: Vec3; offset: number }>;
   'lk3d-error': CustomEvent<{ message: string }>;

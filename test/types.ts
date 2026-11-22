@@ -23,6 +23,10 @@ import LK3D, {
   type Lk3dFigureEvents,
   type FigureState,
   type ChangeCause,
+  type Hit,
+  type HandleValue,
+  type Surface,
+  type Arrows,
   type Lockable,
   type Place,
 } from 'lk3d';
@@ -67,10 +71,52 @@ const scene: Scene = {
 };
 LK3D.defaults.locale = 'vi';
 const fig: Figure = mount(document.body, scene, {
-  onHandle: (id, v) => console.log(id, v.toFixed(1)),
-  handleText: (id, v) => `d = ${-v * 10} cm`,
+  onHandle: (id, v) => console.log(id, typeof v === 'number' ? v.toFixed(1) : v.join('; ')),
+  // a handle's value is a number, or a plane handle's [u, v]: narrowed by typeof (axis: which of a plane's inputs)
+  handleText: (id, v, axis) =>
+    typeof v === 'number' ? `d = ${-v * 10} cm` : `P ${axis === 1 ? 'z' : 'x'} = ${v[axis ?? 0]}`,
   locale: 'en',
+  // the page's own drag: a press on the lens is the page's, not the camera's
+  onPress: (hit) => hit?.id === 'lens',
+  onDrag: (hit, event) => console.log(hit?.point, event.pointerId),
+  onRelease: () => undefined,
 });
+// what is under a point, a pointer, or on a plane the page names
+const hit: Hit | null = fig.hit(10, 20) ?? fig.hit(new MouseEvent('click'), { surfaces: false });
+if (hit) console.log(hit.id, hit.point[0], hit.normal, hit.distance, hit.cut);
+const onTable = fig.hit(10, 20, { plane: { point: [0, 0, 0], normal: [0, 1, 0] } });
+const { origin, direction } = fig.ray(10, 20);
+console.log(onTable, origin, direction);
+// a part turned about a point, and shifted after it
+fig.set({
+  move: { lens: { by: [0, 0.1, 0], turn: { axis: [0, 0, 1], angle: 30, center: [0, 1, 0] } }, ring: [0, 0, 1] },
+});
+// @ts-expect-error a turn needs its angle
+fig.set({ move: { lens: { turn: { axis: [0, 0, 1] } } } });
+// a plane handle's value is a pair
+const pv: HandleValue | undefined = fig.handle('p')?.value;
+fig.handle('p')?.set([0.5, -0.3]);
+fig.set({ handles: { p: [0, 0], knob: 2 } });
+console.log(pv);
+// balls on a smooth ramp; a surface; arrows
+const balls = fig.particles({ count: 10, radius: 0.1, colors: 'heat', smooth: true });
+balls.positionsAndColors[3] = 0.5;
+fig.particles({ count: 10, radius: 0.1, colors: ['#000000', '#ffffff'] });
+const water: Surface = fig.surface({
+  id: 'water',
+  size: [40, 28],
+  res: [161, 113],
+  colors: ['#2b6cb0', '#f2a541'],
+  smooth: true,
+});
+water.heights[0] = 0.5;
+water.update();
+console.log(water.heightAt(0, 0), water.tones?.length);
+// @ts-expect-error a surface needs its size and its res
+fig.surface({ id: 'water' });
+const forces: Arrows = fig.arrows({ count: 2, radius: 0.007, head: { length: 0.03 }, color: '#2f9e44' });
+forces.set(0, [0, 0, 0], [0, 1, 0]);
+forces.set(1, null);
 fig.set({ explode: 1, glow: { lens: 0.5 } });
 const rays = fig.lines({ count: 3, color: '#ffcc55' });
 rays.set(0, [0, 0, 0], [1, 1, 0]);

@@ -163,6 +163,19 @@ export interface Ctx {
   flows_: any[];
   streams_: any[];
   lines_: any[];
+  /** what a page adds that draws as parts (lines, and the live add-on's surfaces and arrows): each entry's parts drawn
+   * after the scene's, placed when dirty, uploaded again on a new or restored context */
+  additions_: {
+    parts: Part[];
+    visible: boolean;
+    dirty: boolean;
+    place(renderer: Renderer): void;
+    reupload(renderer: Renderer): void;
+    hit?(origin: number[], direction: number[]): { t: number; point: number[]; normal: number[]; id: string } | null;
+    [k: string]: any;
+  }[];
+  /** the most triangles this figure may have (mount's maxTriangles, as worked out) */
+  maxTriangles_: number;
   /** what destroy() runs: listeners removed, observers and timers stopped */
   cleanups_: (() => void)[];
   /** the built scene (geometry.js: buildFitting): its parts, their batches, its bounds, its detail */

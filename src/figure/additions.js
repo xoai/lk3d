@@ -6,7 +6,7 @@
 // add-on's surfaces and arrows); reads renderer_, and calls part_, travel_ and kick_.
 import { M, sub, mulv, len, norm, cross, rgb } from '../math.js';
 import { buildShape, outlineNormals } from '../geometry.js';
-import { pathOf, makeFlow, stops } from '../flow.js';
+import { pathOf, makeFlow, stops, band, along } from '../flow.js';
 import { makeStream } from '../stream.js';
 
 /** @param {import('./context').Ctx} c */
@@ -338,6 +338,8 @@ export function makeAdditions(c) {
     unit: c.unit_,
     outlines: outlineNormals,
     ramp: stops,
+    // the colour at a tone (0 to 1) along a ramp's stops: banded, or blended when smooth
+    tone: (colors, tone, smooth) => (smooth ? along(colors, tone) : colors[band(colors.length, tone)]),
     dark: () => c.lookNow_().dark,
     // whether an id is a part's or another addition's (an addition's own `id`)
     taken: (id) => !!c.part_(id) || c.additions_.some((addition) => addition.id === id),

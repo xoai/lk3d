@@ -226,6 +226,11 @@ export function makeLoop(c) {
             : 0.4;
       }
       const flows = c.flows_.filter((flow) => flow.visible && flow.amount > 0);
+      // the page's additions placed again when the look turns dark or light (a surface's tones: its ramp's stops differ)
+      if (c.dark_ !== look.dark) {
+        c.dark_ = look.dark;
+        for (const addition of c.additions_) addition.dirty = true;
+      }
       // balls coloured along a ramp: its stops for a light or a dark page (a preset's differ)
       for (const set of c.particles_)
         if (set.solid && set.dark !== look.dark) {

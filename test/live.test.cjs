@@ -21,7 +21,14 @@ function fakeHost() {
     rod: (start, end, radius) => ({ start, end, radius }),
     unit: (kind) => ({ kind }),
     outlines: () => [],
-    taken: () => false,
+    taken: (id) => id === 'base',
+    M: { trs: () => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] },
+    ramp: () => [
+      [0, 0, 0],
+      [1, 1, 1],
+    ],
+    tone: (stops, tone) => [tone, tone, tone],
+    dark: () => false,
     triangles: () => 0,
     maxTriangles: () => 1e6,
   };
@@ -80,6 +87,81 @@ test('arrows: a head given, hidden and cleared, glowing, unseen, removed', async
   a.remove();
   assert.equal(host.entries.length, 0);
   a.set(5, [0, 0, 0], [1, 1, 1]); // (out of range: ignored, no error)
+});
+
+// a surface's mesh, after its heights are written and it is placed: every vertex of every strip, by (i, j)
+function shaped(host, s, nx, nz, height) {
+  for (let j = 0; j < nz; j++)
+    for (let i = 0; i < nx; i++) {
+      const x = -1 + (2 * i) / (nx - 1),
+        z = -1 + (2 * j) / (nz - 1);
+      s.heights[i + nx * j] = height(x, z);
+      if (s.tones) s.tones[i + nx * j] = (i + j) / (nx + nz - 2);
+    }
+  s.update();
+  const entry = host.entries.at(-1);
+  entry.place({});
+  return entry.parts[0].batches;
+}
+
+test('a surface: positions on its grid, and normals as the analytic ones of a paraboloid and a sine sheet', async () => {
+  const { surface } = await import('../src/live.js');
+  for (const [name, height, gradient] of [
+    ['paraboloid', (x, z) => 0.3 * (x * x + z * z), (x, z) => [0.6 * x, 0.6 * z]],
+    [
+      'sine sheet',
+      (x, z) => 0.1 * Math.sin(3 * x) * Math.cos(2 * z),
+      (x, z) => [0.3 * Math.cos(3 * x) * Math.cos(2 * z), -0.2 * Math.sin(3 * x) * Math.sin(2 * z)],
+    ],
+  ]) {
+    const host = fakeHost(),
+      s = surface(host, { size: [2, 2], res: [41, 41] }),
+      [batch] = shaped(host, s, 41, 41, height),
+      { positions, normals } = batch.mesh;
+    let worst = 0;
+    for (let k = 0; k < 41 * 41; k++) {
+      const i = k % 41,
+        j = Math.floor(k / 41);
+      if (i === 0 || j === 0 || i === 40 || j === 40) continue; // (one-sided at the edges)
+      const [x, y, z] = positions.subarray(3 * k, 3 * k + 3),
+        [gx, gz] = gradient(x, z),
+        length = Math.hypot(gx, 1, gz),
+        want = [-gx / length, 1 / length, -gz / length];
+      assert.ok(Math.abs(y - height(x, z)) < 1e-6, `${name}: height at ${x}, ${z}`);
+      worst = Math.max(worst, Math.hypot(...want.map((v, a) => v - normals[3 * k + a])));
+    }
+    assert.ok(worst < 0.01, `${name}: the normals are off by ${worst}`);
+  }
+});
+
+test('a surface over 65,535 points is split into strips that share their edge rows; its tones colour its points', async () => {
+  const { surface } = await import('../src/live.js');
+  const host = fakeHost(),
+    s = surface(host, { size: [2, 2], res: [300, 300], colors: ['#000000', '#ffffff'] }),
+    batches = shaped(host, s, 300, 300, (x, z) => x * z);
+  assert.ok(batches.length >= 2, `${batches.length} strips`);
+  for (const batch of batches) assert.ok(batch.mesh.count <= 65535, `a strip of ${batch.mesh.count} points`);
+  // the rows: every row of the grid in some strip, and each strip's last row its next one's first
+  const rows = new Set();
+  batches.forEach((batch, b) => {
+    const count = batch.mesh.count / 300;
+    for (let r = 0; r < count; r++) rows.add(batch.from + r);
+    if (b + 1 < batches.length) assert.equal(batch.from + count - 1, batches[b + 1].from, 'they share an edge row');
+  });
+  assert.equal(rows.size, 300);
+  // triangles: 2 (nx − 1) (nz − 1) in all, none repeated across strips
+  assert.equal(
+    batches.reduce((sum, batch) => sum + batch.mesh.indices.length / 3, 0),
+    2 * 299 * 299,
+  );
+  // the tones as vertex colours, alpha 255 (the point's own colour, not the part's)
+  const { colors } = batches[0].mesh;
+  assert.equal(colors[3], 255);
+  assert.ok(colors[4 * 299] > colors[0], 'brighter along the ramp');
+  assert.equal(host.entries[0].triangles, 2 * 299 * 299);
+  assert.throws(() => surface(host, { id: 'base', size: [1, 1], res: [4, 4] }), /base/);
+  s.remove();
+  assert.equal(host.entries.length, 0);
 });
 
 test('the built add-on carries no geometry or other part of the core, and says what it is for', () => {

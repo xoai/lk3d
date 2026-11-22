@@ -176,6 +176,8 @@ export interface Ctx {
     hit?(origin: number[], direction: number[]): { t: number; point: number[]; normal: number[]; id: string } | null;
     [k: string]: any;
   }[];
+  /** whether the look was dark when the additions were last placed */
+  dark_?: boolean;
   /** the most triangles this figure may have (mount's maxTriangles, as worked out) */
   maxTriangles_: number;
   /** what is under a point of the stage, for the page (fig.hit): a part, a surface, or a point on the page's plane */

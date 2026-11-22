@@ -252,21 +252,11 @@ function glRenderer(gl, scene, options = {}) {
     batch.placements.forEach((matrix, i) => matrices.set(matrix, 16 * i));
     return matrices;
   };
-  function upload(batch) {
+  // a batch's vertices as the GPU takes them: positions as 16-bit integers within the mesh's box (its scale and offset),
+  // normals as 8-bit
+  function encode(batch) {
     const mesh = batch.mesh,
-      placements = packed(batch);
-    const shared = buffersByMesh.get(mesh);
-    if (shared) {
-      batch.gpu = {
-        ...shared,
-        vertexArray: null, // (its own vertex arrays: they hold its own placements)
-        edgeVertexArray: null,
-        placements: makeBuffer(placements, gl.ARRAY_BUFFER, batch.dynamic ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW),
-        instanceCount: batch.placements.length,
-      };
-      return;
-    }
-    const vertexCount = mesh.count,
+      vertexCount = mesh.count,
       low = [1e9, 1e9, 1e9],
       high = [-1e9, -1e9, -1e9];
     for (let k = 0; k < vertexCount; k++)
@@ -286,6 +276,38 @@ function glRenderer(gl, scene, options = {}) {
         normals[4 * k + axis] = Math.round(mesh.normals[3 * k + axis] * 127);
         outlineNormals[4 * k + axis] = Math.round(batch.outlineNormals[3 * k + axis] * 127);
       }
+    return { positions, normals, outlineNormals, scale, offset };
+  }
+  // a mesh whose vertices the page changes (the live add-on's surfaces): written again into its own buffers (the vertex
+  // arrays that read them stay as they are), its box worked out again
+  function refill(batch) {
+    const gpu = batch.gpu,
+      encoded = encode(batch);
+    if (batch.mesh.colors) encoded.colors = Uint8Array.from(batch.mesh.colors);
+    for (const key of ['positions', 'normals', 'outlineNormals', 'colors'])
+      if (encoded[key]) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, gpu[key]);
+        gl.bufferData(gl.ARRAY_BUFFER, encoded[key], gl.DYNAMIC_DRAW);
+      }
+    gpu.positionScale = encoded.scale;
+    gpu.positionOffset = encoded.offset;
+  }
+  function upload(batch) {
+    const mesh = batch.mesh,
+      placements = packed(batch);
+    const shared = buffersByMesh.get(mesh);
+    if (shared) {
+      batch.gpu = {
+        ...shared,
+        vertexArray: null, // (its own vertex arrays: they hold its own placements)
+        edgeVertexArray: null,
+        placements: makeBuffer(placements, gl.ARRAY_BUFFER, batch.dynamic ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW),
+        instanceCount: batch.placements.length,
+      };
+      return;
+    }
+    const vertexCount = mesh.count,
+      { positions, normals, outlineNormals, scale, offset } = encode(batch);
     if (vertexCount > 65535 && !uint32Indices)
       throw new Error('lk3d: a shape with more than 65535 vertices needs 32-bit indices, which this device lacks');
     const wideIndices = vertexCount > 65535;
@@ -863,6 +885,7 @@ function glRenderer(gl, scene, options = {}) {
       }
     },
     upload,
+    refill,
     instances,
     edges,
     placesFlow,
@@ -902,6 +925,8 @@ function glRenderer(gl, scene, options = {}) {
       const can = (name) => programs[name] && programs[name].linked; // (an optional effect that compiled)
       if (waiting) return false;
       const opaque = frame.parts.filter((part) => part.drawAlpha >= 0.99),
+        // (soft: a page's surface, which casts no shadow and has no outline; the same list when there is none)
+        solid = opaque.some((part) => part.soft) ? opaque.filter((part) => !part.soft) : opaque,
         seeThrough = frame.parts.filter((part) => part.drawAlpha > 0.01 && part.drawAlpha < 0.99);
       // a part's own state, as constant attributes for a part drawn alone (one call each, as a uniform would be): its
       // colour in this look and how much of it the pen look shows; its glow, and flags (1 lit, 2 cut: a part may stay
@@ -923,7 +948,7 @@ function glRenderer(gl, scene, options = {}) {
       const each = (prog, list, perPart, cull = false) => {
         lastSent.clear();
         const uniforms = prog.uniforms,
-          together = list === opaque && groupOf.size,
+          together = (list === opaque || list === solid) && groupOf.size,
           done = new Set();
         for (const part of list) {
           if (together && part.batches.every((batch) => groupOf.has(batch))) {
@@ -1013,7 +1038,7 @@ function glRenderer(gl, scene, options = {}) {
       let lightVP = null;
       // (the sun every look shades by: one shadow, drawn in each look's own way on the ground)
       const sun = frame.look.light;
-      if (shadow && frame.shadows && !moved(shadowKey, opaque, frame, [...frame.bounds.center, ...sun]))
+      if (shadow && frame.shadows && !moved(shadowKey, solid, frame, [...frame.bounds.center, ...sun]))
         lightVP = shadowVP;
       else if (shadow && frame.shadows) {
         const center = frame.bounds.center,
@@ -1031,7 +1056,7 @@ function glRenderer(gl, scene, options = {}) {
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.BACK);
         common(programs.depth, frame, lightVP);
-        each(programs.depth, opaque, null, true);
+        each(programs.depth, solid, null, true);
         gl.colorMask(true, true, true, true);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         shadowVP = lightVP;
@@ -1095,7 +1120,7 @@ function glRenderer(gl, scene, options = {}) {
         gl.uniform1f(lookUniforms.uAlpha, 1);
         // (the same width on screen whatever the canvas's size: about a pixel in pen, a pixel and a half in ink)
         gl.uniform1f(lookUniforms.uOutline, ((pen ? 2.2 : 3) * frame.dpr * frame.tanHalf) / height);
-        each(lookProgram, opaque);
+        each(lookProgram, solid);
       }
       // 3. the solid parts (with the section on, both faces: the inside of a cut part shows as a cap)
       gl.uniform1f(lookUniforms.uFlat, 0);

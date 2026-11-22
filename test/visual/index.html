@@ -1,7 +1,8 @@
 <!doctype html>
 <!-- The image tests' page: ?scene=NAME&look=ink|studio|pen|2d|pen2d[&theme=NAME] draws scenes/NAME.json with the
      built engine (dist/lk3d.min.js, and its models and live add-ons) at a fixed size and resolution, with the flows,
-     streams, balls (particles: their points [x, y, z, tone]) and arrows (each list item [from, to, radius?]) its extras
+     streams, balls (particles: their points [x, y, z, tone]), arrows (each list item [from, to, radius?]) and surfaces
+     (heights from a recipe: "sine", ripples from a point, or "bowl", a paraboloid; tones from the heights) its extras
      list if any, waits until the figure is ready (the crease shading, texture maps), then sets window.__ready to what it drew.
      window.__ink() reads the next picture back as three numbers (how much is drawn, and its middle), for the test of
      transitions that jump. -->
@@ -57,6 +58,21 @@
     });
     for (const f of scene.extras?.flows || []) fig.flow(f);
     for (const f of scene.extras?.streams || []) fig.stream(f);
+    for (const { recipe, amp = 0.2, waves = 3, ...o } of scene.extras?.surfaces || []) {
+      const s = fig.surface(o),
+        [nx, nz] = o.res,
+        [sx, sz] = o.size;
+      for (let j = 0; j < nz; j++)
+        for (let i = 0; i < nx; i++) {
+          const x = (i / (nx - 1) - 0.5) * sx,
+            z = (j / (nz - 1) - 0.5) * sz,
+            r = Math.hypot(x, z) / Math.max(sx, sz),
+            h = recipe === 'bowl' ? amp * 4 * r * r : amp * Math.cos(2 * Math.PI * waves * r) * Math.exp(-2 * r);
+          s.heights[i + nx * j] = h;
+          if (s.tones) s.tones[i + nx * j] = 0.5 + h / (2 * amp);
+        }
+      s.update();
+    }
     for (const { list, ...o } of scene.extras?.arrows || []) {
       const arrows = fig.arrows({ ...o, count: list.length });
       list.forEach(([from, to, radius], k) => arrows.set(k, from, to, radius));

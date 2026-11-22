@@ -1,0 +1,81 @@
+{
+  "title": "Two surfaces the page shapes",
+  "alt": "A tray holding a sheet of ripples coloured along a ramp, and beside it a bowl-shaped sheet.",
+  "w": 16,
+  "h": 9,
+  "view": {
+    "yaw": -25,
+    "pitch": 32
+  },
+  "scale": {
+    "note": "not to scale"
+  },
+  "section": false,
+  "parts": [
+    {
+      "id": "tray",
+      "name": "Tray",
+      "material": "matte",
+      "color": "#c9c2b2",
+      "shapes": [
+        {
+          "box": [
+            4.6,
+            0.1,
+            2.4
+          ],
+          "at": [
+            0,
+            -0.35,
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "extras": {
+    "surfaces": [
+      {
+        "id": "ripples",
+        "size": [
+          2,
+          2
+        ],
+        "res": [
+          81,
+          81
+        ],
+        "at": [
+          -1.1,
+          0,
+          0
+        ],
+        "recipe": "sine",
+        "amp": 0.18,
+        "waves": 3,
+        "colors": "cool",
+        "smooth": true
+      },
+      {
+        "id": "bowl",
+        "size": [
+          2,
+          2
+        ],
+        "res": [
+          33,
+          33
+        ],
+        "at": [
+          1.15,
+          -0.1,
+          0
+        ],
+        "recipe": "bowl",
+        "amp": 0.3,
+        "material": "plastic",
+        "color": "#d6a64a"
+      }
+    ]
+  }
+}

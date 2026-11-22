@@ -1085,6 +1085,48 @@ test('surface() and arrows() say which script to load without the live add-on; w
   expect(got.hit).not.toMatch(/arrows/);
 });
 
+test('a surface is drawn as the page shapes it, refilled when it updates, and its tones follow the page from light to dark', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    window.fig = LK3D.mount(
+      document.getElementById('g'),
+      {
+        view: { yaw: 0, pitch: 89, projection: 'ortho' },
+        parts: [{ id: 'base', name: 'Base', at: [0, -0.5, 0], shapes: [{ box: [2.4, 0.1, 2.4] }] }],
+      },
+      { controls: false, style: 'pen' },
+    );
+    await fig.ready;
+    const cv = document.querySelector('#g canvas[tabindex]'),
+      gl = cv.getContext('webgl2'),
+      pixel = (point) => {
+        fig.drawNow();
+        const [x, y] = fig.project(point),
+          out = new Uint8Array(4);
+        gl.readPixels(Math.round(x), Math.round(cv.height - y), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, out);
+        return [...out.slice(0, 3)];
+      };
+    const s = fig.surface({ id: 'sheet', size: [2, 2], res: [21, 21], colors: 'heat', smooth: true });
+    s.tones.fill(1); // (the ramp's last stop: a strong colour on a light page, near white on a dark one)
+    s.update();
+    const light = pixel([0.5, 0, 0.5]);
+    for (let k = 0; k < s.heights.length; k++) s.heights[k] = 0.3;
+    s.tones.fill(0);
+    s.update();
+    const low = pixel([0.5, 0.3, 0.5]);
+    s.tones.fill(1);
+    s.update();
+    fig.set({ theme: 'dark' });
+    const dark = pixel([0.5, 0.3, 0.5]);
+    return { light, low, dark, renderer: fig.renderer };
+  });
+  const lightness = (c) => c[0] + c[1] + c[2];
+  expect(got.renderer).toBe('webgl2');
+  expect(lightness(got.low)).toBeLessThan(lightness(got.light) - 60); // (refilled: the first stop, darker)
+  expect(lightness(got.dark)).toBeGreaterThan(lightness(got.light) + 60); // (the dark page's stops: near white)
+});
+
 test('lines added to a figure still waiting for its first WebGL context draw in WebGL when it gets one, not in 2D', async ({
   page,
 }) => {

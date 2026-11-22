@@ -89,8 +89,139 @@ export function arrows(
   };
 }
 
-// ---- surfaces: Stage 7
+// ---- surfaces: heights the page writes for each point of a grid (i along x, j along z: index i + nx * j), drawn as
+// one two-sided mesh, in strips of rows that share their edge rows (each under 65,536 points, so no device needs
+// 32-bit indices); normals by central differences, tones along a ramp; refilled in place when the page updates it
+let surfaces = 0;
 /** @param {Host} host @param {any} options */
-export function surface(host, options) {
-  throw new Error('lk3d: surface() is not built yet');
+export function surface(
+  host,
+  {
+    id,
+    size,
+    res,
+    at = [0, 0, 0],
+    rot = [0, 0, 0],
+    material = 'water',
+    color = '#9fc3d9',
+    studioColor,
+    colors,
+    smooth,
+  } = {},
+) {
+  const [nx, nz] = res || [],
+    [sx, sz] = size || [];
+  if (id != null && host.taken(id)) throw new Error(`lk3d: the id ${id} is a part's or another surface's`);
+  const xs = Array.from({ length: nx }, (_, i) => -sx / 2 + (sx * i) / (nx - 1)),
+    zs = Array.from({ length: nz }, (_, j) => -sz / 2 + (sz * j) / (nz - 1)),
+    perStrip = Math.max(2, Math.floor(65535 / nx)),
+    /** @type {any[]} */
+    batches = [];
+  for (let j0 = 0; j0 < nz - 1; j0 += perStrip - 1) {
+    const rows = Math.min(nz - j0, perStrip),
+      count = rows * nx,
+      indices = [];
+    for (let j = 0; j < rows - 1; j++)
+      for (let i = 0; i < nx - 1; i++) {
+        const k = j * nx + i;
+        indices.push(k, k + nx, k + 1, k + 1, k + nx, k + nx + 1); // (anticlockwise seen from above: facing up)
+      }
+    const normals = new Float32Array(count * 3);
+    batches.push({
+      mesh: {
+        positions: new Float32Array(count * 3),
+        normals,
+        indices,
+        colors: colors ? new Uint8Array(count * 4) : null,
+        count,
+        twoSided: true,
+      },
+      placements: [host.M.trs(at, rot)],
+      outlineNormals: normals,
+      dynamic: true,
+      from: j0, // (its first row)
+    });
+  }
+  const part = host.part('surface', [batches[0]], { color, studioColor, material, tint: 0.4 });
+  part.batches = batches;
+  part.id = id ?? `surface-${++surfaces}`;
+  part.soft = true; // (no shadow, no outline)
+  let heights = new Float32Array(nx * nz),
+    tones = colors ? new Float32Array(nx * nz) : null,
+    warned = false;
+  // the mesh from the heights: positions, normals, and the tones' colours
+  const shape = () => {
+    const at = (/** @type {number} */ i, /** @type {number} */ j) => {
+      const h = heights[i + nx * j];
+      if (h === h) return h;
+      if (!warned) console.warn('lk3d: a surface has heights that are not numbers: drawn at 0');
+      warned = true;
+      return 0;
+    };
+    const stops = colors && host.ramp(colors, host.dark());
+    for (const batch of batches) {
+      const { positions, normals, colors: rgba, count } = batch.mesh;
+      for (let k = 0; k < count; k++) {
+        const i = k % nx,
+          j = batch.from + Math.floor(k / nx),
+          i0 = Math.max(0, i - 1),
+          i1 = Math.min(nx - 1, i + 1),
+          j0 = Math.max(0, j - 1),
+          j1 = Math.min(nz - 1, j + 1),
+          dx = (at(i1, j) - at(i0, j)) / (xs[i1] - xs[i0]),
+          dz = (at(i, j1) - at(i, j0)) / (zs[j1] - zs[j0]),
+          length = Math.hypot(dx, 1, dz);
+        positions.set([xs[i], at(i, j), zs[j]], 3 * k);
+        normals.set([-dx / length, 1 / length, -dz / length], 3 * k);
+        if (rgba && tones) {
+          const c = host.tone(stops, tones[i + nx * j], smooth);
+          rgba.set([c[0] * 255, c[1] * 255, c[2] * 255, 255], 4 * k);
+        }
+      }
+    }
+  };
+  shape();
+  const entry = {
+    id: part.id,
+    parts: [part],
+    visible: true,
+    dirty: true,
+    triangles: 2 * (nx - 1) * (nz - 1),
+    reupload(/** @type {any} */ renderer) {
+      if (renderer.upload) for (const batch of batches) renderer.upload(batch);
+    },
+    place(/** @type {any} */ renderer) {
+      shape();
+      if (renderer.refill) for (const batch of batches) renderer.refill(batch);
+    },
+  };
+  host.add(entry);
+  return {
+    id: part.id,
+    get heights() {
+      return heights;
+    },
+    set heights(values) {
+      heights = values;
+    },
+    get tones() {
+      return tones;
+    },
+    set tones(values) {
+      tones = values;
+    },
+    // after writing heights or tones: drawn in the next frame, once however often it is called
+    update() {
+      entry.dirty = true;
+      host.kick();
+    },
+    get visible() {
+      return entry.visible;
+    },
+    set visible(on) {
+      entry.visible = on;
+      host.kick();
+    },
+    remove: () => host.remove(entry),
+  };
 }

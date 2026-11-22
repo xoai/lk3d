@@ -15,11 +15,12 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)),
   ENTRY = path.join(HERE, 'src/script.js');
-// Two add-ons stay out of the global script (the budget's), each a script of its own that a page loads after it: the
-// glTF reader (dist/lk3d-models.min.js), for a page that shows a model, and the glTF exporter
-// (dist/lk3d-export.min.js), for a page that exports. The module bundle has both (src/export.js, src/index.js), so a
-// page importing lk3d loses nothing.
-export const MODELS_ENTRY = path.join(HERE, 'src/models-script.js');
+// Three add-ons stay out of the global script (the budget's), each a script of its own that a page loads after it: the
+// glTF reader (dist/lk3d-models.min.js), for a page that shows a model; the glTF exporter (dist/lk3d-export.min.js),
+// for a page that exports; and surfaces and arrows (dist/lk3d-live.min.js), for a page that draws them. The module
+// bundle has all three (src/export.js, src/index.js), so a page importing lk3d loses nothing.
+export const MODELS_ENTRY = path.join(HERE, 'src/models-script.js'),
+  LIVE_ENTRY = path.join(HERE, 'src/live-script.js');
 const EXPORTER = path.join(HERE, 'src/export-script.js'),
   MODULE = path.join(HERE, 'src/export.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this. It was 57 KB until November
@@ -28,7 +29,8 @@ const EXPORTER = path.join(HERE, 'src/export-script.js'),
 // written decision in the CHANGELOG. The add-ons have budgets of their own.
 export const BUDGET_KB = 70.5;
 export const MODELS_BUDGET_KB = 5,
-  EXPORT_BUDGET_KB = 3;
+  EXPORT_BUDGET_KB = 3,
+  LIVE_BUDGET_KB = 4;
 
 export const squeeze = (glsl) =>
   glsl
@@ -122,18 +124,21 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const iife = await bundle('iife'),
     esm = await bundle('esm', MODULE),
     models = await bundle('iife', MODELS_ENTRY),
-    exporter = await bundle('iife', EXPORTER);
+    exporter = await bundle('iife', EXPORTER),
+    live = await bundle('iife', LIVE_ENTRY);
   fs.writeFileSync(path.join(dist, 'lk3d.min.js'), iife);
   fs.writeFileSync(path.join(dist, 'lk3d.mjs'), esm);
   fs.writeFileSync(path.join(dist, 'lk3d-models.min.js'), models);
   fs.writeFileSync(path.join(dist, 'lk3d-export.min.js'), exporter);
+  fs.writeFileSync(path.join(dist, 'lk3d-live.min.js'), live);
   const kb = (s) => (Buffer.byteLength(s) / 1024).toFixed(1),
     bytes = (s) => zlib.gzipSync(s, { level: 9 }).length,
     gz = (s) => (bytes(s) / 1024).toFixed(1);
   console.log(
     `dist/lk3d.min.js ${kb(iife)} KB (${gz(iife)} KB gzipped), dist/lk3d.mjs ${kb(esm)} KB, ` +
       `dist/lk3d-models.min.js ${kb(models)} KB (${gz(models)} KB gzipped), ` +
-      `dist/lk3d-export.min.js ${kb(exporter)} KB (${gz(exporter)} KB gzipped)`,
+      `dist/lk3d-export.min.js ${kb(exporter)} KB (${gz(exporter)} KB gzipped), ` +
+      `dist/lk3d-live.min.js ${kb(live)} KB (${gz(live)} KB gzipped)`,
   );
   // (compared exactly: a rounded 42.0 may be a few bytes over)
   if (process.argv.includes('--size'))
@@ -141,6 +146,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       ['lk3d.min.js', iife, BUDGET_KB],
       ['lk3d-models.min.js', models, MODELS_BUDGET_KB],
       ['lk3d-export.min.js', exporter, EXPORT_BUDGET_KB],
+      ['lk3d-live.min.js', live, LIVE_BUDGET_KB],
     ])
       if (bytes(js) > budget * 1024) {
         console.error(`✗ dist/${file} is ${bytes(js)} B gzipped, over its budget of ${budget} KB`);

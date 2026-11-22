@@ -1,23 +1,23 @@
 # Size
 
-What each source file adds to the global script, `dist/lk3d.min.js`: 177.4 KB minified and 68.7 KB
+What each source file adds to the global script, `dist/lk3d.min.js`: 178.3 KB minified and 69.1 KB
 gzipped, against a budget of 70.5 KB (frozen: see [performance](performance.md#size)). Made by
 `node build.mjs --size --table`. The minified bytes are exact; the gzipped share is an estimate (gzip compresses the
 whole script, not each file): the file's share of the minified bytes, of the gzipped total.
 
 | File | Minified | Gzipped (estimate) | Share |
 | ---- | -------: | -----------------: | ----: |
-| `src/renderer-gl.js` | 32.7 KB | 12.7 KB | 18.4 % |
-| `src/shaders.js` | 19.3 KB | 7.5 KB | 10.9 % |
+| `src/renderer-gl.js` | 32.7 KB | 12.7 KB | 18.3 % |
+| `src/shaders.js` | 19.3 KB | 7.5 KB | 10.8 % |
 | `src/geometry.js` | 16.7 KB | 6.5 KB | 9.4 % |
 | `src/science.js` | 10.1 KB | 3.9 KB | 5.7 % |
 | `src/figure/input.js` | 8.4 KB | 3.2 KB | 4.7 % |
 | `src/stylesheet.js` | 5.8 KB | 2.3 KB | 3.3 % |
-| `src/figure/api.js` | 5.2 KB | 2.0 KB | 2.9 % |
-| `src/figure/loop.js` | 4.7 KB | 1.8 KB | 2.7 % |
-| `src/figure/camera.js` | 4.7 KB | 1.8 KB | 2.7 % |
+| `src/figure/api.js` | 5.4 KB | 2.1 KB | 3.0 % |
+| `src/figure/loop.js` | 4.7 KB | 1.8 KB | 2.6 % |
+| `src/figure/camera.js` | 4.7 KB | 1.8 KB | 2.6 % |
+| `src/figure/additions.js` | 4.3 KB | 1.7 KB | 2.4 % |
 | `src/flow.js` | 3.7 KB | 1.4 KB | 2.1 % |
-| `src/figure/additions.js` | 3.5 KB | 1.4 KB | 2.0 % |
 | `src/renderer-2d.js` | 3.3 KB | 1.3 KB | 1.9 % |
 | `src/figure/labels.js` | 3.2 KB | 1.3 KB | 1.8 % |
 | `src/math.js` | 3.2 KB | 1.2 KB | 1.8 % |

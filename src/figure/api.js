@@ -18,6 +18,13 @@ export function makeApi(c) {
       c.mark_('page');
       return fn(...args);
     };
+  const live = (kind, options) => {
+    if (!LK3D.live)
+      throw new Error(
+        `lk3d: ${kind}() needs the live add-on: load dist/lk3d-live.min.js after dist/lk3d.min.js, or import lk3d`,
+      );
+    return LK3D.live[kind](c.lent_, options || {});
+  };
   // what set() changes besides a state's step and the keys state.js sets
   const set = (changes) => {
     if ('explode' in changes) c.explodeNow_(changes.explode); // (the page's own value wins over a running tween)
@@ -147,6 +154,9 @@ export function makeApi(c) {
       return () => c.animations_.delete(animation);
     }, // animation(now) returns true while it keeps moving
     pick: c.pickAt_,
+    // surfaces and arrows: the live add-on's (dist/lk3d-live.min.js, or the ES module), given what the core lends it
+    surface: (options) => live('surface', options),
+    arrows: (options) => live('arrows', options),
     // the ray from the eye through a point of the stage, and what it meets (fig.hit(x, y, o), or fig.hit(event, o))
     ray(x, y) {
       const { origin, direction } = c.rayAt_(x, y);

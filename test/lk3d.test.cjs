@@ -1771,7 +1771,7 @@ test('every built file carries the licence notice at its top (and so does every 
   const fs = require('node:fs'),
     path = require('node:path'),
     { version } = require('../package.json');
-  for (const f of ['lk3d.min.js', 'lk3d.mjs', 'lk3d-models.min.js', 'lk3d-export.min.js']) {
+  for (const f of ['lk3d.min.js', 'lk3d.mjs', 'lk3d-models.min.js', 'lk3d-export.min.js', 'lk3d-live.min.js']) {
     const p = path.join(__dirname, '..', 'dist', f);
     if (!fs.existsSync(p)) continue; // (not built yet)
     assert.ok(

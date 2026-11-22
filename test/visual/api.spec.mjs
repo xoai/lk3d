@@ -1045,6 +1045,46 @@ test('a touch the page takes with onPress does not scroll the page; one it decli
   expect(await scrolled(false)).toBeGreaterThan(0);
 });
 
+test('surface() and arrows() say which script to load without the live add-on; with it, arrows draw and hit passes them by', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async (scene) => {
+    window.fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+    await fig.ready;
+    const live = LK3D.live,
+      refused = [];
+    LK3D.live = undefined; // (as on a page that did not load dist/lk3d-live.min.js)
+    for (const kind of ['surface', 'arrows'])
+      try {
+        fig[kind]({});
+      } catch (e) {
+        refused.push(e.message);
+      }
+    LK3D.live = live;
+    const cv = document.querySelector('#g canvas[tabindex]'),
+      gl = cv.getContext('webgl2'),
+      mid = fig.project([0, 0, 0.9]),
+      pixel = () => {
+        fig.drawNow();
+        const out = new Uint8Array(4);
+        gl.readPixels(Math.round(mid[0]), Math.round(cv.height - mid[1]), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, out);
+        return [...out.slice(0, 3)];
+      };
+    const empty = pixel(),
+      a = fig.arrows({ count: 1, radius: 0.06, color: '#d00000' });
+    a.set(0, [-1, 0, 0.9], [1, 0, 0.9]);
+    const drawn = pixel(),
+      hit = fig.hit(...mid);
+    a.remove();
+    return { refused, empty, drawn, removed: pixel(), hit: hit && hit.id };
+  }, BOX);
+  expect(got.refused).toHaveLength(2);
+  for (const message of got.refused) expect(message).toMatch(/lk3d-live\.min\.js/);
+  expect(got.drawn).not.toEqual(got.empty);
+  expect(got.removed).toEqual(got.empty);
+  expect(got.hit).not.toMatch(/arrows/);
+});
+
 test('lines added to a figure still waiting for its first WebGL context draw in WebGL when it gets one, not in 2D', async ({
   page,
 }) => {

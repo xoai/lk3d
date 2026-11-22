@@ -7,6 +7,8 @@
     "defaults",
     "encodeState",
     "format",
+    "hostVersion",
+    "live",
     "locales",
     "mount",
     "reduce",
@@ -17,6 +19,7 @@
     "version"
   ],
   "figure": [
+    "arrows",
     "camera",
     "currentStep",
     "describe",
@@ -56,6 +59,7 @@
     "steps",
     "stream",
     "style",
+    "surface",
     "theme",
     "tick",
     "timeScale",

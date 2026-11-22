@@ -131,6 +131,25 @@ rays.clear();
 
 Each set of lines is one draw: a unit cylinder drawn once per segment by instancing, with its matrices updated in place.
 
+## Arrows: forces, velocities, fields
+
+```html
+<script src="dist/lk3d.min.js"></script>
+<script src="dist/lk3d-live.min.js"></script>
+```
+
+```js
+const forces = fig.arrows({ count: 3, radius: 0.007, color: '#2f9e44' });
+forces.set(0, bob, [bob[0], bob[1] - weight * 0.015, bob[2]]); // from a point to the tip: 1.5 cm a newton
+forces.set(1, bob, pivot, 0.01); // a fourth number: this arrow's own radius
+forces.set(2, null); // hidden
+```
+
+Arrows are lines with a cone at each tip: a shaft on the unit cylinder and a head on the unit cone, each drawn by
+instancing, so a field of a hundred arrows costs two draws. The head is 4 radii long and 2.2 wide (`head: { length,
+radius }` for others), and at most 40 % of an arrow too short for it. They come with the live add-on
+(`dist/lk3d-live.min.js`, after the core; an ES module has them built in), which also brings surfaces.
+
 ## Flow
 
 Streaks that run along paths: air through an engine, blood along a vessel, water round a bend. Each is a thin ribbon

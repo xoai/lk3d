@@ -55,7 +55,8 @@
     "./package.json": "./package.json",
     "./bundle.mjs": "./dist/lk3d.mjs",
     "./bundle-export": "./dist/lk3d-export.min.js",
-    "./bundle-models": "./dist/lk3d-models.min.js"
+    "./bundle-models": "./dist/lk3d-models.min.js",
+    "./bundle-live": "./dist/lk3d-live.min.js"
   },
   "files": [
     "bin/",
@@ -83,6 +84,8 @@
     "./src/models-script.js",
     "./src/export.js",
     "./src/export-script.js",
+    "./src/live.js",
+    "./src/live-script.js",
     "./dist/*"
   ],
   "engines": {

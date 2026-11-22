@@ -20,6 +20,8 @@ export interface Renderer {
   setAO(batch: any): void;
   upload?(batch: any): void;
   instances?(batch: any): void;
+  /** a changing mesh's buffers written again in place (the live add-on's surfaces) */
+  refill?(batch: any): void;
   release?(thing: any): void;
   /** whether it places this flow's streaks itself, on the GPU (WebGL 2), so the frame loop need not */
   placesFlow?(flow: any): boolean;
@@ -184,6 +186,16 @@ export interface Ctx {
   ): import('../../index').Hit | null;
   /** where a ray crosses the cut (the first plane's face, or a quarter cut's second), or null */
   cutCrossing_(origin: number[], direction: number[]): { point: number[]; plane: number[]; second: boolean } | null;
+  /** a part drawn for what the page adds (lines, surfaces, arrows): no name, note or label */
+  pseudoPart_(
+    kind: string,
+    batches: any[],
+    o?: { color?: string; studioColor?: string; glow?: string | null; material?: string; tint?: number },
+  ): any;
+  /** the placement of a unit shape stretched from start to end, thinned to radius */
+  rod_(start: number[], end: number[], radius: number): number[];
+  /** what the live add-on is lent (plain names: LK3D.hostVersion's) */
+  lent_: Record<string, any>;
   /** a unit shape along x from 0 to 1, of radius 1, built once: what rods and arrows are drawn with */
   unit_(kind: 'cylinder' | 'cone'): any;
   /** what destroy() runs: listeners removed, observers and timers stopped */

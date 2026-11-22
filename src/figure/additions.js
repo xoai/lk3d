@@ -199,6 +199,64 @@ export function makeAdditions(c) {
       0.5,
     ).mesh);
 
+  // a part drawn for what the page adds (lines, and the live add-on's surfaces and arrows): no name, note or label; shaded,
+  // outlined and lit like any part, and able to glow; tint 1 keeps all its colour in the pen look (0.4: a part's wash)
+  let made = 0;
+  c.pseudoPart_ = (kind, batches, { color = '#ffcc55', studioColor, glow, material = 'paint', tint = 1 } = {}) => ({
+    id: `__${kind}${made++}`,
+    name: '',
+    note: '',
+    label: false,
+    batches,
+    color: rgb(color),
+    studioColor: rgb(studioColor || color),
+    metalRoughness: [0.1, 0.4, 0],
+    material,
+    surfaceDetail: [0, 0, 0],
+    refract: 0,
+    alpha: 1,
+    drawAlpha: 1,
+    emission: [0, 0, 0],
+    glowColor: rgb(glow || color),
+    explode: [0, 0, 0],
+    offset: [0, 0, 0],
+    min: [0, 0, 0],
+    max: [0, 0, 0],
+    center: [0, 0, 0],
+    matrix: M.id(),
+    hidden: false,
+    cut: true,
+    triangleCount: 0,
+    tint,
+  });
+  // the placement of a unit shape (along x from 0 to 1, of radius 1) stretched from start to end and thinned to radius
+  c.rod_ = (start, end, radius) => {
+    const along = sub(end, start),
+      length = len(along),
+      x = mulv(along, 1 / length),
+      up = Math.abs(x[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+    const z = norm(cross(x, up)),
+      y = cross(z, x);
+    return [
+      x[0] * length,
+      x[1] * length,
+      x[2] * length,
+      0,
+      y[0] * radius,
+      y[1] * radius,
+      y[2] * radius,
+      0,
+      z[0] * radius,
+      z[1] * radius,
+      z[2] * radius,
+      0,
+      start[0],
+      start[1],
+      start[2],
+      1,
+    ];
+  };
+
   // ---- lines: rods between points the page sets (rays of light, field lines, forces), drawn by instancing one
   // cylinder, so a hundred rays cost one draw; they are shaded, outlined and can glow like any part
   /** @param {{ count?: number, radius?: number, color?: string, studioColor?: string, glow?: string | null }} [options] */
@@ -206,33 +264,7 @@ export function makeAdditions(c) {
     const unit = c.unit_('cylinder'),
       /** @type {{ mesh: any, placements: (number[] | Float32Array)[], outlineNormals: any, dynamic: boolean }} */
       batch = { mesh: unit, placements: [], outlineNormals: outlineNormals(unit), dynamic: true };
-    const part = {
-      id: '__lines' + c.additions_.length,
-      name: '',
-      note: '',
-      label: false,
-      batches: [batch],
-      color: rgb(color),
-      studioColor: rgb(studioColor || color),
-      metalRoughness: [0.1, 0.4, 0],
-      material: 'paint',
-      surfaceDetail: [0, 0, 0],
-      refract: 0,
-      alpha: 1,
-      drawAlpha: 1,
-      emission: [0, 0, 0],
-      glowColor: rgb(glow || color),
-      explode: [0, 0, 0],
-      offset: [0, 0, 0],
-      min: [0, 0, 0],
-      max: [0, 0, 0],
-      center: [0, 0, 0],
-      matrix: M.id(),
-      hidden: false,
-      cut: true,
-      triangleCount: 0,
-      tint: 1, // (rays and forces keep all their colour in the pen look)
-    };
+    const part = c.pseudoPart_('lines', [batch], { color, studioColor, glow });
     const segments = new Array(count).fill(null);
     const lines = {
       part,
@@ -263,33 +295,7 @@ export function makeAdditions(c) {
         batch.placements = segments
           .filter(Boolean)
           .filter(([start, end]) => len(sub(end, start)) > 1e-9)
-          .map(([start, end, ownRadius]) => {
-            const along = sub(end, start),
-              length = len(along),
-              x = mulv(along, 1 / length),
-              up = Math.abs(x[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
-            const z = norm(cross(x, up)),
-              y = cross(z, x),
-              thickness = ownRadius ?? lines.radius;
-            return [
-              x[0] * length,
-              x[1] * length,
-              x[2] * length,
-              0,
-              y[0] * thickness,
-              y[1] * thickness,
-              y[2] * thickness,
-              0,
-              z[0] * thickness,
-              z[1] * thickness,
-              z[2] * thickness,
-              0,
-              start[0],
-              start[1],
-              start[2],
-              1,
-            ];
-          });
+          .map(([start, end, ownRadius]) => c.rod_(start, end, ownRadius ?? lines.radius));
         if (c.renderer_.instances) c.renderer_.instances(batch);
       },
     };
@@ -300,5 +306,46 @@ export function makeAdditions(c) {
     c.additions_.push(lines);
     c.kick_();
     return lines;
+  };
+
+  // ---- what the live add-on (dist/lk3d-live.min.js: surfaces, arrows) is lent: plain names, which the build does not
+  // rename, so an add-on made for this host version (LK3D.hostVersion) works with any build of the core that has it.
+  // An entry it adds is drawn and placed like lines, and given to each new renderer (backend.js)
+  c.lent_ = {
+    hostVersion: 1,
+    M,
+    kick: () => c.kick_(),
+    renderer: () => c.renderer_.kind,
+    add(entry) {
+      c.additions_.push(entry);
+      entry.reupload(c.renderer_);
+      entry.dirty = true;
+      c.kick_();
+    },
+    remove(entry) {
+      const index = c.additions_.indexOf(entry);
+      if (index < 0) return;
+      c.additions_.splice(index, 1);
+      for (const part of entry.parts)
+        for (const batch of part.batches) if (c.renderer_.release) c.renderer_.release(batch);
+      c.kick_();
+    },
+    upload: (batch) => c.renderer_.upload?.(batch),
+    instances: (batch) => c.renderer_.instances?.(batch),
+    refill: (batch) => c.renderer_.refill?.(batch),
+    part: c.pseudoPart_,
+    rod: c.rod_,
+    unit: c.unit_,
+    outlines: outlineNormals,
+    ramp: stops,
+    dark: () => c.lookNow_().dark,
+    // whether an id is a part's or another addition's (an addition's own `id`)
+    taken: (id) => !!c.part_(id) || c.additions_.some((addition) => addition.id === id),
+    // the triangles drawn now (the scene's and the additions'), and the most this figure may have
+    triangles: () =>
+      c.built_.parts.reduce((sum, part) => sum + part.triangleCount, 0) +
+      c.additions_.reduce((sum, addition) => sum + (addition.triangles || 0), 0),
+    maxTriangles: () => c.maxTriangles_,
+    gone: () => !!c.destroyed_,
   };
 }

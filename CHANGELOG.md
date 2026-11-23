@@ -3,7 +3,7 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
-## 0.6.0 (prepared 23 November 2026; not yet released)
+## 0.6.0 (23 November 2026)
 
 Nothing a page or a scene already does changes. In TypeScript, a handle's value is now `number | [number, number]` (a
 plane handle's is a pair): a page that does arithmetic on `onHandle`'s value narrows it first (`typeof v === 'number'`).
@@ -39,7 +39,7 @@ after it; an ES module has them built in. `LK3D.version` stays 3.
   touch emulation passes); and the Linux pictures of the new reference scenes (ramp, arrows, surface, plane-handle),
   which come from CI's "update" run: until then the image tests fail on Linux.
 
-## 0.5.0 (prepared 23 November 2026; not yet released)
+## 0.5.0 (23 November 2026)
 
 Nothing a page or a scene already does changes. A scene that draws a molecule whose bonds are far from their atoms'
 covalent radii, or an atom with too many or too few bonds, now fails `lk3d check`, as the examples' BF3 did: it drew

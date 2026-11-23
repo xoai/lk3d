@@ -17,7 +17,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url)),
   ENTRY = path.join(HERE, 'src/script.js');
 // Three add-ons stay out of the global script (the budget's), each a script of its own that a page loads after it: the
 // glTF reader (dist/lk3d-models.min.js), for a page that shows a model; the glTF exporter (dist/lk3d-export.min.js),
-// for a page that exports; and surfaces and arrows (dist/lk3d-live.min.js), for a page that draws them. The module
+// for a page that exports; and surfaces, arrows and the card over the stage (dist/lk3d-live.min.js), for a page that
+// draws them or shows the card. The module
 // bundle has all three (src/export.js, src/index.js), so a page importing lk3d loses nothing.
 export const MODELS_ENTRY = path.join(HERE, 'src/models-script.js'),
   LIVE_ENTRY = path.join(HERE, 'src/live-script.js');
@@ -30,7 +31,7 @@ const EXPORTER = path.join(HERE, 'src/export-script.js'),
 export const BUDGET_KB = 70.5;
 export const MODELS_BUDGET_KB = 5,
   EXPORT_BUDGET_KB = 3,
-  LIVE_BUDGET_KB = 4;
+  LIVE_BUDGET_KB = 4.5; // (4 until the card came into it, 0.7.0)
 
 export const squeeze = (glsl) =>
   glsl
@@ -44,6 +45,13 @@ const glsl = {
   setup(b) {
     b.onLoad({ filter: /lk3d[\\/]src[\\/]stylesheet\.js$/ }, (a) => ({
       contents: fs.readFileSync(a.path, 'utf8').replace(/`((?:[^`\\]|\\.)*)`/g, (m, g) => '`' + squeezeCSS(g) + '`'),
+      loader: 'js',
+    }));
+    // the card's stylesheet (card.js; not its HTML, whose literals hold ${…})
+    b.onLoad({ filter: /lk3d[\\/]src[\\/]card\.js$/ }, (a) => ({
+      contents: fs
+        .readFileSync(a.path, 'utf8')
+        .replace(/`((?:[^`\\]|\\.)*)`/g, (m, g) => (g.includes('${') ? m : '`' + squeezeCSS(g) + '`')),
       loader: 'js',
     }));
     // the shaders' template literals (not one with ${…}: the header's is code that writes #defines)

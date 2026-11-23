@@ -45,6 +45,8 @@ export interface Strings {
   keys: string;
   /** the name of the list of parts, for screen readers */
   parts: string;
+  /** the name of the card's × button */
+  close: string;
   credit: string;
   ai: string;
   apart: string;
@@ -145,6 +147,10 @@ export interface MountOptions {
   /** an element for the name and note of the part pointed at, and what it says when none is */
   info?: HTMLElement;
   infoIdle?: string;
+  /** true: a card over the stage (on the right; a sheet at the bottom on a narrow screen) for the part the reader
+   * chooses: its eyebrow, name, note and source (the scene's part.card), and what the page adds with fig.card. Its ×
+   * and Escape let the part go */
+  card?: boolean;
   /** false: no built-in buttons (nor the steps' panel, unless `steps` says otherwise) */
   controls?: boolean;
   /** false: no panel for the scene's steps under the figure (the page goes through them with fig.step) */
@@ -203,11 +209,24 @@ export interface MountOptions {
   webgl1?: boolean;
 }
 
+/** what the card over the stage shows (fig.card): each field over the chosen part's own (title: its name; body: its
+ * note; eyebrow and source: its scene card). Text may hold the simple HTML a note may; rows are [label, value] pairs,
+ * a number's decimal mark the locale's */
+export interface CardContent {
+  eyebrow?: string;
+  title?: string;
+  body?: string;
+  rows?: [string, string | number][];
+  source?: string;
+}
+
 /** a part as the engine built it */
 export interface BuiltPart {
   id: string;
   name: string;
   note: string;
+  /** the scene's card fields for it (eyebrow, source), or null */
+  card: { eyebrow?: string; source?: string } | null;
   group: string;
   min: Vec3;
   max: Vec3;
@@ -525,6 +544,11 @@ export interface Figure {
   readonly selected: string | null;
   /** choose a part (or null) without calling onPick */
   select(id: string | null): void;
+  /** the card over the stage (mount's card: true): what the page shows over the chosen part's own, merged with what
+   * it gave before; dropped when another part is chosen; null: the part's own only (no card when none is chosen) */
+  card(content: CardContent | null): void;
+  /** a label's second line, under the part's name (a live value: set it as often as it changes); '' or null: none */
+  tagText(id: string, text: string | number | null): void;
   readonly labels: Labels;
   /** the cut's plane now: the scene's, a step's, the page's or where the reader moved it; second: a quarter cut's
    * second plane, or null */

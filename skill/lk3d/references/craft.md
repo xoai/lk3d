@@ -98,3 +98,7 @@ are (a pendulum's swing solved each frame, waves summed at each point): turn and
 `arrows` and a changing sheet (water, a membrane, a graph of z = f(x, y)) as a `surface`, both from the live add-on.
 Let the reader place a point with a `plane` handle (it is two sliders for the keyboard too); take a drag for the page
 only when no handle fits (`onPress`, with `fig.hit` on a plane), and give the keyboard another way to do it.
+To say more about a part than its name and note, mount with `card: true` (the live add-on): the part chosen is shown on
+a card over the stage, with a line over its name and its source from the scene (`card: { eyebrow, source }`) and rows
+of values the page works out (`fig.card({ rows })`, set in `fig.tick` while they change); a live value under a label's
+name is `fig.tagText(id, text)`. Never type a number into the scene's words for this: the page computes it.

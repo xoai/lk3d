@@ -142,11 +142,23 @@ export function makeDom(c) {
     c.host_.append(credit);
   }
 
+  // the card over the stage (mount's card: the live add-on's card.js): the page's content (fig.card, added_) over the
+  // chosen part's own, dropped when another part is chosen and whenever the reader chooses or lets go (onPick may give
+  // it again)
+  let cardFor;
+  c.card_ = (content) => {
+    c.added_ = content && { ...c.added_, ...content };
+    c.showInfo_();
+  };
+
   // the info box: the part chosen, else the one under the pointer. why: 'pick' (the reader chose a part: onPick),
   // 'hover' (the pointer moved onto or off a part: onHover), or nothing (a page's own select(), the first picture)
   c.showInfo_ = (why) => {
     const id = c.state_.selected || c.state_.hover,
       part = c.part_(id);
+    if (why === 'pick' || cardFor !== c.state_.selected) c.added_ = null;
+    cardFor = c.state_.selected;
+    c.cardShow_?.(c.added_);
     if (c.opts_.info)
       c.opts_.info.innerHTML = part
         ? `<b>${safeHTML(part.name)}</b>${part.note ? ' ' + safeHTML(part.note) : ''}`

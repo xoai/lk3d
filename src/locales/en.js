@@ -5,6 +5,7 @@ export default {
   hintTouch: 'Drag sideways to turn, tap it to turn any way · pinch to zoom',
   keys: 'Arrow keys turn it, + and − zoom, Page Down and Page Up go through its parts, Escape lets go, D describes it.',
   parts: 'Parts',
+  close: 'Close',
   dimensions: 'Dimensions',
   hintMouse: 'Drag to turn · Shift + drag to move · Ctrl + scroll to zoom',
   credit: '3D model: ',

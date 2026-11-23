@@ -31,6 +31,7 @@ lk3d-figure{display:block}
 .lk3d-stage[data-look="studio"] .lk3d-tag{background:rgba(14,18,24,.82); color:#eef2f7; border-color:rgba(255,255,255,.35); font-family:system-ui, sans-serif; font-size:12.5px; letter-spacing:.02em}
 .lk3d-stage[data-look="studio"] .lk3d-tag.on{background:rgba(232,150,60,.9); color:#111}
 .lk3d-stage[data-look="studio"] .lk3d-lines line, .lk3d-stage[data-look="studio"] .lk3d-lines path.lk3d-dim{stroke:rgba(255,255,255,.7)} .lk3d-stage[data-look="studio"] .lk3d-dimtext{background:rgba(20,22,26,.75); color:#fff} .lk3d-stage[data-look="studio"] .lk3d-lines circle{fill:#fff}
+.lk3d-sub{display:block; font-size:11px; line-height:14px; letter-spacing:.04em; opacity:.75}
 .lk3d-hint{position:absolute; left:10px; bottom:8px; font-size:13px; color:var(--lk3d-muted, #6b6670); background:rgba(247,245,239,.85); padding:1px 7px; border-radius:4px; pointer-events:none; transition:opacity .4s}
 .lk3d-stage[data-look="studio"] .lk3d-hint{color:#c9d1dc; background:rgba(10,12,16,.6)}
 .lk3d-hint.gone{opacity:0}

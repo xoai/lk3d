@@ -44,6 +44,7 @@
   "figure": [
     "arrows",
     "camera",
+    "card",
     "currentStep",
     "describe",
     "destroy",
@@ -83,6 +84,7 @@
     "stream",
     "style",
     "surface",
+    "tagText",
     "theme",
     "tick",
     "timeScale",
@@ -146,6 +148,7 @@
     "part": [
       "accent",
       "at",
+      "card",
       "color",
       "cut",
       "edges",

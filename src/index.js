@@ -5,8 +5,9 @@
 import './models.js';
 import LK3D from './core.js';
 import { surface, arrows } from './live.js';
+import { card } from './card.js';
 
-LK3D.live = { surface, arrows }; // (surfaces and arrows built in, as the live add-on gives a page that loads scripts)
+LK3D.live = { surface, arrows, card }; // (surfaces, arrows and the card built in, as the live add-on gives a page that loads scripts)
 
 export * from './core.js';
 export { default } from './core.js';

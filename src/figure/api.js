@@ -72,6 +72,8 @@ export function makeApi(c) {
       }
     }
   };
+  // the card over the stage (mount's card): the live add-on's, shown again by showInfo_ (dom.js)
+  if (c.opts_.card) c.cardShow_ = live('card');
   const api = (c.api_ = {
     get renderer() {
       return c.renderer_.kind;
@@ -107,6 +109,11 @@ export function makeApi(c) {
       c.showInfo_();
       c.kick_();
     },
+    // the card over the stage (mount's card: true): what the page shows in it over the chosen part's own, merged with
+    // what it gave before (null: the part's own only, or no card when none is chosen)
+    card: c.card_,
+    // a label's second line (a live value under the part's name); '' or null: none
+    tagText: c.tagText_,
     get labels() {
       return c.state_.labels;
     },

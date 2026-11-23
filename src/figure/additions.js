@@ -8,6 +8,7 @@ import { M, sub, mulv, len, norm, cross, rgb } from '../math.js';
 import { buildShape, outlineNormals, MATERIALS } from '../geometry.js';
 import { pathOf, makeFlow, stops, band, along } from '../flow.js';
 import { makeStream } from '../stream.js';
+import { safeHTML } from './dom.js';
 
 /** @param {import('./context').Ctx} c */
 export function makeAdditions(c) {
@@ -349,5 +350,18 @@ export function makeAdditions(c) {
       c.additions_.reduce((sum, addition) => sum + (addition.triangles || 0), 0),
     maxTriangles: () => c.maxTriangles_,
     gone: () => !!c.destroyed_,
+    // for the card (card.js): the stage it lies over, the figure's words, a part's text as safe HTML, the part chosen,
+    // and letting it go as Escape does (the keys back to the canvas)
+    stage: c.stage_,
+    words: c.words_,
+    html: safeHTML,
+    chosen: () => c.part_(c.state_.selected),
+    letGo() {
+      c.mark_('reader');
+      c.state_.selected = null;
+      c.showInfo_('pick');
+      c.kick_();
+      c.canvas_.focus({ preventScroll: true });
+    },
   };
 }

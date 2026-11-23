@@ -489,7 +489,7 @@ export function makeInput(c) {
     if (zoom && camera) (c.mark_('reader'), c.zoom_(zoom));
     const step = { PageDown: 1, PageUp: -1 }[event.key],
       shown = c.namedParts_.filter((part) => !part.hidden);
-    if ((step && shown.length) || (event.key === 'Escape' && c.state_.selected)) {
+    if ((step && shown.length) || (event.key === 'Escape' && (c.state_.selected || c.added_))) {
       const count = shown.length,
         at = shown.findIndex((part) => part.id === c.state_.selected);
       // from none: the first (Page Down) or the last (Page Up); then on round

@@ -1011,6 +1011,7 @@ function build(spec, quality, max, partMax) {
       id: part.id || 'p' + partIndex,
       name: part.name || '',
       note: part.note || '',
+      card: part.card || null,
       group: part.group || '',
       label: part.label,
       spin: part.spin || null,

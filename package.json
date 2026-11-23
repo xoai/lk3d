@@ -91,6 +91,7 @@
     "./src/export-script.js",
     "./src/live.js",
     "./src/live-script.js",
+    "./src/card.js",
     "./dist/*"
   ],
   "engines": {

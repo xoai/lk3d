@@ -635,6 +635,23 @@
           "type": "string",
           "description": "Shown when the part is pointed at (may hold simple HTML)."
         },
+        "card": {
+          "type": "object",
+          "description": "The card over the stage (mount's card option): eyebrow, a short line over the name (its group or role); source, where what it says comes from.",
+          "properties": {
+            "eyebrow": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A short line over the name: its group or role."
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Where what the card says comes from, in small type at its foot."
+            }
+          },
+          "additionalProperties": false
+        },
         "group": {
           "type": "string",
           "description": "Parts of one group move, hide and are framed together (set({hide}), focus, a handle's moves)."

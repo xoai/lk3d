@@ -579,6 +579,22 @@ export interface Part {
   name?: string;
   /** Shown when the part is pointed at (may hold simple HTML). */
   note?: string;
+  /**
+   * The card over the stage (mount's card option): eyebrow, a short line over the name (its group or role);
+   * source, where what it says comes from.
+   */
+  card?: {
+    /**
+     * A short line over the name: its group or role.
+     * @minLength 1
+     */
+    eyebrow?: string;
+    /**
+     * Where what the card says comes from, in small type at its foot.
+     * @minLength 1
+     */
+    source?: string;
+  };
   /** Parts of one group move, hide and are framed together (set({hide}), focus, a handle's moves). */
   group?: string;
   /**

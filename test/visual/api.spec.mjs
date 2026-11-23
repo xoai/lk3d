@@ -2530,3 +2530,174 @@ test('the recipes run: a story told by scrolling, each step printed as a picture
   expect(r.linked).toBe(true);
   expect(r.refused).toMatch(/not on the page/);
 });
+
+test("the card over the stage: the chosen part's own text under the page's, rows of values, closed by its ×, Escape or choosing nothing; no HTML gets in", async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    window.scene.parts[0].note = 'The <b>base</b> <img src=x onerror="window.hacked=1">';
+    window.scene.parts[0].card = { eyebrow: 'Frame', source: 'Measured on the model' };
+    const picks = [];
+    window.fig = mountIt({ card: true, locale: 'vi', onPick: (p) => picks.push(p && p.id) });
+    await fig.ready;
+    const card = document.querySelector('#g .lk3d-stage > .lk3d-card'),
+      text = (name) => card.querySelector('.lk3d-' + name)?.innerHTML ?? null,
+      seen = () => ({
+        hidden: card.hidden,
+        eyebrow: text('eyebrow'),
+        title: text('title'),
+        body: text('body'),
+        source: text('source'),
+        rows: [...card.querySelectorAll('dl > div')].map((row) => [...row.children].map((cell) => cell.textContent)),
+      });
+    const atStart = seen();
+    fig.select('base');
+    const chosen = seen();
+    // the page's: rows (a number with the locale's decimal mark), merged with what it gave before, over the part's own
+    fig.card({
+      rows: [
+        ['Lực', 667],
+        ['Ứng suất', '28,4 N/cm²'],
+      ],
+    });
+    fig.card({ title: 'Đế <i>máy</i>', rows: [['Lực', 667.5]] });
+    const added = seen(),
+      sameNode = card.querySelector('.lk3d-close');
+    fig.card({ rows: [['Lực', 667.5]] }); // (the same again: nothing rebuilt)
+    const kept = card.querySelector('.lk3d-close') === sameNode;
+    fig.card(null);
+    const own = seen();
+    fig.card({ rows: [['Lực', 1]] });
+    fig.select('knob'); // (another part: the page's content is dropped)
+    const other = seen();
+    fig.select(null);
+    const none = seen();
+    return { atStart, chosen, added, kept, own, other, none, hacked: !!window.hacked, picks };
+  });
+  expect(got.atStart.hidden).toBe(true);
+  expect(got.chosen).toEqual({
+    hidden: false,
+    eyebrow: 'Frame',
+    title: 'Base',
+    body: 'The <b>base</b> &lt;img src=x onerror="window.hacked=1"&gt;',
+    source: 'Measured on the model',
+    rows: [],
+  });
+  expect(got.added.title).toBe('Đế <i>máy</i>');
+  expect(got.added.eyebrow).toBe('Frame');
+  expect(got.added.rows).toEqual([['Lực', '667,5']]);
+  expect(got.kept).toBe(true);
+  expect(got.own).toMatchObject({ title: 'Base', rows: [] });
+  expect(got.other).toMatchObject({ hidden: false, title: 'Knob', eyebrow: null, rows: [] });
+  expect(got.none.hidden).toBe(true);
+  expect(got.hacked).toBe(false);
+  expect(got.picks).toEqual([]); // (the page's own select() is not the reader's pick)
+
+  // the reader: the × lets the part go (onPick(null)) and gives the keys back to the canvas; so does Escape in the card
+  await page.evaluate(() => fig.select('base'));
+  await page.click('#g .lk3d-close');
+  expect(
+    await page.evaluate(() => ({
+      selected: fig.selected,
+      hidden: document.querySelector('#g .lk3d-card').hidden,
+      focus: document.activeElement === document.querySelector('#g canvas[tabindex]'),
+    })),
+  ).toEqual({ selected: null, hidden: true, focus: true });
+  await page.evaluate(() => fig.select('base'));
+  await page.focus('#g .lk3d-close');
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => [fig.selected, document.querySelector('#g .lk3d-card').hidden])).toEqual([
+    null,
+    true,
+  ]);
+  // Escape on the canvas, as before; and Tab goes on past the card (nothing holds the focus)
+  await page.evaluate(() => fig.select('base'));
+  await page.focus('#g canvas[tabindex]');
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => document.querySelector('#g .lk3d-card').hidden)).toBe(true);
+  await page.evaluate(() => fig.select('base'));
+  await page.focus('#g .lk3d-close');
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => document.querySelector('#g .lk3d-card').contains(document.activeElement))).toBe(
+    false,
+  );
+  // the close button is named in the figure's language
+  expect(await page.getAttribute('#g .lk3d-close', 'aria-label')).toBe('Đóng');
+  // the page's own words with no part chosen (a tour's step): closed by the × and by Escape on the canvas alike, and
+  // dropped when the reader chooses a part (onPick may give them again)
+  const hidden = () => page.evaluate(() => document.querySelector('#g .lk3d-card').hidden);
+  await page.evaluate(() => (fig.select(null), fig.card({ title: 'Bước một', body: 'Màng tế bào' })));
+  expect(await hidden()).toBe(false);
+  await page.click('#g .lk3d-close');
+  expect(await hidden()).toBe(true);
+  await page.evaluate(() => fig.card({ title: 'Bước một' }));
+  await page.focus('#g canvas[tabindex]');
+  await page.keyboard.press('Escape');
+  expect(await hidden()).toBe(true);
+  await page.evaluate(() => fig.card({ title: 'Bước một' }));
+  await page.keyboard.press('PageDown');
+  expect(await page.evaluate(() => document.querySelector('#g .lk3d-title').textContent)).toBe('Base');
+});
+
+test('the card needs the live add-on, and says so; without card: true there is none, and fig.card does nothing', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    const live = LK3D.live;
+    LK3D.live = undefined; // (as on a page that did not load dist/lk3d-live.min.js)
+    let refused = '';
+    try {
+      mountIt({ card: true });
+    } catch (e) {
+      refused = e.message;
+    }
+    LK3D.live = live;
+    const fig = mountIt();
+    await fig.ready;
+    fig.select('base');
+    fig.card({ title: 'x' });
+    return { refused, cards: document.querySelectorAll('#g .lk3d-card').length };
+  });
+  expect(got.refused).toMatch(/lk3d-live\.min\.js/);
+  expect(got.cards).toBe(0);
+});
+
+test("a label's second line: set by the page, as often as it changes, as safe HTML; the label grows to hold it", async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    window.fig = mountIt({ labels: 'all' });
+    await fig.ready;
+    fig.drawNow();
+    const tag = () => document.querySelector('#g .lk3d-tag[data-id="base"]'),
+      box = () => tag().getBoundingClientRect(),
+      before = box();
+    fig.tagText('base', '667 N · cách khớp 22 mm <script>window.hacked=1</script>');
+    fig.drawNow();
+    await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const after = box(),
+      sub = tag().querySelector('.lk3d-sub');
+    // (wide enough for its longer line: its width as measured holds the text)
+    const fits = sub.scrollWidth <= tag().clientWidth;
+    fig.tagText('base', 488);
+    const number = tag().querySelector('.lk3d-sub').textContent;
+    fig.tagText('base', null);
+    fig.tagText('nothing', 'x'); // (no such part: nothing)
+    return {
+      grew: after.height - before.height,
+      wider: after.width > before.width,
+      text: sub.innerHTML,
+      fits,
+      number,
+      gone: !tag().querySelector('.lk3d-sub'),
+      hacked: !!window.hacked,
+    };
+  });
+  expect(got.grew).toBeGreaterThan(10);
+  expect(got.wider).toBe(true);
+  expect(got.text).toBe('667 N · cách khớp 22 mm &lt;script&gt;window.hacked=1&lt;/script&gt;');
+  expect(got.fits).toBe(true);
+  expect(got.number).toBe('488');
+  expect(got.gone).toBe(true);
+  expect(got.hacked).toBe(false);
+});

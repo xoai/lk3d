@@ -16,16 +16,31 @@ export function makeLabels(c) {
   const tags = [];
   for (const part of c.built_.parts)
     if (part.name && part.label !== false) tags.push({ part, element: null, x: -1, y: -1, shown: false, lit: false });
+  // (H<sub>2</sub>O, as in the info box; under it, the page's second line)
+  const fillTag = (tag) =>
+    (tag.element.innerHTML =
+      safeHTML(tag.part.name) + (tag.sub ? `<small class="lk3d-sub">${safeHTML(tag.sub)}</small>` : ''));
   const elementOf = (tag) => {
     if (!tag.element) {
       const element = (tag.element = document.createElement('div'));
       element.className = 'lk3d-tag';
-      element.innerHTML = safeHTML(tag.part.name); // (H<sub>2</sub>O, as in the info box)
+      fillTag(tag);
       element.dataset.id = tag.part.id;
       element.style.display = 'none';
       c.tagLayer_.append(element);
     }
     return tag.element;
+  };
+  // a label's second line, the page's (fig.tagText: a live value under the name), or none
+  c.tagText_ = (id, text) => {
+    const tag = tags.find((each) => each.part.id === id);
+    text = text || text === 0 ? String(text) : '';
+    if (tag && text !== tag.sub) {
+      tag.sub = text;
+      tag.subPlain = plainText(text);
+      if (tag.element) fillTag(tag);
+      c.kick_();
+    }
   };
   c.labelWidths_ = {};
   const unhook = textWidth.onFontsChanged(() => {
@@ -62,7 +77,16 @@ export function makeLabels(c) {
       const text = (tag.plain ??= plainText(tag.part.name));
       widths[key] = textWidth(text, box.font) + box.spacing * text.length + box.pad;
     }
-    return widths[key];
+    const box = boxByLook[lookKey],
+      sub = tag.subPlain;
+    if (sub && !box.sub) {
+      const style = getComputedStyle(/** @type {Element} */ (elementOf(tag).lastChild));
+      box.sub = [
+        `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`,
+        parseFloat(style.letterSpacing) || 0,
+      ];
+    }
+    return Math.max(widths[key], sub ? textWidth(sub, box.sub[0]) + box.sub[1] * sub.length + box.pad : 0);
   }
   function scaleBar() {
     // the bar's on-screen length: its scene length, projected at the point the camera looks at
@@ -173,28 +197,29 @@ export function makeLabels(c) {
     for (const item of items) {
       const tag = item.tag,
         labelWidth = widthOf(tag),
+        high = tag.sub ? 36 : 22,
         x = Math.round(Math.max(2, Math.min(width - labelWidth - 2, item.right ? item.x : item.x - labelWidth)));
       /** @type {number | null} */
       let y = null;
       for (const dy of [0, 22, -22, 44, -44]) {
-        const tryY = Math.round(Math.max(2, Math.min(height - 22, item.y + dy)));
+        const tryY = Math.round(Math.max(2, Math.min(height - high, item.y + dy)));
         if (
           !placed.some(
             (other) =>
               x < other.x + other.width + 4 &&
               other.x < x + labelWidth + 4 &&
-              tryY < other.y + 22 &&
-              other.y < tryY + 22,
+              tryY < other.y + other.high &&
+              other.y < tryY + high,
           )
         ) {
           y = tryY;
           break;
         }
       }
-      if (y == null && (item.first || chosen)) y = Math.round(Math.max(2, Math.min(height - 22, item.y)));
+      if (y == null && (item.first || chosen)) y = Math.round(Math.max(2, Math.min(height - high, item.y)));
       show(tag, y != null);
       if (y == null) continue;
-      placed.push({ x, y, width: labelWidth });
+      placed.push({ x, y, width: labelWidth, high });
       if (x !== tag.x || y !== tag.y) {
         tag.element.style.transform = `translate(${x}px, ${y}px)`;
         tag.x = x;

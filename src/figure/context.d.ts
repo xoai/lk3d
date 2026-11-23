@@ -303,6 +303,12 @@ export interface Ctx {
   namedParts_: Part[];
   /** the info box and what is said aloud, for the part chosen or pointed at */
   showInfo_(why?: 'pick' | 'hover'): void;
+  /** the card shown again with the page's content (the live add-on's card.js), when mount's card is set */
+  cardShow_?: (added?: import('../../index.js').CardContent | null) => void;
+  /** what the page gives the card (fig.card), merged; null when it gave none */
+  added_?: import('../../index.js').CardContent | null;
+  /** what the page shows on the card (fig.card) */
+  card_(content: import('../../index.js').CardContent | null): void;
 
   // ---- loop.js
   /** the stage's size, CSS pixels */
@@ -332,6 +338,8 @@ export interface Ctx {
   /** each label's width, by look and part (emptied when the layout or the fonts change) */
   labelWidths_: Record<string, any>;
   placeLabels_(): void;
+  /** a label's second line (fig.tagText) */
+  tagText_(id: string, text?: string | number | null): void;
 
   // ---- pick.js
   bvhOf_(b: any): any;

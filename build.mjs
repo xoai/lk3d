@@ -31,7 +31,7 @@ const EXPORTER = path.join(HERE, 'src/export-script.js'),
 export const BUDGET_KB = 70.5;
 export const MODELS_BUDGET_KB = 5,
   EXPORT_BUDGET_KB = 3,
-  LIVE_BUDGET_KB = 4.5; // (4 until the card came into it, 0.7.0)
+  LIVE_BUDGET_KB = 4;
 
 export const squeeze = (glsl) =>
   glsl

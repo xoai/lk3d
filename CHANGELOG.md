@@ -16,8 +16,8 @@ Nothing a page or a scene already does changes.
 - **A label's second line** (`fig.tagText(id, text)`): a smaller line under the part's name, for a live value; the
   label grows to hold it and labels keep clear of each other with it.
 - **The scene format:** a part's `card` (`eyebrow`, `source`).
-- **The budget.** The global script is unchanged in its budget (72,071 of 72,192 bytes gzipped: the label's second line
-  and `fig.card`); the card itself goes in the live add-on, whose budget goes from 4 KB to **4.5 KB** (4,119 bytes).
+- **The budget.** Both budgets are unchanged: the global script holds the label's second line and `fig.card` (72,071
+  of 72,192 bytes gzipped); the card itself goes in the live add-on (4,092 of 4,096 bytes).
 - **The examples:** the AC generator shows its parts on the card, the rotor's and the lamp's live values on it and
   under their labels.
 

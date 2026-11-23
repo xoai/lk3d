@@ -14,13 +14,13 @@ const CSS = `
 .lk3d-card{position:absolute; top:12px; right:12px; width:min(330px, 46%); max-height:calc(100% - 24px); overflow:auto; box-sizing:border-box; padding:12px 16px; font-size:14px; line-height:1.45;
   background:var(--lk3d-paper, #f7f5ef); color:var(--lk3d-ink, #1d1a1e); border:1px solid var(--lk3d-line, var(--lk3d-ink, #1d1a1e)); border-radius:10px; box-shadow:0 6px 24px #0002}
 .lk3d-stage[data-look="studio"]:not([data-theme]) .lk3d-card{background:rgba(14,18,24,.88); color:#eef2f7; border-color:rgba(255,255,255,.3)}
-.lk3d-close{position:absolute; top:6px; right:6px; width:30px; height:30px; padding:0; border:0; border-radius:50%; background:none; color:inherit; font:20px/1 system-ui, sans-serif; cursor:pointer}
+.lk3d-close{position:absolute; top:6px; right:6px; width:30px; height:30px; padding:0; border:0; background:none; color:inherit; font:20px/1 system-ui, sans-serif; cursor:pointer}
 .lk3d-close:focus-visible{outline:2px solid var(--lk3d-accent, #2f5fb3)}
-.lk3d-eyebrow, .lk3d-source{font-size:12.5px; opacity:.72}
-.lk3d-title{font-size:18px; font-weight:700; line-height:1.3; margin:1px 26px 4px 0}
-.lk3d-card dl{margin:10px 0 6px} .lk3d-card dd{margin:0 0 0 auto; font-weight:700; text-align:right}
-.lk3d-card dl div{display:flex; gap:12px; padding:5px 0; border-top:1px solid rgba(128,128,128,.3)}
-@media (max-width:620px){.lk3d-card{top:auto; left:8px; right:8px; bottom:8px; width:auto; max-height:62%; padding:8px 12px; font-size:13px} .lk3d-title{font-size:16px; margin-bottom:2px} .lk3d-card dl{margin-top:6px} .lk3d-card dl div{padding:3px 0}}
+.lk3d-eyebrow, .lk3d-source{font-size:.9em; opacity:.72}
+.lk3d-title{font-size:1.3em; font-weight:700; line-height:1.3; margin:1px 26px 4px 0}
+.lk3d-card dl{margin:.7em 0 .4em} .lk3d-card dd{margin:0 0 0 auto; font-weight:700; text-align:right}
+.lk3d-card dl div{display:flex; gap:12px; padding:.35em 0; border-top:1px solid #8884}
+@media (max-width:620px){.lk3d-card{top:auto; left:8px; right:8px; bottom:8px; width:auto; max-height:62%; padding:8px 12px; font-size:13px}}
 `;
 
 /** @param {Host} host @returns {(added: Record<string, any> | null) => void} the card shown again: the chosen part's

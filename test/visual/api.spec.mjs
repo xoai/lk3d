@@ -742,11 +742,19 @@ test('the keyboard goes through the parts: Page Down and Up choose each in turn 
   });
   expect(got).toEqual([]);
   await page.focus('#g canvas');
-  // (what is chosen is said through the figure's one queue of words, picks and descriptions alike: a moment later)
+  // (what is chosen is said through the figure's one queue of words, picks and descriptions alike: a moment later; the
+  // region is emptied before each message, so the state is read once, in the poll, not again after it: words said
+  // twice running would otherwise be caught in between, empty)
   const step = async (key, words) => {
     await page.keyboard.press(key);
-    await expect.poll(() => page.evaluate(() => document.querySelector('#g [aria-live]').textContent)).toBe(words);
-    return page.evaluate(() => [fig.selected, document.querySelector('#g [aria-live]').textContent]);
+    let seen;
+    await expect
+      .poll(async () => {
+        seen = await page.evaluate(() => [fig.selected, document.querySelector('#g [aria-live]').textContent]);
+        return seen[1];
+      })
+      .toBe(words);
+    return seen;
   };
   expect(await step('PageDown', 'Base')).toEqual(['base', 'Base']);
   expect(await step('PageDown', 'Knob')).toEqual(['knob', 'Knob']);

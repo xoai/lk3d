@@ -3,14 +3,16 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
-## Unreleased
+## 0.7.0 (23 November 2026)
 
-Nothing a page or a scene already does changes.
+Nothing a page or a scene already does changes. The card comes with the live add-on, `dist/lk3d-live.min.js`, which a
+page that loads lk3d as a script loads after it (`card: true` without it is refused, naming it); an ES module has it
+built in. `LK3D.version` stays 3.
 
 - **A card over the stage** (`mount(el, scene, { card: true })`, the live add-on): the part the reader chooses, on the
   right (a sheet at the bottom below 620 px): a line over its name (the scene's `part.card.eyebrow`), its name, its
-  note, rows of values the page fills (`fig.card({ rows })`, merged with what it gave before, dropped when another part
-  is chosen) and where it comes from (`part.card.source`). Its × and Escape let the part go (`onPick(null)`) and give
+  note, rows of values the page fills (`fig.card({ rows })`, merged with what it gave before, dropped when the reader
+  chooses or lets go, or the page chooses another part) and where it comes from (`part.card.source`). Its × and Escape let the part go (`onPick(null)`) and give
   the keys back to the canvas; nothing holds the focus. It follows the figure's colours, its themes and looks; its
   text is kept as safe as a note.
 - **A label's second line** (`fig.tagText(id, text)`): a smaller line under the part's name, for a live value; the

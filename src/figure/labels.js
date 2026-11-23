@@ -130,6 +130,26 @@ export function makeLabels(c) {
     set(leader.dot, 'cy', anchorY);
     leader.at = at;
   }
+  // what the labels keep clear of: the scale (its bar and note) and the hint while it shows, where the stylesheet puts
+  // them on this stage (a note at the top of a phone's stage, at the foot of a wide one); measured again only when the
+  // stage's size or the hint changes
+  let clearKey = '',
+    /** @type {{ x: number, y: number, width: number, high: number }[]} */ clearBoxes = [];
+  /** @param {number} width @param {number} height */
+  const keptClear = (width, height) => {
+    const hint = c.hint_.classList.contains('gone') ? null : c.hint_,
+      key = width + 'x' + height + !hint;
+    if (key != clearKey) {
+      clearKey = key;
+      clearBoxes = [c.scaleEl_, hint]
+        .filter((box) => box?.offsetWidth)
+        .map((box) => {
+          const b = /** @type {HTMLElement} */ (box);
+          return { x: b.offsetLeft - 2, y: b.offsetTop - 2, width: b.offsetWidth + 4, high: b.offsetHeight + 4 };
+        });
+    }
+    return clearBoxes;
+  };
   c.placeLabels_ = () => {
     scaleBar();
     const width = c.width_,
@@ -193,7 +213,8 @@ export function makeLabels(c) {
     // one already placed tries a line or two up and down, and otherwise waits until the reader points at its part (a
     // model of a hundred parts would bury itself in labels)
     items.sort((a, b) => b.first - a.first || b.size - a.size);
-    const placed = [];
+    const placed = [],
+      blocked = keptClear(width, height);
     for (const item of items) {
       const tag = item.tag,
         labelWidth = widthOf(tag),
@@ -204,13 +225,15 @@ export function makeLabels(c) {
       for (const dy of [0, 22, -22, 44, -44]) {
         const tryY = Math.round(Math.max(2, Math.min(height - high, item.y + dy)));
         if (
-          !placed.some(
-            (other) =>
-              x < other.x + other.width + 4 &&
-              other.x < x + labelWidth + 4 &&
-              tryY < other.y + other.high &&
-              other.y < tryY + high,
-          )
+          !placed
+            .concat(blocked)
+            .some(
+              (other) =>
+                x < other.x + other.width + 4 &&
+                other.x < x + labelWidth + 4 &&
+                tryY < other.y + other.high &&
+                other.y < tryY + high,
+            )
         ) {
           y = tryY;
           break;

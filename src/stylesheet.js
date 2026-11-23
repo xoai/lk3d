@@ -32,12 +32,12 @@ lk3d-figure{display:block}
 .lk3d-stage[data-look="studio"] .lk3d-tag.on{background:rgba(232,150,60,.9); color:#111}
 .lk3d-stage[data-look="studio"] .lk3d-lines line, .lk3d-stage[data-look="studio"] .lk3d-lines path.lk3d-dim{stroke:rgba(255,255,255,.7)} .lk3d-stage[data-look="studio"] .lk3d-dimtext{background:rgba(20,22,26,.75); color:#fff} .lk3d-stage[data-look="studio"] .lk3d-lines circle{fill:#fff}
 .lk3d-sub{display:block; font-size:11px; line-height:14px; letter-spacing:.04em; opacity:.75}
-.lk3d-hint{position:absolute; left:10px; bottom:8px; font-size:13px; color:var(--lk3d-muted, #6b6670); background:rgba(247,245,239,.85); padding:1px 7px; border-radius:4px; pointer-events:none; transition:opacity .4s}
+.lk3d-hint{position:absolute; left:10px; bottom:8px; max-width:calc(50% - 16px); font-size:13px; color:var(--lk3d-muted, #6b6670); background:rgba(247,245,239,.85); padding:1px 7px; border-radius:4px; pointer-events:none; transition:opacity .4s}
 .lk3d-stage[data-look="studio"] .lk3d-hint{color:#c9d1dc; background:rgba(10,12,16,.6)}
 .lk3d-hint.gone{opacity:0}
 .lk3d-mark{position:absolute; left:9px; top:7px; font:700 12px/1.3 system-ui, sans-serif; letter-spacing:.03em; color:var(--lk3d-muted, #6b6670); pointer-events:none}
 .lk3d-stage[data-look="studio"] .lk3d-mark{color:#c9d1dc}
-.lk3d-scale{position:absolute; right:10px; bottom:8px; max-width:62%; text-align:right; line-height:1.25; display:flex; flex-direction:column; align-items:flex-end; gap:2px; pointer-events:none; font-size:13px; color:var(--lk3d-ink, #1d1a1e)}
+.lk3d-scale{position:absolute; right:10px; bottom:8px; max-width:calc(50% - 16px); text-align:right; line-height:1.25; display:flex; flex-direction:column; align-items:flex-end; gap:2px; pointer-events:none; font-size:13px; color:var(--lk3d-ink, #1d1a1e)}
 .lk3d-bar-line{display:block; width:100px; height:6px; border:1.5px solid currentColor; border-top:0; transform-origin:right center}
 .lk3d-note{background:rgba(247,245,239,.88); padding:1px 7px; border-radius:4px; color:var(--lk3d-warn, #b8352b)}
 .lk3d-stage[data-look="studio"] .lk3d-scale{color:#eef2f7} .lk3d-stage[data-look="studio"] .lk3d-note{background:rgba(10,12,16,.7); color:#ffb38a}
@@ -62,7 +62,7 @@ lk3d-figure{display:block}
 .lk3d-step-count{color:var(--lk3d-muted, #6b6670); font-size:13px; white-space:nowrap}
 .lk3d-step-nav{display:inline-flex; gap:6px} .lk3d-step-nav [aria-disabled=true]{opacity:.45; cursor:default}
 @media print{.lk3d-bar, .lk3d-hint, .lk3d-step-nav{display:none}}
-@media (max-width:520px){.lk3d-tag{font-size:12px; line-height:17px; padding:0 5px} .lk3d-scale{font-size:11.5px; top:6px; bottom:auto; right:6px}}`;
+@media (max-width:520px){.lk3d-tag{font-size:12px; line-height:17px; padding:0 5px} .lk3d-scale{font-size:11.5px; top:6px; bottom:auto; right:6px; max-width:70%}}`;
   document.head.append(style);
 }
 export { css };

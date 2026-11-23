@@ -3,6 +3,17 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
+## Unreleased
+
+Nothing a page or a scene already does changes.
+
+- **Labels keep clear of the scale and the hint.** A label no longer lands under the scale bar and its note, or under
+  the hint while it shows. Both are measured where the stylesheet puts them, again only when the stage's size or the
+  hint changes. The hint and the scale each take at most half the stage's width at its foot, so a long note no longer
+  covers the hint's last words, and a phone's note is at most 70 % wide at the top. Found by the review of the
+  bai-giang lessons, where long notes hid labels on every phone.
+- **The budget** is unchanged: the global script is 72,172 of 72,192 bytes gzipped.
+
 ## 0.7.0 (23 November 2026)
 
 Nothing a page or a scene already does changes. The card comes with the live add-on, `dist/lk3d-live.min.js`, which a

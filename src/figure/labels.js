@@ -220,28 +220,30 @@ export function makeLabels(c) {
         labelWidth = widthOf(tag),
         high = tag.sub ? 36 : 22,
         x = Math.round(Math.max(2, Math.min(width - labelWidth - 2, item.right ? item.x : item.x - labelWidth)));
-      /** @type {number | null} */
-      let y = null;
-      for (const dy of [0, 22, -22, 44, -44]) {
-        const tryY = Math.round(Math.max(2, Math.min(height - high, item.y + dy)));
-        if (
-          !placed
-            .concat(blocked)
-            .some(
-              (other) =>
-                x < other.x + other.width + 4 &&
-                other.x < x + labelWidth + 4 &&
-                tryY < other.y + other.high &&
-                other.y < tryY + high,
-            )
-        ) {
-          y = tryY;
-          break;
-        }
-      }
-      if (y == null && (item.first || chosen)) y = Math.round(Math.max(2, Math.min(height - high, item.y)));
-      show(tag, y != null);
-      if (y == null) continue;
+      // (the place dy below its own, on the stage, if it overlaps none of the boxes; 0 if it does: a place is at
+      // least 2 down)
+      const clear = (dy, boxes) => {
+          const tryY = Math.round(Math.max(2, Math.min(height - high, item.y + dy)));
+          return boxes.some(
+            (other) =>
+              x < other.x + other.width + 4 &&
+              other.x < x + labelWidth + 4 &&
+              tryY < other.y + other.high &&
+              other.y < tryY + high,
+          )
+            ? 0
+            : tryY;
+        },
+        forced = item.first || chosen;
+      let y = 0;
+      // (a line or two down or up, clear of every label and box)
+      for (let dy = 0, all = placed.concat(blocked); !y && dy < 45; dy += 22) y = clear(dy, all) || clear(-dy, all);
+      // a label that shows wherever it lands (its part pointed at or chosen, or the step's) may overlap others, but not
+      // the scale or the hint: the nearest place clear of those, half a line at a time down or up; its own if none
+      for (let dy = 0; forced && !y && dy < height; dy += 11) y = clear(dy, blocked) || clear(-dy, blocked);
+      if (forced && !y) y = clear(0, []);
+      show(tag, !!y);
+      if (!y) continue;
       placed.push({ x, y, width: labelWidth, high });
       if (x !== tag.x || y !== tag.y) {
         tag.element.style.transform = `translate(${x}px, ${y}px)`;

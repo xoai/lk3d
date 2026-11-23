@@ -290,8 +290,9 @@ export function makeLoop(c) {
           ao: c.aoComplete_,
           shadows: true,
           bounds: box,
+          // (none when seen from below: the eye under it, or an orthographic view looking up; it would veil the model)
           ground:
-            c.spec_.ground === false
+            c.spec_.ground === false || (frustum.ortho ? c.state_.pitch < 0 : eye[1] < c.built_.min[1])
               ? null
               : {
                   center: [box.center[0], 0, box.center[2]],

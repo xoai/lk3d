@@ -165,3 +165,43 @@ test('the geometry check runs a joint-driven motion through its range', () => {
   scene.joints[0].drive.ratio = 0.5;
   assert.ok(!lint(scene).problems.some((p) => /as lift moves/.test(p.message)));
 });
+
+test('the geometry check does not report parts that turn together rigidly: their pose to each other never changes', () => {
+  const { lint } = require('../src/lint.js');
+  // feet under a plate, their tops on its underside (a watch's jewel settings), all on one joint that turns the model
+  // over (to show its dial side), one on a child joint carried with them. Their faces meet, so the rounding of a
+  // turned pose moved points of the feet in and out of the plate, and the turn was reported. A motion that moves one
+  // against the plate is still caught.
+  const scene = {
+    parts: [
+      { id: 'plate', shapes: [{ cylinder: { r: 2, x0: 0, x1: 0.2 }, rot: [0, 0, 90], seg: 96 }] },
+      { id: 'foot', shapes: [{ cylinder: { r: 0.45, x0: -0.06, x1: 0, ri: 0.19 }, rot: [0, 0, 90] }] },
+      { id: 'cap', shapes: [{ cylinder: { r: 0.4, x0: -0.06, x1: 0 }, rot: [0, 0, 90] }], at: [-0.8, 0, 0.6] },
+    ],
+    motions: [
+      { id: 'over', range: [0, 1] },
+      { id: 'sink', range: [0, 1] },
+    ],
+    joints: [
+      {
+        id: 'over',
+        parts: ['plate', 'foot'],
+        turn: { axis: [1, 0, 0], center: [0, 0.1, 0] },
+        drive: {
+          motion: 'over',
+          keys: [
+            [0, 0],
+            [1, 180],
+          ],
+        },
+      },
+      { id: 'cap', parent: 'over', parts: ['cap'], slide: { axis: [0, 1, 0] }, drive: { motion: 'sink', ratio: 0.6 } },
+    ],
+  };
+  const found = (motion) =>
+    lint(scene)
+      .problems.filter((p) => p.message.includes(`as ${motion} moves`))
+      .map((p) => p.message.split(' run')[0]);
+  assert.deepEqual(found('over'), []);
+  assert.deepEqual(found('sink'), ['cap and plate']);
+});

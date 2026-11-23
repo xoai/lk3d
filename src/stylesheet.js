@@ -62,7 +62,7 @@ lk3d-figure{display:block}
 .lk3d-step-count{color:var(--lk3d-muted, #6b6670); font-size:13px; white-space:nowrap}
 .lk3d-step-nav{display:inline-flex; gap:6px} .lk3d-step-nav [aria-disabled=true]{opacity:.45; cursor:default}
 @media print{.lk3d-bar, .lk3d-hint, .lk3d-step-nav{display:none}}
-@media (max-width:520px){.lk3d-tag{font-size:12px; line-height:17px; padding:0 5px} .lk3d-scale{font-size:11.5px; top:6px; bottom:auto; right:6px; max-width:70%}}`;
+@media (max-width:520px){.lk3d-tag{font-size:12px; line-height:17px; padding:0 5px} .lk3d-scale{font-size:11.5px; top:6px; bottom:auto; right:6px; max-width:70%} .lk3d-hint{max-width:none}}`;
   document.head.append(style);
 }
 export { css };

@@ -24,12 +24,16 @@ export const plainText = (text) => {
 
 let mounted = 0; // figures mounted on the page (ids for their screen-reader text)
 
+// an element of the figure's, with its class and text
+/** @template {keyof HTMLElementTagNameMap} K @param {K} tag @param {string} className @param {string} [textContent] */
+const made = (tag, className, textContent = '') =>
+  Object.assign(document.createElement(tag), { className, textContent });
+
 /** @param {import('./context').Ctx} c */
 export function makeDom(c) {
   c.host_.classList.add('lk3d');
   c.host_.innerHTML = '';
-  const stage = (c.stage_ = document.createElement('div'));
-  stage.className = 'lk3d-stage';
+  const stage = (c.stage_ = made('div', 'lk3d-stage'));
   c.canvas_.className = 'lk3d-canvas';
   c.canvas_.tabIndex = 0;
   // for screen readers: a figure worked by keys (arrows turn it, Page Down and Up go through its parts), described by
@@ -37,13 +41,8 @@ export function makeDom(c) {
   c.canvas_.setAttribute('role', 'application');
   c.canvas_.setAttribute('aria-roledescription', c.words_.model);
   c.canvas_.setAttribute('aria-label', c.spec_.alt || c.spec_.title || c.words_.model);
-  /** @param {string} tag @param {string} [text] */
-  const forReaders = (tag, text) => {
-      const element = document.createElement(tag);
-      element.className = 'lk3d-sr';
-      if (text) element.textContent = text;
-      return element;
-    },
+  /** @param {'p' | 'ul'} tag @param {string} [text] */
+  const forReaders = (tag, text) => made(tag, 'lk3d-sr', text),
     uid = 'lk3d-' + ++mounted,
     keys = forReaders('p', c.words_.keys),
     said = forReaders('p'),
@@ -86,23 +85,20 @@ export function makeDom(c) {
   }
   const leaderSvg = (c.leaderSvg_ = document.createElementNS('http://www.w3.org/2000/svg', 'svg'));
   leaderSvg.setAttribute('class', 'lk3d-lines');
-  const tagLayer = (c.tagLayer_ = document.createElement('div'));
-  tagLayer.className = 'lk3d-tags';
-  const hint = (c.hint_ = document.createElement('div'));
-  hint.className = 'lk3d-hint';
-  hint.textContent = matchMedia('(pointer: coarse)').matches ? c.words_.hintTouch : c.words_.hintMouse;
+  const tagLayer = (c.tagLayer_ = made('div', 'lk3d-tags'));
+  const hint = (c.hint_ = made(
+    'div',
+    'lk3d-hint',
+    matchMedia('(pointer: coarse)').matches ? c.words_.hintTouch : c.words_.hintMouse,
+  ));
   // the engine's name in the corner of every figure it draws: what drew it, in view with it (a screenshot keeps it)
-  const mark = document.createElement('span');
-  mark.className = 'lk3d-mark';
-  mark.textContent = 'lk3d';
+  const mark = made('span', 'lk3d-mark', 'lk3d');
   // the scale, honestly: a bar that keeps its true length as the view zooms, and/or a note ("not to scale")
   const scale = c.spec_.scale,
-    scaleEl = (c.scaleEl_ = scale ? document.createElement('div') : null);
+    scaleEl = (c.scaleEl_ = scale ? made('div', 'lk3d-scale') : null);
   if (scale && scaleEl) {
-    scaleEl.className = 'lk3d-scale';
     /** @param {string} className @param {string} [textContent] */
-    const span = (className, textContent = '') =>
-      Object.assign(document.createElement('span'), { className, textContent });
+    const span = (className, textContent) => made('span', className, textContent);
     if (scale.bar) scaleEl.append(span('lk3d-bar-line'), span('lk3d-bar-label', scale.bar.label));
     if (scale.note) scaleEl.append(span('lk3d-note', scale.note));
   }
@@ -113,8 +109,7 @@ export function makeDom(c) {
   const models = Object.entries(c.spec_.models || {}),
     whose = c.spec_.author || c.spec_.license;
   if (whose || models.length) {
-    const credit = document.createElement('p');
-    credit.className = 'lk3d-credit';
+    const credit = made('p', 'lk3d-credit');
     // (a link only to a web page: not javascript: or data:, whatever the scene says)
     /** @param {string} text @param {string} [url] */
     const link = (text, url) => {

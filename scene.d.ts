@@ -127,7 +127,7 @@ export interface Scene {
       reason: string;
     }>;
   };
-  /** A shadow under the model (true by default). */
+  /** A shadow under the model (true by default), not drawn while the camera is below it. */
   ground?: boolean;
   /**
    * The cut: a plane, or false to offer none. What lies on the side its normal points to, beyond offset along

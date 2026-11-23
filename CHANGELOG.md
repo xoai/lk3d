@@ -12,7 +12,23 @@ Nothing a page or a scene already does changes.
   hint changes. The hint and the scale each take at most half the stage's width at its foot, so a long note no longer
   covers the hint's last words, and a phone's note is at most 70 % wide at the top. Found by the review of the
   bai-giang lessons, where long notes hid labels on every phone.
-- **The budget** is unchanged: the global script is 72,172 of 72,192 bytes gzipped.
+- **A label that must show still keeps clear of the scale and the hint.** A step's labels, and the label of the part
+  pointed at or chosen, show even where no free place is found; they now take the nearest place clear of the scale and
+  the hint (half a line at a time, down or up), overlapping other labels if they must, instead of their own place under
+  the note or the hint. At 375 px this was so in four bai-giang lessons (seven labels across their steps).
+- **A shorter touch hint, as wide as a phone's stage.** "Drag sideways to turn · tap to turn freely · pinch to zoom"
+  ("Kéo ngang để xoay · chạm để xoay tự do · chụm để phóng to"). On a narrow stage, where the scale moves to the top,
+  the hint is no longer held to half the width: two lines at most instead of five in a lesson's lettering.
+- **The ground is not drawn from below.** With the camera under the ground (or an orthographic view looking up), the
+  ground and its shadow veiled everything in view in grey (a watch's dial seen from under it). They are left out there,
+  and come back as the camera rises above the ground.
+- **The check no longer reports parts that turn together as running into each other.** Two parts that keep their pose
+  to each other through a motion (on one joint, or a joint and its child) are not compared mid-motion, and the rest
+  are compared in the second part's own frame. Parts whose faces met (a jewel setting under a watch's plate) were passed
+  over at the start, by boxes in the scene's axes, and tested mid-turn, where the rounding of the turned pose put some
+  of their points inside: turning a whole watch over reported sixteen such pairs. A watch's check is also twice as fast.
+- **The budget** is unchanged: the global script is 72,178 of 72,192 bytes gzipped (the figure's elements are now made
+  by one helper, for the room the labels and the ground take).
 
 ## 0.7.0 (23 November 2026)
 

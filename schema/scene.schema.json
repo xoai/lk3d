@@ -191,7 +191,7 @@
     },
     "ground": {
       "type": "boolean",
-      "description": "A shadow under the model (true by default)."
+      "description": "A shadow under the model (true by default), not drawn while the camera is below it."
     },
     "section": {
       "description": "The cut: a plane, or false to offer none. What lies on the side its normal points to, beyond offset along it, is cut away; while the model is cut open the reader moves the plane along its normal (dragging the cut face, or the slider) unless it is fixed, and a page may move it (set({ section }))",

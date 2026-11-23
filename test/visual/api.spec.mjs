@@ -2701,3 +2701,84 @@ test("a label's second line: set by the page, as often as it changes, as safe HT
   expect(got.gone).toBe(true);
   expect(got.hacked).toBe(false);
 });
+
+test('seen from below, the ground and its shadow are not drawn: they would veil the model', async ({ page }) => {
+  const got = await page.evaluate(async () => {
+    // the whole picture with the ground and with none (ground: false): how many pixels differ
+    const picture = async (scene, view) => {
+        const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+        await fig.ready;
+        fig.view(view, { ms: 0 });
+        fig.drawNow();
+        const cv = document.querySelector('#g canvas[tabindex]'),
+          gl = cv.getContext('webgl2'),
+          out = new Uint8Array(cv.width * cv.height * 4);
+        gl.readPixels(0, 0, cv.width, cv.height, gl.RGBA, gl.UNSIGNED_BYTE, out);
+        return out;
+      },
+      differ = async (view) => {
+        const scene = { ...window.scene, view },
+          ground = await picture(scene, view),
+          none = await picture({ ...scene, ground: false }, view);
+        let count = 0;
+        for (let k = 0; k < ground.length; k += 4)
+          if (ground[k] !== none[k] || ground[k + 1] !== none[k + 1] || ground[k + 2] !== none[k + 2]) count++;
+        return count;
+      };
+    return {
+      below: await differ({ yaw: 20, pitch: -35 }),
+      // (orthographic, looking up a little from close by: the eye is above the ground, which is still seen from below)
+      ortho: await differ({ yaw: 20, pitch: -3, zoom: 4, projection: 'ortho' }),
+      above: await differ({ yaw: 20, pitch: 35 }), // (from above, the ground still draws the model's shadow)
+    };
+  });
+  expect(got.below).toBe(0);
+  expect(got.ortho).toBe(0);
+  expect(got.above).toBeGreaterThan(100);
+});
+
+test("on a phone, labels the page lists stay clear of the scale's note and the hint, overlapping each other if they must", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 700 });
+  const got = await page.evaluate(async () => {
+    document.getElementById('g').style.width = '375px';
+    // a grid of small named blocks filling the view, every one of them listed: most cannot find a free place
+    const parts = [];
+    for (let row = 0; row < 5; row++)
+      for (let column = 0; column < 5; column++)
+        parts.push({
+          id: `p${row}${column}`,
+          name: `Block ${row}-${column}`,
+          shapes: [{ box: [0.3, 0.3, 0.3] }],
+          at: [(column - 2) * 0.5, (2 - row) * 0.5, 0],
+        });
+    const fig = LK3D.mount(
+      document.getElementById('g'),
+      {
+        view: { yaw: 0, pitch: 0 },
+        check: { float: true },
+        scale: { note: 'Not to scale: the blocks are drawn far larger than they are, to be seen' },
+        parts,
+      },
+      { controls: false, labels: parts.map((part) => part.id) },
+    );
+    await fig.ready;
+    fig.drawNow();
+    await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const stage = document.querySelector('#g .lk3d-stage'),
+      hint = stage.querySelector('.lk3d-hint'),
+      boxes = [stage.querySelector('.lk3d-scale'), hint].map((element) => element.getBoundingClientRect()),
+      tags = [...stage.querySelectorAll('.lk3d-tag')].filter((tag) => tag.style.display !== 'none'),
+      under = tags
+        .filter((tag) => {
+          const r = tag.getBoundingClientRect();
+          return boxes.some((b) => r.left < b.right && b.left < r.right && r.top < b.bottom && b.top < r.bottom);
+        })
+        .map((tag) => tag.textContent);
+    return { shown: tags.length, under, hintShows: !hint.classList.contains('gone') };
+  });
+  expect(got.hintShows).toBe(true);
+  expect(got.shown).toBe(25);
+  expect(got.under).toEqual([]);
+});

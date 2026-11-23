@@ -353,20 +353,30 @@ export function lint(scene, options = {}) {
         if (j === i || (movers.includes(j) && j < i) || allowed(solids[i].part.id, b.part.id)) continue;
         const a = solids[i];
         if (!a.closed && !b.closed) continue;
-        const share = (matrixA, matrixB) => {
-          const [lowA, highA] = boxAt(a, matrixA),
-            [lowB, highB] = boxAt(b, matrixB);
-          if ([0, 1, 2].some((k) => lowA[k] > highB[k] - tolerance || lowB[k] > highA[k] - tolerance)) return 0;
+        // how much of one is inside the other, judged in b's own frame (a placed there by `relative`, b at rest): only
+        // where the two are to each other counts, so two parts that turn together rigidly (on one joint, say) are
+        // judged the same at every angle. (Boxes compared in the scene's axes grow as the pair turns: parts whose faces
+        // meet, passed over at the start, were tested mid-turn, where rounding put some of their points inside.)
+        const share = (relative) => {
+          const [lowA, highA] = boxAt(a, relative);
+          if ([0, 1, 2].some((k) => lowA[k] > b.part.max[k] - tolerance || b.part.min[k] > highA[k] - tolerance))
+            return 0;
           return Math.max(
-            b.closed ? throughMatrices(a, matrixA, b, matrixB, tolerance) : 0,
-            a.closed ? throughMatrices(b, matrixB, a, matrixA, tolerance) : 0,
+            b.closed ? throughMatrices(a, relative, b, REST, tolerance) : 0,
+            a.closed ? throughMatrices(b, REST, a, relative, tolerance) : 0,
           );
         };
-        const atStart = share(restMatrices[i], restMatrices[j]);
+        const relativeAt = (matrixA, matrixB) => M.mul(M.invert(matrixB), matrixA),
+          startRelative = relativeAt(restMatrices[i], restMatrices[j]),
+          atStart = share(startRelative);
         let worst = 0;
         for (let k = 0; k <= steps; k++) {
-          const values = { [motion.id]: start + ((end - start) * k) / steps };
-          worst = Math.max(worst, share(matrixAt(i, values), matrixAt(j, values)));
+          const values = { [motion.id]: start + ((end - start) * k) / steps },
+            relative = relativeAt(matrixAt(i, values), matrixAt(j, values));
+          // (where the pair keeps its pose to each other, nothing has changed since the start: the same, give or take
+          // the rounding of the matrices' 32-bit numbers, which would move points that sit on a face in or out)
+          if (relative.some((value, n) => Math.abs(value - startRelative[n]) > 1e-5 * (1 + Math.abs(value))))
+            worst = Math.max(worst, share(relative));
         }
         if (worst > atStart + 0.03)
           problems.push({

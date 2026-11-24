@@ -71,6 +71,7 @@
     "picture",
     "plume",
     "project",
+    "quietly",
     "ray",
     "ready",
     "redraw",
@@ -92,6 +93,7 @@
     "theme",
     "tick",
     "timeScale",
+    "tour",
     "vessel",
     "view",
     "zoom",
@@ -112,7 +114,7 @@
       "theme",
       "transparent"
     ],
-    "events": ["lk3d-change", "lk3d-error", "lk3d-handle", "lk3d-pick", "lk3d-section", "lk3d-step"]
+    "events": ["lk3d-change", "lk3d-error", "lk3d-handle", "lk3d-pick", "lk3d-section", "lk3d-step", "lk3d-story"]
   },
   "scene": {
     "top": [

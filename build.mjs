@@ -28,10 +28,10 @@ const EXPORTER = path.join(HERE, 'src/export-script.js'),
   MODULE = path.join(HERE, 'src/export.js');
 // lk3d's promise is to stay small: the global script, gzipped, may not grow past this. It was 57 KB until November
 // 2026, then 60, 65 and 67, 68 for 0.4.0 (the figure's state and descriptions) and 70.5 for 0.6.0 (live figures: hits,
-// page drags, turned parts, colour ramps and plane handles; see the CHANGELOG), then 70.9 and 71.1, 71.3, 71.5, 71.7, 71.9, 72.3 for 0.8.0 (the add-on host, the
+// page drags, turned parts, colour ramps and plane handles; see the CHANGELOG), then 70.9 and 71.1, 71.3, 71.5, 71.7, 71.9, 72.3, 72.5 for 0.8.0 (the add-on host, the
 // scene format: measured steps, each to the code's need, to at most 74.5 decided by the user on 2026-11-23); it is
-// frozen at 72.3: a raise needs a written decision in the CHANGELOG. The add-ons have budgets of their own.
-export const BUDGET_KB = 72.3;
+// frozen at 72.5: a raise needs a written decision in the CHANGELOG. The add-ons have budgets of their own.
+export const BUDGET_KB = 72.5;
 export const MODELS_BUDGET_KB = 5,
   EXPORT_BUDGET_KB = 3,
   LIVE_BUDGET_KB = 4,

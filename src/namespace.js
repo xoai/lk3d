@@ -48,7 +48,7 @@ const LK3D = {
   hostNames: (
     'hostVersion M kick renderer add remove upload instances refill part rod unit outlines ramp tone dark taken ' +
     'triangles maxTriangles gone stage words html chosen letGo steps stepAt goToStep view frame cancelView motions ' +
-    'setMotion playMotion stopMotion playing towards locked panel say cleanups rule animate explode state parts spec given woken emit stopped touched'
+    'setMotion playMotion stopMotion playing towards locked panel say cleanups rule animate explode state parts spec given woken emit stopped touched mark calling tours'
   ).split(' '),
   // (for lk3d's own tests and tools, and the models add-on, which takes its matrices from here; not part of the API)
   M,

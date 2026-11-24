@@ -141,6 +141,22 @@ function mount(el, spec, opts = {}) {
     additions_: [],
     cleanups_: [],
   });
+  // lk3d calling the page: every function the page gave (onChange, onPick, onStory, …) and every tick run with calling_
+  // set, so what the page changes from inside them is not page input (a tour does not pause for it)
+  c.quiet_ =
+    (fn) =>
+    (...args) => {
+      const was = c.calling_;
+      c.calling_ = true;
+      try {
+        return fn(...args);
+      } finally {
+        c.calling_ = was;
+      }
+    };
+  c.opts_ = Object.fromEntries(
+    Object.entries(opts).map(([key, value]) => [key, typeof value === 'function' ? c.quiet_(value) : value]),
+  );
   const [webgl, makeBackend] = openGL(c);
   // without WebGL the 2D fallback sorts every triangle on the CPU, so it gets coarser shapes
   // and at most so many triangles: a million where memory is small (a phone's screen, or what the browser says it has),

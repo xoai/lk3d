@@ -43,6 +43,30 @@ export interface SequenceHandle {
   play(o?: { to?: number; back?: boolean; camera?: boolean }): Promise<void>;
   stop(): void;
 }
+/** the tour's options (fig.tour) */
+export interface TourOptions {
+  /** the step it starts at: its place or id (0) */
+  from?: number | string;
+  /** only these steps, in this order: ids or places */
+  steps?: (number | string)[] | null;
+  /** ms at every step; else each step's dwell, else its reading time */
+  dwell?: number | null;
+  loop?: boolean;
+  /** a Play/Pause button in the steps panel (true) */
+  button?: boolean;
+}
+/** the steps played by themselves: each step's glides and plays waited for, then its dwell */
+export interface TourHandle {
+  readonly playing: boolean;
+  /** the step's place */
+  readonly at: number;
+  play(): void;
+  pause(): void;
+  next(): void;
+  back(): void;
+  /** paused and forgotten (the state's tour: null) */
+  stop(): void;
+}
 /** what onStory hears */
 export type StoryEvent =
   | { type: 'step'; index: number; step: Step }
@@ -180,7 +204,7 @@ export interface MountOptions {
    * own start (Next goes to the first) */
   step?: number | string;
   /** the reader went to another step with the panel's Back or Next (not the page's own fig.step) */
-  onStep?: (index: number, step: Step) => void;
+  onStep?: (index: number, step: Step, by: 'reader' | 'page' | 'tour') => void;
   /** a stage of a sequence begun as it plays (the story add-on): the page's own caption for it; the tour's events too */
   onStory?: (event: StoryEvent) => void | Promise<unknown>;
   style?: Look;
@@ -422,7 +446,7 @@ export interface CameraView {
 export type Lockable = 'camera' | 'explode' | 'cut' | 'xray' | 'steps' | 'handles' | 'motions';
 /** who changed the figure: the reader (gestures, the built-in controls, the steps' panel, the handles' inputs), the
  * page (its own calls, fig.step too) or a playing motion */
-export type ChangeCause = 'reader' | 'page' | 'motion';
+export type ChangeCause = 'reader' | 'page' | 'tour' | 'motion';
 /** what the reader can change, as one plain object (JSON): fig.state() gives it, fig.set() takes it (or any part of
  * it), LK3D.encodeState() makes it a link. While something moves (a step, the camera, taking apart, the cut) it holds
  * where that is going */
@@ -444,6 +468,8 @@ export interface FigureState {
   motion: Record<string, number>;
   /** the motions playing, by id */
   playing: string[];
+  /** the tour (the story add-on): null, or whether it plays; set() makes it at the state's step, paused */
+  tour?: { playing: boolean } | null;
   /** handles' values, by their part's id */
   handles: Record<string, HandleValue>;
   joints: Record<string, number>;
@@ -534,6 +560,10 @@ export interface Figure {
   motion(id: string): MotionHandle | undefined;
   /** a sequence (the story add-on, dist/lk3d-story.min.js): a teardown or a build played stage by stage */
   sequence(id: string): SequenceHandle | undefined;
+  /** the steps played by themselves (the story add-on): made on the first call, its options then; false: pause it */
+  tour(options?: TourOptions | false): TourHandle | undefined;
+  /** fn run as lk3d's own callbacks are: what it changes on the figure is not page input (a tour does not pause) */
+  quietly(fn: () => void): void;
   /** a liquid by its part: its volume, its surface's height in the scene; set its volume */
   liquid(
     id: string,
@@ -710,7 +740,8 @@ export interface Lk3dFigureElement extends HTMLElement {
 export interface Lk3dFigureEvents {
   'lk3d-pick': CustomEvent<{ id: string | null }>;
   'lk3d-handle': CustomEvent<{ id: string; value: HandleValue }>;
-  'lk3d-step': CustomEvent<{ index: number; step: Step }>;
+  'lk3d-step': CustomEvent<{ index: number; step: Step; by: 'reader' | 'page' | 'tour' }>;
+  'lk3d-story': CustomEvent<StoryEvent>;
   'lk3d-section': CustomEvent<{ normal: Vec3; offset: number }>;
   'lk3d-error': CustomEvent<{ message: string }>;
   'lk3d-change': CustomEvent<{ state: FigureState; cause: ChangeCause }>;

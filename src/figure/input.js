@@ -229,9 +229,11 @@ export function makeInput(c) {
       { passive: false },
     );
   // (the reader's hand on the figure: the story add-on's camera follow gives way, story.js)
-  const touched = (kind) => c.touched_?.forEach((fn) => fn(kind));
+  const touched = (c.touch_ = (kind) => c.touched_?.forEach((fn) => fn(kind)));
   c.canvas_.addEventListener('pointerdown', (event) => {
-    touched('press');
+    // (a mouse or a pen at once; a touch only as a tap, or once it moves the view: a swipe the browser scrolls with is
+    // not the reader's hand on the figure)
+    if (event.pointerType !== 'touch') touched('press');
     if (pressed != null) return; // (the page holds a gesture: other pointers wait)
     if (!c.locked_('camera')) c.cancelView_(); // the reader takes over from a gliding view (unless the page locked it)
     if (momentum) {
@@ -330,6 +332,7 @@ export function makeInput(c) {
       moved += Math.abs(dx) + Math.abs(dy);
       if (c.locked_('camera')) return; // (locked by the page: the view stays; a tap still chooses a part)
       c.mark_('reader');
+      touched('move');
       if (pointers.size === 2) {
         const [first, second] = [...pointers.values()],
           apart = Math.hypot(first[0] - second[0], first[1] - second[1]);
@@ -451,7 +454,7 @@ export function makeInput(c) {
     velocity = [0, 0, 0];
     drag = null;
   };
-  c.canvas_.addEventListener('pointerup', end);
+  c.canvas_.addEventListener('pointerup', (event) => (event.pointerType === 'touch' && touched('tap'), end(event)));
   c.canvas_.addEventListener('pointercancel', end);
   c.canvas_.addEventListener('pointerleave', () => {
     if (!pointers.size && c.state_.hover) {

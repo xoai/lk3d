@@ -35,13 +35,20 @@ Nothing a page or a scene already does changes.
   quadratic. `{ ms: 600 }` keeps the old timing. A step's camera, taking apart and cut now glide together, over the
   step's `ms`, else the page's `step(i, { ms })`, else the camera's. A step's `focus` frames parts where its motions put
   them (a sequence's stage done), not where they rest.
+- **`onStep` is told every step change, with who made it:** `onStep(index, step, by)`, `by` being `'reader'` (the
+  panel's Back and Next), `'page'` (`fig.step()`) or `'tour'`; `<lk3d-figure>`'s `lk3d-step` event carries `by` too. A
+  page's `fig.step()` was not told before; a settled step, a state set back with `set()` and the step at mount are still
+  not. **`onChange`'s cause gains `'tour'`** (between `'motion'` and `'page'`): a TypeScript switch over `ChangeCause`
+  that is exhaustive must add it. `fig.quietly(fn)` runs the page's own code as lk3d's callbacks are run, so what it
+  changes is not page input (a tour does not pause for it); every function the page gives `mount` and every `fig.tick`
+  is run so.
 - **Add-ons join through `LK3D.use(name, api, needs)`,** which checks the host's names an add-on needs against
   `LK3D.hostNames` (the names every figure lends its add-ons) and refuses, naming them, on a core too old for it: "lk3d-NAME
   needs the host's frame: load lk3d 0.8.0 or later". `<lk3d-figure>` elements refused for want of an add-on are drawn once
   it joins, as they were for the models add-on. `hostVersion` stays 1, and the 0.7.0 live add-on keeps working.
 - **The budget goes from 70.5 KB to 70.9 KB** (72,601 bytes) gzipped, by the user's decision of 2026-11-23 (23
   November 2026): the core may grow to at most 74.5 KB over the two lk3d 0.8.0 and 0.9.0 releases, each raise to the code's
-  measured need, at most 72.9 KB after 0.8.0: 70.9 KB for the add-on host (72,598 bytes), then 71.1 KB (72,806 bytes) for the scene format's sequences, steps' times and the engine's own check of them (72,716 bytes), then 71.3 KB (73,011 bytes) for sequences as motions and the story add-on's hooks (72,996 bytes), then 71.5 KB (73,216 bytes) for paced play and settled steps (73,210 bytes), then 71.7 KB (73,420 bytes) for fading (73,340 bytes), then 71.9 KB (73,625 bytes) for camera glides and the motion-aware box (73,619 bytes), then **72.3 KB** (74,035 bytes) for motions that are alternatives and clips (73,987 bytes).
+  measured need, at most 72.9 KB after 0.8.0: 70.9 KB for the add-on host (72,598 bytes), then 71.1 KB (72,806 bytes) for the scene format's sequences, steps' times and the engine's own check of them (72,716 bytes), then 71.3 KB (73,011 bytes) for sequences as motions and the story add-on's hooks (72,996 bytes), then 71.5 KB (73,216 bytes) for paced play and settled steps (73,210 bytes), then 71.7 KB (73,420 bytes) for fading (73,340 bytes), then 71.9 KB (73,625 bytes) for camera glides and the motion-aware box (73,619 bytes), then 72.3 KB (74,035 bytes) for motions that are alternatives and clips (73,987 bytes), then **72.5 KB** (74,240 bytes) for the reader hook and the page-input pause (74,210 bytes).
 
 ## 0.7.0 (23 November 2026)
 

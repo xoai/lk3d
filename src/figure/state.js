@@ -29,7 +29,7 @@ export function makeState(c) {
     toldAt = 0,
     inside = false,
     later = 0;
-  const RANK = { motion: 0, page: 1, reader: 2 };
+  const RANK = { motion: 0, tour: 1, page: 2, reader: 3 };
   c.mark_ = (cause) => {
     const said = by || cause;
     if (!marked || RANK[said] > RANK[marked]) marked = said;
@@ -39,6 +39,7 @@ export function makeState(c) {
       (...args) => {
         const was = by;
         by = 'reader';
+        c.touch_('reader');
         try {
           c.mark_('reader');
           return fn(...args);
@@ -79,6 +80,7 @@ export function makeState(c) {
         : { yaw: s.yaw / D2R, pitch: s.pitch / D2R, dist: s.dist, target: s.target.slice() },
       motion: { ...s.motion },
       playing: [...c.playing_.keys()],
+      tour: c.tourState_?.() ?? null,
       handles: Object.fromEntries(c.handles_.map((grip) => [grip.part.id, copy(grip.value)])),
       joints: { ...s.joints },
       selected: s.selected ?? null,
@@ -106,6 +108,7 @@ export function makeState(c) {
       else c.goToStep_(step, { ms: 0 });
     }
     rest();
+    if (changes.tour !== undefined) c.tourSet_?.(changes.tour); // (a tour made paused at the state's step: story.js)
     // (each through the API's own: fig.handle(id).set, fig.motion(id).play, fig.liquid(id).set…)
     const api = c.api_,
       each = (list, fn) => list && Object.entries(list).forEach(([id, value]) => fn(id, value));

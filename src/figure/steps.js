@@ -81,8 +81,7 @@ export function makeSteps(c, buttonClass) {
         c.asReader_(() => {
           const to = c.stepAt_ + by;
           if (to < 0 || to >= steps.length || c.locked_('steps')) return; // (locked: seen, and inert)
-          c.goToStep_(to);
-          if (c.opts_.onStep) c.opts_.onStep(to, steps[to]);
+          c.goToStep_(to, { by: 'reader' });
         }),
       );
       nav.append(button);
@@ -172,5 +171,7 @@ export function makeSteps(c, buttonClass) {
       c.syncSteps_();
     }
     c.kick_();
+    // (told who moved: the reader's panel, the page's step(), the tour; not a settled step, a state restored, the mount)
+    if (options.by && !settled) c.opts_.onStep?.(index, step, options.by);
   };
 }

@@ -254,6 +254,15 @@ export interface Ctx {
   woken_?: Set<() => void>;
   /** the story add-on, told when a motion is stopped by anyone (a sequence's paced play ends) */
   stopped_?: (motion: any) => void;
+  /** lk3d calling the page now (an option's callback, a tick, quietly): what the page changes is not page input */
+  calling_?: boolean;
+  /** fn run with calling_ set */
+  quiet_(fn: (...args: any[]) => any): (...args: any[]) => any;
+  /** input told: the reader's hand ('press', 'tap', 'move', 'key', 'wheel', 'reader') or the page's call ('page') */
+  touch_(kind: string): void;
+  /** the story add-on's tour in the state: read, and set (a state's tour: null, or { playing }) */
+  tourState_?: () => { playing: boolean } | null;
+  tourSet_?: (tour: { playing: boolean } | null) => void;
   /** the reader's hand on the figure (a press, a key, the wheel): the story add-on's camera follow gives way */
   touched_?: Set<(kind: string) => void>;
   /** the motions a set() is giving, while it gives them (the rules read it) */
@@ -411,7 +420,7 @@ export interface Ctx {
   /** the steps' panel under the stage, or null (steps: false, controls: false) */
   panel_?: HTMLElement | null;
   /** go to a step by its place (from 0) or id; ms: 0 sets it at once */
-  goToStep_(which: number | string, o?: { ms?: number; settled?: boolean }): void;
+  goToStep_(which: number | string, o?: { ms?: number; settled?: boolean; by?: 'reader' | 'page' | 'tour' }): void;
 }
 
 declare global {

@@ -393,5 +393,8 @@ export function makeAdditions(c) {
     emit: (event) => c.opts_.onStory?.(event),
     stopped: (fn) => (c.stopped_ = fn),
     touched: (fn) => (c.touched_ ||= new Set()).add(fn),
+    mark: (cause) => c.mark_(cause),
+    calling: () => !!c.calling_,
+    tours: (get, set) => ((c.tourState_ = get), (c.tourSet_ = set)),
   };
 }

@@ -1684,14 +1684,17 @@ const STEPS = () => {
   });
 };
 
-test("guided steps: the first at mount; Back and Next said aloud; the page's step() quiet; what a step leaves out goes back to the start", async ({
+test('guided steps: the first at mount; Back and Next said aloud; onStep told who moved; what a step leaves out goes back to the start', async ({
   page,
 }) => {
   await page.evaluate(STEPS);
   const r = await page.evaluate(async () => {
     const calls = [],
       el = document.getElementById('g'),
-      fig = LK3D.mount(el, window.stepsScene(), { adaptive: false, onStep: (i, step) => calls.push([i, step.id]) });
+      fig = LK3D.mount(el, window.stepsScene(), {
+        adaptive: false,
+        onStep: (i, step, by) => calls.push([i, step.id, by]),
+      });
     await fig.ready;
     const words = el.querySelector('.lk3d-step'),
       [back, next] = el.querySelectorAll('.lk3d-step-nav button'),
@@ -1744,17 +1747,19 @@ test("guided steps: the first at mount; Back and Next said aloud; the page's ste
   expect(r.img).toBe(false); // (a step's words keep only simple formatting)
   expect(r.ran).toBe(false);
   expect(r.live).toBe('polite');
-  expect(r.callsAfterNext).toEqual([[1, 'two']]);
+  expect(r.callsAfterNext).toEqual([[1, 'two', 'reader']]);
   expect(r.two).toMatchObject({ step: 1, explode: 1, cut: true, xray: true, labels: ['knob'], selected: 'knob' });
   expect(r.two).toMatchObject({ lidHidden: true, lift: 1, pitch: 83, back: 'false', cutPressed: 'true' });
   expect(r.two.words).toContain('Step 2 of 3');
-  // (by the page: onStep not called; everything the third step leaves out back at the figure's start)
+  // (by the page: onStep told so, as lk3d 0.8.0 tells every step change; everything the third step leaves out back at
+  // the figure's start)
   expect(r.three).toMatchObject({ step: 2, explode: 0, cut: false, xray: false, labels: 'auto', selected: null });
   expect(r.three).toMatchObject({ lidHidden: false, lift: 0, pitch: 15, next: 'true', cutPressed: 'false' });
-  expect(r.pastEnd).toEqual([2, 1]);
+  expect(r.pastEnd).toEqual([2, 2]);
   expect(r.callsAfterBack).toEqual([
-    [1, 'two'],
-    [1, 'two'],
+    [1, 'two', 'reader'],
+    [2, 'three', 'page'],
+    [1, 'two', 'reader'],
   ]);
 });
 
@@ -2006,7 +2011,11 @@ test("<lk3d-figure>: a scene from a JSON script inside or from src; attributes s
     const slider = element.querySelector('input[aria-label="Move the cut through the model"]');
     slider.value = '0.3';
     slider.dispatchEvent(new Event('input'));
-    out.events = events.map(([type, detail]) => [type, type === 'step' ? detail.index : typeof detail.offset]);
+    // (lk3d 0.8.0 tells every step change, with who made it: the step attribute's are the page's, Next the reader's)
+    out.events = events.map(([type, detail]) => [
+      type,
+      type === 'step' ? [detail.index, detail.by] : typeof detail.offset,
+    ]);
     // taken out of the page: the figure goes with it
     element.remove();
     out.destroyed = !element.figure && !element.querySelector('canvas');
@@ -2025,10 +2034,11 @@ test("<lk3d-figure>: a scene from a JSON script inside or from src; attributes s
   expect(r).toMatchObject({ same: true, atStep: 1, words: 'Bước 2/3', info: true, display: 'block' });
   expect(r.live).toEqual(['ink', 'all', 0, true]);
   expect(r.remounted).toBe('Step 1 of 3');
-  expect(r.events).toEqual([
-    ['step', 1],
+  expect(r.events.filter(([type, d]) => type !== 'step' || d[1] === 'reader')).toEqual([
+    ['step', [1, 'reader']],
     ['section', 'number'],
   ]);
+  expect(r.events.filter(([type, d]) => type === 'step' && d[1] === 'page').length).toBeGreaterThan(0);
   expect(r.destroyed).toBe(true);
   expect(r.src).toBe(true);
   expect(r.error).toEqual([true, 1]);
@@ -3126,4 +3136,27 @@ test('motions of a group: one row of toggles, one slider, one playing at a time;
   expect(got.one).toEqual([false, true]);
   expect(got.upBack).toBe(0);
   expect(got.out).toEqual([0, false]);
+});
+
+test('onStep is told who moved: the panel (reader), the page, never a settled step, a state set back or the mount', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    const told = [];
+    window.scene.steps = [{ title: 'One' }, { title: 'Two' }, { title: 'Three' }];
+    const fig = LK3D.mount(document.getElementById('g'), window.scene, { onStep: (i, step, by) => told.push([i, by]) });
+    await fig.ready;
+    document.querySelectorAll('.lk3d-step-nav button')[1].click();
+    fig.step(2);
+    fig.step(0, { ms: 0, settled: true });
+    fig.set({ step: 1 });
+    let quiet = false;
+    fig.quietly(() => (quiet = true));
+    return { told, quiet };
+  });
+  expect(got.told).toEqual([
+    [1, 'reader'],
+    [2, 'page'],
+  ]);
+  expect(got.quiet).toBe(true);
 });

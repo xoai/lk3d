@@ -12,10 +12,12 @@ import LK3D from '../namespace.js';
 /** @param {import('./context').Ctx} c */
 export function makeApi(c) {
   // (a change the page makes: onChange is told it was the page's)
+  // the page's call: told as the page's change, and as page input (a tour pauses) unless lk3d is calling the page now
   const byPage =
     (fn) =>
     (...args) => {
       c.mark_('page');
+      if (!c.calling_) c.touch_('page');
       return fn(...args);
     };
   const live = (kind, options) => {
@@ -150,6 +152,7 @@ export function makeApi(c) {
     _state: c.state_, // the engine's own state: not an API, it may change
     set(changes) {
       c.mark_('page');
+      if (!c.calling_) c.touch_('page');
       // (what set() gives, while it gives it: the story add-on's rules read it, and a play it restores follows no camera)
       c.given_ = changes.motion || {};
       try {
@@ -164,10 +167,15 @@ export function makeApi(c) {
     stream: c.addStream_,
     lines: c.addLines_,
     tick(animation) {
-      c.animations_.add(animation);
+      const each = c.quiet_(animation); // (lk3d calling the page: what it sets there is no page input)
+      c.animations_.add(each);
       c.kick_();
-      return () => c.animations_.delete(animation);
+      return () => c.animations_.delete(each);
     }, // animation(now) returns true while it keeps moving
+    // the page's own code run as lk3d's callbacks are: what it changes does not pause a tour
+    quietly: (fn) => c.quiet_(fn)(),
+    // the steps played by themselves (the story add-on): fig.tour(options), fig.tour(false) pauses it
+    tour: (options) => LK3D.story?.tour(c.lent_, options),
     pick: c.pickAt_,
     // surfaces and arrows: the live add-on's (dist/lk3d-live.min.js, or the ES module), given what the core lends it
     surface: (options) => live('surface', options),
@@ -378,7 +386,7 @@ export function makeApi(c) {
     // the scene's guided steps: go to one by its place (from 0) or id ({ ms: 0 }: at once), and which is shown (-1:
     // none). The figure starts at the first (or mount's opts.step); moving through them does not call onStep
     steps: c.spec_.steps || [],
-    step: byPage((which, options) => c.goToStep_(which, options)),
+    step: byPage((which, options) => c.goToStep_(which, { ...options, by: 'page' })),
     get currentStep() {
       return c.stepAt_;
     },

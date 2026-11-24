@@ -119,8 +119,9 @@ export function defineElement(mount, decode) {
           info,
           onPick: (/** @type {any} */ part) => this.say('pick', { id: part ? part.id : null }),
           onHandle: (/** @type {string} */ id, /** @type {number} */ value) => this.say('handle', { id, value }),
-          onStep: (/** @type {number} */ index, /** @type {any} */ stepShown) =>
-            this.say('step', { index, step: stepShown }),
+          onStep: (/** @type {number} */ index, /** @type {any} */ stepShown, /** @type {string} */ by) =>
+            this.say('step', { index, step: stepShown, by }),
+          onStory: (/** @type {any} */ event) => this.say('story', event),
           onSection: (/** @type {any} */ section) => this.say('section', section),
           onChange: (/** @type {any} */ state, /** @type {string} */ cause) => this.say('change', { state, cause }),
           lock: words(attribute('lock')),

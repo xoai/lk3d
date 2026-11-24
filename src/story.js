@@ -29,6 +29,11 @@ const startOf = (/** @type {any} */ motion) => motion.value ?? motion.range[0];
  * first), unless the same set() gives the sequence too
  * @param {any} host */
 export function join(host) {
+  // (a state's tour: null, or { playing }; set() makes one at the state's step, always paused: a link never plays it)
+  host.tours(
+    () => (host.tour ? { playing: host.tour.playing } : null),
+    (/** @type {any} */ given) => (given ? tour(host).settle() : host.tour?.stop()),
+  );
   const motions = host.motions(),
     state = host.state(),
     sequences = motions.filter((/** @type {any} */ motion) => motion.stages);
@@ -169,6 +174,7 @@ function player(host, motion) {
     },
     stop: () => (run && host.stopMotion(motion), end()),
     ended: () => end(),
+    whenDone: () => (run ? run.promise : Promise.resolve()),
     letGo: () => run && (run.follow = false),
     /** @param {{ to?: number, back?: boolean, camera?: boolean }} [o] */
     play(o = {}) {
@@ -202,7 +208,7 @@ function player(host, motion) {
       run = mine;
       host.playing().set(id, noop);
       let time = core.clock.now();
-      const promise = new Promise((resolve) => (mine.resolve = resolve));
+      const promise = (mine.promise = new Promise((resolve) => (mine.resolve = resolve)));
       // a stage's part at a time: moving (an animation, unless motion is reduced), then its hold (a wait on the clock)
       const next = () => {
         if (run !== mine) return;
@@ -255,11 +261,17 @@ function player(host, motion) {
 // said as it plays, on its slider, and in the figure in words (D)
 export const WORDS = {
   en: {
+    tour: 'Play the steps',
+    tourEnd: 'End of the steps',
+    readMs: '60', // (a character's reading time, ms: how long a tour stays at a step no dwell gives)
     stageOf: 'Stage {n} of {count}: {title}',
     stageText: '{n} of {count}: {title}',
     saidStage: '{name}: stage {n} of {count}, {title}.',
   },
   vi: {
+    tour: 'Tự chạy các bước',
+    tourEnd: 'Hết các bước',
+    readMs: '60', // (a character's reading time, ms: how long a tour stays at a step no dwell gives)
     stageOf: 'Giai đoạn {n}/{count}: {title}',
     stageText: '{n}/{count}: {title}',
     saidStage: '{name}: giai đoạn {n}/{count}, {title}.',
@@ -309,7 +321,12 @@ function follow(
 
 // a stage begun: the page hears it (onStory), and a stage with a title is said (at most once a second, as say_ does)
 function said(/** @type {any} */ host, /** @type {any} */ motion, /** @type {number} */ k, /** @type {any} */ stage) {
-  host.emit({ type: 'stage', sequence: motion.id, stage: k, of: motion.range[1], title: stage.title });
+  // (a page's onStory that throws is logged, once a figure; the play goes on)
+  try {
+    host.emit({ type: 'stage', sequence: motion.id, stage: k, of: motion.range[1], title: stage.title });
+  } catch (error) {
+    if (!host.warned) ((host.warned = true), console.error('lk3d: onStory:', error));
+  }
   if (stage.title)
     host.say(
       host.words.stageOf
@@ -318,6 +335,9 @@ function said(/** @type {any} */ host, /** @type {any} */ motion, /** @type {num
         .replace('{title}', stage.title),
     );
 }
+
+// a page's call on a sequence: page input, pausing a tour, unless lk3d is calling the page (a tick, a callback)
+const page = (/** @type {any} */ host) => host.calling() || host.tour?.pause('page');
 
 /** fig.sequence(id): a sequence's handle, over the motion it is expanded into
  * @param {any} host the figure's host @param {any} motion the sequence's motion (expand's) */
@@ -336,11 +356,196 @@ export function sequence(host, motion) {
     get playing() {
       return paced.playing;
     },
-    set: (/** @type {number} */ v) => (paced.stop(), host.setMotion(motion, v)),
-    play: (/** @type {any} */ o) => paced.play(o),
-    stop: () => paced.stop(),
+    set: (/** @type {number} */ v) => (page(host), paced.stop(), host.setMotion(motion, v)),
+    play: (/** @type {any} */ o) => (page(host), paced.play(o)),
+    stop: () => (page(host), paced.stop()),
   };
 }
 
+// ---- the tour: the steps played by themselves. Each step: gone to; its glides waited for, and each motion it plays
+// that ends (a sequence, a motion played once), and the promise its onStory gave; then its dwell (a wait on the
+// clock); then the next. It pauses on the reader's hand, on the page's own input (not inside lk3d's callbacks), when
+// the tab hides or the figure stays out of view for a second; Play goes on from where it was
+/** fig.tour(options): the figure's tour, made on its first call; fig.tour(false) pauses it
+ * @param {any} host @param {any} [options] */
+export function tour(host, options) {
+  if (options === false) return (host.tour?.pause('page'), host.tour);
+  if (host.tour) return host.tour;
+  const o = options || {},
+    core = story.core,
+    all = host.steps(),
+    order = (o.steps || all.map((/** @type {any} */ _, /** @type {number} */ k) => k))
+      .map(place)
+      .filter((/** @type {number} */ k) => k >= 0),
+    words = host.words;
+  /** @param {any} which a step's place or id */
+  function place(which) {
+    return typeof which === 'string' ? all.findIndex((/** @type {any} */ step) => step.id === which) : +which;
+  }
+  let at = Math.max(0, order.indexOf(place(o.from ?? order[0]))),
+    playing = false,
+    run = 0, // (each play counted: a wait of an earlier one does nothing)
+    cancel = () => {},
+    held = /** @type {any[]} */ ([]), // (what the step played, stopped by a pause: played again on Play)
+    pausedAt = -1;
+  // (the Play/Pause button, between Back and Next)
+  /** @type {HTMLButtonElement | null} */
+  let button = null;
+  const nav = host.panel()?.querySelector('.lk3d-step-nav');
+  if (nav && o.button !== false) {
+    button = document.createElement('button');
+    button.type = 'button';
+    button.className = nav.firstChild?.className || '';
+    button.textContent = words.tour;
+    button.setAttribute('aria-pressed', 'false');
+    button.addEventListener('click', () => host.locked('steps') || (playing ? self.pause() : self.play()));
+    nav.insertBefore(button, nav.lastChild);
+  }
+  const show = () => button?.setAttribute('aria-pressed', String(playing));
+  const tell = (/** @type {any} */ event) => {
+    try {
+      return Promise.resolve(host.emit(event)).catch(fail);
+    } catch (error) {
+      return fail(error);
+    }
+  };
+  function fail(/** @type {any} */ error) {
+    if (!host.warned) ((host.warned = true), console.error('lk3d: onStory:', error));
+  }
+  const step = () => all[order[at]];
+  // one step of the tour: gone to (unless resuming), waited on, dwelt on
+  const go = (/** @type {boolean} */ resume) => {
+    const mine = ++run;
+    // (the step told first, then gone to: what it plays begins after it)
+    const told = resume ? Promise.resolve() : tell({ type: 'step', index: order[at], step: step() });
+    if (!resume) {
+      host.goToStep(order[at], { by: 'tour' });
+      host.mark('tour');
+    } else
+      for (const motion of held.splice(0))
+        host.motions().includes(motion) &&
+          (motion.stages ? player(host, motion).play({ camera: false }) : host.playMotion(motion));
+    // (the step's glides, and what it plays that ends: a frame-by-frame check while things move, a sequence's own end)
+    const still = new Promise((done) => {
+      const check = () => {
+        if (mine !== run) return false;
+        const t = host.towards(),
+          moving = t.camera || t.explode != null || t.cut != null,
+          busy = [...host.playing().keys()]
+            .map((id) => host.motions().find((/** @type {any} */ m) => m.id === id))
+            .filter((/** @type {any} */ m) => m && !m.loop);
+        if (moving || busy.some((/** @type {any} */ m) => !m.stages)) return true;
+        const sequence = busy.find((/** @type {any} */ m) => m.stages);
+        if (sequence)
+          return (
+            player(host, sequence)
+              .whenDone()
+              .then(() => mine === run && host.animate(check)),
+            false
+          );
+        done(undefined);
+        return false;
+      };
+      if (check()) host.animate(check);
+    });
+    Promise.all([still, told]).then(() => {
+      if (mine !== run) return;
+      const s = step(),
+        text = `${s.title || ''}${s.text || ''}`.replace(/<[^>]*>/g, ''),
+        dwell = o.dwell ?? s.dwell ?? Math.min(15000, Math.max(3000, (+words.readMs || 60) * text.length));
+      cancel = waitUntil(host, core.clock.now() + dwell, () => {
+        if (mine !== run) return;
+        if (at + 1 < order.length || o.loop) {
+          at = (at + 1) % order.length;
+          go(false);
+        } else {
+          playing = false;
+          show();
+          host.mark('tour');
+          tell({ type: 'end' });
+          host.say(words.tourEnd);
+        }
+      });
+    });
+  };
+  // a pause: the camera's glide cancelled, what the step plays stopped (to be played again), waits and promises dropped
+  const halt = (/** @type {string | null} */ by) => {
+    if (!playing) return;
+    playing = false;
+    pausedAt = at;
+    run++;
+    cancel();
+    host.cancelView();
+    held = [];
+    for (const id of [...host.playing().keys()]) {
+      const motion = host.motions().find((/** @type {any} */ m) => m.id === id);
+      if (motion && (all[order[at]].play || []).includes(id)) (held.push(motion), host.stopMotion(motion));
+    }
+    show();
+    if (by) tell({ type: 'pause', by });
+  };
+  const self = {
+    get playing() {
+      return playing;
+    },
+    get at() {
+      return order[at];
+    },
+    play() {
+      if (playing) return;
+      // (from the step the figure shows, if it is one of the tour's: played on where it stood when paused there)
+      const shown = order.indexOf(host.stepAt()),
+        resume = shown === at && pausedAt === at;
+      if (shown >= 0) at = shown;
+      playing = true;
+      show();
+      go(resume);
+    },
+    pause: (/** @type {string} */ by = 'page') => halt(by),
+    next: () => move(1),
+    back: () => move(-1),
+    stop() {
+      halt(null);
+      host.tour = null;
+      button?.remove();
+    },
+    // (made or set back from a state: paused, at the figure's step)
+    settle() {
+      halt(null);
+      at = Math.max(0, order.indexOf(host.stepAt()));
+      return self;
+    },
+  };
+  // Back and Next of the tour's own: one step, then paused
+  const move = (/** @type {number} */ by) => {
+    halt('page');
+    at = Math.max(0, Math.min(order.length - 1, at + by));
+    host.goToStep(order[at], { by: 'tour' });
+  };
+  host.tour = self;
+  // the reader's hand and the page's input pause it; out of view, hidden, destroyed
+  host.touched((/** @type {string} */ kind) => halt(kind === 'page' ? 'page' : 'reader'));
+  const hidden = () => document.hidden && halt('hidden');
+  document.addEventListener('visibilitychange', hidden);
+  let away = 0;
+  const watcher =
+    typeof IntersectionObserver !== 'undefined' &&
+    new IntersectionObserver(
+      ([entry]) => {
+        clearTimeout(away);
+        if (entry.intersectionRatio < 0.2) away = setTimeout(() => halt('hidden'), 1000);
+      },
+      { threshold: [0, 0.2] },
+    );
+  if (watcher) watcher.observe(host.stage);
+  host.cleanups(() => {
+    halt(null);
+    document.removeEventListener('visibilitychange', hidden);
+    if (watcher) watcher.disconnect();
+    clearTimeout(away);
+  });
+  return self;
+}
+
 /** @type {any} (core: the LK3D it joined, set by its entry script) */
-export const story = { expand, pacing, sequence, join, words, core: null };
+export const story = { expand, pacing, sequence, join, words, tour, core: null };

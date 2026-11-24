@@ -1,21 +1,21 @@
 # Size
 
-What each source file adds to the global script, `dist/lk3d.min.js`: 186.2 KB minified and 72.5 KB
-gzipped, against a budget of 72.5 KB (frozen: see [performance](performance.md#size)). Made by
+What each source file adds to the global script, `dist/lk3d.min.js`: 186.4 KB minified and 72.6 KB
+gzipped, against a budget of 72.6 KB (frozen: see [performance](performance.md#size)). Made by
 `node build.mjs --size --table`. The minified bytes are exact; the gzipped share is an estimate (gzip compresses the
 whole script, not each file): the file's share of the minified bytes, of the gzipped total.
 
 | File | Minified | Gzipped (estimate) | Share |
 | ---- | -------: | -----------------: | ----: |
-| `src/renderer-gl.js` | 33.3 KB | 12.9 KB | 17.9 % |
+| `src/renderer-gl.js` | 33.3 KB | 13.0 KB | 17.8 % |
 | `src/shaders.js` | 19.3 KB | 7.5 KB | 10.4 % |
 | `src/geometry.js` | 16.7 KB | 6.5 KB | 9.0 % |
 | `src/science.js` | 10.1 KB | 3.9 KB | 5.4 % |
-| `src/figure/input.js` | 9.3 KB | 3.6 KB | 5.0 % |
-| `src/stylesheet.js` | 6.0 KB | 2.3 KB | 3.2 % |
+| `src/figure/input.js` | 9.4 KB | 3.7 KB | 5.0 % |
+| `src/stylesheet.js` | 6.1 KB | 2.4 KB | 3.3 % |
 | `src/figure/api.js` | 6.0 KB | 2.3 KB | 3.2 % |
 | `src/figure/additions.js` | 5.2 KB | 2.0 KB | 2.8 % |
-| `src/figure/camera.js` | 5.1 KB | 2.0 KB | 2.8 % |
+| `src/figure/camera.js` | 5.1 KB | 2.0 KB | 2.7 % |
 | `src/figure/loop.js` | 4.9 KB | 1.9 KB | 2.6 % |
 | `src/figure/labels.js` | 4.0 KB | 1.6 KB | 2.1 % |
 | `src/flow.js` | 3.7 KB | 1.4 KB | 2.0 % |
@@ -27,7 +27,7 @@ whole script, not each file): the file's share of the minified bytes, of the gzi
 | `src/figure/dom.js` | 2.9 KB | 1.1 KB | 1.5 % |
 | `src/figure/steps.js` | 2.9 KB | 1.1 KB | 1.5 % |
 | `src/core.js` | 2.7 KB | 1.1 KB | 1.5 % |
-| `src/bvh.js` | 2.7 KB | 1.1 KB | 1.5 % |
+| `src/bvh.js` | 2.7 KB | 1.1 KB | 1.4 % |
 | `src/figure/dimensions.js` | 2.6 KB | 1.0 KB | 1.4 % |
 | `src/figure/state.js` | 2.4 KB | 0.9 KB | 1.3 % |
 | `src/stream.js` | 2.4 KB | 0.9 KB | 1.3 % |

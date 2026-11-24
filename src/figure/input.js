@@ -54,6 +54,7 @@ export function makeInput(c) {
   /** @type {{ pan: boolean } | null} */
   let drag = null, // ({ pan }: a drag that turns the view, or pans it)
     active = false,
+    wasActive = false,
     lastHover = 0,
     moved = 0,
     pinch = 0, // (the fingers' distance apart, last move)
@@ -234,6 +235,7 @@ export function makeInput(c) {
     // (a mouse or a pen at once; a touch only as a tap, or once it moves the view: a swipe the browser scrolls with is
     // not the reader's hand on the figure)
     if (event.pointerType !== 'touch') touched('press');
+    wasActive = active; // (a touch's move counts only on a figure already taken hold of: not the start of a scroll)
     if (pressed != null) return; // (the page holds a gesture: other pointers wait)
     if (!c.locked_('camera')) c.cancelView_(); // the reader takes over from a gliding view (unless the page locked it)
     if (momentum) {
@@ -332,7 +334,7 @@ export function makeInput(c) {
       moved += Math.abs(dx) + Math.abs(dy);
       if (c.locked_('camera')) return; // (locked by the page: the view stays; a tap still chooses a part)
       c.mark_('reader');
-      touched('move');
+      if (wasActive || event.pointerType !== 'touch') touched('move');
       if (pointers.size === 2) {
         const [first, second] = [...pointers.values()],
           apart = Math.hypot(first[0] - second[0], first[1] - second[1]);
@@ -550,6 +552,7 @@ export function makeInput(c) {
         range.addEventListener('input', () => {
           // (locked by the page: the input goes back to where the handle is)
           if (c.locked_('handles')) return void (range.value = String(of(grip, axis)));
+          touched('reader');
           const v = +range.value;
           c.setHandle_(
             grip,

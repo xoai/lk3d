@@ -3160,3 +3160,48 @@ test('onStep is told who moved: the panel (reader), the page, never a settled st
   ]);
   expect(got.quiet).toBe(true);
 });
+
+test('the tour plays the steps by themselves, waits for what each plays, pauses on a press, and a state restores it paused', async ({
+  page,
+}) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(async (scene) => {
+    const told = [];
+    scene.steps = [
+      { id: 'whole', title: 'Whole', view: 'home' },
+      { id: 'apart', title: 'Apart', play: ['apart'] },
+      { id: 'end', title: 'End' },
+    ];
+    const fig = LK3D.mount(document.getElementById('g'), scene, {
+        onStory: (e) => told.push(e.type === 'stage' ? 'stage' : e.type),
+      }),
+      frame = () => new Promise((res) => requestAnimationFrame(res)),
+      run = async (ms) => {
+        for (let t = 0; t < ms; t += 50) (LK3D.clock.step(50), await frame());
+      };
+    await fig.ready;
+    LK3D.clock.speed = 0;
+    const tour = fig.tour({ dwell: 500 });
+    const button = document.querySelector('#g .lk3d-step-nav button[aria-pressed]');
+    tour.play();
+    await run(8000);
+    const ended = [tour.playing, tour.at, told.slice()];
+    tour.play();
+    await run(200);
+    document
+      .querySelector('#g canvas[tabindex]')
+      .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+    const paused = [tour.playing, told.at(-1)];
+    tour.play();
+    const state = fig.state();
+    tour.stop();
+    fig.set(state);
+    LK3D.clock.speed = 1;
+    return { button: !!button, ended, paused, state: state.tour, restored: fig.state().tour };
+  }, teardownScene());
+  expect(got.button).toBe(true);
+  expect(got.ended).toEqual([false, 2, ['step', 'step', 'stage', 'stage', 'step', 'end']]);
+  expect(got.paused).toEqual([false, 'pause']);
+  expect(got.state).toEqual({ playing: true });
+  expect(got.restored).toEqual({ playing: false });
+});

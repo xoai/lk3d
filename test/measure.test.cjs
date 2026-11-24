@@ -189,6 +189,49 @@ test('a part posed by a motion: at rest (its start) and at a step that takes the
   assert.equal(r.values.second, r.values.apart);
 });
 
+test("a distance along an axis is the points' distance projected on it, with the same error", () => {
+  const s = scene('molecules.json'),
+    [o, h] = s.parts.find((part) => part.id === 'h2o').shapes[0].molecule.atoms.map((atom) => atom.at),
+    bond = ['h2o.atom[0]', 'h2o.atom[1]'];
+  const r = measure(s, {
+    straight: { distance: bond },
+    x: { distance: bond, along: 'x' },
+    y: { distance: bond, along: 'y' },
+    z: { distance: bond, along: 'z' },
+    box: { distance: ['h2o', 'co2'] },
+    boxX: { distance: ['h2o', 'co2'], along: 'x' },
+  });
+  ok(r);
+  for (const [k, axis] of [
+    ['x', 0],
+    ['y', 1],
+    ['z', 2],
+  ]) {
+    within(r, k, Math.abs(o[axis] - h[axis]));
+    assert.equal(r.error[k], r.error.straight);
+  }
+  assert.ok(Math.abs(Math.hypot(r.values.x, r.values.y, r.values.z) - r.values.straight) < 1e-9);
+  assert.ok(r.values.boxX <= r.values.box + 1e-9);
+  assert.equal(r.error.boxX, r.error.box);
+});
+
+test('a distance along anything but x, y or z is refused at its name', () => {
+  const s = scene('molecules.json'),
+    bond = ['h2o.atom[0]', 'h2o.atom[1]'];
+  const r = measure(s, {
+    good: { distance: bond, along: 'y' },
+    w: { distance: bond, along: 'w' },
+    xy: { distance: bond, along: 'xy' },
+    empty: { distance: bond, along: '' },
+    number: { distance: bond, along: 0 },
+    none: { distance: bond, along: null },
+  });
+  assert.ok(Number.isFinite(r.values.good));
+  const said = Object.fromEntries(r.problems.map((p) => [p.path, p.message]));
+  for (const name of ['w', 'xy', 'empty', 'number', 'none'])
+    assert.equal(said[name], 'distance.along: x, y or z', name);
+});
+
 test('what does not exist, or is not a measure, is reported at its name; the others are still measured', () => {
   const s = scene('molecules.json');
   const r = measure(s, {

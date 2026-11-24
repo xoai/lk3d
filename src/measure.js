@@ -5,9 +5,9 @@
 //   measure(scene, { name: { angle: ['h2o.atom[1]', 'h2o.atom[0]', 'h2o.atom[2]'] }, … })
 //     → { values: { name: 104.48 }, error: { name: 0 }, problems: [{ path: 'name', message }] }
 //   node src/measure.js < {"scene": …, "measures": …}     one JSON line, the same; exit code 1 if there are problems
-// Kinds: size (one part's extent along an axis; half: a radius), distance (two points), gap (the nearest distance between
-// two parts' surfaces), angle (at the middle of three points, in degrees), count (pieces drawn, or {parts: […]}), read
-// (a number in the scene's data, by its path), sum (other measures added, "-id" subtracting one). A point is "id" (the
+// Kinds: size (one part's extent along an axis; half: a radius), distance (two points; along: x, y or z, projected on
+// that axis of the scene), gap (the nearest distance between two parts' surfaces), angle (at the middle of three points,
+// in degrees), count (pieces drawn, or {parts: […]}), read (a number in the scene's data, by its path), sum (other measures added, "-id" subtracting one). A point is "id" (the
 // centre of a part's box), "id.label", "id.atom[k]" or "id.shapes[j].atom[k]" (from 0), or [x, y, z]. At rest (the pose
 // lk3d check tests: motions at their start, joints solved) or at a guided step (step: its id or its number from 1).
 // Error: how far a value may be from the shapes the scene describes. A mesh only approaches a round surface, so what is
@@ -308,7 +308,10 @@ export function measure(scene, measures) {
     } else if ('distance' in spec) {
       if (!Array.isArray(spec.distance) || spec.distance.length !== 2) refuse('distance: two points');
       const [[p, ep], [q, eq]] = spec.distance.map((token) => point(token, pose));
-      [value, e, kind] = [len(sub(p, q)), ep + eq, 'length'];
+      // along: the distance projected on one of the scene's axes (|p[a] - q[a]|)
+      const along = 'along' in spec ? ['x', 'y', 'z'].indexOf(spec.along) : -1;
+      if ('along' in spec && along < 0) refuse('distance.along: x, y or z');
+      [value, e, kind] = [along < 0 ? len(sub(p, q)) : Math.abs(p[along] - q[along]), ep + eq, 'length'];
     } else if ('gap' in spec) {
       if (!Array.isArray(spec.gap) || spec.gap.length !== 2) refuse('gap: two parts');
       [value, e] = gapBetween(onePart(spec.gap[0]), onePart(spec.gap[1]), pose);

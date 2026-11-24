@@ -13,8 +13,8 @@ export interface Pose {
 export type Measure =
   /** one part's extent along an axis (half: a radius) */
   | ({ size: string; axis: 'x' | 'y' | 'z'; half?: boolean } & Pose)
-  /** the distance between two points */
-  | ({ distance: [Point, Point] } & Pose)
+  /** the distance between two points (along: projected on one of the scene's axes) */
+  | ({ distance: [Point, Point]; along?: 'x' | 'y' | 'z' } & Pose)
   /** the nearest distance between two parts' surfaces */
   | ({ gap: [string, string] } & Pose)
   /** the angle at the middle point, in degrees */

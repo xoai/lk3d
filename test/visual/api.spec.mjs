@@ -2831,3 +2831,86 @@ test('version skew: the 0.7.0 live add-on works with this core (a surface drawn)
   expect(got.set).toBe('function'); // (the fixture's script set LK3D.live again)
   expect(got.height).toBeCloseTo(0.1, 5);
 });
+
+// ---- sequences (lk3d 0.8.0, the story add-on): a teardown as a motion, and its rules
+
+// a box on a base, its lid on a hinge a motion opens; a teardown takes the lid off, then the box
+const teardownScene = () => ({
+  parts: [
+    { id: 'base', name: 'Base', shapes: [{ box: [2, 0.2, 2] }] },
+    { id: 'box', name: 'Box', at: [0, 0.6, 0], explode: [0, 1, 0], shapes: [{ box: [1, 0.6, 1] }] },
+    { id: 'lid', name: 'Lid', at: [0, 0.95, 0], explode: [0, 2, 0], shapes: [{ box: [1, 0.1, 1] }] },
+  ],
+  motions: [{ id: 'open', name: 'Open', range: [0, 90] }],
+  joints: [{ id: 'hinge', parts: ['lid'], turn: { axis: [1, 0, 0], center: [0, 0.95, -0.5] }, drive: 'open' }],
+  sequences: [{ id: 'apart', name: 'Apart', stages: [{ parts: ['lid'] }, { parts: ['box'] }] }],
+});
+
+test('a scene with sequences needs the story add-on: refused by name, and an element drawn once it joins', async ({
+  page,
+}) => {
+  const refused = await page.evaluate((scene) => {
+    try {
+      mountIt();
+      LK3D.mount(document.getElementById('g'), scene);
+    } catch (error) {
+      return error.message;
+    }
+  }, teardownScene());
+  expect(refused).toMatch(/lk3d-story\.min\.js/);
+  await page.evaluate((scene) => {
+    const el = document.createElement('lk3d-figure');
+    el.id = 'el';
+    el.innerHTML = `<script type="application/json">${JSON.stringify(scene)}</script>`;
+    el.style.cssText = 'display:block;width:300px;height:200px';
+    document.body.append(el);
+  }, teardownScene());
+  expect(await page.evaluate(() => document.getElementById('el').figure)).toBeNull();
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  await page.waitForFunction(() => document.getElementById('el').figure);
+  expect(await page.evaluate(() => document.getElementById('el').figure.sequence('apart').stages)).toBe(2);
+});
+
+test('version skew: the story add-on on the 0.7.0 core says which lk3d it needs', async ({ page }) => {
+  await page.setContent('<!doctype html><title>0.7.0</title>'); // (the server's page left empty: no core of this build)
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.addScriptTag({ url: '/test/fixtures/lk3d-0.7.0/lk3d.min.js' });
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' }).catch(() => {});
+  expect(errors.join('\n')).toMatch(/lk3d-story: needs lk3d 0\.8\.0 or later/);
+});
+
+test("a sequence away holds the motions that set its parts' joints; the page wins; explode and a sequence never both", async ({
+  page,
+}) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(async (scene) => {
+    const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false }),
+      apart = fig.sequence('apart'),
+      open = fig.motion('open'),
+      seen = {};
+    await fig.ready;
+    open.set(40);
+    apart.set(1);
+    seen.held = [open.value, apart.value]; // (open holds the lid's hinge: back to its start)
+    open.set(30);
+    seen.pageWins = [open.value, apart.value];
+    fig.set({ motion: { open: 50, apart: 2 } });
+    seen.oneSet = [open.value, apart.value];
+    const state = fig.state();
+    fig.set({ motion: { apart: 0, open: 10 } });
+    fig.set({ ...state, motion: { open: state.motion.open, apart: state.motion.apart } });
+    seen.roundTrip = [fig.state().motion.open, fig.state().motion.apart];
+    fig.set({ explode: 1 });
+    seen.explode = [fig.state().explode, apart.value];
+    apart.set(1);
+    seen.sequence = [fig.state().explode, apart.value];
+    return seen;
+  }, teardownScene());
+  expect(got.held).toEqual([0, 1]);
+  expect(got.pageWins).toEqual([30, 0]);
+  expect(got.oneSet).toEqual([0, 2]);
+  expect(got.roundTrip).toEqual([0, 2]);
+  expect(got.explode).toEqual([1, 0]);
+  expect(got.sequence).toEqual([0, 1]);
+});

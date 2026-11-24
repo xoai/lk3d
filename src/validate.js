@@ -7,8 +7,8 @@
 //   node src/validate.js < scene.json            prints the problems as JSON lines; exit code 1 if there are any
 import schema from '../schema/scene.schema.json' with { type: 'json' };
 import { guard, values } from './guard.js';
-import { jointsOf, jointOf, settersOf } from './joints.js';
-import { partsNamed } from './sequence.js';
+import { jointsOf, jointOf } from './joints.js';
+import { partsNamed, settersOf } from './sequence.js';
 
 // The part of JSON Schema 2020-12 the scene schema uses: type, enum, const, required, properties,
 // additionalProperties, items, prefixItems, minItems, maxItems, minimum, maximum, exclusiveMinimum, minLength, pattern,

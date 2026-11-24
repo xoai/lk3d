@@ -69,6 +69,14 @@ function mount(el, spec, opts = {}) {
   // the add-on to load, before anything on the page is touched
   const missing = modelsMissing(spec);
   if (missing) throw modelsError(missing);
+  // a scene with sequences needs the story add-on (dist/lk3d-story.min.js), which expands each into a motion: refused,
+  // naming it, without it (an element is drawn once it joins)
+  const story = LK3D.story;
+  if (spec.sequences?.length && !story) {
+    const error = new Error('lk3d: this scene has sequences: load dist/lk3d-story.min.js after dist/lk3d.min.js');
+    /** @type {any} */ (error).addOn = 'story';
+    throw error;
+  }
   css();
   if (el.lk3d) el.lk3d.destroy(); // (mounting again on the same element replaces the figure there)
   if ((spec.lk3d || 0) > FORMAT && !warned) {
@@ -125,7 +133,8 @@ function mount(el, spec, opts = {}) {
     canvas_: document.createElement('canvas'),
     animations_: new Set(),
     controls_: {}, // the built-in controls' hooks (filled in below, once the figure's API exists)
-    motions_: spec.motions || [],
+    // the scene's motions, and its sequences as the motions they are (story.js expands them: sequence.js)
+    motions_: [...(spec.motions || []), ...(spec.sequences || []).map((sequence) => story.expand(sequence, spec))],
     particles_: [],
     flows_: [],
     streams_: [],
@@ -182,6 +191,7 @@ function mount(el, spec, opts = {}) {
     );
   }
   makeHandleInputs();
+  if (story) story.join(c.lent_); // (the sequences' rules, story.js)
   // ---- guided steps (the scene's steps): their panel under the stage, and the first one (opts.step) set at once
   makeSteps(c, buttonClass);
   c.goToStep_(opts.step ?? 0, { ms: 0 });

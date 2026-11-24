@@ -213,3 +213,24 @@ test("validate: expect seen at a sequence's stage", () => {
   assert.ok(problems(s({ seen: 'body', sequence: 't', stage: 2 })).includes('expect[0].stage'));
   assert.ok(problems(s({ seen: 'body' })).includes('expect[0].step'), 'seen needs a step or a stage');
 });
+
+// the story add-on as a page loads it (dist/lk3d-story.min.js, bundled here as build.mjs does): in the crease-shading
+// worker (lk3dAO set, no LK3D) it does nothing; on a core without LK3D.use (0.7.0) it says which lk3d it needs
+test('the built story add-on: nothing in the shading worker; refused by an older core; joins through LK3D.use once', async () => {
+  const vm = require('node:vm'),
+    { bundle, STORY_ENTRY } = await import('../build.mjs'),
+    code = await bundle('iife', STORY_ENTRY);
+  const run = (globals, context = vm.createContext({ ...globals })) => {
+    context.globalThis = context;
+    vm.runInContext(code, context);
+    return context;
+  };
+  assert.doesNotThrow(() => run({ lk3dAO: true }));
+  assert.throws(() => run({ LK3D: { version: 3, hostVersion: 1, M: {} } }), /lk3d-story: needs lk3d 0\.8\.0 or later/);
+  const joined = [],
+    LK3D = { version: 3, M: {}, use: (name, api, needs) => (joined.push(needs), (LK3D[name] = api)) },
+    context = run({ LK3D });
+  vm.runInContext(code, context);
+  assert.equal(joined.length, 1, 'a second load does nothing');
+  assert.equal(typeof LK3D.story.expand, 'function');
+});

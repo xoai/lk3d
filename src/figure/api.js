@@ -57,11 +57,16 @@ export function makeApi(c) {
       c.state_.joints = { ...changes.joints }; // (each call says all the page sets: a joint not named follows its drive)
       c.poseVersion_++;
     }
-    if (changes.motion)
-      for (const [id, value] of Object.entries(changes.motion)) {
-        const motion = c.motions_.find((each) => each.id === id);
+    // motions: sequences first; a motion one of them holds, given in the same call, stays at its start (story.js reads
+    // given_), so a state, which never holds both, round-trips whatever its keys' order
+    if (changes.motion) {
+      c.given_ = changes.motion;
+      for (const [motion, value] of Object.entries(changes.motion)
+        .map(([id, value]) => [c.motions_.find((each) => each.id === id), value])
+        .sort(([a], [b]) => +!!b?.stages - +!!a?.stages))
         if (motion) c.setMotion_(motion, value);
-      }
+      c.given_ = null;
+    }
     if (changes.hide) {
       for (const part of c.built_.parts)
         part.hidden = part.hiddenByScene || changes.hide.includes(part.id) || changes.hide.includes(part.group);
@@ -351,6 +356,11 @@ export function makeApi(c) {
           stop: byPage(() => c.stopMotion_(motion)),
         }
       );
+    },
+    // a sequence (lk3d-story): its stages played paced, its camera, its value as a motion's
+    sequence(id) {
+      const motion = c.motions_.find((each) => each.id === id && each.stages);
+      return motion && LK3D.story.sequence(c.api_, motion);
     },
     // the scene's guided steps: go to one by its place (from 0) or id ({ ms: 0 }: at once), and which is shown (-1:
     // none). The figure starts at the first (or mount's opts.step); moving through them does not call onStep

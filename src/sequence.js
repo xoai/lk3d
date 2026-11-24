@@ -5,6 +5,7 @@
 // by the story add-on (story.js), lk3d/lint, the CLI and the exporter:
 //   expand(sequence, scene) → { id, name, range: [0, N], value, speed, tracks, stages, holds }
 //   pacing(sequence) → [[value, seconds], …]: when each value is reached, played (each stage its ms, then its hold)
+//   settersOf(joints, joint) → the motions that set a joint's value (a sequence holds them while away)
 // In stage k's window [k − 1, k] only stage k's parts move. A teardown's part rests below k − 1, leaves over the window
 // (by `by`, along `path`, or by its own explode vector) and stays out from k on (faded to 0.15 over the window's last
 // 30 % with after: 'fade'). A build is written in build order: its stage k's parts are away (at the end of their way,
@@ -131,4 +132,20 @@ export function pacing(sequence, per = 8) {
     if (t.hold) out.push([index + 1, time / 1000]);
   });
   return out;
+}
+
+// the motions that set a joint's value: its drive, or through the joints it follows, rods to or aims at (a parent only
+// carries the joint, it does not set its value). A sequence holds these at their start while it moves the joint's
+// parts; two motions of one group may not share one
+/** @param {{ byId: Map<string, any> }} sceneJoints @param {any} joint @param {Set<string>} [seen] @returns {Set<string>} */
+export function settersOf(sceneJoints, joint, seen = new Set()) {
+  if (seen.has(joint.id)) return new Set();
+  seen.add(joint.id);
+  const motionIds = new Set();
+  const drivingMotion = joint.drive && (typeof joint.drive === 'string' ? joint.drive : joint.drive.motion);
+  if (drivingMotion) motionIds.add(drivingMotion);
+  for (const readId of [joint.follow && joint.follow.joint, joint.rod && joint.rod.joint, joint.aim && joint.aim.joint])
+    if (readId != null && sceneJoints.byId.has(readId))
+      for (const motionId of settersOf(sceneJoints, sceneJoints.byId.get(readId), seen)) motionIds.add(motionId);
+  return motionIds;
 }

@@ -1,21 +1,21 @@
 # Size
 
-What each source file adds to the global script, `dist/lk3d.min.js`: 182.6 KB minified and 71.0 KB
-gzipped, against a budget of 71.1 KB (frozen: see [performance](performance.md#size)). Made by
+What each source file adds to the global script, `dist/lk3d.min.js`: 183.3 KB minified and 71.3 KB
+gzipped, against a budget of 71.3 KB (frozen: see [performance](performance.md#size)). Made by
 `node build.mjs --size --table`. The minified bytes are exact; the gzipped share is an estimate (gzip compresses the
 whole script, not each file): the file's share of the minified bytes, of the gzipped total.
 
 | File | Minified | Gzipped (estimate) | Share |
 | ---- | -------: | -----------------: | ----: |
-| `src/renderer-gl.js` | 33.3 KB | 12.9 KB | 18.2 % |
-| `src/shaders.js` | 19.3 KB | 7.5 KB | 10.6 % |
+| `src/renderer-gl.js` | 33.3 KB | 12.9 KB | 18.1 % |
+| `src/shaders.js` | 19.3 KB | 7.5 KB | 10.5 % |
 | `src/geometry.js` | 16.7 KB | 6.5 KB | 9.1 % |
 | `src/science.js` | 10.1 KB | 3.9 KB | 5.5 % |
 | `src/figure/input.js` | 9.2 KB | 3.6 KB | 5.0 % |
 | `src/stylesheet.js` | 6.0 KB | 2.3 KB | 3.3 % |
-| `src/figure/api.js` | 5.5 KB | 2.1 KB | 3.0 % |
+| `src/figure/api.js` | 5.7 KB | 2.2 KB | 3.1 % |
+| `src/figure/additions.js` | 4.9 KB | 1.9 KB | 2.7 % |
 | `src/figure/loop.js` | 4.8 KB | 1.9 KB | 2.6 % |
-| `src/figure/additions.js` | 4.8 KB | 1.9 KB | 2.6 % |
 | `src/figure/camera.js` | 4.7 KB | 1.8 KB | 2.6 % |
 | `src/figure/labels.js` | 4.0 KB | 1.5 KB | 2.2 % |
 | `src/flow.js` | 3.7 KB | 1.4 KB | 2.0 % |
@@ -27,12 +27,12 @@ whole script, not each file): the file's share of the minified bytes, of the gzi
 | `src/figure/steps.js` | 2.8 KB | 1.1 KB | 1.5 % |
 | `src/bvh.js` | 2.7 KB | 1.1 KB | 1.5 % |
 | `src/figure/dimensions.js` | 2.6 KB | 1.0 KB | 1.4 % |
+| `src/core.js` | 2.5 KB | 1.0 KB | 1.4 % |
+| `src/figure/pose.js` | 2.4 KB | 0.9 KB | 1.3 % |
 | `src/stream.js` | 2.4 KB | 0.9 KB | 1.3 % |
 | `src/figure/pick.js` | 2.4 KB | 0.9 KB | 1.3 % |
 | `src/figure/state.js` | 2.4 KB | 0.9 KB | 1.3 % |
-| `src/figure/pose.js` | 2.3 KB | 0.9 KB | 1.3 % |
 | `src/locales/vi.js` | 2.3 KB | 0.9 KB | 1.3 % |
-| `src/core.js` | 2.3 KB | 0.9 KB | 1.3 % |
 | `src/figure/liquids.js` | 2.2 KB | 0.9 KB | 1.2 % |
 | `src/fluids.js` | 2.2 KB | 0.9 KB | 1.2 % |
 | `src/handles.js` | 2.2 KB | 0.8 KB | 1.2 % |

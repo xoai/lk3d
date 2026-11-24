@@ -246,7 +246,12 @@ export interface Ctx {
   modelMatrix_(p: Part): Mat;
   /** taken apart this far at once (a tween running stops) */
   explodeNow_(v: number): void;
-  tweenExplode_(to: number): void;
+  tweenExplode_(to: number, ms?: number): void;
+  /** the story add-on's rules for sequences (story.js join): called as a motion is set (value) or played (no value), and
+   * as the model is taken apart (no motion; value: 0 at once, else the ms its sequences glide back); true: not set */
+  rule_?: (motion: any, value?: number) => boolean | void;
+  /** the motions a set() is giving, while it gives them (the rules read it) */
+  given_?: Record<string, number> | null;
   setMotion_(motion: any, v: number): void;
   playMotion_(motion: any): any;
   stopMotion_(motion: any): void;

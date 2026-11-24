@@ -381,5 +381,13 @@ export function makeAdditions(c) {
     panel: () => c.panel_,
     say: (text) => c.say_(text),
     cleanups: (fn) => c.cleanups_.push(fn),
+    // (the sequences' rules: the add-on's rule, called as a motion is set or played and as the model is taken apart)
+    rule: (fn) => (c.rule_ = fn),
+    animate: (fn) => (c.animations_.add(fn), c.kick_(), () => c.animations_.delete(fn)),
+    explode: (amount, ms) => (ms ? c.tweenExplode_(amount, ms) : c.explodeNow_(amount)),
+    state: () => c.state_,
+    parts: () => c.built_.parts,
+    spec: () => c.spec_,
+    given: () => c.given_,
   };
 }

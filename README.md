@@ -92,7 +92,7 @@ pack` (a zip to upload). The guides are also in [llms.txt](https://xoai.github.i
 | three.js r187, the smallest page                                                                                                  | 522 KB   | 131 KB  |
 | three.js r187 with what lk3d does (PBR and glass, shadows, environment, controls, picking, glTF, labels, bloom, shape generators) | 708 KB   | 181 KB  |
 
-What each source file adds is in [docs/size.md](docs/size.md); the budget is frozen at 71.1 KB gzipped.
+What each source file adds is in [docs/size.md](docs/size.md); the budget is frozen at 71.3 KB gzipped.
 
 It draws only when something changes, pauses off screen, lowers its resolution while frames run late, compiles its
 realistic shaders in the background, never reads back from the GPU or the page layout while drawing, and falls back
@@ -169,7 +169,7 @@ To build it yourself, or to work on it: `git clone https://github.com/xoai/lk3d.
 npm install
 npm test               # geometry, models, handles, the validator, the geometry check, the skill, the locales
 npm run typecheck      # the TypeScript types
-npm run size           # fails if the bundle is over its budget (71.1 KB gzipped, BUDGET_KB in build.mjs)
+npm run size           # fails if the bundle is over its budget (71.3 KB gzipped, BUDGET_KB in build.mjs)
 npm run test:visual    # reference scenes compared with stored pictures (Chromium and Firefox on macOS; all three on Linux, in CI)
 npm run lint           # ESLint and Prettier
 npm run docs           # the scene-format reference and the shape pictures, made again

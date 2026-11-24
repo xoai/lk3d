@@ -99,16 +99,19 @@ export function makePose(c) {
     c.state_.explode = Math.max(0, Math.min(1, amount));
     if (c.controls_.explode) c.controls_.explode(c.state_.explode);
   };
+  // (c.rule_: the story add-on's rules for sequences, story.js; taken apart, every sequence goes to its start)
   c.explodeNow_ = (amount) => {
     if (explodeTween) c.animations_.delete(explodeTween);
     explodeTween = null;
     c.towards_.explode = null;
+    if (amount > 0) c.rule_?.(null, 0);
     setExplode(amount);
   };
-  c.tweenExplode_ = (to) => {
+  c.tweenExplode_ = (to, ms = 900) => {
     const from = c.state_.explode,
-      start = clock.now(),
-      ms = LK3D.reduce ? 1 : 900;
+      start = clock.now();
+    if (to > 0) c.rule_?.(null, 300);
+    if (LK3D.reduce) ms = 1;
     const tween = (now) => {
       const progress = Math.max(0, Math.min(1, (now - start) / ms)),
         eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
@@ -133,6 +136,7 @@ export function makePose(c) {
   // second a range by default), round again if it loops, else to its end and back the next time it is played
   const playing = (c.playing_ = new Map()); // a motion's id → its step in the frame loop
   c.setMotion_ = (motion, value) => {
+    if (c.rule_?.(motion, value)) return; // (a sequence's rules: story.js)
     const [low, high] = motion.range;
     c.state_.motion[motion.id] = motion.loop
       ? low + ((((value - low) % (high - low)) + (high - low)) % (high - low))
@@ -148,6 +152,7 @@ export function makePose(c) {
   };
   c.playMotion_ = (motion) => {
     c.stopMotion_(motion);
+    c.rule_?.(motion);
     const [low, high] = motion.range,
       back = !motion.loop && c.state_.motion[motion.id] >= high; // (at its end: played back to the start)
     if (LK3D.reduce) return motion.loop || c.setMotion_(motion, back ? low : high); // (no movement: straight to where it goes)

@@ -60,7 +60,8 @@
     "./bundle.mjs": "./dist/lk3d.mjs",
     "./bundle-export": "./dist/lk3d-export.min.js",
     "./bundle-models": "./dist/lk3d-models.min.js",
-    "./bundle-live": "./dist/lk3d-live.min.js"
+    "./bundle-live": "./dist/lk3d-live.min.js",
+    "./bundle-story": "./dist/lk3d-story.min.js"
   },
   "files": [
     "bin/",
@@ -91,6 +92,8 @@
     "./src/export-script.js",
     "./src/live.js",
     "./src/live-script.js",
+    "./src/story.js",
+    "./src/story-script.js",
     "./src/card.js",
     "./dist/*"
   ],

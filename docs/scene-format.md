@@ -32,6 +32,7 @@ A 3D figure as data: parts made of shapes, each with a name and a note, that the
 | `ground`           | boolean                                                         | A shadow under the model (true by default), not drawn while the camera is below it.                                                                                                                                                                                                                     |
 | `section`          | `false` or object                                               | The cut: a plane, or false to offer none. What lies on the side its normal points to, beyond offset along it, is cut away; while the model is cut open the reader moves the plane along its normal (dragging the cut face, or the slider) unless it is fixed, and a page may move it (set({ section })) |
 | `motions`          | list of object                                                  | Parts that move together as one value goes along a range: a piston's stroke as the crank turns, a sleeve sliding back, a valve opening. Set or played by the page (fig.motion(id)) and, when named, by the reader (a slider and a play button); run through its range by the geometry check.            |
+| `sequences`        | list of object                                                  | Teardowns and builds, part by part (lk3d-story): each a motion from 0 to its number of stages, with each stage's camera and pacing.                                                                                                                                                                     |
 | `joints`           | list of object                                                  | Parts posed by how they are joined, not by keys for each: a crank driven by a motion, a piston held by its rod, a rod aimed at the crank pin, a cam that follows at half speed. A joint's value comes from a motion, another joint, a rod, an aim, or the page (set({ joints })).                       |
 | `scale`            | object                                                          | Honest scale: a bar that keeps its true length as the view zooms, and/or a note saying what is not to scale.                                                                                                                                                                                            |
 | `expect`           | list of object                                                  | What must be true of the model, checked by lk3d check (lk3d/lint): a part inside another, touching it, clear of it, above it, its size, seen in a step. The engine does not read them.                                                                                                                  |
@@ -180,24 +181,27 @@ The first camera.
 
 Parts that move together as one value goes along a range: a piston's stroke as the crank turns, a sleeve sliding back, a valve opening. Set or played by the page (fig.motion(id)) and, when named, by the reader (a slider and a play button); run through its range by the geometry check. See [motions](handles-and-lines.md#motions-parts-that-move-together).
 
-| Field              | Type             | Meaning                                                                                            |
-| ------------------ | ---------------- | -------------------------------------------------------------------------------------------------- |
-| `id` (required)    | string           | Unique among the scene's motions: what the page names it by.                                       |
-| `name`             | string           | What the reader's slider says (no name: no slider, the page drives it).                            |
-| `range` (required) | [number, number] | From and to: degrees of a crank, a fraction from 0 to 1, a time: whatever the keys are written in. |
-| `value`            | number           | Where it starts (the start of its range).                                                          |
-| `loop`             | boolean          | Played on round and round (a crank), else to its end and back.                                     |
-| `speed`            | number > 0       | How far along its range it goes in a second when played (the whole range).                         |
-| `tracks`           | list of object   | Parts it moves by keys (none when it only drives joints).                                          |
+| Field              | Type             | Meaning                                                                                                                                    |
+| ------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id` (required)    | string           | Unique among the scene's motions: what the page names it by.                                                                               |
+| `name`             | string           | What the reader's slider says (no name: no slider, the page drives it).                                                                    |
+| `range` (required) | [number, number] | From and to: degrees of a crank, a fraction from 0 to 1, a time: whatever the keys are written in.                                         |
+| `value`            | number           | Where it starts (the start of its range).                                                                                                  |
+| `loop`             | boolean          | Played on round and round (a crank), else to its end and back.                                                                             |
+| `speed`            | number > 0       | How far along its range it goes in a second when played (the whole range).                                                                 |
+| `tracks`           | list of object   | Parts it moves by keys (none when it only drives joints).                                                                                  |
+| `group`            | string           | Motions with the same group are alternatives: one plays at a time, under one row of buttons. They may not set the value of the same joint. |
+| `then`             | `"start"`        | start: a clip (a bite, a jump): played to its end, it glides back to its start. Not for a loop.                                            |
 
 Each of `tracks`: parts that move one way: moved, turned, or both (moved, then turned). A track moves its parts (move), turns them (turn), or both.
 
-| Field              | Type                                       | Meaning                                                              |
-| ------------------ | ------------------------------------------ | -------------------------------------------------------------------- |
-| `parts` (required) | list of string                             | Part ids or groups.                                                  |
-| `move`             | list of [number, [number, number, number]] | Keys [t, [x, y, z]]: at the motion's value t, moved by [x, y, z].    |
-| `turn`             | object                                     | Turned about an axis through center: keys [t, degrees].              |
-| `ease`             | boolean                                    | A smooth start and stop at each key (else straight from key to key). |
+| Field              | Type                                       | Meaning                                                                                                                           |
+| ------------------ | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `parts` (required) | list of string                             | Part ids or groups.                                                                                                               |
+| `move`             | list of [number, [number, number, number]] | Keys [t, [x, y, z]]: at the motion's value t, moved by [x, y, z].                                                                 |
+| `turn`             | object                                     | Turned about an axis through center: keys [t, degrees].                                                                           |
+| `ease`             | boolean                                    | A smooth start and stop at each key (else straight from key to key).                                                              |
+| `fade`             | list of [number, number ≥ 0 ≤ 1]           | Keys [t, alpha]: at the motion's value t, the parts drawn this opaque (1: as they are; 0: gone). Below 0.05 they count as hidden. |
 
 ## Joint
 

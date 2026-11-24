@@ -35,7 +35,8 @@ Nothing a page or a scene already does changes.
   it joins, as they were for the models add-on. `hostVersion` stays 1, and the 0.7.0 live add-on keeps working.
 - **The budget goes from 70.5 KB to 70.9 KB** (72,601 bytes) gzipped, by the user's decision of 2026-11-23 (23
   November 2026): the core may grow to at most 74.5 KB over the two lk3d 0.8.0 and 0.9.0 releases, each raise to the code's
-  measured need, at most 72.9 KB after 0.8.0. This one is for the add-on host; the global script is 72,598 bytes.
+  measured need, at most 72.9 KB after 0.8.0: 70.9 KB for the add-on host (72,598 bytes), then **71.1 KB** (72,806
+  bytes) for the scene format's sequences, steps' times and the engine's own check of them (72,716 bytes).
 
 ## 0.7.0 (23 November 2026)
 

@@ -19,5 +19,15 @@ export function stepState(spec, step) {
     explode: Math.max(0, Math.min(1, +(step.explode ?? 0) || 0)),
     /** @param {any} motion */
     motion: (motion) => step.motion?.[motion.id] ?? startOf(motion),
+    /** how long its camera, explode and cut glide (ms), when it says; how long a tour stays */
+    ms: step.ms,
+    dwell: step.dwell,
+    /** a motion where the step's play of it ends (a non-loop motion it plays: the end of its range; a sequence, at N),
+     * else where the step sets it: the step as a picture (step(k, { settled: true }), lk3d render's steps)
+     * @param {any} motion */
+    settled: (motion) =>
+      listed(step.play).includes(motion.id) && !motion.loop
+        ? motion.range[1]
+        : (step.motion?.[motion.id] ?? startOf(motion)),
   };
 }

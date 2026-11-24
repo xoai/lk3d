@@ -162,6 +162,11 @@ export interface Scene {
    */
   motions?: Motion[];
   /**
+   * Teardowns and builds, part by part (lk3d-story): each a motion from 0 to its number of stages, with each
+   * stage's camera and pacing.
+   */
+  sequences?: Sequence[];
+  /**
    * Parts posed by how they are joined, not by keys for each: a crank driven by a motion, a piston held by its
    * rod, a rod aimed at the crank pin, a cam that follows at half speed. A joint's value comes from a motion,
    * another joint, a rod, an aim, or the page (set({ joints })).
@@ -248,6 +253,52 @@ export interface Motion {
   speed?: number;
   /** Parts it moves by keys (none when it only drives joints). */
   tracks?: MotionTrack[];
+  /**
+   * Motions with the same group are alternatives: one plays at a time, under one row of buttons. They may not
+   * set the value of the same joint.
+   * @minLength 1
+   */
+  group?: string;
+  /** start: a clip (a bite, a jump): played to its end, it glides back to its start. Not for a loop. */
+  then?: 'start';
+}
+
+/**
+ * A teardown or a build, part by part: a list of stages, played as one motion from 0 to its number of stages.
+ */
+export interface Sequence {
+  /**
+   * Unique among the motions and sequences: what steps and the page name it by.
+   * @minLength 1
+   */
+  id: string;
+  /** What its slider and Play button say (no name: none; the page or a step plays it). */
+  name?: string;
+  /** 1 to 64 stages, in the order they happen. */
+  stages: Stage[];
+  /**
+   * true: a build, written in build order; it starts built (at its number of stages), and runs from nothing (0).
+   */
+  build?: boolean;
+  /**
+   * Each stage's duration, in ms (1000).
+   * @minimum 0
+   * @maximum 60000
+   */
+  ms?: number;
+  /**
+   * The pause after each stage when played, in ms (400).
+   * @minimum 0
+   * @maximum 60000
+   */
+  hold?: number;
+  /** fade: a teardown's parts fade to faint (0.15) once out; stay (the default): as they are. */
+  after?: 'stay' | 'fade';
+  /**
+   * follow (the default when a stage gives focus or view): the camera goes to each stage as it is played; none:
+   * it stays.
+   */
+  camera?: 'follow' | 'none';
 }
 
 /** a joint turns its parts (turn) or slides them (slide) */
@@ -352,7 +403,7 @@ export type Expectation =
   | Form<ExpectationFields, 'clear' | 'of', Exclude<ExpectationKind, 'clear'>>
   | Form<ExpectationFields, 'above' | 'of', Exclude<ExpectationKind, 'above'>>
   | Form<ExpectationFields, 'size' | 'axis' | 'is', Exclude<ExpectationKind, 'size'>>
-  | Form<ExpectationFields, 'seen' | 'step', Exclude<ExpectationKind, 'seen'>>;
+  | Form<ExpectationFields, 'seen', Exclude<ExpectationKind, 'seen'>>;
 
 /** the kinds of Expectation: exactly one of these keys picks its form */
 export type ExpectationKind = 'inside' | 'touches' | 'clear' | 'above' | 'size' | 'seen';
@@ -394,8 +445,19 @@ export interface ExpectationFields {
   axis?: 'x' | 'y' | 'z';
   /** size: the least and the greatest extent. */
   is?: Range;
-  /** seen: the step, by its id or its number from 1. */
+  /** seen: the step, by its id or its number from 1 (or a sequence and its stage instead). */
   step?: string | number;
+  /**
+   * seen: in this sequence, at the end of `stage`, in place of a step.
+   * @minLength 1
+   */
+  sequence?: string;
+  /**
+   * seen: the stage of `sequence`, from 1.
+   * @minimum 1
+   * @integer
+   */
+  stage?: number;
 }
 
 /**
@@ -776,6 +838,20 @@ export interface StepFields {
    * The dimensions shown in this step, by id (none: [ ]); without it, the scene's own (those not hidden).
    */
   dimensions?: string[];
+  /**
+   * How long the step's camera, explode and cut glide, in ms (else worked out from how far the camera goes: 500
+   * to 1,600).
+   * @minimum 0
+   * @maximum 60000
+   */
+  ms?: number;
+  /**
+   * How long a tour stays at the step, in ms, once its glides have ended and what it plays has stopped (else the
+   * step's reading time).
+   * @minimum 0
+   * @maximum 60000
+   */
+  dwell?: number;
 }
 
 /** Parts that move one way: moved, turned, or both (moved, then turned). */
@@ -795,6 +871,82 @@ export interface MotionTrackFields {
   };
   /** A smooth start and stop at each key (else straight from key to key). */
   ease?: boolean;
+  /**
+   * Keys [t, alpha]: at the motion's value t, the parts drawn this opaque (1: as they are; 0: gone). Below 0.05
+   * they count as hidden.
+   */
+  fade?: [number, number][];
+}
+
+/**
+ * One stage of a sequence: its parts leave (or, in a build, come) over the stage's time, by one way: by, path,
+ * or else each part's own explode vector.
+ */
+export interface Stage {
+  /** Part ids or groups. A part is in at most one stage of a sequence. */
+  parts: string[];
+  /** Moved by [x, y, z] (scene units). */
+  by?: Vec3;
+  /** Keys [f, [x, y, z]] from f = 0 (where it rests) to 1 (out). */
+  path?: [number, Vec3][];
+  /**
+   * Turned about an axis through center: by angle (degrees) over the stage, or by keys [f, degrees] as a
+   * track's.
+   */
+  turn?: {
+    axis: Vec3;
+    center?: Vec3;
+    angle?: number;
+    keys?: [number, number][];
+  };
+  /**
+   * true (the default): the stage's fraction is eased once (a smooth start and stop), then its path read
+   * straight, so a part does not stop at a middle key.
+   */
+  ease?: boolean;
+  /**
+   * How long this stage takes (over the sequence's ms).
+   * @minimum 0
+   * @maximum 60000
+   */
+  ms?: number;
+  /**
+   * The pause after this stage when played (over the sequence's hold).
+   * @minimum 0
+   * @maximum 60000
+   */
+  hold?: number;
+  /**
+   * Parts or groups to frame: the camera looks at their middle (as they are once the step has taken them apart)
+   * from far enough to see them all, from the view's angles if it gives them.
+   */
+  focus?: string[];
+  /**
+   * Where the camera goes: a named view (home: the figure's first), or yaw and pitch (degrees), zoom (2: twice
+   * as close as the whole model) or dist, and target. Without view or focus the camera stays where it is.
+   */
+  view?:
+    | 'front'
+    | 'side'
+    | 'top'
+    | 'iso'
+    | 'home'
+    | {
+        yaw?: number;
+        pitch?: number;
+        /** @exclusiveMinimum 0 */
+        zoom?: number;
+        /** @exclusiveMinimum 0 */
+        dist?: number;
+        target?: Vec3;
+      };
+  /** Labels added to the step's while this stage plays. */
+  labels?: string[];
+  /**
+   * A few words for the stage: said aloud, shown by the page, written on pictures.
+   * @minLength 1
+   */
+  title?: string;
 }
 
 /** The least and the greatest value, in scene units. */

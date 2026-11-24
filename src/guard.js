@@ -10,6 +10,7 @@
 //   guard(scene) → [{ path: 'parts[2].shapes[0].lathe', message: '…' }, …]
 export const LIMITS = { depth: 32, items: 1e5, values: 1e6, points: 1000 };
 const POINTS = /^(lathe|outline|inside|layers)$/; // (a lathe's profile, an outline, a vessel's inside, terrain's layers)
+const TIMES = /^(ms|dwell|hold)$/; // (steps', sequences' and stages' times)
 
 export function values(scene) {
   const out = [],
@@ -19,10 +20,13 @@ export function values(scene) {
   const walk = (value, path, key, depth) => {
     const type = typeof value;
     if (++count > LIMITS.values) return count === LIMITS.values + 1 && bad('', 'has more than a million values');
-    if (type === 'number') Number.isFinite(value) || bad(path, `is ${value}, not a finite number`);
-    else if (type === 'object' && value) {
+    if (type === 'number') {
+      if (!Number.isFinite(value)) bad(path, `is ${value}, not a finite number`);
+      // (a time a step, a sequence or a stage takes, in ms: up to a minute)
+      else if (TIMES.test(key) && !(value >= 0 && value <= 6e4)) bad(path, 'is a time in ms, from 0 to 60000');
+    } else if (type === 'object' && value) {
       const isList = Array.isArray(value),
-        most = POINTS.test(key) ? LIMITS.points : LIMITS.items;
+        most = POINTS.test(key) ? LIMITS.points : key === 'stages' ? 64 : LIMITS.items;
       if (walking.has(value)) return bad(path, 'holds itself (a loop)');
       if (depth > LIMITS.depth) return bad(path, `is nested more than ${LIMITS.depth} deep`);
       if (isList && value.length > most) return bad(path, `has ${value.length} items; at most ${most}`);

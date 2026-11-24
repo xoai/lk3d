@@ -69,6 +69,21 @@ export function motionsOf(sceneJoints, joint, seen = new Set()) {
   return motionIds;
 }
 
+// the motions that set a joint's value: its drive, or through the joints it follows, rods to or aims at (a parent only
+// carries the joint, it does not set its value). A sequence holds these at their start while it moves the joint's
+// parts; two motions of one group may not share one
+export function settersOf(sceneJoints, joint, seen = new Set()) {
+  if (seen.has(joint.id)) return new Set();
+  seen.add(joint.id);
+  const motionIds = new Set();
+  const drivingMotion = joint.drive && (typeof joint.drive === 'string' ? joint.drive : joint.drive.motion);
+  if (drivingMotion) motionIds.add(drivingMotion);
+  for (const readId of [joint.follow && joint.follow.joint, joint.rod && joint.rod.joint, joint.aim && joint.aim.joint])
+    if (readId != null && sceneJoints.byId.has(readId))
+      for (const motionId of settersOf(sceneJoints, sceneJoints.byId.get(readId), seen)) motionIds.add(motionId);
+  return motionIds;
+}
+
 const scaled = (rule, value) =>
   rule.keys ? between(rule.keys, value) : value * (rule.ratio ?? 1) + (rule.offset ?? 0);
 

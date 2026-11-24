@@ -4,7 +4,7 @@
 // the reader. Here the maths, shared by the engine and the check:
 //   motions: [{ id, name, range: [a, b], value, loop, speed,
 //               tracks: [{ parts: [ids or groups], move: [[t, [x, y, z]], …], turn: { axis, center, keys: [[t, °], …] },
-//                          ease }] }]
+//                          fade: [[t, alpha], …], ease }] }]
 // A track's keys are values of the motion (t) and where the parts are then: moved by [x, y, z], turned by degrees
 // about an axis through center; between keys, a straight line (ease: true, a smooth start and stop at each key).
 import { M, mulv } from './math.js';
@@ -33,6 +33,14 @@ export const tracksOf = (motions, part) =>
 
 // a motion's value when none is given: where the scene starts it
 export const startOf = (motion) => motion.value ?? motion.range[0];
+
+// how opaque a part is drawn at the motions' values: its tracks' fade keys multiplied (1: as the scene draws it)
+export function fadeOf(tracks, values) {
+  let alpha = 1;
+  for (const { motion, track } of tracks)
+    if (track.fade) alpha *= between(track.fade, values[motion.id] ?? startOf(motion));
+  return alpha;
+}
 
 // a part's matrix at the motions' values ({id: value}), its tracks applied in the order the scene lists them
 export function motionMatrix(tracks, values) {

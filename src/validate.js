@@ -7,6 +7,8 @@
 //   node src/validate.js < scene.json            prints the problems as JSON lines; exit code 1 if there are any
 import schema from '../schema/scene.schema.json' with { type: 'json' };
 import { guard, values } from './guard.js';
+import { jointsOf, jointOf, settersOf } from './joints.js';
+import { partsNamed } from './sequence.js';
 
 // The part of JSON Schema 2020-12 the scene schema uses: type, enum, const, required, properties,
 // additionalProperties, items, prefixItems, minItems, maxItems, minimum, maximum, exclusiveMinimum, minLength, pattern,
@@ -311,6 +313,8 @@ function links(scene, out) {
   dimensions(scene, out, parts);
   steps(scene, out, names, parts);
   expectations(scene, out, parts);
+  sequences(scene, out, names, parts);
+  groups(scene, out);
   // place: the parts it names exist (lk3d check works out the rest: lint.js, place.js)
   parts.forEach((part, index) => {
     const place = part.place;
@@ -369,12 +373,19 @@ function expectations(scene, out, parts) {
     for (const field of ['by', 'is'])
       if (Array.isArray(item[field]) && item[field][0] > item[field][1])
         bad(`.${field}`, `its least (${item[field][0]}) is more than its greatest (${item[field][1]})`);
-    if (item.seen != null) {
+    if (item.seen != null && item.sequence == null && item.stage == null) {
       const there =
         typeof item.step === 'number'
           ? item.step >= 1 && item.step <= steps.length
           : steps.some((s) => s.id === item.step);
       if (!there) bad('.step', `${say(item.step)} is no step (an id, or a number from 1 to ${steps.length})`);
+    } else if (item.seen != null) {
+      const sequence = (Array.isArray(scene.sequences) ? scene.sequences : []).find((q) => q && q.id === item.sequence),
+        count = sequence && Array.isArray(sequence.stages) ? sequence.stages.length : 0;
+      if (item.step != null) bad('', "is seen at a step or at a sequence's stage, not both");
+      else if (!sequence) bad('.sequence', `${say(item.sequence)} is no sequence`);
+      else if (!(item.stage >= 1 && item.stage <= count))
+        bad('.stage', `${say(item.stage)} is no stage of ${say(item.sequence)} (from 1 to ${count})`);
     }
   });
 }
@@ -412,16 +423,119 @@ function dimensions(scene, out, parts) {
   });
 }
 
+// a scene's sequences as the motions they are (lk3d-story expands them: sequence.js): their ids and ranges
+function sequenceMotions(scene) {
+  return (Array.isArray(scene.sequences) ? scene.sequences : [])
+    .filter((sequence) => sequence && typeof sequence === 'object' && Array.isArray(sequence.stages))
+    .map((sequence) => {
+      const n = sequence.stages.length;
+      return { id: sequence.id, range: [0, n], value: sequence.build ? n : 0, sequence: true };
+    });
+}
+
+// the motions each sequence holds at their start while it is away from its own: those that set the value of a joint
+// of a part it moves (by drive, or through follow, rod or aim)
+function heldBy(scene) {
+  const out = new Map();
+  /** @type {any} */ let sceneJoints = null;
+  try {
+    sceneJoints = jointsOf(scene);
+  } catch {
+    // (a loop, or a joint read that is not there: said where the joints are checked)
+  }
+  for (const sequence of Array.isArray(scene.sequences) ? scene.sequences : []) {
+    const motionIds = new Set();
+    if (sceneJoints && sequence && Array.isArray(sequence.stages))
+      for (const stage of sequence.stages)
+        for (const part of partsNamed(scene, Array.isArray(stage?.parts) ? stage.parts : [])) {
+          const joint = jointOf(sceneJoints, part);
+          if (joint) for (const id of settersOf(sceneJoints, joint)) motionIds.add(id);
+        }
+    out.set(sequence?.id, motionIds);
+  }
+  return out;
+}
+
+// sequences: one id among the motions and sequences; each stage names parts or groups that exist, none in two stages,
+// and has something to move (by, a path, a turn, or a part with a non-zero explode vector)
+function sequences(scene, out, names, parts) {
+  const motionIds = new Set((Array.isArray(scene.motions) ? scene.motions : []).map((motion) => motion && motion.id)),
+    seen = new Set();
+  (Array.isArray(scene.sequences) ? scene.sequences : []).forEach((sequence, i) => {
+    if (!sequence || typeof sequence !== 'object') return;
+    const bad = (field, message) => out.push({ path: `sequences[${i}]${field}`, message });
+    if (motionIds.has(sequence.id)) bad('.id', `${say(sequence.id)} is a motion's id too: ids are unique among both`);
+    else if (seen.has(sequence.id)) bad('.id', `${say(sequence.id)} is used by two sequences`);
+    seen.add(sequence.id);
+    const staged = new Map(); // (each part's stage, from 1)
+    (Array.isArray(sequence.stages) ? sequence.stages : []).forEach((stage, j) => {
+      if (!stage || typeof stage !== 'object' || !Array.isArray(stage.parts)) return;
+      const place = `.stages[${j}]`;
+      for (const name of stage.parts)
+        if (!names.has(name)) bad(`${place}.parts`, `names ${say(name)}, which is no part or group`);
+      const moved = partsNamed({ parts }, stage.parts);
+      for (const part of moved)
+        if (staged.has(part.id) && staged.get(part.id) !== j + 1)
+          bad(
+            `${place}.parts`,
+            `names ${say(part.id)}, already in stage ${staged.get(part.id)}: a part is in one stage`,
+          );
+        else staged.set(part.id, j + 1);
+      const explodes = moved.some((part) => Array.isArray(part.explode) && part.explode.some((v) => v));
+      if (!stage.by && !stage.path && !stage.turn && !explodes && moved.length)
+        bad(place, 'has nothing to move: give it by, a path or a turn, or name parts with an explode vector');
+    });
+  });
+}
+
+// motions that are alternatives (group): at least two, never a loop played as a clip (then), never two setting the
+// value of the same joint (a joint keeps one drive; a parent only carries)
+function groups(scene, out) {
+  const motions = Array.isArray(scene.motions) ? scene.motions : [];
+  /** @type {any} */ let sceneJoints = null;
+  try {
+    sceneJoints = jointsOf(scene);
+  } catch {
+    // (said where the joints are checked)
+  }
+  const sets = (id) =>
+    sceneJoints
+      ? sceneJoints.order.filter((joint) => settersOf(sceneJoints, joint).has(id)).map((joint) => joint.id)
+      : [];
+  motions.forEach((motion, i) => {
+    if (!motion || typeof motion !== 'object') return;
+    if (motion.then === 'start' && motion.loop)
+      out.push({ path: `motions[${i}].then`, message: "a loop plays on: then: 'start' is for a motion played once" });
+    if (motion.group == null) return;
+    const others = motions.filter((other) => other && other !== motion && other.group === motion.group);
+    if (!others.length)
+      out.push({
+        path: `motions[${i}].group`,
+        message: `${say(motion.group)} has one motion: a group is of alternatives`,
+      });
+    const mine = sets(motion.id);
+    for (const other of others) {
+      const shared = sets(other.id).find((joint) => mine.includes(joint));
+      if (shared && motions.indexOf(other) > i)
+        out.push({
+          path: `motions[${i}].group`,
+          message: `${say(motion.id)} and ${say(other.id)} both set the joint ${say(shared)}: a group's motions set joints of their own`,
+        });
+    }
+  });
+}
+
 // guided steps: one id each; what they name exists (parts and groups, motions within their range; a part labelled has
 // a label); a cut only where
 // the scene offers one; a part chosen or labelled that the same step does not hide; home, the figure's first view, not
 // given parts to frame as well (it has its own target)
 function steps(scene, out, names, parts) {
   const motions = new Map(
-      (Array.isArray(scene.motions) ? scene.motions : [])
+      [...(Array.isArray(scene.motions) ? scene.motions : []), ...sequenceMotions(scene)]
         .filter((motion) => motion)
         .map((motion) => [motion.id, motion]),
     ),
+    held = heldBy(scene),
     seen = new Set(),
     list = (value) => (Array.isArray(value) ? value : []);
   (Array.isArray(scene.steps) ? scene.steps : []).forEach((step, i) => {
@@ -458,6 +572,23 @@ function steps(scene, out, names, parts) {
         bad(`motion.${id}`, `${value} is outside its range [${start}, ${end}]`);
     }
     for (const id of list(step.play)) if (!motions.has(id)) bad('play', `${say(id)} is no motion`);
+    // (motions of one group are alternatives: a step plays one of them)
+    const playedGroups = list(step.play)
+      .map((id) => motions.get(id)?.group)
+      .filter(Boolean);
+    const twice = playedGroups.find((group, k) => playedGroups.indexOf(group) !== k);
+    if (twice) bad('play', `plays two motions of the group ${say(twice)}: they play one at a time`);
+    // (a sequence away from its start: the step's own value for it, or it plays it)
+    for (const motion of motions.values()) {
+      if (!motion.sequence) continue;
+      const away = list(step.play).includes(motion.id) || (motion.id in valued && valued[motion.id] !== motion.value);
+      if (!away) continue;
+      if (step.explode > 0)
+        bad('explode', `takes the model apart while ${say(motion.id)} is away from its start: one way apart at a time`);
+      for (const id of list(step.play))
+        if (held.get(motion.id)?.has(id))
+          bad('play', `plays ${say(id)}, which ${say(motion.id)} holds at its start while it is away from it`);
+    }
     const dimensionIds = new Set(list(scene.dimensions).map((dimension) => dimension && dimension.id));
     for (const id of list(step.dimensions))
       if (!dimensionIds.has(id)) bad('dimensions', `${say(id)} is no dimension (give it an id)`);

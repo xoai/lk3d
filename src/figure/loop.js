@@ -377,6 +377,7 @@ export function makeLoop(c) {
     // (woken by the clock stepped or set: liquids and gases move on from where it was, if they had not been moving)
     const woke = (was) => {
       if (movedAt == null && !clock.speed) movedAt = was;
+      c.woken_?.forEach((fn) => fn()); // (the story add-on's waits: a hold, a dwell)
       c.kick_();
     };
     awake.add(woke);

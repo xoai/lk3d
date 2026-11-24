@@ -29,6 +29,27 @@ export interface Theme {
 /** a value read off another: times ratio (1) plus offset (0), or off keys [the other's value, this one's] */
 export type Scaled = Omit<NonNullable<JointFields['follow']>, 'joint'>;
 /** a motion as the page drives it */
+/** a sequence (fig.sequence): its value from 0 to its number of stages (2.5: halfway through stage 3), played paced,
+ * each stage over its ms and then its hold; a build starts at its end, built, and its first play builds it from nothing */
+export interface SequenceHandle {
+  readonly value: number;
+  readonly stages: number;
+  /** the stage begun: 3 at 2.5 and at 3.0; 0 at 0 */
+  readonly stage: number;
+  readonly playing: boolean;
+  /** at once */
+  set(v: number): void;
+  /** paced: to its end (a teardown at its end: back), or to `to`, or back to 0; resolves at its end, or when stopped */
+  play(o?: { to?: number; back?: boolean; camera?: boolean }): Promise<void>;
+  stop(): void;
+}
+/** what onStory hears */
+export type StoryEvent =
+  | { type: 'step'; index: number; step: Step }
+  | { type: 'stage'; sequence: string; stage: number; of: number; title?: string }
+  | { type: 'pause'; by: 'reader' | 'page' | 'hidden' }
+  | { type: 'end' };
+
 export interface MotionHandle {
   readonly value: number;
   readonly playing: boolean;
@@ -160,6 +181,8 @@ export interface MountOptions {
   step?: number | string;
   /** the reader went to another step with the panel's Back or Next (not the page's own fig.step) */
   onStep?: (index: number, step: Step) => void;
+  /** a stage of a sequence begun as it plays (the story add-on): the page's own caption for it; the tour's events too */
+  onStory?: (event: StoryEvent) => void | Promise<unknown>;
   style?: Look;
   theme?: string;
   labels?: Labels;
@@ -509,6 +532,8 @@ export interface Figure {
    * exporter: import lk3d/export, or load dist/lk3d-export.min.js after dist/lk3d.min.js (it throws without) */
   exportGLB(o?: { animate?: boolean; samples?: number }): Uint8Array;
   motion(id: string): MotionHandle | undefined;
+  /** a sequence (the story add-on, dist/lk3d-story.min.js): a teardown or a build played stage by stage */
+  sequence(id: string): SequenceHandle | undefined;
   /** a liquid by its part: its volume, its surface's height in the scene; set its volume */
   liquid(
     id: string,
@@ -537,7 +562,7 @@ export interface Figure {
   /** the scene's guided steps */
   readonly steps: Step[];
   /** go to a step by its place (from 0) or id: its state glided to (ms: 0, at once); onStep is not called */
-  step(which: number | string, o?: { ms?: number }): void;
+  step(which: number | string, o?: { ms?: number; settled?: boolean }): void;
   /** the step shown, from 0 (-1: the scene has none) */
   readonly currentStep: number;
   camera(): { yaw: number; pitch: number; dist: number; target: Vec3 };

@@ -17,6 +17,7 @@ export function controls({
   locked,
   asReader,
   say,
+  stageWords,
 }) {
   const bar = document.createElement('div');
   bar.className = 'lk3d-bar';
@@ -100,6 +101,8 @@ export function controls({
     );
     const sync = () => {
       input.value = player.value;
+      // (a sequence's slider says its stage: "3 of 8: Chóp")
+      if (motion.stages) input.setAttribute('aria-valuetext', stageWords(motion, words.stageText));
       playButton.textContent = player.playing ? words.pause : words.play;
     };
     sync();

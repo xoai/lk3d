@@ -5,6 +5,8 @@
 // the sentences that changed, when the reader made it (not the step's, which the steps' panel says, nor a handle's,
 // which its input says). In the 2D fallback there is no cut, so none is said. Owns sentences_ and saidChange_; reads
 // spec_, state_, words_, built_, stepAt_, handles_ and fluids_.
+import LK3D from '../namespace.js';
+
 /** @param {import('./context').Ctx} c */
 export function makeDescribe(c) {
   const w = c.words_,
@@ -24,7 +26,10 @@ export function makeDescribe(c) {
       step = steps[c.stepAt_],
       fluids = c.fluids_;
     add('title', c.spec_.title && c.spec_.title.replace(/\.?$/, '.'));
-    if (apart) add('apart', s.explode > 0.5 ? w.saidApart : w.saidTogether);
+    // (a sequence away from its start says where it is, in place of taken apart or put together)
+    const away = c.motions_.filter((motion) => motion.stages && s.motion[motion.id] !== motion.value);
+    for (const motion of away) add('stage', LK3D.story.words(motion, s.motion[motion.id], w.saidStage));
+    if (apart && !away.length) add('apart', s.explode > 0.5 ? w.saidApart : w.saidTogether);
     if (s.cut && c.renderer_.kind !== '2d')
       add(
         'cut',

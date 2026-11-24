@@ -148,11 +148,12 @@ export function makePose(c) {
   c.stopMotion_ = (motion) => {
     c.animations_.delete(playing.get(motion.id));
     playing.delete(motion.id);
+    c.stopped_?.(motion); // (a sequence's paced play ends: story.js)
     if (c.controls_.motion) c.controls_.motion(motion.id);
   };
   c.playMotion_ = (motion) => {
     c.stopMotion_(motion);
-    c.rule_?.(motion);
+    if (c.rule_?.(motion)) return; // (a sequence: played paced, stage by stage, by the story add-on)
     const [low, high] = motion.range,
       back = !motion.loop && c.state_.motion[motion.id] >= high; // (at its end: played back to the start)
     if (LK3D.reduce) return motion.loop || c.setMotion_(motion, back ? low : high); // (no movement: straight to where it goes)

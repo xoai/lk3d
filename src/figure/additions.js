@@ -389,5 +389,8 @@ export function makeAdditions(c) {
     parts: () => c.built_.parts,
     spec: () => c.spec_,
     given: () => c.given_,
+    woken: (fn) => (c.woken_ ||= new Set()).add(fn),
+    emit: (event) => c.opts_.onStory?.(event),
+    stopped: (fn) => (c.stopped_ = fn),
   };
 }

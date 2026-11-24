@@ -133,7 +133,7 @@ export function makeState(c) {
     const cause = marked || 'motion',
       wait = (cause === 'motion' || (cause === 'reader' && c.dragging_) ? 250 : 0) - (performance.now() - toldAt);
     if (wait > 0) {
-      if (!later) later = setTimeout(() => ((later = 0), c.kick_()), wait);
+      if (!later) later = setTimeout(() => ((later = 0), c.changeFrame_()), wait); // (told: nothing to draw again)
       return;
     }
     toldAt = performance.now();

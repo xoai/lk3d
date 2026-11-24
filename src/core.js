@@ -187,6 +187,7 @@ function mount(el, spec, opts = {}) {
         locked: c.locked_,
         asReader: c.asReader_,
         say: c.say_,
+        stageWords: (motion, pattern) => LK3D.story.words(motion, state.motion[motion.id], pattern),
       }),
     );
   }

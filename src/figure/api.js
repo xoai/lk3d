@@ -360,7 +360,7 @@ export function makeApi(c) {
     // a sequence (lk3d-story): its stages played paced, its camera, its value as a motion's
     sequence(id) {
       const motion = c.motions_.find((each) => each.id === id && each.stages);
-      return motion && LK3D.story.sequence(c.api_, motion);
+      return motion && LK3D.story.sequence(c.lent_, motion);
     },
     // the scene's guided steps: go to one by its place (from 0) or id ({ ms: 0 }: at once), and which is shown (-1:
     // none). The figure starts at the first (or mount's opts.step); moving through them does not call onStep

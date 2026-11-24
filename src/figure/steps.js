@@ -129,14 +129,17 @@ export function makeSteps(c, buttonClass) {
     const part = step.select != null && c.part_(step.select);
     c.state_.selected = part && !part.hidden ? part.id : null;
     // the motions: each at the step's value, else its start; those the step plays, played from there
+    // (settled: as a picture, each motion the step plays where its play ends, nothing played: lk3d render, printing)
+    const settled = options.settled;
     for (const motion of c.motions_) {
       c.stopMotion_(motion);
-      c.setMotion_(motion, state.motion(motion));
+      c.setMotion_(motion, settled ? state.settled(motion) : state.motion(motion));
     }
-    for (const id of listed(step.play)) {
-      const motion = c.motions_.find((each) => each.id === id);
-      if (motion) c.playMotion_(motion);
-    }
+    if (!settled)
+      for (const id of listed(step.play)) {
+        const motion = c.motions_.find((each) => each.id === id);
+        if (motion) c.playMotion_(motion);
+      }
     // taken apart, cut and looked at: glided there together
     const explode = state.explode;
     if (atOnce) c.explodeNow_(explode);
@@ -155,7 +158,7 @@ export function makeSteps(c, buttonClass) {
     }
     if (c.controls_.style) c.controls_.style(); // (the buttons show which toggles are on)
     c.showInfo_();
-    if (panel) {
+    if (panel && !settled) {
       const count = c.words_.stepOf.replace('{n}', String(index + 1)).replace('{count}', String(steps.length));
       words.innerHTML =
         `<span class="lk3d-step-count">${safeHTML(count)}</span> ` +

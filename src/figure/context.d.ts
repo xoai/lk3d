@@ -250,6 +250,10 @@ export interface Ctx {
   /** the story add-on's rules for sequences (story.js join): called as a motion is set (value) or played (no value), and
    * as the model is taken apart (no motion; value: 0 at once, else the ms its sequences glide back); true: not set */
   rule_?: (motion: any, value?: number) => boolean | void;
+  /** the story add-on's waits, checked when the clock is stepped or set (loop.js) */
+  woken_?: Set<() => void>;
+  /** the story add-on, told when a motion is stopped by anyone (a sequence's paced play ends) */
+  stopped_?: (motion: any) => void;
   /** the motions a set() is giving, while it gives them (the rules read it) */
   given_?: Record<string, number> | null;
   setMotion_(motion: any, v: number): void;
@@ -402,7 +406,7 @@ export interface Ctx {
   /** the steps' panel under the stage, or null (steps: false, controls: false) */
   panel_?: HTMLElement | null;
   /** go to a step by its place (from 0) or id; ms: 0 sets it at once */
-  goToStep_(which: number | string, o?: { ms?: number }): void;
+  goToStep_(which: number | string, o?: { ms?: number; settled?: boolean }): void;
 }
 
 declare global {

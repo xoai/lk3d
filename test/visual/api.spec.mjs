@@ -2914,3 +2914,68 @@ test("a sequence away holds the motions that set its parts' joints; the page win
   expect(got.explode).toEqual([1, 0]);
   expect(got.sequence).toEqual([0, 1]);
 });
+
+test('a sequence played paced: each stage its ms, then its hold (the last too); reduced motion shows stage ends only', async ({
+  page,
+}) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(async (scene) => {
+    const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false }),
+      apart = fig.sequence('apart'),
+      frame = () => new Promise((res) => requestAnimationFrame(res)),
+      run = async (fn) => {
+        LK3D.clock.speed = 0;
+        let done = false;
+        const start = LK3D.clock.now();
+        apart.play().then(() => (done = true));
+        while (!done && LK3D.clock.now() - start < 5000) {
+          LK3D.clock.step(20);
+          await frame();
+          fn?.(apart.value);
+        }
+        return LK3D.clock.now() - start;
+      };
+    await fig.ready;
+    const took = await run(); // (two stages of 1,000 ms, each with a hold of 400 ms)
+    apart.set(0);
+    LK3D.reduce = true;
+    const seen = new Set();
+    await run((v) => seen.add(v));
+    LK3D.reduce = false;
+    LK3D.clock.speed = 1;
+    return { took, seen: [...seen] };
+  }, teardownScene());
+  expect(Math.abs(got.took - 2800)).toBeLessThanOrEqual(40);
+  expect(got.seen.every((v) => Number.isInteger(v))).toBe(true);
+});
+
+test("a build's first play builds it from nothing; a settled step is where its play ends, nothing played or told", async ({
+  page,
+}) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(async (scene) => {
+    const told = [];
+    scene.sequences[0].build = true;
+    scene.steps = [
+      { title: 'Whole', view: 'home' },
+      { title: 'Built', play: ['apart'] },
+    ];
+    const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, onStory: (e) => told.push(e) }),
+      built = fig.sequence('apart');
+    await fig.ready;
+    const start = built.value;
+    LK3D.clock.speed = 0;
+    built.play();
+    LK3D.clock.step(20);
+    const first = built.value;
+    built.stop();
+    told.length = 0;
+    fig.step(1, { ms: 0, settled: true });
+    LK3D.clock.speed = 1;
+    return { start, first, settled: [built.value, built.playing], told: told.length };
+  }, teardownScene());
+  expect(got.start).toBe(2);
+  expect(got.first).toBeLessThan(1);
+  expect(got.settled).toEqual([2, false]);
+  expect(got.told).toBe(0);
+});

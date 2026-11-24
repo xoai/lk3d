@@ -7,7 +7,8 @@
 import { flatten, buildScene } from './geometry.js';
 import { M, mulv } from './math.js';
 import { stepState } from './stepstate.js';
-import { tracksOf, motionMatrix } from './motion.js';
+import { tracksOf, motionMatrix, fadeOf } from './motion.js';
+import { expand, pacing } from './sequence.js';
 import { jointsOf, jointOf, solve } from './joints.js';
 
 const UNIT = { mm: 0.001, cm: 0.01, dm: 0.1, m: 1, km: 1000 };
@@ -150,6 +151,7 @@ export function toGLB(built, options = {}) {
     nodeIndexOf.set(part, nodes.length - 1);
   }
   // motions: a sampler per part and path (translation, rotation) that changes along the times
+  let visibility = false;
   for (const animation of options.animations || []) {
     const times = new Float32Array(animation.times),
       channels = [],
@@ -180,13 +182,34 @@ export function toGLB(built, options = {}) {
         channels.push({ sampler: samplers.length - 1, target: { node: nodeIndex, path } });
       }
     }
+    // (a part's visibility along the times, when the animation says it: a sequence's parts faded out, below 0.05, are
+    // hidden, KHR_node_visibility; an exporter older than this field ignores it, and shows them)
+    if (animation.visible)
+      for (const [part, nodeIndex] of nodeIndexOf) {
+        const seen = animation.times.map((_, k) => (animation.visible(part, k) ? 1 : 0));
+        if (seen.every((value) => value === seen[0]) && seen[0]) continue;
+        if (input == null)
+          input = addAccessor(times, 'SCALAR', { minMax: { min: [times[0]], max: [times[times.length - 1]] } });
+        nodes[nodeIndex].extensions = { ...nodes[nodeIndex].extensions, KHR_node_visibility: { visible: true } };
+        samplers.push({ input, output: addAccessor(new Uint8Array(seen), 'SCALAR'), interpolation: 'STEP' });
+        channels.push({
+          sampler: samplers.length - 1,
+          target: {
+            path: 'pointer',
+            extensions: {
+              KHR_animation_pointer: { pointer: `/nodes/${nodeIndex}/extensions/KHR_node_visibility/visible` },
+            },
+          },
+        });
+        visibility = true;
+      }
     if (channels.length) animations.push({ name: animation.name, channels, samplers });
   }
   // guided steps: an animation each (its id, else step-N), at time 0 every part where the step puts it (taken apart,
   // moved and turned by the step's motion values) and shown or hidden by it
   const spec = options.spec || {},
     steps = options.pose ? (spec.steps || []).filter((step) => step && typeof step === 'object') : [],
-    used = steps.length ? ['KHR_node_visibility', 'KHR_animation_pointer'] : [];
+    used = steps.length || visibility ? ['KHR_node_visibility', 'KHR_animation_pointer'] : [];
   /** @type {number | null} */
   let zero = null;
   for (const [i, step] of steps.entries()) {
@@ -292,7 +315,8 @@ export function toGLB(built, options = {}) {
 // poses along its range
 export function sceneToGLB(spec, options = {}) {
   const built = buildScene(spec, options.quality ?? 1),
-    motions = spec.motions || [],
+    // (a scene's sequences as the motions they are: sequence.js)
+    motions = [...(spec.motions || []), ...(spec.sequences || []).map((sequence) => expand(sequence, spec))],
     joints = jointsOf(spec);
   for (const part of built.parts) {
     part.tracks = tracksOf(motions, part);
@@ -307,19 +331,28 @@ export function sceneToGLB(spec, options = {}) {
     };
   };
   const now = { ...options.motion };
+  // (a part faded out, below 0.05, at the pose exported is left out, as a hidden one is)
+  for (const part of built.parts) if (fadeOf(part.tracks, now) < 0.05) part.hidden = true;
   const animations = !options.animate
     ? []
     : motions.map((motion) => {
         const [start, end] = motion.range,
           sampleCount = options.samples ?? 120,
           seconds = (end - start) / (motion.speed ?? end - start),
-          poses = Array.from({ length: sampleCount + 1 }, (_, k) =>
-            poseAt({ ...now, [motion.id]: start + ((end - start) * k) / sampleCount }),
-          );
+          // (a sequence at its pace: each stage's ms, then its hold; any other motion evenly along its range)
+          paced = motion.stages
+            ? pacing(motion)
+            : Array.from({ length: sampleCount + 1 }, (_, k) => [
+                start + ((end - start) * k) / sampleCount,
+                (seconds * k) / sampleCount,
+              ]),
+          values = paced.map(([value]) => ({ ...now, [motion.id]: value })),
+          poses = values.map(poseAt);
         return {
-          name: motion.name || motion.id,
-          times: poses.map((_, k) => (seconds * k) / sampleCount),
+          name: motion.stages ? motion.id : motion.name || motion.id,
+          times: paced.map(([, time]) => time),
           matrix: (part, k) => poses[k](part),
+          ...(motion.stages && { visible: (part, k) => fadeOf(part.tracks, values[k]) >= 0.05 }),
         };
       });
   return toGLB(built, {

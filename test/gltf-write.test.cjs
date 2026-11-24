@@ -215,3 +215,31 @@ test('each guided step is an animation: the parts where the step puts them and w
   assert.equal(plain.animations, undefined);
   assert.deepEqual(plain.extensionsUsed, ['KHR_xmp_json_ld']);
 });
+
+test('a sequence exported paced, its holds as still samples, its parts faded out hidden (KHR_node_visibility); valid glTF', async () => {
+  const scene = {
+    title: 'A box taken apart',
+    parts: [
+      { id: 'base', name: 'Base', shapes: [{ box: [2, 0.2, 2] }] },
+      { id: 'lid', name: 'Lid', at: [0, 0.2, 0], explode: [0, 1, 0], shapes: [{ box: [1, 0.2, 1] }] },
+    ],
+    sequences: [{ id: 'up', build: true, ms: 1000, hold: 500, stages: [{ parts: ['lid'] }] }],
+  };
+  const glb = sceneToGLB(scene, { animate: true }),
+    gltf = parseGLB(glb).json,
+    up = gltf.animations.find((animation) => animation.name === 'up');
+  assert.ok(up, 'an animation named by the sequence');
+  const times = gltf.accessors[up.samplers[0].input];
+  assert.equal(times.max[0], 1.5, 'its stage (1 s) and its hold (0.5 s)');
+  assert.ok(times.count >= 8, 'at least 8 samples a stage');
+  assert.ok(
+    up.channels.some((c) => c.target.path === 'pointer'),
+    'the lid hidden until it comes',
+  );
+  assert.ok(gltf.extensionsUsed.includes('KHR_node_visibility'));
+  const report = await require('gltf-validator').validateBytes(new Uint8Array(glb));
+  assert.equal(report.issues.numErrors, 0, JSON.stringify(report.issues.messages.slice(0, 5)));
+  // posed at its start the build is whole; at 0 the lid, not built yet, is left out
+  const atZero = parseGLB(sceneToGLB(scene, { motion: { up: 0 } })).json;
+  assert.ok(!atZero.nodes.some((node) => node.name === 'Lid'), 'a part faded out is left out of the static export');
+});

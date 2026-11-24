@@ -54,7 +54,7 @@ const fail = (message, code = 2) => {
   process.exitCode = code;
 };
 const LOOKS = ['pen', 'studio', 'ink'],
-  POSES = ['rest', 'apart', 'cut', 'steps'];
+  POSES = ['rest', 'apart', 'cut', 'steps', 'sequences'];
 const USAGE = `usage: lk3d check scene.json [--json]
        lk3d place scene.json
        lk3d skill install [--to claude|codex|PATH] | lk3d skill pack [--out DIR]
@@ -267,7 +267,7 @@ function check(scenePath) {
 // the page the pictures are drawn on: the built engine, the scene, a fixed width; window.__ready once it is complete
 const PAGE = `<!doctype html><meta charset="utf-8"><title>lk3d render</title>
 <style>body{margin:0;background:#fff;font-family:system-ui,sans-serif}#g{width:WIDTHpx}.lk3d{margin:0}.lk3d-hint{display:none}</style>
-<div id="g"></div><script src="/lk3d.min.js"></script><script src="/lk3d-models.min.js"></script><script type="module">
+<div id="g"></div><script src="/lk3d.min.js"></script><script src="/lk3d-models.min.js"></script><script src="/lk3d-story.min.js"></script><script type="module">
 const query = new URLSearchParams(location.search), scene = await (await fetch('/scene.json')).json(), errors = [];
 window.addEventListener('error', (e) => errors.push(String(e.message)));
 if (query.get('ortho')) scene.view = { ...scene.view, projection: 'ortho' };
@@ -277,10 +277,24 @@ const pose = query.get('pose');
 const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, adaptive: false, locale: 'en',
   style: query.get('look'), theme: query.get('theme') || undefined,
   labels: names ? 'all' : pose === 'apart' ? 'auto' : pose === 'step' ? undefined : 'none',
-  step: pose === 'step' ? Number(query.get('step')) : -1 }); // (at rest, apart and cut: before the first step)
+  step: -1 }); // (before the first step: a step is gone to below, as a picture)
 await Promise.race([fig.ready, new Promise((resolve) => setTimeout(resolve, 30000))]);
 if (pose === 'apart') fig.set({ explode: 1 });
 if (pose === 'cut') fig.set({ cut: true });
+// a step as a picture: each motion it plays where its play ends (a teardown apart, a build built), nothing played
+if (pose === 'step') fig.step(Number(query.get('step')), { ms: 0, settled: true });
+// a sequence at the end of a stage, in that stage's camera: its stage played at once (motion reduced) on a stopped clock
+if (pose === 'sequence') {
+  const sequence = fig.sequence(query.get('sequence')), at = Number(query.get('at'));
+  LK3D.reduce = true;
+  LK3D.clock.speed = 0;
+  sequence.set(Math.max(0, at - 1));
+  if (at > 0) {
+    const played = sequence.play({ to: at });
+    LK3D.clock.step(1e7);
+    await played;
+  }
+}
 for (let k = 0; k < 3; k++) await new Promise((resolve) => requestAnimationFrame(resolve));
 window.__ready = { errors, renderer: fig.renderer, words: fig.describe() };
 </script>`;
@@ -290,11 +304,19 @@ window.__ready = { errors, renderer: fig.renderer, words: fig.describe() };
 // an installed package without its development tools, the bundles it shipped with (built from the same source when it
 // was packed)
 async function engineScript(models = false) {
+  const story = models === 'story';
   try {
     const build = await import('../build.mjs');
-    return await (models ? build.bundle('iife', build.MODELS_ENTRY) : build.bundle());
+    return await (story
+      ? build.bundle('iife', build.STORY_ENTRY)
+      : models
+        ? build.bundle('iife', build.MODELS_ENTRY)
+        : build.bundle());
   } catch (error) {
-    const shipped = path.join(ROOT, models ? 'dist/lk3d-models.min.js' : 'dist/lk3d.min.js');
+    const shipped = path.join(
+      ROOT,
+      story ? 'dist/lk3d-story.min.js' : models ? 'dist/lk3d-models.min.js' : 'dist/lk3d.min.js',
+    );
     if (error.code === 'ERR_MODULE_NOT_FOUND' && fs.existsSync(shipped)) return fs.readFileSync(shipped);
     throw new Error(`could not build the engine from src/ (${error.message.split('\n')[0]}): run npm install in lk3d`, {
       cause: error,
@@ -331,16 +353,31 @@ async function render(scenePath) {
   const width = Number(flag('width', 640)),
     looks = String(flag('looks', 'pen,ink')).split(','),
     stepCount = Array.isArray(data.steps) ? data.steps.length : 0,
-    poses = String(flag('poses', stepCount ? 'rest,apart,cut,steps' : 'rest,apart,cut')).split(','),
+    sequenceList = Array.isArray(data.sequences) ? data.sequences : [],
+    poses = String(
+      flag(
+        'poses',
+        ['rest,apart,cut', stepCount && 'steps', sequenceList.length && 'sequences'].filter(Boolean).join(','),
+      ),
+    ).split(','),
     unknown = [...looks.filter((look) => !LOOKS.includes(look)), ...poses.filter((pose) => !POSES.includes(pose))];
   if (!(width >= 64 && width <= 4096))
     return fail(`--width is a number of pixels from 64 to 4096, not ${flag('width')}`);
   if (unknown.length)
     return fail(`no look or pose ${unknown.join(', ')} (looks: ${LOOKS.join(', ')}; poses: ${POSES.join(', ')})`);
   if (poses.includes('steps') && !stepCount) return fail('--poses steps: the scene has no steps');
+  if (poses.includes('sequences') && !sequenceList.length) return fail('--poses sequences: the scene has no sequences');
+  // each sequence at 0 and at the end of its stages: all of them when there are 12 or fewer, else the first, the last
+  // and ten between, evenly
+  const stageEnds = (count) =>
+    count <= 12
+      ? Array.from({ length: count + 1 }, (_, k) => k)
+      : [0, ...new Set(Array.from({ length: 12 }, (_, k) => 1 + Math.round(((count - 1) * k) / 11)))];
   const scene = JSON.stringify(data),
     engine = await engineScript(),
     models = await engineScript(true),
+    // (the story add-on, for a scene with sequences: none for any other, which draws as it always did)
+    story = sequenceList.length ? await engineScript('story') : '',
     page = PAGE.replace('WIDTH', String(width));
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url, 'http://x').pathname;
@@ -349,9 +386,11 @@ async function render(scenePath) {
         ? ['text/javascript', engine]
         : pathname === '/lk3d-models.min.js'
           ? ['text/javascript', models]
-          : pathname === '/scene.json'
-            ? ['application/json', scene]
-            : ['text/html', page];
+          : pathname === '/lk3d-story.min.js'
+            ? ['text/javascript', story]
+            : pathname === '/scene.json'
+              ? ['application/json', scene]
+              : ['text/html', page];
     res.writeHead(200, { 'content-type': type });
     res.end(body);
   });
@@ -381,10 +420,22 @@ async function render(scenePath) {
   try {
     const tab = await browser.newPage({ deviceScaleFactor: 2 });
     for (const look of looks)
-      for (const [pose, query, picture] of poses.flatMap((pose) =>
+      for (const [pose, query, picture, caption] of poses.flatMap((pose) =>
         pose === 'steps'
           ? Array.from({ length: stepCount }, (_, index) => ['step', `&step=${index}`, `step${index + 1}`])
-          : [[pose, '', pose]],
+          : pose === 'sequences'
+            ? sequenceList.flatMap((sequence) =>
+                stageEnds(sequence.stages.length).map((at) => {
+                  const title = at ? sequence.stages[at - 1].title : '';
+                  return [
+                    'sequence',
+                    `&sequence=${encodeURIComponent(sequence.id)}&at=${at}`,
+                    `${sequence.id}-${at}`,
+                    `${sequence.id} ${at}/${sequence.stages.length}${title ? ': ' + title : ''}`,
+                  ];
+                }),
+              )
+            : [[pose, '', pose]],
       )) {
         await tab.goto(
           `${base}?look=${look}&pose=${pose}${query}${theme ? '&theme=' + theme : ''}${ortho ? '&ortho=1' : ''}`,
@@ -401,9 +452,9 @@ async function render(scenePath) {
         const step = pose === 'step' ? data.steps[Number(picture.slice(4)) - 1] : null;
         pictures.push({
           png,
-          caption: step ? `step ${picture.slice(4)}: ${step.title || ''}` : `${look} · ${pose}`,
+          caption: caption || (step ? `step ${picture.slice(4)}: ${step.title || ''}` : `${look} · ${pose}`),
           look,
-          pose: step ? picture : pose,
+          pose: step ? picture : pose === 'sequence' ? 'sequences' : pose,
           renderer: result.renderer,
           errors: result.errors,
         });
@@ -470,6 +521,14 @@ async function contactSheet(browser, data, name, out, pictures) {
   // the questions, at most 20
   const named = (id) => (data.parts || []).find((part) => part && part.id === id)?.name || id,
     questions = [];
+  // (a sequence's first, before the cut at 20: what no check can see of a way out, the eye must)
+  for (const sequence of data.sequences || [])
+    questions.push(
+      sequence.build
+        ? `Does each part of ${sequence.id} come in by a way it could really take, in an order it could really be built in?`
+        : 'Does each part leave by a way it could really take?',
+      `Is each stage of ${sequence.id} framed so that what moves in it is seen?`,
+    );
   for (const item of data.expect || [])
     if (item && item.seen != null) questions.push(`Is ${named(item.seen)} visible in step ${item.step}?`);
   (data.steps || []).forEach((step, k) => {

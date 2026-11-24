@@ -35,6 +35,14 @@ Nothing a page or a scene already does changes.
   `check.float` and `check.allow` excuse as elsewhere. `expect`'s `seen` takes a sequence and a stage. Warnings: a step
   that gives angles only (it keeps the step before's distance and target), and a stage its step hides. It prints each
   sequence's stages, how long it plays and the order it was checked in.
+- **Sequences in pictures and exports.** `lk3d render` serves and loads `lk3d-story.min.js` for a scene with sequences,
+  draws a step as a picture (`step(k, { ms: 0, settled: true })`: a step that plays a teardown is pictured apart), and
+  gains the pose `sequences` (each at 0 and at its stages' ends, in each stage's camera, captioned "dung 3/8: Chóp"),
+  in its default poses for such a scene; the sheet asks of each sequence first. `lk3d export --animate` and a page's
+  `exportGLB({ animate: true })` time a sequence by its stages' `ms` and `hold` (the page's through the story add-on), name
+  its animation by its id, and hide its parts while they are faded out (`KHR_node_visibility`); the static export leaves
+  them out. The export add-on's budget goes from 3 KB to 3.1 KB (3,097 bytes), its measured need, under the 3.5 KB the
+  user decided on 2026-11-23.
 - **One default changes: a glide with no `ms`** (`fig.view()`, a guided step) now takes 500 ms to 1.6 s, worked out
   from the move (its turn, its zoom, how far the target goes), with cubic easing, the distance gliding in log (a zoom from
   a whole cell to one protein no longer rushes its end) and a far move pulling back a little on the way; it was 600 ms,
@@ -54,7 +62,7 @@ Nothing a page or a scene already does changes.
   it joins, as they were for the models add-on. `hostVersion` stays 1, and the 0.7.0 live add-on keeps working.
 - **The budget goes from 70.5 KB to 70.9 KB** (72,601 bytes) gzipped, by the user's decision of 2026-11-23 (23
   November 2026): the core may grow to at most 74.5 KB over the two lk3d 0.8.0 and 0.9.0 releases, each raise to the code's
-  measured need, at most 72.9 KB after 0.8.0: 70.9 KB for the add-on host (72,598 bytes), then 71.1 KB (72,806 bytes) for the scene format's sequences, steps' times and the engine's own check of them (72,716 bytes), then 71.3 KB (73,011 bytes) for sequences as motions and the story add-on's hooks (72,996 bytes), then 71.5 KB (73,216 bytes) for paced play and settled steps (73,210 bytes), then 71.7 KB (73,420 bytes) for fading (73,340 bytes), then 71.9 KB (73,625 bytes) for camera glides and the motion-aware box (73,619 bytes), then 72.3 KB (74,035 bytes) for motions that are alternatives and clips (73,987 bytes), then 72.5 KB (74,240 bytes) for the reader hook and the page-input pause (74,210 bytes), then **72.6 KB** (74,342 bytes) for the tour's panel at phone width and the reader hook's rules (74,298 bytes).
+  measured need, at most 72.9 KB after 0.8.0: 70.9 KB for the add-on host (72,598 bytes), then 71.1 KB (72,806 bytes) for the scene format's sequences, steps' times and the engine's own check of them (72,716 bytes), then 71.3 KB (73,011 bytes) for sequences as motions and the story add-on's hooks (72,996 bytes), then 71.5 KB (73,216 bytes) for paced play and settled steps (73,210 bytes), then 71.7 KB (73,420 bytes) for fading (73,340 bytes), then 71.9 KB (73,625 bytes) for camera glides and the motion-aware box (73,619 bytes), then 72.3 KB (74,035 bytes) for motions that are alternatives and clips (73,987 bytes), then 72.5 KB (74,240 bytes) for the reader hook and the page-input pause (74,210 bytes), then 72.6 KB (74,342 bytes) for the tour's panel at phone width and the reader hook's rules (74,298 bytes), then **72.7 KB** (74,444 bytes) for the page's paced, faded export (74,385 bytes).
 
 ## 0.7.0 (23 November 2026)
 

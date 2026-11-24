@@ -8,6 +8,7 @@ import * as HD from '../handles.js';
 import * as FX from '../fluids.js';
 import { holding } from './backend.js';
 import LK3D from '../namespace.js';
+import { fadeOf } from '../motion.js';
 
 /** @param {import('./context').Ctx} c */
 export function makeApi(c) {
@@ -203,16 +204,28 @@ export function makeApi(c) {
           const [from, to] = motion.range,
             samples = options.samples ?? 120,
             seconds = (to - from) / (motion.speed ?? to - from),
-            poses = [];
-          for (let sample = 0; sample <= samples; sample++) {
-            c.state_.motion = { ...motionNow, [motion.id]: from + ((to - from) * sample) / samples };
+            // (a sequence at its pace, from the story add-on: each stage's ms, then its hold; else evenly)
+            paced =
+              (motion.stages && LK3D.story?.pacing(motion)) ||
+              Array.from({ length: samples + 1 }, (_, k) => [
+                from + ((to - from) * k) / samples,
+                (seconds * k) / samples,
+              ]),
+            poses = [],
+            shown = [];
+          for (const [value] of paced) {
+            c.state_.motion = { ...motionNow, [motion.id]: value };
             c.poseVersion_++;
             poses.push(new Map(c.built_.parts.map((part) => [part, c.modelMatrix_(part)])));
+            shown.push(
+              new Set(c.built_.parts.filter((part) => !(part.fades && fadeOf(part.tracks, c.state_.motion) < 0.05))),
+            );
           }
           animations.push({
-            name: motion.name || motion.id,
-            times: poses.map((_, sample) => (seconds * sample) / samples),
+            name: motion.stages ? motion.id : motion.name || motion.id,
+            times: paced.map(([, time]) => time),
             matrix: (part, sample) => poses[sample].get(part),
+            visible: (part, sample) => shown[sample].has(part),
           });
         }
       c.state_.motion = motionNow;

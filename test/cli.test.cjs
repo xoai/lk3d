@@ -254,3 +254,40 @@ test('lk3d skill install copies the skill, its links pointing at the guides it b
     assert.match(index, new RegExp(`docs/${guide}\\.md\\): \\S`), guide);
   assert.ok(fs.statSync(path.join(dir, 'llms-full.txt')).size > 100000);
 });
+
+test('render: a step that plays a teardown is pictured where its play ends (apart); a sequence at its stages, captioned', (t) => {
+  let playwright = null;
+  try {
+    playwright = require.resolve('playwright', { paths: [ROOT] });
+  } catch {
+    // (none here)
+  }
+  if (!playwright) return t.skip('needs Playwright');
+  const scene = tmp(
+      'box.json',
+      JSON.stringify({
+        title: 'A box',
+        parts: [
+          { id: 'base', name: 'Base', shapes: [{ box: [2, 0.2, 2] }] },
+          { id: 'lid', name: 'Lid', at: [0, 0.2, 0], explode: [0, 1, 0], shapes: [{ box: [1, 0.2, 1] }] },
+        ],
+        sequences: [{ id: 'off', name: 'Off', stages: [{ parts: ['lid'], title: 'Lid' }] }],
+        steps: [{ title: 'Open', play: ['off'] }],
+      }),
+    ),
+    out = path.dirname(scene),
+    r = run('render', scene, '--looks', 'pen', '--poses', 'steps,sequences', '--out', out);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(
+    fs.readFileSync(path.join(out, 'box-pen-step1.txt'), 'utf8'),
+    /Off: stage 1 of 1, Lid/,
+    'the step pictured apart',
+  );
+  const captions = JSON.parse(fs.readFileSync(path.join(out, 'box-render.json'), 'utf8')).pictures.map(
+    (p) => p.caption,
+  );
+  assert.deepEqual(
+    captions.filter((c) => c.startsWith('off')),
+    ['off 0/1', 'off 1/1: Lid'],
+  );
+});

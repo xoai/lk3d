@@ -122,12 +122,12 @@ export function expand(sequence, scene) {
 }
 
 /** when each value of a sequence is reached as it is played from 0 to N: [value, seconds] pairs, at least 8 a stage,
- * each hold as a pair at the stage's end
+ * each hold as a pair at the stage's end (a sequence, or the motion expand made of it)
  * @param {any} sequence @param {number} [per] */
 export function pacing(sequence, per = 8) {
   const out = [[0, 0]];
   let time = 0;
-  timing(sequence).forEach((/** @type {{ ms: number, hold: number }} */ t, index) => {
+  (sequence.holds || timing(sequence)).forEach((/** @type {{ ms: number, hold: number }} */ t, index) => {
     for (let i = 1; i <= per; i++) out.push([index + i / per, (time + (t.ms * i) / per) / 1000]);
     time += t.ms + t.hold;
     if (t.hold) out.push([index + 1, time / 1000]);

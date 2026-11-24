@@ -10,7 +10,7 @@ The scene is plain data (JSON), so it can be written, reviewed and checked like 
 
 ```html
 <div id="fig"></div>
-<script src="https://unpkg.com/lk3d@0.7.0/dist/lk3d.min.js"></script>
+<script src="https://unpkg.com/lk3d@0.8.0/dist/lk3d.min.js"></script>
 <script>
   LK3D.mount(document.getElementById('fig'), {
     title: 'A bolt and a nut',
@@ -117,7 +117,7 @@ link, or take it away as a .json or .glb file. From a checkout: `npm run playgro
 ## Use it
 
 A page loads one script, the global `LK3D`, as above: from a CDN with its version pinned
-(`https://unpkg.com/lk3d@0.7.0/dist/lk3d.min.js`, or `https://cdn.jsdelivr.net/npm/lk3d@0.7.0/dist/lk3d.min.js`), or a
+(`https://unpkg.com/lk3d@0.8.0/dist/lk3d.min.js`, or `https://cdn.jsdelivr.net/npm/lk3d@0.8.0/dist/lk3d.min.js`), or a
 copy of `dist/lk3d.min.js` next to the page. A page that shows a glTF model also loads the models add-on after it,
 `dist/lk3d-models.min.js` (a scene with a model is refused without it, and says so), and a page that draws surfaces or
 arrows (`fig.surface`, `fig.arrows`), or a card over the stage (`card: true`), loads the live add-on after it,
@@ -140,7 +140,7 @@ same script defines: the scene from `src`, or from a JSON script inside it, and 
 moves come as events ([the element](docs/api.md#the-element-lk3d-figure)).
 
 ```html
-<script src="https://unpkg.com/lk3d@0.7.0/dist/lk3d.min.js"></script>
+<script src="https://unpkg.com/lk3d@0.8.0/dist/lk3d.min.js"></script>
 <lk3d-figure src="generator.json" look="pen" locale="vi"></lk3d-figure>
 ```
 

@@ -3,9 +3,14 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
-## Unreleased
+## 0.8.0 (24 November 2026)
 
-Nothing a page or a scene already does changes.
+**Sequences and the tour**, in a new add-on, `dist/lk3d-story.min.js`: a model taken apart or built part by part, the
+camera on each part, and the steps played by themselves. Scenes and pages written for 0.7.0 work unchanged, but for one
+default: a glide with no `ms` (below). How to move: load add-ons of the core's version; a page with sequences or a tour
+loads `lk3d-story.min.js` after `lk3d.min.js`; a TypeScript switch over `ChangeCause` adds `'tour'`; a page whose
+`onStep` changes the figure should know it now hears the page's own `step()` too (with `by: 'page'`). Version skew: the
+0.7.0 live add-on works on this core; the 0.8.0 story add-on on a 0.7.0 core says it needs lk3d 0.8.0 or later.
 
 - **Labels keep clear of the scale and the hint.** A label no longer lands under the scale bar and its note, or under
   the hint while it shows. Both are measured where the stylesheet puts them, again only when the stage's size or the

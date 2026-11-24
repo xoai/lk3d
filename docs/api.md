@@ -1,12 +1,14 @@
 # API
 
 ```js
-// a page: one script tag, the global LK3D (https://unpkg.com/lk3d@0.7.0/dist/lk3d.min.js, or a copy of dist/lk3d.min.js)
-<script src="https://unpkg.com/lk3d@0.7.0/dist/lk3d.min.js"></script>;
+// a page: one script tag, the global LK3D (https://unpkg.com/lk3d@0.8.0/dist/lk3d.min.js, or a copy of dist/lk3d.min.js)
+<script src="https://unpkg.com/lk3d@0.8.0/dist/lk3d.min.js"></script>;
 // and, on a page that shows a glTF model, its reader after it (docs/models.md)
-<script src="https://unpkg.com/lk3d@0.7.0/dist/lk3d-models.min.js"></script>;
+<script src="https://unpkg.com/lk3d@0.8.0/dist/lk3d-models.min.js"></script>;
 // and, on a page that draws surfaces or arrows (fig.surface, fig.arrows) or shows the card, the live add-on after it
-<script src="https://unpkg.com/lk3d@0.7.0/dist/lk3d-live.min.js"></script>;
+<script src="https://unpkg.com/lk3d@0.8.0/dist/lk3d-live.min.js"></script>;
+// a page whose scene has sequences, or that plays the steps by themselves (fig.tour), loads the story add-on after it
+<script src="https://unpkg.com/lk3d@0.8.0/dist/lk3d-story.min.js"></script>;
 // or a module
 import LK3D, { mount, build, defaults, locales } from 'lk3d';
 ```

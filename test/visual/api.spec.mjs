@@ -3063,3 +3063,67 @@ test('camera follow: each stage played is framed where it ends; a press hands th
   expect(got.after).toBeCloseTo(got.yaw, 6); // (stage 2's view not taken: the reader has the camera)
   expect(got.value).toBe(2);
 });
+
+test('motions of a group: one row of toggles, one slider, one playing at a time; a clip plays once and comes back', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    window.scene.motions = [
+      {
+        id: 'up',
+        name: 'Up',
+        range: [0, 1],
+        group: 'moves',
+        tracks: [
+          {
+            parts: ['knob'],
+            move: [
+              [0, [0, 0, 0]],
+              [1, [0, 0.5, 0]],
+            ],
+          },
+        ],
+      },
+      {
+        id: 'out',
+        name: 'Out',
+        range: [0, 1],
+        group: 'moves',
+        then: 'start',
+        tracks: [
+          {
+            parts: ['base'],
+            move: [
+              [0, [0, 0, 0]],
+              [1, [0, 0, 0.5]],
+            ],
+          },
+        ],
+      },
+    ];
+    const fig = LK3D.mount(document.getElementById('g'), window.scene),
+      frame = () => new Promise((res) => requestAnimationFrame(res)),
+      run = async (ms) => {
+        for (let t = 0; t < ms; t += 20) (LK3D.clock.step(20), await frame());
+      };
+    await fig.ready;
+    const row = document.querySelector('#g [role="group"][aria-label="moves"]'),
+      buttons = [...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-pressed')),
+      sliders = row.querySelectorAll('input[type=range]').length;
+    LK3D.clock.speed = 0;
+    fig.motion('up').play();
+    await run(500);
+    fig.motion('out').play();
+    const one = [fig.motion('up').playing, fig.motion('out').playing];
+    await run(400);
+    const upBack = fig.motion('up').value;
+    await run(1000);
+    LK3D.clock.speed = 1;
+    return { buttons, sliders, one, upBack, out: [fig.motion('out').value, fig.motion('out').playing] };
+  });
+  expect(got.buttons).toEqual(['false', 'false']);
+  expect(got.sliders).toBe(1);
+  expect(got.one).toEqual([false, true]);
+  expect(got.upBack).toBe(0);
+  expect(got.out).toEqual([0, false]);
+});

@@ -151,15 +151,49 @@ export function makePose(c) {
   c.stopMotion_ = (motion) => {
     c.animations_.delete(playing.get(motion.id));
     playing.delete(motion.id);
+    glides.delete(motion.id);
     c.stopped_?.(motion); // (a sequence's paced play ends: story.js)
     if (c.controls_.motion) c.controls_.motion(motion.id);
   };
+  // a motion glided to a value over 300 ms of the clock's time, after a wait (ms); at once when motion is reduced: a
+  // motion of a group put back as another plays, a clip back to its start
+  const glides = new Map(),
+    glide = (motion, to, wait = 0) => {
+      const from = c.state_.motion[motion.id],
+        start = clock.now() + wait;
+      const step = (now) => {
+        if (glides.get(motion.id) !== step) return false;
+        const f = Math.max(0, Math.min(1, (now - start) / (LK3D.reduce ? 1e-9 : 300)));
+        if (f > 0) c.setMotion_(motion, from + (to - from) * f);
+        return f < 1 || !glides.delete(motion.id);
+      };
+      glides.set(motion.id, step);
+      c.animations_.add(step);
+      c.kick_();
+    };
   c.playMotion_ = (motion) => {
     c.stopMotion_(motion);
     if (c.rule_?.(motion)) return; // (a sequence: played paced, stage by stage, by the story add-on)
+    // (motions of a group are alternatives: the others stop, and glide to their start, a loop to its nearer end)
+    for (const other of c.motions_)
+      if (motion.group && other !== motion && other.group === motion.group) {
+        const [a, b] = other.range,
+          v = c.state_.motion[other.id];
+        c.stopMotion_(other);
+        glide(other, other.loop ? (v - a < b - v ? a : b) : startOf(other));
+      }
     const [low, high] = motion.range,
       back = !motion.loop && c.state_.motion[motion.id] >= high; // (at its end: played back to the start)
-    if (LK3D.reduce) return motion.loop || c.setMotion_(motion, back ? low : high); // (no movement: straight to where it goes)
+    // (a clip, then: 'start', played once: back to its start; with motion reduced, held at its end for its time, 1 s at least)
+    const clip = () =>
+      motion.then &&
+      !back &&
+      glide(
+        motion,
+        startOf(motion),
+        LK3D.reduce ? Math.max(1000, (1000 * (high - low)) / (motion.speed ?? high - low)) : 0,
+      );
+    if (LK3D.reduce) return motion.loop || (c.setMotion_(motion, back ? low : high), clip()); // (no movement: straight to where it goes)
     let last = clock.now();
     const step = (now) => {
       // (the whole of a step of the clock stopped by hand; while it runs, at most 50 ms: not a leap after a hidden tab)
@@ -167,7 +201,7 @@ export function makePose(c) {
         value = c.state_.motion[motion.id] + (back ? -1 : 1) * (motion.speed ?? high - low) * dt * c.state_.timeScale;
       last = now;
       c.setMotion_(motion, value);
-      if (!motion.loop && (back ? value <= low : value >= high)) return (c.stopMotion_(motion), false);
+      if (!motion.loop && (back ? value <= low : value >= high)) return (c.stopMotion_(motion), clip(), false);
       return true;
     };
     playing.set(motion.id, step);

@@ -82,28 +82,58 @@ export function controls({
       )
     : null;
 
-  // each named motion: a slider along its range, and a button that plays it or stops it
+  // each named motion: a slider along its range, and a button that plays it or stops it. Motions of a group (one plays
+  // at a time) share one labelled row of toggle buttons and one slider, for the one last chosen
+  /** @type {Map<string, any>} */
+  const groups = new Map();
   const motionSyncs = motions.map((motion) => {
     const player = fig.motion(motion.id),
-      [min, max] = motion.range.map(Number),
-      input = gate('motions', slider(motion.name, motion.name, min, max, (max - min) / 200, player.value));
-    input.addEventListener(
-      'input',
-      act('motions', () => {
-        const value = +input.value; // (read first: stopping puts the slider back where the motion is)
-        player.stop();
-        player.set(value);
-      }),
-    );
+      [min, max] = motion.range.map(Number);
+    let shared = motion.group && groups.get(motion.group);
+    if (motion.group && !shared) {
+      const row = document.createElement('div');
+      row.setAttribute('role', 'group');
+      row.setAttribute('aria-label', motion.group);
+      bar.append(row);
+      groups.set(motion.group, (shared = { row, chosen: motion }));
+    }
+    const input =
+      shared?.input ||
+      gate('motions', slider(motion.name, motion.name, min, max, (max - min) / 200, player.value, shared?.row));
+    if (shared) shared.input = input;
+    if (!shared || shared.chosen === motion)
+      input.addEventListener(
+        'input',
+        act('motions', () => {
+          const chosen = shared ? fig.motion(shared.chosen.id) : player,
+            value = +input.value; // (read first: stopping puts the slider back where the motion is)
+          chosen.stop();
+          chosen.set(value);
+        }),
+      );
     const playButton = gate(
       'motions',
-      button(words.play, motion.name, () => locked('motions') || (player.playing ? player.stop() : player.play())),
+      button(
+        shared ? motion.name : words.play,
+        motion.name,
+        () => {
+          if (shared) {
+            // (the slider now this motion's)
+            shared.chosen = motion;
+            Object.assign(input, { min, max, step: (max - min) / 200 });
+            input.setAttribute('aria-label', motion.name);
+          }
+          locked('motions') || (player.playing ? player.stop() : player.play());
+        },
+        shared?.row,
+      ),
     );
     const sync = () => {
-      input.value = player.value;
+      if (!shared || shared.chosen === motion) input.value = player.value;
       // (a sequence's slider says its stage: "3 of 8: Chóp")
       if (motion.stages) input.setAttribute('aria-valuetext', stageWords(motion, words.stageText));
-      playButton.textContent = player.playing ? words.pause : words.play;
+      if (shared) playButton.setAttribute('aria-pressed', String(player.playing));
+      else playButton.textContent = player.playing ? words.pause : words.play;
     };
     sync();
     return [motion.id, sync];

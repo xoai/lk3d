@@ -247,6 +247,11 @@ function check(scenePath) {
           `${summary.shapes} shapes, ${summary.placed} placed, ${summary.triangles} triangles, ` +
           `${+summary.size.toFixed(2)} units across`,
       );
+    // each sequence: its stages, how long it plays (each stage and its hold), and the order it was checked in
+    for (const sequence of summary?.sequences || [])
+      console.log(
+        `  ${sequence.id}: ${sequence.stages} stages, plays ${sequence.seconds} s, checked in this order: ${sequence.order.join(', ')}`,
+      );
     for (const problem of all)
       console.log(
         `  ${problem.level === 'warning' ? 'warning: ' : ''}${problem.path || '(scene)'}: ${problem.message}`,

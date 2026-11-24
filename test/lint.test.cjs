@@ -455,3 +455,82 @@ test('place: each relation puts the part where it says; drift, a missing at, a c
   assert.equal(handled.problems[0].level, 'warning');
   assert.match(handled.problems[0].message, /post's handle turns about \[0, 0, 0\], outside the part/);
 });
+
+// sequences (lk3d 0.8.0): each stage's movers sampled, the order checked against what rests on what, a step's framing
+const tower = (sequence, more = {}) => ({
+  lk3d: 1,
+  title: 'A tower',
+  parts: [
+    { id: 'ground', name: 'Ground', at: [0, -0.1, 0], shapes: [{ box: [8, 0.2, 8] }] },
+    { id: 'base', name: 'Base', at: [0, 0.5, 0], explode: [-3, 0, 0], shapes: [{ box: [1, 1, 1] }] },
+    { id: 'roof', name: 'Roof', at: [0, 1.1, 0], explode: [0, 0, 3], shapes: [{ box: [1.2, 0.2, 1.2] }] },
+    { id: 'bracket', name: 'Bracket', at: [0, 2, 0], shapes: [{ box: [2, 0.1, 0.1] }] },
+  ],
+  check: { float: ['bracket'] },
+  sequences: [sequence],
+  ...more,
+});
+const said = (scene) =>
+  lint(scene)
+    .problems.map((p) => `${p.level || 'problem'} ${p.path}: ${p.message}`)
+    .join('\n');
+
+test('a sequence: a part run through another in its stage is caught, naming both, the stage and the sequence', () => {
+  // the roof lifted through the bracket above it
+  const s = tower({ id: 'apart', stages: [{ parts: ['roof'], by: [0, 3, 0] }, { parts: ['base'] }] });
+  assert.match(said(s), /roof runs into bracket in stage 1 of apart/);
+  const fixed = tower({
+    id: 'apart',
+    stages: [
+      {
+        parts: ['roof'],
+        path: [
+          [0, [0, 0, 0]],
+          [0.5, [2, 0, 0]],
+          [1, [2, 3, 0]],
+        ],
+      },
+      { parts: ['base'] },
+    ],
+  });
+  assert.doesNotMatch(said(fixed), /runs into/);
+});
+
+test('a teardown may not take a part another rests on; a build may not bring one before what holds it; both say an order', () => {
+  const teardown = tower({ id: 'apart', stages: [{ parts: ['base'] }, { parts: ['roof'] }] });
+  assert.match(
+    said(teardown),
+    /base is taken in stage 1 of apart while roof still rests on it: a valid order: roof, base/,
+  );
+  const build = tower({ id: 'up', build: true, stages: [{ parts: ['roof'] }, { parts: ['base'] }] });
+  assert.match(
+    said(build),
+    /roof comes in stage 1 of up before base, which holds it \(stage 2\): a valid order: base, roof/,
+  );
+  assert.doesNotMatch(said(tower({ id: 'apart', stages: [{ parts: ['roof'] }, { parts: ['base'] }] })), /valid order/);
+  assert.doesNotMatch(
+    said({ ...teardown, check: { float: true } }),
+    /valid order/,
+    'check.float: true skips the order',
+  );
+});
+
+test('a step that gives angles only is a warning (never a problem); expect seen at a stage', () => {
+  const s = tower(
+    { id: 'apart', stages: [{ parts: ['roof'] }, { parts: ['base'] }] },
+    {
+      steps: [
+        { title: 'Close', focus: ['roof'] },
+        { id: 'side', title: 'Side', view: { yaw: 90, pitch: 10 } },
+      ],
+      expect: [{ seen: 'roof', sequence: 'apart', stage: 1 }],
+    },
+  );
+  assert.match(said(s), /^warning steps\[1\]\.view: step side gives angles only/m);
+  assert.equal(lint(s).problems.filter((p) => p.level !== 'warning').length, 0);
+  const built = tower(
+    { id: 'up', build: true, stages: [{ parts: ['base'] }, { parts: ['roof'] }] },
+    { expect: [{ seen: 'roof', sequence: 'up', stage: 1 }] },
+  );
+  assert.match(said(built), /roof is not seen at the end of stage 1 of up/);
+});

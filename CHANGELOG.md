@@ -29,6 +29,12 @@ Nothing a page or a scene already does changes.
   of their points inside: turning a whole watch over reported sixteen such pairs. A watch's check is also twice as fast.
 - **The budget** was unchanged by these fixes: the global script was 72,178 of 72,192 bytes gzipped (the figure's
   elements are now made by one helper, for the room the labels and the ground take).
+- **`lk3d check` knows sequences.** Each stage's moving parts are sampled against what their way out sweeps past ("tang-3
+  runs into cot-tam-2 in stage 3 of dung"); a teardown may not take a part while another rests on it, nor a build bring
+  one before what holds it, from `place` (on, in, under) or the geometry, each refusal giving a valid order;
+  `check.float` and `check.allow` excuse as elsewhere. `expect`'s `seen` takes a sequence and a stage. Warnings: a step
+  that gives angles only (it keeps the step before's distance and target), and a stage its step hides. It prints each
+  sequence's stages, how long it plays and the order it was checked in.
 - **One default changes: a glide with no `ms`** (`fig.view()`, a guided step) now takes 500 ms to 1.6 s, worked out
   from the move (its turn, its zoom, how far the target goes), with cubic easing, the distance gliding in log (a zoom from
   a whole cell to one protein no longer rushes its end) and a far move pulling back a little on the way; it was 600 ms,

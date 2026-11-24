@@ -18,7 +18,8 @@ import './models.js'; // (the glTF reader: a scene's models are checked like its
 import { buildScene, flatten, isClosed } from './geometry.js';
 import { buildBVH, intersect, nearest } from './bvh.js';
 import { M, add, mulv, sub, cross, dot, len, norm } from './math.js';
-import { tracksOf, motionMatrix } from './motion.js';
+import { tracksOf, motionMatrix, fadeOf } from './motion.js';
+import { expand, partsNamed, timing } from './sequence.js';
 import { jointsOf, jointOf, motionsOf, solve as solveJoints } from './joints.js';
 import * as FX from './fluids.js';
 import { stepState } from './stepstate.js';
@@ -385,6 +386,8 @@ export function lint(scene, options = {}) {
           });
       }
   }
+  // sequences: each stage's movers, the order parts rest on each other, the framing of steps (below)
+  const ordered = sequences(scene, solids, tolerance, contacts, allowed, jointAt, path, problems);
   // liquids and gases (fluids.js): what each vessel holds, and where a pour or a heated gas would take it
   if (scene.liquids || scene.gases) {
     const fluids = FX.fluidsOf(scene),
@@ -493,6 +496,7 @@ export function lint(scene, options = {}) {
       named: built.parts.filter((part) => part.name).length,
       size: solids.length ? built.radius * 2 : 0,
       unchecked: molecules.unchecked,
+      sequences: ordered,
     },
   };
 }
@@ -685,6 +689,22 @@ function expectations(scene, built, solids, tolerance, jointAt) {
             ? `${solids[wrong[0]].part.id} could not be measured along ${item.axis}`
             : `${solids[wrong[0]].part.id} is ${round(wrong[1])} along ${item.axis}, not ${least} to ${most}: change its size, or the expectation`,
         );
+    } else if (item.seen != null && item.sequence != null) {
+      // seen at the end of a stage: not hidden, not faded below 0.05, among the stage's labels if it lists any
+      const sequence = (scene.sequences || []).find((each) => each.id === item.sequence),
+        stage = sequence?.stages[item.stage - 1];
+      if (!stage) return; // (validate names what is not there)
+      const motion = expand(sequence, scene),
+        unseen = byName(item.seen).find((i) => {
+          const part = solids[i].part,
+            gone = part.hiddenByScene || fadeOf(tracksOf([motion], part), { [motion.id]: item.stage }) < 0.05;
+          return gone || (stage.labels && !stage.labels.some((name) => name === part.id || name === part.group));
+        });
+      if (unseen != null)
+        fail(
+          k,
+          `${solids[unseen].part.id} is not seen at the end of stage ${item.stage} of ${sequence.id}: it is not in place yet, faded, or not among the stage's labels`,
+        );
     } else if (item.seen != null) {
       const steps = (scene.steps || []).filter((step) => step && typeof step === 'object'),
         step = typeof item.step === 'number' ? steps[item.step - 1] : steps.find((each) => each.id === item.step);
@@ -832,5 +852,181 @@ function placed(scene, built) {
         message: `${part.id}'s handle ${handle.turn ? 'turns about' : 'moves in a plane through'} ${say(centre)}, outside the part: place moves the part, not its handle, so move the handle's center with it`,
       });
   }
+  return out;
+}
+
+// ---- sequences (sequence.js: each a motion over [0, N]). In stage k's window [k − 1, k] only stage k's parts move, every
+// other part fixed where the sequence has it: so each stage's movers are sampled (16 times at least) against the parts
+// their swept box meets, at the stage's own values, each other motion at its start (those that set the movers' joints
+// are held there, as the figure holds them). The order is checked against what rests on what: from place (X on or in
+// Y: Y holds X; X under Y: X holds Y), else from the geometry (X touching Y at rest, its foot on Y's top, over it). A
+// teardown may not take Y while a part Y holds is in place; a build may not bring X before what holds it. A step that
+// looks from new angles alone keeps the distance and target of the step before (a warning), and a stage its step hides
+// is played unseen (a warning). Returns, for each sequence, its stages, how long it plays and the order it was checked
+function sequences(scene, solids, tolerance, contacts, allowed, jointAt, path, problems) {
+  const list = Array.isArray(scene.sequences) ? scene.sequences : [],
+    byId = new Map(solids.map((solid, i) => [solid.part.id, i])),
+    warn = (where, message) => problems.push({ path: where, message, level: 'warning' }),
+    out = [];
+  // what holds what: Y holds X (holder → held)
+  const holds = new Map(solids.map((solid) => [solid.part.id, new Set()]));
+  for (const part of scene.parts || []) {
+    const place = part && part.place;
+    if (!place || typeof place !== 'object') continue;
+    for (const key of ['on', 'in']) if (holds.has(place[key])) holds.get(place[key]).add(part.id);
+    if (holds.has(place.under) && holds.has(part.id)) holds.get(part.id).add(place.under);
+  }
+  if (scene.check?.float !== true)
+    for (const [x, touching] of Object.entries(contacts)) {
+      const a = solids[byId.get(x)];
+      if (!a || (scene.parts || []).find((part) => part.id === x)?.place) continue;
+      for (const y of touching) {
+        const b = solids[byId.get(y)],
+          over = [0, 2].every(
+            (k) => a.part.min[k] < b.part.max[k] - tolerance && b.part.min[k] < a.part.max[k] - tolerance,
+          );
+        if (over && Math.abs(a.part.min[1] - b.part.max[1]) <= 2 * tolerance && !allowed(x, y)) holds.get(y).add(x);
+      }
+    }
+  for (const [s, sequence] of list.entries()) {
+    if (!sequence || !Array.isArray(sequence.stages)) continue;
+    const motion = expand(sequence, scene),
+      count = sequence.stages.length,
+      build = !!sequence.build,
+      stageOf = new Map(),
+      where = `sequences[${s}]`;
+    sequence.stages.forEach((stage, k) =>
+      partsNamed(scene, stage.parts || []).forEach((part) => stageOf.set(part.id, k + 1)),
+    );
+    const named = (stage) => (stage.parts || []).join('+'),
+      tracks = solids.map((solid) => tracksOf([motion], solid.part)),
+      matrixAt = (i, v) => M.mul(motionMatrix(tracks[i], { [motion.id]: v }), jointAt(i, {})),
+      shown = (i, v) => fadeOf(tracks[i], { [motion.id]: v }) >= 0.05;
+    // the order: a valid one (stages sorted so that what holds comes after what it holds in a teardown, before in a
+    // build), said with each refusal
+    const before = (a, b) => {
+      // (must stage a come before stage b? a holds-pair across them says so)
+      for (const [y, held] of holds)
+        for (const x of held) {
+          const [sx, sy] = [stageOf.get(x), stageOf.get(y)];
+          if (sx === a && sy === b && !build) return true; // (teardown: the held part leaves first)
+          if (sy === a && sx === b && build) return true; // (build: the holder comes first)
+        }
+      return false;
+    };
+    const order = [],
+      left = sequence.stages.map((_, k) => k + 1);
+    while (left.length) {
+      const next = left.find((a) => !left.some((b) => b !== a && before(b, a))) ?? left[0];
+      order.push(next);
+      left.splice(left.indexOf(next), 1);
+    }
+    const valid = `a valid order: ${order.map((k) => named(sequence.stages[k - 1])).join(', ')}`;
+    // the order as written, against what rests on what
+    for (const [y, held] of holds)
+      for (const x of held) {
+        const [sx, sy] = [stageOf.get(x), stageOf.get(y)];
+        if (build) {
+          // (a build: X brought before what holds it, Y, is in place)
+          if (sx && sy && sx < sy)
+            problems.push({
+              path: `${where}.stages[${sx - 1}]`,
+              message: `${x} comes in stage ${sx} of ${sequence.id} before ${y}, which holds it (stage ${sy}): ${valid}`,
+            });
+        } else if (sy && (!sx || sx > sy))
+          // (a teardown: Y taken while X, which rests on it, is still in place)
+          problems.push({
+            path: `${where}.stages[${sy - 1}]`,
+            message: `${y} is taken in stage ${sy} of ${sequence.id} while ${x} still rests on it: ${valid}`,
+          });
+      }
+    // each stage's movers, sampled against what their swept box meets
+    for (let k = 1; k <= count; k++) {
+      const movers = solids.map((_, i) => i).filter((i) => stageOf.get(solids[i].part.id) === k),
+        steps = 16;
+      for (const i of movers) {
+        const a = solids[i],
+          sweptLow = [Infinity, Infinity, Infinity],
+          sweptHigh = [-Infinity, -Infinity, -Infinity];
+        for (let n = 0; n <= steps; n++) {
+          const [low, high] = boxAt(a, matrixAt(i, k - 1 + n / steps));
+          for (let axis = 0; axis < 3; axis++)
+            ((sweptLow[axis] = Math.min(sweptLow[axis], low[axis])),
+              (sweptHigh[axis] = Math.max(sweptHigh[axis], high[axis])));
+        }
+        for (const [j, b] of solids.entries()) {
+          if (j === i || (movers.includes(j) && j < i) || allowed(a.part.id, b.part.id) || (!a.closed && !b.closed))
+            continue;
+          const [lowB, highB] = boxAt(b, matrixAt(j, k - 1));
+          if ([0, 1, 2].some((axis) => lowB[axis] > sweptHigh[axis] || sweptLow[axis] > highB[axis])) continue;
+          const share = (v) => {
+            if (!shown(i, v) || !shown(j, v)) return 0; // (a part not there yet, or faded out, is not in the way)
+            const matrixB = matrixAt(j, v),
+              relative = M.mul(M.invert(matrixB), matrixAt(i, v)),
+              [lowA, highA] = boxAt(a, relative);
+            if (
+              [0, 1, 2].some(
+                (axis) => lowA[axis] > b.part.max[axis] - tolerance || b.part.min[axis] > highA[axis] - tolerance,
+              )
+            )
+              return 0;
+            return Math.max(
+              b.closed ? throughMatrices(a, relative, b, REST, tolerance) : 0,
+              a.closed ? throughMatrices(b, REST, a, relative, tolerance) : 0,
+            );
+          };
+          const atStart = Math.max(share(k - 1), share(k));
+          let worst = 0;
+          for (let n = 1; n < steps; n++) worst = Math.max(worst, share(k - 1 + n / steps));
+          if (worst > atStart + 0.03)
+            problems.push({
+              path: `${where}.stages[${k - 1}]`,
+              message: `${a.part.id} runs into ${b.part.id} in stage ${k} of ${sequence.id} (${Math.round(worst * 100)} % of one inside the other): give it another way out (by, a path)`,
+            });
+        }
+      }
+    }
+    // a stage its step hides
+    (scene.steps || []).forEach((step, n) => {
+      if (!step || !(step.play || []).includes(sequence.id) || !Array.isArray(step.hide)) return;
+      sequence.stages.forEach((stage, k) => {
+        const hidden = partsNamed(scene, stage.parts || []).filter(
+          (part) => step.hide.includes(part.id) || step.hide.includes(part.group),
+        );
+        if (hidden.length)
+          warn(
+            `steps[${n}].hide`,
+            `hides ${hidden.map((part) => part.id).join(', ')}, which stage ${k + 1} of ${sequence.id} moves: that stage plays unseen`,
+          );
+      });
+    });
+    const times = timing(sequence);
+    out.push({
+      id: sequence.id,
+      stages: count,
+      seconds: times.reduce((sum, t) => sum + t.ms + t.hold, 0) / 1000,
+      order: sequence.stages.map(named),
+    });
+  }
+  // a step that looks from new angles alone keeps the distance and target of the one before: its picture depends on how
+  // the reader came to it
+  (scene.steps || []).forEach((step, n) => {
+    if (!step || typeof step !== 'object' || step.focus) return;
+    const view = step.view;
+    if (
+      typeof view === 'string'
+        ? view !== 'home'
+        : view &&
+          typeof view === 'object' &&
+          view.target == null &&
+          view.dist == null &&
+          view.zoom == null &&
+          (view.yaw != null || view.pitch != null)
+    )
+      warn(
+        `steps[${n}].view`,
+        `${step.id ? `step ${step.id}` : `step ${n + 1}`} gives angles only: it keeps the distance and target of the step before, so its picture depends on how the reader came to it (give focus, target, dist or zoom)`,
+      );
+  });
   return out;
 }

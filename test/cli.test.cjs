@@ -277,6 +277,7 @@ test('render: a step that plays a teardown is pictured where its play ends (apar
     ),
     out = path.dirname(scene),
     r = run('render', scene, '--looks', 'pen', '--poses', 'steps,sequences', '--out', out);
+  if (r.status === 2 && /needs Playwright/.test(r.stderr)) return t.skip('no browser here');
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(
     fs.readFileSync(path.join(out, 'box-pen-step1.txt'), 'utf8'),

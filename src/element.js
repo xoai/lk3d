@@ -12,15 +12,17 @@
 // as lk3d-change ({ state, cause }); a scene that cannot be read or drawn, as lk3d-error ({ message }), its words shown in
 // the element. Mounted again (a new locale, say), the figure takes back the state it had.
 
-// elements refused because their scene draws glTF models and the page had no reader yet: drawn again once the models
-// add-on gives it (retryModels), even when the element comes before both of the page's scripts
-/** @type {Set<any>} */
-const waiting = new Set();
-export function retryModels() {
-  for (const el of waiting) {
-    waiting.delete(el);
-    if (el.isConnected) el.load();
-  }
+// elements refused for want of an add-on (glTF models without the models add-on, sequences without the story add-on),
+// by its name: drawn again once the add-on joins (retry), even when the element comes before the page's scripts
+/** @type {Map<any, string>} */
+const waiting = new Map();
+/** @param {string} addOn */
+export function retry(addOn) {
+  for (const [el, name] of waiting)
+    if (name === addOn) {
+      waiting.delete(el);
+      if (el.isConnected) el.load();
+    }
 }
 
 /** @param {(el: HTMLElement, scene: any, opts?: any) => any} mount @param {(text: string) => Promise<any>} decode */
@@ -131,7 +133,10 @@ export function defineElement(mount, decode) {
         figure.ready.then(() => this.figure === figure && this.resolveReady(figure));
       } catch (error) {
         const message = String(/** @type {Error} */ (error).message || error);
-        if (/** @type {any} */ (error).models) waiting.add(this); // (the scene is kept: drawn when the reader comes)
+        // (the scene is kept: drawn when the add-on it needs joins)
+        const failed = /** @type {any} */ (error),
+          addOn = failed.addOn || (failed.models && 'models');
+        if (addOn) waiting.set(this, addOn);
         this.figure = null;
         this.textContent = message;
         console.error(message);

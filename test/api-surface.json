@@ -30,6 +30,7 @@
     "defaults",
     "encodeState",
     "format",
+    "hostNames",
     "hostVersion",
     "live",
     "locales",
@@ -38,6 +39,7 @@
     "refreshFrom",
     "safeHTML",
     "themes",
+    "use",
     "useModels",
     "version"
   ],

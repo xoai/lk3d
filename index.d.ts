@@ -651,6 +651,11 @@ declare const LK3D: {
   useModels: (reader: ModelReader | null) => void;
   /** the version of what the core lends the live add-on (internal): an add-on made for another refuses to run */
   hostVersion: number;
+  /** every name a figure lends its add-ons (internal): what LK3D.use checks an add-on's needs against */
+  hostNames: string[];
+  /** an add-on joins (internal; each add-on script calls it as it loads): refused, naming the host's names it needs and
+   * this core lacks, else set as LK3D[name], and the <lk3d-figure> elements refused for want of it are drawn */
+  use: (name: string, api: object, needs?: string[]) => void;
   /** surfaces and arrows, set by the live add-on (dist/lk3d-live.min.js) or the ES module (internal) */
   live?: {
     surface: (host: unknown, o: SurfaceOptions) => Surface;

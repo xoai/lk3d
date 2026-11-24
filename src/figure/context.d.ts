@@ -392,6 +392,10 @@ export interface Ctx {
   // ---- steps.js
   /** the step shown (from 0); -1 for a scene without steps */
   stepAt_: number;
+  /** the scene's steps (its objects only) */
+  steps_: any[];
+  /** the steps' panel under the stage, or null (steps: false, controls: false) */
+  panel_?: HTMLElement | null;
   /** go to a step by its place (from 0) or id; ms: 0 sets it at once */
   goToStep_(which: number | string, o?: { ms?: number }): void;
 }

@@ -363,5 +363,23 @@ export function makeAdditions(c) {
       c.kick_();
       c.canvas_.focus({ preventScroll: true });
     },
+    // for the story add-on (story.js: sequences played, the tour): the steps, the camera and the motions as the core
+    // moves them, the panel, the live region, and what it must undo on destroy (read when called: made after this)
+    steps: () => c.steps_,
+    stepAt: () => c.stepAt_,
+    goToStep: (which, o) => c.goToStep_(which, o),
+    view: (name, o) => c.view_(name, o),
+    frame: (ps) => c.frame_(ps),
+    cancelView: () => c.cancelView_(),
+    motions: () => c.motions_,
+    setMotion: (motion, v) => c.setMotion_(motion, v),
+    playMotion: (motion) => c.playMotion_(motion),
+    stopMotion: (motion) => c.stopMotion_(motion),
+    playing: () => c.playing_,
+    towards: () => c.towards_,
+    locked: (what) => c.locked_(what),
+    panel: () => c.panel_,
+    say: (text) => c.say_(text),
+    cleanups: (fn) => c.cleanups_.push(fn),
   };
 }

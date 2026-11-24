@@ -27,8 +27,15 @@ Nothing a page or a scene already does changes.
   are compared in the second part's own frame. Parts whose faces met (a jewel setting under a watch's plate) were passed
   over at the start, by boxes in the scene's axes, and tested mid-turn, where the rounding of the turned pose put some
   of their points inside: turning a whole watch over reported sixteen such pairs. A watch's check is also twice as fast.
-- **The budget** is unchanged: the global script is 72,178 of 72,192 bytes gzipped (the figure's elements are now made
-  by one helper, for the room the labels and the ground take).
+- **The budget** was unchanged by these fixes: the global script was 72,178 of 72,192 bytes gzipped (the figure's
+  elements are now made by one helper, for the room the labels and the ground take).
+- **Add-ons join through `LK3D.use(name, api, needs)`,** which checks the host's names an add-on needs against
+  `LK3D.hostNames` (the names every figure lends its add-ons) and refuses, naming them, on a core too old for it: "lk3d-NAME
+  needs the host's frame: load lk3d 0.8.0 or later". `<lk3d-figure>` elements refused for want of an add-on are drawn once
+  it joins, as they were for the models add-on. `hostVersion` stays 1, and the 0.7.0 live add-on keeps working.
+- **The budget goes from 70.5 KB to 70.9 KB** (72,601 bytes) gzipped, by the user's decision of 2026-11-23 (23
+  November 2026): the core may grow to at most 74.5 KB over the two lk3d 0.8.0 and 0.9.0 releases, each raise to the code's
+  measured need, at most 72.9 KB after 0.8.0. This one is for the add-on host; the global script is 72,598 bytes.
 
 ## 0.7.0 (23 November 2026)
 

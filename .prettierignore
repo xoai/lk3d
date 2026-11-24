@@ -3,6 +3,8 @@ node_modules/
 test/visual/baselines/
 test/visual/scenes/
 test-results/
+# (lk3d 0.7.0 as built, for the version-skew tests)
+test/fixtures/
 package-lock.json
 # (made by examples/cell-tour.mjs and examples/armillary.mjs)
 examples/scenes/cell-tour.json

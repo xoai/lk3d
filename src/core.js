@@ -45,7 +45,7 @@ import { controls } from './controls.js';
 import { clock, refreshFrom } from './clock.js';
 import LK3D, { FORMAT } from './namespace.js';
 import en from './locales/en.js';
-import { defineElement, retryModels } from './element.js';
+import { defineElement, retry } from './element.js';
 import { serveAO } from './ao.js';
 
 let warned = false;
@@ -200,7 +200,15 @@ LK3D.decodeState = decodeState;
 // the reader given (by the models add-on): figures refused for want of it are drawn again
 LK3D.useModels = (/** @type {any} */ reader) => {
   useModels(reader);
-  if (reader) retryModels();
+  if (reader) retry('models');
+};
+// an add-on joins: the host's names it needs are checked against this core's (a newer add-on on an older core is
+// refused, naming what it lacks), then it is LK3D[name], and the figures refused for want of it are drawn
+LK3D.use = (/** @type {string} */ name, /** @type {any} */ api, /** @type {string[]} */ needs = []) => {
+  const missing = needs.filter((need) => !LK3D.hostNames.includes(need));
+  if (missing.length) throw new Error(`lk3d-${name} needs the host's ${missing.join(', ')}: load lk3d 0.8.0 or later`);
+  LK3D[name] = api;
+  retry(name);
 };
 if (typeof window !== 'undefined') window.LK3D = LK3D;
 defineElement(mount, decodeState); // <lk3d-figure>, for pages that write no script

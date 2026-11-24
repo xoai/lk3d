@@ -2782,3 +2782,52 @@ test("on a phone, labels the page lists stay clear of the scale's note and the h
   expect(got.shown).toBe(25);
   expect(got.under).toEqual([]);
 });
+
+// ---- the add-on host (lk3d 0.8.0): its names, LK3D.use, and add-ons of another version
+
+test('the host a figure lends its add-ons has exactly the names LK3D.hostNames lists', async ({ page }) => {
+  const got = await page.evaluate(async () => {
+    const live = LK3D.live;
+    let host = null;
+    LK3D.live = { ...live, card: (h) => ((host = h), () => {}) }; // (the card is handed the host when mounted)
+    const fig = mountIt({ card: true });
+    await fig.ready;
+    LK3D.live = live;
+    return { keys: Object.keys(host).sort(), names: [...LK3D.hostNames].sort() };
+  });
+  expect(got.names.length).toBeGreaterThan(20);
+  expect(got.keys).toEqual(got.names);
+});
+
+test('LK3D.use: an add-on needing a name the host lacks is refused, naming it; else it is set', async ({ page }) => {
+  const got = await page.evaluate(() => {
+    let refused = null;
+    try {
+      LK3D.use('zz', { a: 1 }, ['frame', 'noSuchName']);
+    } catch (error) {
+      refused = error.message;
+    }
+    const before = LK3D.zz;
+    LK3D.use('zz', { a: 2 }, ['frame', 'steps']);
+    return { refused, before, after: LK3D.zz.a };
+  });
+  expect(got.refused).toBe("lk3d-zz needs the host's noSuchName: load lk3d 0.8.0 or later");
+  expect(got.before).toBeUndefined();
+  expect(got.after).toBe(2);
+});
+
+test('version skew: the 0.7.0 live add-on works with this core (a surface drawn)', async ({ page }) => {
+  expect(await page.evaluate(() => (delete LK3D.live, LK3D.live))).toBeUndefined();
+  await page.addScriptTag({ url: '/test/fixtures/lk3d-0.7.0/lk3d-live.min.js' });
+  const got = await page.evaluate(async () => {
+    const fig = mountIt();
+    await fig.ready;
+    const surface = fig.surface({ size: [2, 2], res: [8, 8], at: [0, 0.5, 0] });
+    surface.heights.fill(0.1);
+    surface.update();
+    fig.drawNow();
+    return { set: typeof LK3D.live.surface, height: surface.heightAt(0, 0) };
+  });
+  expect(got.set).toBe('function'); // (the fixture's script set LK3D.live again)
+  expect(got.height).toBeCloseTo(0.1, 5);
+});

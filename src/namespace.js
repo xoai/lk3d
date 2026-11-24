@@ -43,6 +43,13 @@ const LK3D = {
   version: 3, // (the page API's version: it goes up when a page's own code must change; 3: models need the add-on)
   // the version of what the core lends the live add-on (surfaces, arrows): an add-on made for another refuses to run
   hostVersion: 1,
+  // every name a figure lends its add-ons (additions.js, c.lent_), known before any figure exists: LK3D.use checks an
+  // add-on's needs against it when the add-on loads (a unit test keeps the two the same)
+  hostNames: (
+    'hostVersion M kick renderer add remove upload instances refill part rod unit outlines ramp tone dark taken ' +
+    'triangles maxTriangles gone stage words html chosen letGo steps stepAt goToStep view frame cancelView motions ' +
+    'setMotion playMotion stopMotion playing towards locked panel say cleanups'
+  ).split(' '),
   // (for lk3d's own tests and tools, and the models add-on, which takes its matrices from here; not part of the API)
   M,
   refreshFrom,

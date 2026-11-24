@@ -14,7 +14,7 @@ import LK3D from '../namespace.js';
 
 /** @param {import('./context').Ctx} c @param {string} buttonClass */
 export function makeSteps(c, buttonClass) {
-  const steps = (c.spec_.steps || []).filter((step) => step && typeof step === 'object');
+  const steps = (c.steps_ = (c.spec_.steps || []).filter((step) => step && typeof step === 'object'));
   c.stepAt_ = -1;
   c.goToStep_ = () => {};
   c.syncSteps_ = () => {};
@@ -89,6 +89,7 @@ export function makeSteps(c, buttonClass) {
       buttons.push(button);
     }
     panel.append(words, nav);
+    c.panel_ = panel;
     c.stage_.after(panel);
     // (locked by the page: Back and Next stay, said to be locked)
     c.syncSteps_ = () => {

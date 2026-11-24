@@ -551,7 +551,8 @@ export interface Figure {
     | undefined;
   /** a buoyant plume of air or gas rising from `at`: widening and slowing as one does (a stream) */
   plume(o: { at: Vec3; height: number; radius?: number } & Partial<StreamOptions>): Stream;
-  /** glide the camera there, over ms milliseconds (600; 0: at once) */
+  /** glide the camera there, over ms milliseconds (0: at once); else worked out from the move, 500 ms to 1.6 s (its turn,
+   * its zoom, how far it goes), the distance gliding in log, a far move pulling back a little on the way */
   view(v: ViewName | [number, number] | CameraView, o?: { ms?: number }): void;
   /** zoom by a factor (2: twice as close), towards a point of the stage (CSS pixels) if given */
   zoom(factor: number, x?: number, y?: number): void;

@@ -169,6 +169,7 @@ function player(host, motion) {
     },
     stop: () => (run && host.stopMotion(motion), end()),
     ended: () => end(),
+    letGo: () => run && (run.follow = false),
     /** @param {{ to?: number, back?: boolean, camera?: boolean }} [o] */
     play(o = {}) {
       host.stopMotion(motion);
@@ -182,7 +183,22 @@ function player(host, motion) {
       else if (value >= count) to = 0;
       if (state.explode > 0) host.explode(0, 300);
       /** @type {any} */
-      const mine = { mark: noop, cancel: () => {}, labels: undefined };
+      // (the camera follows each stage when the stages give a focus or a view, unless the scene or the caller says not,
+      // or set() is restoring the play: a link starts no camera move)
+      const mine = {
+        mark: noop,
+        cancel: () => {},
+        labels: undefined,
+        follow:
+          (o.camera ?? true) &&
+          motion.camera !== 'none' &&
+          !host.given() &&
+          motion.stages.some((/** @type {any} */ each) => each.focus || each.view),
+      };
+      if (!host.following) {
+        host.following = true;
+        host.touched(() => host.players.forEach((/** @type {any} */ each) => each.letGo()));
+      }
       run = mine;
       host.playing().set(id, noop);
       let time = core.clock.now();
@@ -202,7 +218,10 @@ function player(host, motion) {
           moved = Math.abs(stop - from) * ms,
           // (a hold after the stage's end, the last stage's too: not after a stop in its middle)
           held = Math.abs(stop - (dir > 0 ? k : k - 1)) < 1e-9 ? hold : 0;
-        if (Math.abs(from - (dir > 0 ? k - 1 : k)) < 1e-9) said(host, motion, k, stage);
+        if (Math.abs(from - (dir > 0 ? k - 1 : k)) < 1e-9) {
+          said(host, motion, k, stage);
+          if (mine.follow) follow(host, motion, k, stage, core.reduce ? 0 : 0.4 * ms);
+        }
         if (stage.labels) {
           if (mine.labels === undefined) mine.labels = state.labels;
           state.labels = [...(Array.isArray(mine.labels) ? mine.labels : []), ...stage.labels];
@@ -258,6 +277,34 @@ export function words(motion, value, pattern) {
     .replace('{n}', String(n))
     .replace('{count}', String(count))
     .replace('{title}', title);
+}
+
+// the camera to a stage as it begins: its view, framing its focus (else its parts) where the stage leaves them, over
+// ms (its first 40 %; at once when motion is reduced)
+function follow(
+  /** @type {any} */ host,
+  /** @type {any} */ motion,
+  /** @type {number} */ k,
+  /** @type {any} */ stage,
+  /** @type {number} */ ms,
+) {
+  if (typeof stage.view === 'string') return host.view(stage.view, { ms });
+  const names = stage.focus || stage.parts,
+    view = stage.view || {},
+    framing = host.frame(
+      host.parts().filter((/** @type {any} */ part) => names.includes(part.id) || names.includes(part.group)),
+      { [motion.id]: k },
+    );
+  host.view(
+    {
+      yaw: view.yaw,
+      pitch: view.pitch,
+      target: view.target || framing.target,
+      dist: view.dist ?? (view.zoom ? undefined : framing.dist),
+      zoom: view.zoom,
+    },
+    { ms },
+  );
 }
 
 // a stage begun: the page hears it (onStory), and a stage with a title is said (at most once a second, as say_ does)

@@ -117,6 +117,7 @@ export function expand(sequence, scene) {
     tracks,
     stages: sequence.stages,
     holds: times,
+    ...(sequence.camera && { camera: sequence.camera }),
   };
 }
 

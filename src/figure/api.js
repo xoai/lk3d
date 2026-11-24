@@ -59,14 +59,11 @@ export function makeApi(c) {
     }
     // motions: sequences first; a motion one of them holds, given in the same call, stays at its start (story.js reads
     // given_), so a state, which never holds both, round-trips whatever its keys' order
-    if (changes.motion) {
-      c.given_ = changes.motion;
+    if (changes.motion)
       for (const [motion, value] of Object.entries(changes.motion)
         .map(([id, value]) => [c.motions_.find((each) => each.id === id), value])
         .sort(([a], [b]) => +!!b?.stages - +!!a?.stages))
         if (motion) c.setMotion_(motion, value);
-      c.given_ = null;
-    }
     if (changes.hide) {
       for (const part of c.built_.parts)
         part.hidden = part.hiddenByScene || changes.hide.includes(part.id) || changes.hide.includes(part.group);
@@ -153,7 +150,13 @@ export function makeApi(c) {
     _state: c.state_, // the engine's own state: not an API, it may change
     set(changes) {
       c.mark_('page');
-      c.setState_(changes, () => set(changes)); // (a state's step first, then the rest over it: state.js)
+      // (what set() gives, while it gives it: the story add-on's rules read it, and a play it restores follows no camera)
+      c.given_ = changes.motion || {};
+      try {
+        c.setState_(changes, () => set(changes)); // (a state's step first, then the rest over it: state.js)
+      } finally {
+        c.given_ = null;
+      }
       c.kick_();
     },
     particles: c.addParticles_,

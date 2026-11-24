@@ -74,11 +74,11 @@ export function makeCamera(c) {
   // where the camera looks and from how far (as the state holds them: before the fit to the stage, the step back and
   // the shift when taken apart) to frame some parts as they are once taken apart by `explode`: the sphere round them
   // inside the frame, however narrow it is
-  c.frame_ = (parts, explode = c.state_.explode) => {
+  c.frame_ = (parts, explode = c.state_.explode, values) => {
     if (c.width_ <= 1) c.measure_(); // (not laid out yet: a figure just mounted)
     const now = c.state_.explode;
     c.state_.explode = explode;
-    const box = c.boxOf_(parts);
+    const box = c.boxOf_(parts, values);
     c.state_.explode = now;
     const aspect = c.width_ > 1 && c.height_ > 1 ? c.width_ / c.height_ : (c.spec_.w || 16) / (c.spec_.h || 10),
       tanHalf = (Math.tan(((c.spec_.view?.fov ?? 35) * D2R) / 2) * Math.min(1, aspect)) / 1.08, // (with a margin)
@@ -145,14 +145,27 @@ export function makeCamera(c) {
   };
   // what is on screen now (for the shadow's reach) and the floor under the assembled model
   c.shownBox_ = () => c.boxOf_(c.built_.parts.filter((part) => part.drawAlpha >= 0.01 && !(part.fade < 0.05)));
-  // the box round some parts where they are now (taken apart, moved)
-  c.boxOf_ = (parts) => {
+  // the box round some parts where they are now (taken apart, moved); with motions' values, where those motions put them
+  // (a step framing parts its sequence has moved: their corners through their motions and joints)
+  c.boxOf_ = (parts, values) => {
     const min = [1e9, 1e9, 1e9],
-      max = [-1e9, -1e9, -1e9];
+      max = [-1e9, -1e9, -1e9],
+      motion = c.state_.motion;
+    if (values) ((c.state_.motion = { ...motion, ...values }), c.poseVersion_++);
     for (const part of parts) {
       // (a part the page turned: its turned corners; any other, its box shifted, as cheaply as before every frame)
       const offset = c.offsetOf_(part),
-        corners = part.turn ? c.cornersOf_(part) : null;
+        corners =
+          values && (part.tracks.length || part.joint)
+            ? [0, 1, 2, 3, 4, 5, 6, 7].map((k) =>
+                M.pt(
+                  c.modelMatrix_(part),
+                  [0, 1, 2].map((axis) => ((k >> axis) & 1 ? part.max : part.min)[axis]),
+                ),
+              )
+            : part.turn
+              ? c.cornersOf_(part)
+              : null;
       for (let axis = 0; axis < 3; axis++)
         if (corners)
           for (const corner of corners) {
@@ -164,6 +177,7 @@ export function makeCamera(c) {
           max[axis] = Math.max(max[axis], part.max[axis] + offset[axis]);
         }
     }
+    if (values) ((c.state_.motion = motion), c.poseVersion_++);
     return { center: mulv(add(min, max), 0.5), radius: len(sub(max, min)) / 2 || 1, min, max };
   };
   // how far along the cut's normal the parts it cuts reach, as they are now: where the plane can go [from, to]
@@ -225,7 +239,7 @@ export function makeCamera(c) {
   /** @type {((now: number) => boolean) | null} */
   let viewTween = null;
   c.view_ = (name, options = {}) => {
-    if (typeof name === 'string' && !VIEWS[name] && name !== 'home') return; // (a view this engine does not know)
+    if (typeof name === 'string' && !VIEWS[name] && name !== 'home') return 0; // (a view this engine does not know)
     const isObject = name && typeof name === 'object' && !Array.isArray(name);
     const angles = isObject
       ? [name.yaw ?? c.state_.yaw / D2R, name.pitch ?? c.state_.pitch / D2R]
@@ -245,20 +259,33 @@ export function makeCamera(c) {
           : c.state_.dist,
       target: isObject ? name.target || c.state_.target : name === 'home' ? home.target : c.state_.target,
     };
-    const start = clock.now(),
-      ms = LK3D.reduce ? 1 : (options.ms ?? 600);
     // (a glide takes the short way round; a view placed at once keeps the angle the page gave)
-    while (ms > 0 && to.yaw - from.yaw > Math.PI) to.yaw -= 2 * Math.PI;
-    while (ms > 0 && from.yaw - to.yaw > Math.PI) to.yaw += 2 * Math.PI;
+    const short = options.ms !== 0;
+    while (short && to.yaw - from.yaw > Math.PI) to.yaw -= 2 * Math.PI;
+    while (short && from.yaw - to.yaw > Math.PI) to.yaw += 2 * Math.PI;
+    // how long: as asked, else worked out from the move (its turn, its zoom in log, how far the target goes), 0.5 to
+    // 1.6 s; a far move pulls back a little on the way, at most 35 % at its middle; the distance glides in log
+    const radius = c.built_.radius || 1,
+      moved = len(sub(to.target, from.target)) / radius,
+      zoom = Math.log(to.dist / from.dist),
+      start = clock.now(),
+      ms = LK3D.reduce
+        ? 1
+        : (options.ms ??
+          Math.min(
+            1600,
+            500 + 400 * Math.hypot(to.yaw - from.yaw, to.pitch - from.pitch) + 500 * Math.abs(zoom) + 300 * moved,
+          )),
+      pull = 0.35 * Math.min(1, Math.max(0, moved - 1));
     const tween = (now) => {
       const progress = ms > 0 ? Math.max(0, Math.min(1, (now - start) / ms)) : 1,
-        eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        eased = progress < 0.5 ? 4 * progress ** 3 : 1 - (2 - 2 * progress) ** 3 / 2;
       if (progress >= 1)
         Object.assign(c.state_, { ...to, target: to.target.slice() }); // (exactly there at the end)
       else {
         c.state_.yaw = from.yaw + (to.yaw - from.yaw) * eased;
         c.state_.pitch = from.pitch + (to.pitch - from.pitch) * eased;
-        c.state_.dist = from.dist + (to.dist - from.dist) * eased;
+        c.state_.dist = from.dist * Math.exp(zoom * eased) * (1 + pull * Math.sin(Math.PI * eased));
         c.state_.target = add(from.target, mulv(sub(to.target, from.target), eased));
       }
       c.markDirty_();
@@ -270,12 +297,13 @@ export function makeCamera(c) {
       return true;
     };
     c.cancelView_();
-    if (!(ms > 0)) return (tween(start), c.kick_());
+    if (!(ms > 0)) return (tween(start), c.kick_(), 0);
     viewTween = tween;
     // (where it is going: what state() says while it glides)
     c.towards_.camera = { yaw: to.yaw / D2R, pitch: to.pitch / D2R, dist: to.dist, target: to.target.slice() };
     c.animations_.add(tween);
     c.kick_();
+    return ms;
   };
   // a named view's angles (degrees), else where the camera looks now
   c.viewAngles_ = (name) => VIEWS[name] || [c.state_.yaw / D2R, c.state_.pitch / D2R];

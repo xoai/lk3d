@@ -2979,3 +2979,87 @@ test("a build's first play builds it from nothing; a settled step is where its p
   expect(got.settled).toEqual([2, false]);
   expect(got.told).toBe(0);
 });
+
+test('a glide: its length worked out from the move, the distance in log, a pull-back on a far move, none at ms 0', async ({
+  page,
+}) => {
+  const got = await page.evaluate(async () => {
+    const fig = mountIt(),
+      frame = () => new Promise((res) => requestAnimationFrame(res));
+    await fig.ready;
+    const glide = async (view, o) => {
+      LK3D.clock.speed = 0;
+      const samples = [[0, fig.camera().dist]];
+      fig.view(view, o);
+      for (let t = 10; t <= 2000; t += 10) {
+        LK3D.clock.step(10);
+        await frame();
+        samples.push([t, fig.camera().dist]);
+      }
+      fig.view('home', { ms: 0 });
+      return samples;
+    };
+    const zoom = await glide({ zoom: 20 }),
+      [d0, d1] = [zoom[0][1], zoom.at(-1)[1]],
+      end = zoom.find(([, d]) => Math.abs(d - d1) < 1e-9)[0],
+      middle = zoom.find(([, d]) => d <= Math.sqrt(d0 * d1))[0];
+    const far = await glide({ target: [30, 0, 0] }),
+      top = Math.max(...far.map(([, d]) => d));
+    fig.view({ target: [30, 0, 0] }, { ms: 0 });
+    LK3D.clock.speed = 1;
+    return { end, middle, pull: top / far[0][1], atOnce: fig.camera().dist / far[0][1] };
+  });
+  expect(got.end).toBeGreaterThanOrEqual(500);
+  expect(got.end).toBeLessThanOrEqual(1600);
+  expect(Math.abs(got.middle / got.end - 0.5)).toBeLessThanOrEqual(0.05);
+  expect(got.pull).toBeGreaterThan(1.05);
+  expect(got.pull).toBeLessThanOrEqual(1.351);
+  expect(got.atOnce).toBeCloseTo(1, 6);
+});
+
+test('camera follow: each stage played is framed where it ends; a press hands the camera to the reader', async ({
+  page,
+}) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(async (scene) => {
+    scene.sequences[0].stages = [
+      { parts: ['lid'], by: [0, 6, 0], focus: ['lid'], view: { yaw: -20, pitch: 10 } },
+      { parts: ['box'], by: [4, 0, 0], focus: ['box'], view: { yaw: 60, pitch: 30 } },
+    ];
+    const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false }),
+      frame = () => new Promise((res) => requestAnimationFrame(res)),
+      run = async (ms) => {
+        for (let t = 0; t < ms; t += 20) (LK3D.clock.step(20), await frame());
+      },
+      seen = (id) => {
+        const part = fig.parts.find((p) => p.id === id),
+          rect = document.querySelector('#g canvas[tabindex]').getBoundingClientRect();
+        return [0, 1, 2, 3, 4, 5, 6, 7].every((k) => {
+          const p = fig.project(
+            [0, 1, 2].map((a) => ((k >> a) & 1 ? part.max : part.min)[a]),
+            id,
+          );
+          return p && p[0] >= 0 && p[1] >= 0 && p[0] <= rect.width && p[1] <= rect.height;
+        });
+      };
+    await fig.ready;
+    LK3D.clock.speed = 0;
+    fig.sequence('apart').play();
+    await run(1000);
+    const lifted = seen('lid'),
+      yaw = fig.camera().yaw;
+    document
+      .querySelector('#g canvas[tabindex]')
+      .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+    document
+      .querySelector('#g canvas[tabindex]')
+      .dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }));
+    await run(2000);
+    LK3D.clock.speed = 1;
+    return { lifted, yaw, after: fig.camera().yaw, value: fig.sequence('apart').value };
+  }, teardownScene());
+  expect(got.lifted).toBe(true);
+  expect(Math.round(got.yaw)).toBe(-20);
+  expect(got.after).toBeCloseTo(got.yaw, 6); // (stage 2's view not taken: the reader has the camera)
+  expect(got.value).toBe(2);
+});

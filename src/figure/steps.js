@@ -117,8 +117,7 @@ export function makeSteps(c, buttonClass) {
     const step = steps[index];
     if (!step) return;
     c.stepAt_ = index;
-    const atOnce = options.ms === 0,
-      state = stepState(c.spec_, step); // (the same state lk3d check reads: stepstate.js)
+    const state = stepState(c.spec_, step); // (the same state lk3d check reads: stepstate.js)
     // what shows, and how
     for (const part of c.built_.parts) part.hidden = state.hidden(part);
     c.syncHandleInputs_();
@@ -140,22 +139,26 @@ export function makeSteps(c, buttonClass) {
         const motion = c.motions_.find((each) => each.id === id);
         if (motion) c.playMotion_(motion);
       }
-    // taken apart, cut and looked at: glided there together
-    const explode = state.explode;
-    if (atOnce) c.explodeNow_(explode);
-    else c.tweenExplode_(explode);
-    sweepCut(state.cut, atOnce ? 0 : 900);
-    const focus = listed(step.focus);
-    if (step.view === 'home') c.view_('home', options);
+    // looked at, taken apart and cut, glided there together: over the step's ms, else the page's, else as long as the
+    // camera's move takes (camera.js), with one easing
+    const explode = state.explode,
+      ms = state.ms ?? options.ms,
+      focus = listed(step.focus);
+    let glide = ms ?? 500;
+    if (step.view === 'home') glide = c.view_('home', { ms });
     else if (step.view != null || focus.length) {
       const view = typeof step.view === 'object' && step.view && !Array.isArray(step.view) ? step.view : {},
         [yaw, pitch] = typeof step.view === 'string' ? c.viewAngles_(step.view) : [view.yaw, view.pitch],
         framed = c.built_.parts.filter((each) => focus.includes(each.id) || focus.includes(each.group));
-      const framing = framed.length && !view.target ? c.frame_(framed, explode) : null;
+      // (framed where the step's motions put them: a sequence's stage done, say)
+      const framing = framed.length && !view.target ? c.frame_(framed, explode, c.state_.motion) : null;
       const target = view.target || framing?.target,
         dist = view.dist ?? (view.zoom ? undefined : framing?.dist);
-      c.view_({ yaw, pitch, target, dist, zoom: view.zoom }, options);
+      glide = c.view_({ yaw, pitch, target, dist, zoom: view.zoom }, { ms });
     }
+    if (glide === 0) c.explodeNow_(explode);
+    else c.tweenExplode_(explode, glide);
+    sweepCut(state.cut, glide);
     if (c.controls_.style) c.controls_.style(); // (the buttons show which toggles are on)
     c.showInfo_();
     if (panel && !settled) {

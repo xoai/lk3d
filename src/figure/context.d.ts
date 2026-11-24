@@ -254,6 +254,8 @@ export interface Ctx {
   woken_?: Set<() => void>;
   /** the story add-on, told when a motion is stopped by anyone (a sequence's paced play ends) */
   stopped_?: (motion: any) => void;
+  /** the reader's hand on the figure (a press, a key, the wheel): the story add-on's camera follow gives way */
+  touched_?: Set<(kind: string) => void>;
   /** the motions a set() is giving, while it gives them (the rules read it) */
   given_?: Record<string, number> | null;
   setMotion_(motion: any, v: number): void;
@@ -291,12 +293,15 @@ export interface Ctx {
   cutRange_(second?: boolean): number[];
   /** the box round the parts drawn now */
   shownBox_(): { center: number[]; radius: number; min: number[]; max: number[] };
-  boxOf_(ps: Part[]): { center: number[]; radius: number; min: number[]; max: number[] };
+  boxOf_(
+    ps: Part[],
+    values?: Record<string, number>,
+  ): { center: number[]; radius: number; min: number[]; max: number[] };
   /** the target and distance (as the state holds them) that frame these parts, taken apart by explode */
-  frame_(ps: Part[], explode?: number): { target: number[]; dist: number };
+  frame_(ps: Part[], explode?: number, values?: Record<string, number>): { target: number[]; dist: number };
   rayAt_(px: number, py: number): { origin: number[]; direction: number[] };
   zoom_(k: number, x?: number, y?: number): void;
-  view_(name: any, o?: { ms?: number; [key: string]: any }): void;
+  view_(name: any, o?: { ms?: number; [key: string]: any }): number;
   /** a named view's [yaw, pitch] in degrees, else the camera's now */
   viewAngles_(name: string): number[];
   cancelView_(): void;

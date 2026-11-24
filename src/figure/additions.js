@@ -369,7 +369,7 @@ export function makeAdditions(c) {
     stepAt: () => c.stepAt_,
     goToStep: (which, o) => c.goToStep_(which, o),
     view: (name, o) => c.view_(name, o),
-    frame: (ps) => c.frame_(ps),
+    frame: (ps, values) => c.frame_(ps, undefined, values),
     cancelView: () => c.cancelView_(),
     motions: () => c.motions_,
     setMotion: (motion, v) => c.setMotion_(motion, v),
@@ -392,5 +392,6 @@ export function makeAdditions(c) {
     woken: (fn) => (c.woken_ ||= new Set()).add(fn),
     emit: (event) => c.opts_.onStory?.(event),
     stopped: (fn) => (c.stopped_ = fn),
+    touched: (fn) => (c.touched_ ||= new Set()).add(fn),
   };
 }

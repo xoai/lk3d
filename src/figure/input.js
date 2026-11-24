@@ -228,7 +228,10 @@ export function makeInput(c) {
       },
       { passive: false },
     );
+  // (the reader's hand on the figure: the story add-on's camera follow gives way, story.js)
+  const touched = (kind) => c.touched_?.forEach((fn) => fn(kind));
   c.canvas_.addEventListener('pointerdown', (event) => {
+    touched('press');
     if (pressed != null) return; // (the page holds a gesture: other pointers wait)
     if (!c.locked_('camera')) c.cancelView_(); // the reader takes over from a gliding view (unless the page locked it)
     if (momentum) {
@@ -464,6 +467,7 @@ export function makeInput(c) {
       if (!(event.ctrlKey || active) || c.locked_('camera')) return; // never hijack the page's scrolling
       event.preventDefault();
       c.mark_('reader');
+      touched('wheel');
       const [x, y] = local(event);
       c.zoom_(Math.exp(-event.deltaY * 0.0015), x, y);
     },
@@ -475,6 +479,7 @@ export function makeInput(c) {
   document.addEventListener('pointerdown', outside);
   c.cleanups_.push(() => document.removeEventListener('pointerdown', outside));
   c.canvas_.addEventListener('keydown', (event) => {
+    touched('key');
     const turn = { ArrowLeft: [0.12, 0], ArrowRight: [-0.12, 0], ArrowUp: [0, 0.1], ArrowDown: [0, -0.1] }[event.key],
       camera = !c.locked_('camera');
     if (turn || event.key.startsWith('Page') || event.key === 'Escape') c.mark_('reader'); // (D, and others, change nothing)

@@ -121,7 +121,8 @@ A page loads one script, the global `LK3D`, as above: from a CDN with its versio
 copy of `dist/lk3d.min.js` next to the page. A page that shows a glTF model also loads the models add-on after it,
 `dist/lk3d-models.min.js` (a scene with a model is refused without it, and says so), and a page that draws surfaces or
 arrows (`fig.surface`, `fig.arrows`), or a card over the stage (`card: true`), loads the live add-on after it,
-`dist/lk3d-live.min.js` (without it they are refused, naming it). A project with a bundler installs it and imports it (the module has the reader, surfaces and arrows):
+`dist/lk3d-live.min.js` (without it they are refused, naming it). A page whose scene has sequences, or that plays the
+steps by themselves (`fig.tour`), loads the story add-on after it, `dist/lk3d-story.min.js`. A project with a bundler installs it and imports it (the module has the reader, surfaces and arrows):
 
 ```sh
 npm install lk3d

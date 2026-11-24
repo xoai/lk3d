@@ -21,6 +21,7 @@ const EXAMPLES = {
   circuit: 'Current in a circuit',
   pendulum: 'Two pendulums (steps, a dimension)',
   'ripple-tank': 'A ripple tank (steps)',
+  teardown: 'A desk fan taken apart (a sequence, a tour)',
 };
 const BOLT = {
   title: 'A bolt and a nut',
@@ -181,6 +182,8 @@ const addOn = (file) => {
 async function draw(scene) {
   // a scene with models needs the reader (dist/lk3d-models.min.js), which the page loads only then
   if (scene.models && Object.keys(scene.models).length) await addOn('lk3d-models.min.js');
+  // a scene with sequences needs the story add-on (dist/lk3d-story.min.js), which the page loads only then
+  if (scene.sequences && scene.sequences.length) await addOn('lk3d-story.min.js');
   // models given as files (the examples'), read in as a build would; the rest as written
   for (const [name, model] of Object.entries(scene.models || {}))
     if (model && model.file && !model.data) {

@@ -1,0 +1,195 @@
+{
+  "lk3d": 1,
+  "title": "A desk fan",
+  "alt": "A desk fan on its stand, taken apart part by part: its guard, its blade, its motor, then its stand.",
+  "scale": {
+    "note": "a model, not to scale"
+  },
+  "view": {
+    "yaw": -30,
+    "pitch": 15
+  },
+  "parts": [
+    {
+      "id": "nen",
+      "name": "Floor",
+      "at": [0, -0.1, 0],
+      "shapes": [
+        {
+          "box": [8, 0.2, 8]
+        }
+      ]
+    },
+    {
+      "id": "de",
+      "name": "Base",
+      "group": "chan",
+      "at": [0, 0.1, 0],
+      "explode": [-3, 0, 0],
+      "shapes": [
+        {
+          "box": [1.6, 0.2, 1.6]
+        }
+      ]
+    },
+    {
+      "id": "than",
+      "name": "Pole",
+      "group": "chan",
+      "at": [0, 1.2, 0],
+      "explode": [-3, 0, 0],
+      "shapes": [
+        {
+          "box": [0.2, 2, 0.2]
+        }
+      ]
+    },
+    {
+      "id": "motor",
+      "name": "Motor",
+      "at": [0, 2.6, 0],
+      "explode": [0, 1.5, 0],
+      "shapes": [
+        {
+          "box": [0.8, 0.8, 1]
+        }
+      ]
+    },
+    {
+      "id": "canh",
+      "name": "Blade",
+      "at": [0, 2.6, 0.55],
+      "explode": [0, 0, 1.5],
+      "shapes": [
+        {
+          "box": [1.6, 1.6, 0.1]
+        }
+      ]
+    },
+    {
+      "id": "long",
+      "name": "Guard",
+      "at": [0, 2.6, 0.8],
+      "explode": [0, 0, 3],
+      "shapes": [
+        {
+          "box": [2, 2, 0.05]
+        }
+      ]
+    }
+  ],
+  "check": {
+    "float": ["canh", "long"]
+  },
+  "motions": [
+    {
+      "id": "quay",
+      "name": "Spin",
+      "range": [0, 360],
+      "loop": true,
+      "speed": 360,
+      "group": "run"
+    },
+    {
+      "id": "lac",
+      "name": "Oscillate",
+      "range": [-20, 20],
+      "speed": 20,
+      "group": "run"
+    }
+  ],
+  "joints": [
+    {
+      "id": "co",
+      "parts": ["motor", "long"],
+      "turn": {
+        "axis": [0, 1, 0],
+        "center": [0, 2.6, 0]
+      },
+      "drive": "lac"
+    },
+    {
+      "id": "truc",
+      "parts": ["canh"],
+      "parent": "co",
+      "turn": {
+        "axis": [0, 0, 1],
+        "center": [0, 2.6, 0.55]
+      },
+      "drive": "quay"
+    }
+  ],
+  "sequences": [
+    {
+      "id": "thao",
+      "name": "Take apart",
+      "ms": 1000,
+      "hold": 400,
+      "stages": [
+        {
+          "parts": ["long"],
+          "focus": ["long"],
+          "view": {
+            "yaw": -20,
+            "pitch": 10
+          },
+          "title": "The guard"
+        },
+        {
+          "parts": ["canh"],
+          "focus": ["canh"],
+          "view": {
+            "yaw": -10,
+            "pitch": 12
+          },
+          "title": "The blade"
+        },
+        {
+          "parts": ["motor"],
+          "by": [0, 2, 0],
+          "focus": ["motor"],
+          "view": {
+            "yaw": -35,
+            "pitch": 18
+          },
+          "title": "The motor"
+        },
+        {
+          "parts": ["chan"],
+          "focus": ["chan"],
+          "view": {
+            "yaw": -45,
+            "pitch": 22
+          },
+          "title": "The stand"
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "whole",
+      "title": "The whole fan",
+      "text": "A motor on a pole turns a blade behind a guard.",
+      "view": "home",
+      "play": ["quay"]
+    },
+    {
+      "id": "apart",
+      "title": "Taken apart",
+      "text": "The guard comes off first, then the blade, the motor and the stand.",
+      "focus": ["motor", "chan"],
+      "play": ["thao"]
+    },
+    {
+      "id": "together",
+      "title": "Put back together",
+      "text": "Played back, the teardown is the fan's assembly.",
+      "motion": {
+        "thao": 4
+      },
+      "focus": ["motor", "chan"],
+      "play": ["thao"]
+    }
+  ]
+}

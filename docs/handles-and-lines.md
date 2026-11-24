@@ -79,6 +79,13 @@ fig.set({ motion: { crank: 90 } });
 for taking apart; `check.allow` excuses a pair by name. Played under reduced motion, a motion goes straight to where
 it would end.
 
+**Alternatives** share a `group`: motions with the same group play one at a time (playing one glides the others back
+to their start over 300 ms) and show as one row of toggle buttons and one slider. They may not set the value of the
+same joint. **A clip** (`then: "start"`, a bite, a jump) plays once and glides back to its start; under reduced motion
+it shows its end for its time, at least a second, then returns. **Fading**: a track's `fade` keys (`[[t, alpha], …]`)
+multiply its parts' opacity as the motion goes; below 0.05 a part counts as hidden (not drawn, labelled or picked).
+Sequences ([the API](api.md#sequences)) use them for parts not yet built and for `after: "fade"`.
+
 ## Joints: parts posed by how they are joined
 
 Keys for every part of a mechanism are a lot of numbers to get right: a piston's stroke is not a sine, a connecting

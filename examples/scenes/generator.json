@@ -459,7 +459,8 @@
       "labels": ["loi-stato", "cuon-day"],
       "view": {
         "yaw": -60,
-        "pitch": 22
+        "pitch": 22,
+        "zoom": 1
       }
     },
     {
@@ -470,7 +471,8 @@
       "labels": ["nam-cham-n", "nam-cham-s", "truc"],
       "view": {
         "yaw": -20,
-        "pitch": 16
+        "pitch": 16,
+        "zoom": 1
       }
     },
     {

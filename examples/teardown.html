@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lk3d · a desk fan taken apart</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .caption {
+      min-height: 3em;
+      margin: 10px 0 0;
+      font-size: 17px;
+    }
+  </style>
+  <main>
+    <nav><a href="index.html">← examples</a></nav>
+    <h1>A desk fan taken apart</h1>
+    <p>
+      A sequence takes the fan apart one part at a time, the camera on each part as it leaves; played back, it puts the
+      fan together. Spin and oscillate are one choice: playing one stops the other. Press <b>Play the steps</b> under
+      the figure and the steps play by themselves; the page writes its own caption for each step and stage. Touch the
+      figure, a key or a control and the tour pauses; Play goes on from there.
+    </p>
+    <div id="fan"></div>
+    <p class="caption" id="caption"></p>
+    <p class="muted">
+      The fan is drawn to no scale. The scene is <a href="scenes/teardown.json">scenes/teardown.json</a>; the sequence's
+      stages give each part its way out (its own explode vector, or <code>by</code>) and a view for the camera.
+    </p>
+  </main>
+  <script src="../dist/lk3d.min.js"></script>
+  <script src="../dist/lk3d-story.min.js"></script>
+  <script type="module">
+    import { scene as load } from './load.js';
+
+    const caption = document.getElementById('caption');
+    // the page's own words for the tour: the step's title, then each stage's as it plays (lk3d says them too, briefly)
+    const fig = LK3D.mount(document.getElementById('fan'), await load('teardown'), {
+      onStory(event) {
+        if (event.type === 'step') caption.textContent = `${event.step.title}. ${event.step.text}`;
+        if (event.type === 'stage') caption.textContent = `Stage ${event.stage} of ${event.of}: ${event.title}.`;
+        if (event.type === 'end') caption.textContent = 'The end of the tour.';
+      },
+    });
+    fig.tour({ dwell: 2500 }); // (its Play button in the steps panel; the reader starts it)
+    window.fig = fig;
+  </script>
+</html>

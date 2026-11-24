@@ -123,6 +123,21 @@ On the laptop a 256 × 256 surface leaves most of a 120 Hz frame for the page. O
 6× slower CPU spends 18 ms a frame on 256 × 256, more than a 60 Hz frame has. The 2D fallback draws at most 64 × 64,
 sampled from the heights.
 
+## Sequences and the tour
+
+`node test/bench/story.mjs`: the desk fan of the image tests with the story add-on loaded, each frame drawn with
+`drawNow()` and timed while a sequence plays (stage by stage, holds included) and while the steps play by themselves,
+against the same figure standing still; lk3d's own work per frame (not the GPU's), median / 95th percentile, Apple M3
+Pro laptop, Chrome, 24 November 2026:
+
+| CPU            | Still        | A sequence playing | The tour     |
+| -------------- | ------------ | ------------------ | ------------ |
+| as it is       | 0.0 / 0.2 ms | 0.0 / 0.2 ms       | 0.0 / 0.1 ms |
+| slowed 6 times | 0.0 / 1.4 ms | 0.1 / 1.5 ms       | 0.0 / 1.5 ms |
+
+The add-on adds nothing measurable to a frame: a sequence moves parts by the same tracks as any motion, and its holds
+and the tour's dwells are waits on the clock, which draw nothing while nothing moves.
+
 ## Many parts
 
 How far lk3d scales with the number of parts, measured with `node lessonkit/js/bench.cjs`: n small assemblies on a

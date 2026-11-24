@@ -133,6 +133,14 @@ cut, nothing hidden), so write each as if the reader came straight to it. Label 
 `check` catches steps that name what does not exist or hide what they label; `render` draws each step
 (`name-look-step1.png`, …): look at each as the reader will, with its words beside it.
 
+**Teardown and build.** To take the object apart part by part (or build it), add a `sequence`: its stages in the order
+a hand would do it, each naming its parts (a group for parts that go together), its way out (`by`, a `path`, or the
+parts' own `explode` vectors) and, for the camera, a `view` and `focus`. A build (`build: true`) is written in build
+order. `check` refuses a stage that runs one part through another, a teardown that takes a part while another rests on
+it, and a build that brings a part before what holds it, each with a valid order; never claim a historical order the
+geometry merely allows. `render --poses sequences` draws each stage's end in its camera: look that each part leaves by a
+way it could really take. The page loads `dist/lk3d-story.min.js`; a step plays the sequence (`play: ["apart"]`).
+
 ## 7. Look like a critic, then hand over
 
 Render rest, apart and cut in at least two looks, and at a narrow width (`--width 390`), with `--sheet --names`: one

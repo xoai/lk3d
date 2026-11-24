@@ -19,6 +19,10 @@ is still to try).
   this way gives the keyboard another, a slider or a button that does the same (the pendulum's angle and Release, the
   ripple tank's point P as a plane handle).
 - **Reduced motion.** With `prefers-reduced-motion`, glides and flicks are cut short (`LK3D.reduce`).
+- **The tour** (the story add-on) is a button in the steps panel, "Play the steps" (`aria-pressed`), between Back and
+  Next; the tour pauses as soon as the reader touches the figure, a key or a control, and never takes the focus. A
+  stage of a sequence is said as it begins ("Stage 3 of 8: the spire"), and the end of the tour too; D says where a
+  sequence stands, and its slider says the stage.
 
 ## Checked on every change
 
@@ -43,6 +47,7 @@ known is only what axe and the tests check, above.
 | Cut the model open and take it apart   | not tested               | not tested              | not tested                 | not tested      | not tested                  |
 | Hear the description (D, Describe)     | not tested               | not tested              | not tested                 | not tested      | not tested                  |
 | Meet a control the page has locked     | not tested               | not tested              | not tested                 | not tested      | not tested                  |
+| Play the steps, pause by touching      | not tested               | not tested              | not tested                 | not tested      | not tested                  |
 
 A page to try them on: [the generator example](../examples/generator.html) (handles, steps, the cut, taking apart, a
 lock).

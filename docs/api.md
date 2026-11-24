@@ -271,6 +271,66 @@ part has a label and is not hidden by the same step, and that a step cuts only w
 render` draws each step as a picture of its own (`--poses steps`, with the others by default when the scene has
 steps).
 
+## Sequences
+
+A scene's `sequences` ([format](scene-format.md)) take the model apart, or build it, one part or group at a time. Each
+stage names its parts and how they leave: by `by` (a vector), along a `path`, turning (`turn`), or else along each
+part's own `explode` vector; it may give the camera a `view` and parts to `focus` on, and a `title`. A build
+(`build: true`) is written in build order: its parts not yet built are hidden until their stage.
+
+```json
+"sequences": [{
+  "id": "apart", "name": "Take apart", "ms": 1000, "hold": 400,
+  "stages": [
+    { "parts": ["guard"], "focus": ["guard"], "view": { "yaw": -20, "pitch": 10 }, "title": "The guard" },
+    { "parts": ["motor"], "by": [0, 2, 0], "focus": ["motor"], "title": "The motor" }
+  ]
+}]
+```
+
+A sequence needs the story add-on, `dist/lk3d-story.min.js`, loaded after the engine (a scene with sequences is refused
+without it, naming it; an `<lk3d-figure>` refused so is drawn once it loads). It is a motion: its value runs from 0 to
+its number of stages (2.5: halfway through stage 3), it has a slider and a Play button when named, `state()` and
+`set()` hold it, the guided steps set it (`motion: { apart: 2 }`) or play it (`play: ["apart"]`), and the export
+writes it. A teardown starts at 0, whole; a build at its end, built.
+
+```js
+const s = fig.sequence('apart'); // { value, stages, stage, playing, set(v), play(o), stop() }
+s.set(1.5); // at once, no camera
+await s.play(); // paced: each stage over its ms, then its hold; the camera on each stage (its view and focus)
+s.play({ back: true }); // towards 0: a teardown played back is its assembly
+```
+
+Played, each stage takes its `ms`, then pauses for its `hold`, on `LK3D.clock`; the camera follows the stages that
+give a view or a focus, framing the parts where the stage leaves them, until the reader touches the figure. A build's
+first Play from its end builds it from nothing. Under reduced motion each stage is shown at its end, for its time.
+While a sequence is away from its start, the motions that set its parts' joints wait at their start; a page's call on
+one of them brings the sequence back first. Taking apart (`explode`) and a sequence never act at once: each puts the
+other back. `onStory` hears each stage as it begins (`{ type: 'stage', sequence, stage, of, title }`), so a page can
+caption it; a stage's title is also said. `fig.step(k, { ms: 0, settled: true })` shows a step as a picture: what it
+plays, where its play ends, nothing played or told. Add-ons join the engine through `LK3D.use(name, api, needs)`, which
+refuses one made for a newer lk3d, naming what this one lacks.
+
+## The tour
+
+The guided steps played by themselves: `fig.tour(options)` makes it (and a Play button in the steps panel, "Play the
+steps"), and the reader or the page starts it; lk3d never does.
+
+```js
+const tour = fig.tour({ dwell: 3000 }); // from, steps (ids or places), dwell (ms), loop, button
+tour.play(); // tour.pause(), tour.next(), tour.back(), tour.stop(); tour.playing, tour.at
+fig.tour(false); // pause it: what a page's own controls call
+```
+
+At each step it waits for the glides, for what the step plays to end and for the promise `onStory` returns, then
+dwells: the step's `dwell`, else its reading time (60 ms a character of its title and text, 3 to 15 s). It pauses the
+moment the reader touches the figure, a key or a control (not a swipe that scrolls the page), the moment the page
+changes the figure outside lk3d's own callbacks (`fig.quietly(fn)` runs the page's code as a callback is run), when the
+tab hides, and when the figure stays out of view for a second; `onStory` hears `{ type: 'pause', by }`, and Play goes
+on from there. The page hears each step (`{ type: 'step', index, step }`) and the end (`{ type: 'end' }`), and
+`onStep(index, step, by)` hears who moved: `'reader'`, `'page'` or `'tour'`. A state holds the tour (`tour: { playing
+}`), and sets it back paused: a link never starts one.
+
 ## Driving a figure from a timeline
 
 A page whose every frame is a function of its own time `t` (a video renderer that seeks to any time and takes a

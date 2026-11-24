@@ -406,7 +406,7 @@ const scene = {
       title: 'Horizon and meridian',
       labels: ['horizon', 'meridian', 'axis'],
       dimensions: ['latitude'],
-      view: { yaw: -2, pitch: 6 },
+      view: { yaw: -2, pitch: 6, zoom: 1 }, // (the whole sphere, however the reader came: a distance of its own)
       text: 'These rings stay still. The <b>horizon</b> ring splits the sky we see from the half below; the upright <b>meridian</b> ring runs north and south through the point overhead. The axis rises above the north horizon by the latitude: 21° for Hà Nội.',
     },
     {
@@ -421,7 +421,7 @@ const scene = {
       id: 'parallels',
       title: 'Tropics and polar circles',
       labels: ['cancer', 'capricorn', 'arctic', 'antarctic'],
-      view: { yaw: -32, pitch: 4 },
+      view: { yaw: -32, pitch: 4, zoom: 1 }, // (the whole sphere, however the reader came: a distance of its own)
       text: 'Four smaller circles run parallel to the equator: the <b>tropics</b>, 23.44° north and south of it, which the Sun reaches at the solstices; and the <b>polar circles</b>, 23.44° from the poles.',
     },
     {
@@ -430,7 +430,7 @@ const scene = {
       labels: ['ecliptic', 'solstitial', 'equinoctial'],
       dimensions: ['obliquity'],
       select: 'ecliptic',
-      view: { yaw: -58, pitch: 22 },
+      view: { yaw: -58, pitch: 22, zoom: 1 }, // (the whole sphere, however the reader came: a distance of its own)
       text: 'The broad band is the <b>ecliptic</b>, the Sun’s path through the year, tilted 23.44° to the equator. It touches the tropics at the solstices and crosses the equator at the equinoxes, where the two <b>colures</b> cross it.',
     },
   ],

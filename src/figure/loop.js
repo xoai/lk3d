@@ -9,6 +9,7 @@ import { ramp, stops } from '../flow.js';
 import { clock, awake, refreshFrom } from '../clock.js';
 import * as changed from '../changed.js';
 import LK3D from '../namespace.js';
+import { fadeOf } from '../motion.js';
 
 // ---- drawing, only when something changed. Resolution drops while frames come late and comes back once they are on
 // time again. "Late" is measured against this screen's own refresh, measured at start: browsers may run animation at
@@ -217,7 +218,9 @@ export function makeLoop(c) {
         changed.put(part.joint && c.poseVersion_);
         for (const entry of part.tracks) changed.put(c.state_.motion[entry.motion.id]);
         if (changed.end()) part.matrix = c.modelMatrix_(part);
-        part.drawAlpha = part.hidden ? 0 : c.state_.xray && part.xray ? 0.18 : part.alpha;
+        // (a fade track's alpha multiplies the part's own: below 0.05 it counts as hidden everywhere)
+        part.fade = part.fades ? fadeOf(part.tracks, c.state_.motion) : 1;
+        part.drawAlpha = part.hidden ? 0 : (c.state_.xray && part.xray ? 0.18 : part.alpha) * part.fade;
         // the pen look's colour: all of it for an accent part, a glowing one or the one chosen, a soft wash otherwise
         // (grey machine parts stay nearly white; coloured ones, an organelle or a layer, still read as their colour)
         part.tint =

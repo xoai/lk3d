@@ -206,30 +206,40 @@ export function makeApi(c) {
         }
       c.state_.motion = motionNow;
       c.poseVersion_++;
-      return LK3D.toGLB(c.built_, {
-        matrix: c.modelMatrix_,
-        animations,
-        spec: c.spec_,
-        alt: c.spec_.alt,
-        // (each guided step's pose, for its animation: the figure posed so a moment, then put back)
-        pose(values, explode) {
-          const motion = c.state_.motion,
-            apart = c.state_.explode;
-          c.state_.motion = { ...motion, ...values };
-          c.state_.explode = explode;
-          c.poseVersion_++;
-          const at = new Map(c.built_.parts.map((part) => [part, c.modelMatrix_(part)]));
-          c.state_.motion = motion;
-          c.state_.explode = apart;
-          c.poseVersion_++;
-          return (part) => at.get(part);
-        },
-        unit: c.spec_.unit,
-        title: c.spec_.title,
-        author: c.spec_.author,
-        license: c.spec_.license,
-        flatten,
-      });
+      // (a part faded out, below 0.05, is left out as a hidden one is: put back once written)
+      const faded = c.built_.parts.filter((part) => !part.hidden && part.fade < 0.05);
+      for (const part of faded) part.hidden = true;
+      try {
+        return written();
+      } finally {
+        for (const part of faded) part.hidden = false;
+      }
+      function written() {
+        return LK3D.toGLB(c.built_, {
+          matrix: c.modelMatrix_,
+          animations,
+          spec: c.spec_,
+          alt: c.spec_.alt,
+          // (each guided step's pose, for its animation: the figure posed so a moment, then put back)
+          pose(values, explode) {
+            const motion = c.state_.motion,
+              apart = c.state_.explode;
+            c.state_.motion = { ...motion, ...values };
+            c.state_.explode = explode;
+            c.poseVersion_++;
+            const at = new Map(c.built_.parts.map((part) => [part, c.modelMatrix_(part)]));
+            c.state_.motion = motion;
+            c.state_.explode = apart;
+            c.poseVersion_++;
+            return (part) => at.get(part);
+          },
+          unit: c.spec_.unit,
+          title: c.spec_.title,
+          author: c.spec_.author,
+          license: c.spec_.license,
+          flatten,
+        });
+      }
     },
     redraw: c.kick_,
     // a PNG of the figure as drawn now (no HTML labels), as a data URL: drawn first and read at once (WebGL keeps no

@@ -38,7 +38,10 @@ export function makePose(c) {
     }
   // motions: what moves each part, and where each motion starts
   for (const motion of c.motions_) c.state_.motion[motion.id] = startOf(motion);
-  for (const part of c.built_.parts) part.tracks = tracksOf(c.motions_, part);
+  for (const part of c.built_.parts) {
+    part.tracks = tracksOf(c.motions_, part);
+    part.fades = part.tracks.some((entry) => entry.track.fade); // (a fade track: its alpha read each frame, loop.js)
+  }
   // joints (joints.js): parts posed by how they are joined; their matrices worked out once for each set of values:
   // again only when a motion's or a joint's value changed (poseVersion_, counted up where they are set)
   const joints = jointsOf(c.spec_);

@@ -5,7 +5,8 @@
      (heights from a recipe: "sine", ripples from a point, or "bowl", a paraboloid; tones from the heights) its extras
      list if any, waits until the figure is ready (the crease shading, texture maps), then sets window.__ready to what it drew.
      window.__ink() reads the next picture back as three numbers (how much is drawn, and its middle), for the test of
-     transitions that jump. -->
+     transitions that jump. A scene with sequences loads the story add-on (dist/lk3d-story.min.js) first; &state= (an
+     encoded state, as <lk3d-figure state> takes) is set once the figure is mounted. -->
 <html lang="en">
   <meta charset="utf-8" /><title>lk3d image test</title>
   <style>
@@ -46,6 +47,17 @@
       }
     }
     if (q.get('proj')) scene.view = { ...scene.view, projection: q.get('proj') }; // ?proj=ortho
+    // (the story add-on only for a scene with sequences: every other picture is drawn by the scripts it always was)
+    if (scene.sequences)
+      await new Promise((done, fail) =>
+        document.head.append(
+          Object.assign(document.createElement('script'), {
+            src: '../../dist/lk3d-story.min.js',
+            onload: done,
+            onerror: fail,
+          }),
+        ),
+      );
     const fig = LK3D.mount(document.getElementById('g'), scene, {
       controls: false,
       adaptive: false,
@@ -56,6 +68,7 @@
       theme: q.get('theme') || undefined,
       force2d: flat,
     });
+    if (q.get('state')) fig.set(await LK3D.decodeState(q.get('state')));
     for (const f of scene.extras?.flows || []) fig.flow(f);
     for (const f of scene.extras?.streams || []) fig.stream(f);
     for (const { recipe, amp = 0.2, waves = 3, ...o } of scene.extras?.surfaces || []) {

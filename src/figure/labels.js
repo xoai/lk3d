@@ -161,6 +161,7 @@ export function makeLabels(c) {
       wanted = (part) =>
         !part.hidden &&
         part.drawAlpha > 0.05 &&
+        (!(part.fade < 1) || (chosen && chosen(part))) && // (fading: only when listed, a stage's labels say so)
         (chosen
           ? chosen(part)
           : which === 'all' ||

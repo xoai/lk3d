@@ -4,11 +4,13 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { encodeState } from '../../src/statecodec.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCENES = fs
   .readdirSync(path.join(HERE, 'scenes'))
   .map((f) => f.replace(/\.json$/, ''))
+  .filter((name) => !name.startsWith('sequence-')) // (drawn at their stages' ends, below)
   .sort();
 const FALLBACK = ['generator', 'molecules', 'earth']; // the 2D fallback: a few are enough
 const runs = [
@@ -43,11 +45,21 @@ const runs = [
   ['generator', 'ink', null, 'ortho'],
 ];
 
-for (const [scene, look, theme, proj] of runs) {
-  const name = `${scene}-${look}${theme ? '-' + theme : ''}${proj ? '-' + proj : ''}`;
+// a sequence's scene at the end of some of its stages, in each look: a teardown from whole (0) to all apart (4); a build
+// (at 0 it shows nothing) from its stand alone (1) to built (4)
+const stages = [
+  ['sequence-teardown', 'thao', [0, 2, 4]],
+  ['sequence-build', 'dung', [1, 3, 4]],
+].flatMap(([scene, id, ends]) =>
+  ends.flatMap((k) => ['ink', 'studio', 'pen'].map((look) => [scene, look, null, null, { [id]: k }, `s${k}`])),
+);
+
+for (const [scene, look, theme, proj, motion, at] of [...runs, ...stages]) {
+  const name = `${scene}${at ? '-' + at : ''}-${look}${theme ? '-' + theme : ''}${proj ? '-' + proj : ''}`;
   test(name.replace(/-/g, ', '), async ({ page, browserName }) => {
+    const state = motion ? '&state=' + (await encodeState({ motion })) : '';
     await page.goto(
-      `/test/visual/index.html?scene=${scene}&look=${look}${theme ? '&theme=' + theme : ''}${proj ? '&proj=' + proj : ''}`,
+      `/test/visual/index.html?scene=${scene}&look=${look}${theme ? '&theme=' + theme : ''}${proj ? '&proj=' + proj : ''}${state}`,
     );
     const done = await page
       .waitForFunction(() => window.__ready, null, { timeout: 100_000 })

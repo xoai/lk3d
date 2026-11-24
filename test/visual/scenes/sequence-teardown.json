@@ -1,0 +1,192 @@
+{
+  "lk3d": 1,
+  "title": "A desk fan, taken apart",
+  "scale": {
+    "note": "a model, not to scale"
+  },
+  "view": {
+    "yaw": -30,
+    "pitch": 15
+  },
+  "parts": [
+    {
+      "id": "nen",
+      "name": "Floor",
+      "at": [
+        0,
+        -0.1,
+        0
+      ],
+      "shapes": [
+        {
+          "box": [
+            8,
+            0.2,
+            8
+          ]
+        }
+      ]
+    },
+    {
+      "id": "de",
+      "name": "Base",
+      "group": "chan",
+      "at": [
+        0,
+        0.1,
+        0
+      ],
+      "explode": [
+        -3,
+        0,
+        0
+      ],
+      "shapes": [
+        {
+          "box": [
+            1.6,
+            0.2,
+            1.6
+          ]
+        }
+      ]
+    },
+    {
+      "id": "than",
+      "name": "Pole",
+      "group": "chan",
+      "at": [
+        0,
+        1.2,
+        0
+      ],
+      "explode": [
+        -3,
+        0,
+        0
+      ],
+      "shapes": [
+        {
+          "box": [
+            0.2,
+            2,
+            0.2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "motor",
+      "name": "Motor",
+      "at": [
+        0,
+        2.6,
+        0
+      ],
+      "explode": [
+        0,
+        1.5,
+        0
+      ],
+      "shapes": [
+        {
+          "box": [
+            0.8,
+            0.8,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "canh",
+      "name": "Blade",
+      "at": [
+        0,
+        2.6,
+        0.55
+      ],
+      "explode": [
+        0,
+        0,
+        1.5
+      ],
+      "shapes": [
+        {
+          "box": [
+            1.6,
+            1.6,
+            0.1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "long",
+      "name": "Guard",
+      "at": [
+        0,
+        2.6,
+        0.8
+      ],
+      "explode": [
+        0,
+        0,
+        3
+      ],
+      "shapes": [
+        {
+          "box": [
+            2,
+            2,
+            0.05
+          ]
+        }
+      ]
+    }
+  ],
+  "check": {
+    "float": [
+      "canh",
+      "long"
+    ]
+  },
+  "alt": "A desk fan taken apart stage by stage: its guard, its blade, its motor, its stand.",
+  "sequences": [
+    {
+      "id": "thao",
+      "name": "Take apart",
+      "stages": [
+        {
+          "parts": [
+            "long"
+          ],
+          "title": "Guard"
+        },
+        {
+          "parts": [
+            "canh"
+          ],
+          "title": "Blade"
+        },
+        {
+          "parts": [
+            "motor"
+          ],
+          "by": [
+            0,
+            2,
+            0
+          ],
+          "title": "Motor"
+        },
+        {
+          "parts": [
+            "chan"
+          ],
+          "title": "Stand"
+        }
+      ]
+    }
+  ]
+}

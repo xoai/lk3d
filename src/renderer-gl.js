@@ -1136,7 +1136,7 @@ function glRenderer(gl, scene, options = {}) {
         setFloat(lookUniforms.uAlpha, part.drawAlpha);
         if (lookUniforms.uSurf) {
           setVec3(lookUniforms.uSurf, part.surfaceDetail);
-          setFloat(lookUniforms.uRefr, backdrop && part.drawAlpha < 0.99 ? part.refract : 0);
+          setFloat(lookUniforms.uRefr, backdrop && part.drawAlpha < 0.99 && !(part.fade < 1) ? part.refract : 0); // (none while it fades)
         }
       };
       each(lookProgram, opaque, setMaterial, !frame.cut);

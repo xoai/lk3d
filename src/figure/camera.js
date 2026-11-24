@@ -144,7 +144,7 @@ export function makeCamera(c) {
     return [normal[0], normal[1], normal[2], -(second.offset || 0)];
   };
   // what is on screen now (for the shadow's reach) and the floor under the assembled model
-  c.shownBox_ = () => c.boxOf_(c.built_.parts.filter((part) => part.drawAlpha >= 0.01));
+  c.shownBox_ = () => c.boxOf_(c.built_.parts.filter((part) => part.drawAlpha >= 0.01 && !(part.fade < 0.05)));
   // the box round some parts where they are now (taken apart, moved)
   c.boxOf_ = (parts) => {
     const min = [1e9, 1e9, 1e9],

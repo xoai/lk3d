@@ -136,12 +136,15 @@ const measured: Measured = measure(scene, {
   radius: { size: 'lens', axis: 'y', half: true },
   blades: { count: { parts: ['a', 'b'] } },
   apart: { distance: ['lens', [0, 0, 0]], step: 'apart' },
+  high: { distance: ['lens', 'lens.label'], along: 'y' },
   focal: { read: ['lens', 'shapes', 0, 'lens', 'f'] },
   more: { sum: ['apart', '-radius'] },
 });
 const angle: number = measured.values.angle + measured.error.angle;
 // @ts-expect-error an axis is x, y or z
 measure(scene, { r: { size: 'lens', axis: 'w' } });
+// @ts-expect-error a distance is projected on x, y or z
+measure(scene, { d: { distance: ['lens', [0, 0, 0]], along: 'w' } });
 
 // @ts-expect-error a slide handle needs its range
 const bad1: Scene = { parts: [{ id: 'a', shapes: [{ sphere: 1 }], handle: { slide: { axis: [1, 0, 0] } } }] };

@@ -32,6 +32,10 @@ loads `lk3d-story.min.js` after `lk3d.min.js`; a TypeScript switch over `ChangeC
   are compared in the second part's own frame. Parts whose faces met (a jewel setting under a watch's plate) were passed
   over at the start, by boxes in the scene's axes, and tested mid-turn, where the rounding of the turned pose put some
   of their points inside: turning a whole watch over reported sixteen such pairs. A watch's check is also twice as fast.
+- **A distance along an axis** (`lk3d/measure`): `{ distance: [p, q], along: 'x' | 'y' | 'z' }` measures the two
+  points' distance projected on that axis of the scene, `|p[a] − q[a]|`, with the same error as the distance itself.
+  Any other `along` is refused at the measure's name (`distance.along: x, y or z`). `measure.js` is in no browser
+  bundle, so their sizes do not change.
 - **The budget** was unchanged by these fixes: the global script was 72,178 of 72,192 bytes gzipped (the figure's
   elements are now made by one helper, for the room the labels and the ground take).
 - **`lk3d check` knows sequences.** Each stage's moving parts are sampled against what their way out sweeps past ("tang-3

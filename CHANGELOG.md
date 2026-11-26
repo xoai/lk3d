@@ -3,7 +3,7 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
-## 0.8.0 (24 November 2026)
+## 0.8.0 (26 November 2026)
 
 **Sequences and the tour**, in a new add-on, `dist/lk3d-story.min.js`: a model taken apart or built part by part, the
 camera on each part, and the steps played by themselves. Scenes and pages written for 0.7.0 work unchanged, but for one
@@ -32,6 +32,8 @@ loads `lk3d-story.min.js` after `lk3d.min.js`; a TypeScript switch over `ChangeC
   are compared in the second part's own frame. Parts whose faces met (a jewel setting under a watch's plate) were passed
   over at the start, by boxes in the scene's axes, and tested mid-turn, where the rounding of the turned pose put some
   of their points inside: turning a whole watch over reported sixteen such pairs. A watch's check is also twice as fast.
+- **`lk3d render` can draw with Mesa's lavapipe** (`LK_GL=lavapipe`): Vulkan on the CPU instead of Chromium's
+  SwiftShader, about a sixth of the CPU on a machine without a GPU (a CI runner). Unset, it draws as before.
 - **A distance along an axis** (`lk3d/measure`): `{ distance: [p, q], along: 'x' | 'y' | 'z' }` measures the two
   points' distance projected on that axis of the scene, `|p[a] − q[a]|`, with the same error as the distance itself.
   Any other `along` is refused at the measure's name (`distance.along: x, y or z`). `measure.js` is in no browser

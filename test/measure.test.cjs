@@ -232,6 +232,23 @@ test('a distance along anything but x, y or z is refused at its name', () => {
     assert.equal(said[name], 'distance.along: x, y or z', name);
 });
 
+test('a size along anything but x, y or z is refused at its name', () => {
+  const s = scene('molecules.json');
+  const r = measure(s, {
+    good: { size: 'h2o', axis: 'y' },
+    w: { size: 'h2o', axis: 'w' },
+    xy: { size: 'h2o', axis: 'xy' },
+    yz: { size: 'h2o', axis: 'yz' },
+    empty: { size: 'h2o', axis: '' },
+    number: { size: 'h2o', axis: 0 },
+    none: { size: 'h2o' },
+  });
+  assert.ok(Number.isFinite(r.values.good));
+  const said = Object.fromEntries(r.problems.map((p) => [p.path, p.message]));
+  for (const name of ['w', 'xy', 'yz', 'empty', 'number', 'none'])
+    assert.equal(said[name], 'size: an axis, x, y or z', name);
+});
+
 test('what does not exist, or is not a measure, is reported at its name; the others are still measured', () => {
   const s = scene('molecules.json');
   const r = measure(s, {

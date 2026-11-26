@@ -299,7 +299,7 @@ export function measure(scene, measures) {
     let value, e, kind;
     if ('size' in spec) {
       const i = onePart(spec.size),
-        axis = AXES.indexOf(spec.axis);
+        axis = [...AXES].indexOf(spec.axis); // (one letter: 'xyz'.indexOf would take 'xy' or '')
       if (axis < 0) refuse('size: an axis, x, y or z');
       const [low, high] = extentAlong(built.parts[i], placed(i, pose).matrix, axis);
       [value, e, kind] = spec.half

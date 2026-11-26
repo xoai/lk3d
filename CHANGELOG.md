@@ -3,6 +3,11 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
+## Unreleased
+
+- **A size measure takes one axis.** `measure`'s `size` refused an axis other than x, y or z by looking it up in
+  `'xyz'`, so `'xy'`, `'yz'` and `''` were taken (as x or y). They are now refused, as `distance.along` already was.
+
 ## 0.8.0 (26 November 2026)
 
 **Sequences and the tour**, in a new add-on, `dist/lk3d-story.min.js`: a model taken apart or built part by part, the

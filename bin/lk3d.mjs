@@ -405,7 +405,13 @@ async function render(scenePath) {
   // (a CI job with Playwright but no browser yet hung six hours)
   let browser;
   try {
-    browser = await playwright.chromium.launch();
+    // (LK_GL=lavapipe: Mesa's software Vulkan instead of Chromium's SwiftShader, a sixth of the CPU on a machine
+    // without a GPU; lessonkit/js/gl.cjs says more)
+    browser = await playwright.chromium.launch(
+      process.env.LK_GL === 'lavapipe'
+        ? { args: ['--use-gl=angle', '--use-angle=vulkan', '--enable-features=Vulkan', '--ignore-gpu-blocklist'] }
+        : undefined,
+    );
   } catch (error) {
     server.close();
     console.error(

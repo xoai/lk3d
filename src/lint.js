@@ -66,6 +66,31 @@ function depthIn(solid, point) {
   }
   return inside >= 2 ? depth : 0;
 }
+// whether a point is inside a closed part deeper than `tolerance`: depthIn(solid, point) > tolerance, casting no more
+// rays than it must (two rays that miss, or one inside hit no deeper than the tolerance, settle it): the same answer
+function deeperThan(solid, point, tolerance) {
+  let inside = 0,
+    outside = 0;
+  for (const ray of RAYS) {
+    const hit = intersect(solid.mesh, solid.bvh, point, ray);
+    let back = false;
+    if (hit) {
+      const indices = solid.mesh.indices,
+        positions = solid.mesh.positions,
+        corner = (k) => [
+          positions[3 * indices[3 * hit.triangle + k]],
+          positions[3 * indices[3 * hit.triangle + k] + 1],
+          positions[3 * indices[3 * hit.triangle + k] + 2],
+        ];
+      back = dot(cross(sub(corner(1), corner(0)), sub(corner(2), corner(0))), ray) > 0;
+    }
+    if (hit && back) {
+      if (hit.t <= tolerance) return false; // (the nearest depth is no deeper than the tolerance)
+      inside++;
+    } else if (++outside >= RAYS.length - 1) return false; // (two of three: never enclosed)
+  }
+  return inside >= 2;
+}
 // points on a part's surface, to test against another: 600, spread evenly by area (a thin plate cutting across a post
 // has no vertex inside it, but some of the post's surface is), the same every run
 function samples(solid) {
@@ -102,7 +127,7 @@ function through(a, b, apart, tolerance) {
   let hits = 0;
   for (const point of points) {
     const moved = add(point, shift);
-    if (inBox(b, moved) && depthIn(b, moved) > tolerance) hits++;
+    if (inBox(b, moved) && deeperThan(b, moved, tolerance)) hits++;
   }
   return points.length ? hits / points.length : 0;
 }
@@ -114,7 +139,7 @@ function throughMatrices(a, matrixA, b, matrixB, tolerance) {
   let hits = 0;
   for (const point of points) {
     const moved = M.pt(aToB, point);
-    if (inBox(b, moved) && depthIn(b, moved) > tolerance) hits++;
+    if (inBox(b, moved) && deeperThan(b, moved, tolerance)) hits++;
   }
   return points.length ? hits / points.length : 0;
 }

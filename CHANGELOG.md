@@ -3,6 +3,30 @@
 lk3d follows [semantic versioning](https://semver.org): before 1.0, a minor version (0.x.0) may change the scene
 format or the API, and says how to move.
 
+## 0.8.1 (27 November 2026)
+
+Fixes to 0.8.0's sequences and tour, found by the review of the feature. Scenes and pages written for 0.8.0 work
+unchanged. Load the add-ons of the core's version: the 0.8.1 story add-on on a 0.8.0 core plays and tours as before,
+but frames each stage as 0.8.0 did (where its parts are, not over the stage's whole window, and not above the card).
+
+- **The tour.** A paused sequence plays on the way it was going when Play is pressed (an assembly played back stays
+  back). `fig.tour({ from })` is where the first Play starts. Play once the tour has ended starts again from the first
+  step, unless the reader went to another. A tour played on a figure already out of view pauses within a second, as
+  one that leaves the view does.
+- **Stage labels.** A stage's `labels` go as the next stage begins, and a step gone to during a play keeps its own
+  labels (the play no longer puts the step before's back over them).
+- **Camera follow.** Each stage is framed over its whole window: the box round its parts where the stage starts and
+  where it ends. With the card open as a sheet at the foot of a narrow screen (620 px or less), the parts are framed in
+  the stage's height above it. A step that plays a sequence starts it after its own view, so the first stage's camera
+  is kept. A page's own `set()` no longer ends the following; the reader's hand does.
+- **Reduced motion.** A clip's hold at its end waits on the clock, drawing no frame while nothing moves.
+- **`lk3d render`'s sheet** asks whether a part is seen at a stage of a sequence (it said "in step undefined").
+- **Docs and types:** `fig.step()` calls `onStep` with `by: 'page'` (not for `settled: true`), as 0.8.0 does.
+- **Budgets:** the core's raised from 72.7 to **72.9 KB** gzipped (74,562 B), the ceiling after 0.8.0 of the user's
+  decision of 23 November 2026, for follow's framing (`frame_` takes several motion values and a height above, `view_`
+  a target lowered along its up) and the clip's hold on the clock; the story add-on's from 4.8 to 5 KB (5,114 B), its
+  ceiling. Each is the code's measured need.
+
 ## 0.8.0 (26 November 2026)
 
 **Sequences and the tour**, in a new add-on, `dist/lk3d-story.min.js`: a model taken apart or built part by part, the

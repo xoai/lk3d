@@ -73,19 +73,26 @@ export function makeCamera(c) {
   }
   // where the camera looks and from how far (as the state holds them: before the fit to the stage, the step back and
   // the shift when taken apart) to frame some parts as they are once taken apart by `explode`: the sphere round them
-  // inside the frame, however narrow it is
-  c.frame_ = (parts, explode = c.state_.explode, values) => {
+  // inside the frame, however narrow it is. values: motion values, or a list of them (the box round the parts at each:
+  // a sequence's stage where it starts and where it ends); above: the fraction of the stage's height, from its top, to
+  // frame them in (a card's sheet below it), and lower, how far below the target the camera must then look, along its up
+  c.frame_ = (parts, explode = c.state_.explode, values, above = 1) => {
     if (c.width_ <= 1) c.measure_(); // (not laid out yet: a figure just mounted)
     const now = c.state_.explode;
     c.state_.explode = explode;
-    const box = c.boxOf_(parts, values);
+    const boxes = (Array.isArray(values) ? values : [values]).map((each) => c.boxOf_(parts, each)),
+      min = [0, 1, 2].map((axis) => Math.min(...boxes.map((box) => box.min[axis]))),
+      max = [0, 1, 2].map((axis) => Math.max(...boxes.map((box) => box.max[axis]))),
+      radius = len(sub(max, min)) / 2 || 1;
     c.state_.explode = now;
     const aspect = c.width_ > 1 && c.height_ > 1 ? c.width_ / c.height_ : (c.spec_.w || 16) / (c.spec_.h || 10),
-      tanHalf = (Math.tan(((c.spec_.view?.fov ?? 35) * D2R) / 2) * Math.min(1, aspect)) / 1.08, // (with a margin)
-      distance = c.state_.projection === 'ortho' ? box.radius / tanHalf : box.radius / Math.sin(Math.atan(tanHalf));
+      tan = Math.tan(((c.spec_.view?.fov ?? 35) * D2R) / 2),
+      tanHalf = (tan * Math.min(above, aspect)) / 1.08, // (with a margin)
+      distance = c.state_.projection === 'ortho' ? radius / tanHalf : radius / Math.sin(Math.atan(tanHalf));
     return {
-      target: sub(box.center, mulv(c.spec_.view?.explodeShift || [0, 0, 0], explode)),
+      target: sub(mulv(add(min, max), 0.5), mulv(c.spec_.view?.explodeShift || [0, 0, 0], explode)),
       dist: distance / fitNow(aspect) / (1 + (c.spec_.view?.explodeZoom ?? 0.5) * explode),
+      lower: (1 - above) * distance * tan,
     };
   };
   c.camera_ = () => {
@@ -259,6 +266,16 @@ export function makeCamera(c) {
           : c.state_.dist,
       target: isObject ? name.target || c.state_.target : name === 'home' ? home.target : c.state_.target,
     };
+    // (lower: the target that far below, along the camera's up there, so what frame_ framed above a card's sheet sits
+    // in the stage's height above it)
+    if (isObject && name.lower)
+      to.target = sub(
+        to.target,
+        mulv(
+          [-Math.sin(to.pitch) * Math.sin(to.yaw), Math.cos(to.pitch), -Math.sin(to.pitch) * Math.cos(to.yaw)],
+          name.lower,
+        ),
+      );
     // (a glide takes the short way round; a view placed at once keeps the angle the page gave)
     const short = options.ms !== 0;
     while (short && to.yaw - from.yaw > Math.PI) to.yaw -= 2 * Math.PI;

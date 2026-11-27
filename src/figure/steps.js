@@ -133,11 +133,6 @@ export function makeSteps(c, buttonClass) {
       c.stopMotion_(motion);
       c.setMotion_(motion, settled ? state.settled(motion) : state.motion(motion));
     }
-    if (!settled)
-      for (const id of listed(step.play)) {
-        const motion = c.motions_.find((each) => each.id === id);
-        if (motion) c.playMotion_(motion);
-      }
     // looked at, taken apart and cut, glided there together: over the step's ms, else the page's, else as long as the
     // camera's move takes (camera.js), with one easing
     const explode = state.explode,
@@ -158,6 +153,12 @@ export function makeSteps(c, buttonClass) {
     if (glide === 0) c.explodeNow_(explode);
     else c.tweenExplode_(explode, glide);
     sweepCut(state.cut, glide);
+    // (what the step plays, after its own view: a sequence's camera follows its first stage from there)
+    if (!settled)
+      for (const id of listed(step.play)) {
+        const motion = c.motions_.find((each) => each.id === id);
+        if (motion) c.playMotion_(motion);
+      }
     if (c.controls_.style) c.controls_.style(); // (the buttons show which toggles are on)
     c.showInfo_();
     if (panel && !settled) {

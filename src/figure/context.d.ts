@@ -307,7 +307,12 @@ export interface Ctx {
     values?: Record<string, number>,
   ): { center: number[]; radius: number; min: number[]; max: number[] };
   /** the target and distance (as the state holds them) that frame these parts, taken apart by explode */
-  frame_(ps: Part[], explode?: number, values?: Record<string, number>): { target: number[]; dist: number };
+  frame_(
+    ps: Part[],
+    explode?: number,
+    values?: Record<string, number> | Record<string, number>[],
+    above?: number,
+  ): { target: number[]; dist: number; lower: number };
   rayAt_(px: number, py: number): { origin: number[]; direction: number[] };
   zoom_(k: number, x?: number, y?: number): void;
   view_(name: any, o?: { ms?: number; [key: string]: any }): number;

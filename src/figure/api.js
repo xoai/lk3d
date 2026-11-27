@@ -397,7 +397,8 @@ export function makeApi(c) {
       return motion && LK3D.story.sequence(c.lent_, motion);
     },
     // the scene's guided steps: go to one by its place (from 0) or id ({ ms: 0 }: at once), and which is shown (-1:
-    // none). The figure starts at the first (or mount's opts.step); moving through them does not call onStep
+    // none). The figure starts at the first (or mount's opts.step), which calls no onStep; a step gone to here calls it
+    // with by 'page' (steps.js), unless settled
     steps: c.spec_.steps || [],
     step: byPage((which, options) => c.goToStep_(which, { ...options, by: 'page' })),
     get currentStep() {

@@ -168,8 +168,13 @@ export function makePose(c) {
         return f < 1 || !glides.delete(motion.id);
       };
       glides.set(motion.id, step);
-      c.animations_.add(step);
-      c.kick_();
+      // (a wait is a timer for the clock's time left, not frames drawn: the glide begins when the clock reaches it)
+      const begin = () =>
+        glides.get(motion.id) === step &&
+        (clock.now() >= start - 1
+          ? (c.animations_.add(step), c.kick_())
+          : setTimeout(begin, clock.speed ? (start - clock.now()) / clock.speed + 1 : 250));
+      begin();
     };
   c.playMotion_ = (motion) => {
     c.stopMotion_(motion);

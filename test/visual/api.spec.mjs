@@ -3205,3 +3205,259 @@ test('the tour plays the steps by themselves, waits for what each plays, pauses 
   expect(got.state).toEqual({ playing: true });
   expect(got.restored).toEqual({ playing: false });
 });
+
+// ---- the review of sequences (2026-11-27): stage labels, the tour's from and its end, a paused play resumed the way it
+// went, a tour started out of view, follow over a stage's whole window and above the card's sheet, a page's set()
+const stepUntil = `async (fn, ms = 20000) => { for (let t = 0; t < ms && !fn(); t += 50) (LK3D.clock.step(50), await new Promise((r) => requestAnimationFrame(r))); }`;
+
+test("a stage's labels go as the next stage begins, and a step gone to during a play keeps its own", async ({
+  page,
+}) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(
+    async ([scene, stepUntil]) => {
+      const wait = eval(stepUntil);
+      scene.sequences[0].stages = [{ parts: ['lid'], labels: ['lid'] }, { parts: ['box'] }];
+      scene.steps = [
+        { id: 'a', labels: ['base'] },
+        { id: 'b', labels: ['box'] },
+      ];
+      const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false });
+      await fig.ready;
+      LK3D.clock.speed = 0;
+      const apart = fig.sequence('apart');
+      apart.play();
+      await wait(() => apart.value > 0.2);
+      const first = fig.state().labels;
+      await wait(() => apart.value > 1.2);
+      const second = fig.state().labels;
+      await wait(() => !apart.playing);
+      const after = fig.state().labels;
+      apart.set(0);
+      apart.play();
+      await wait(() => apart.value > 0.2);
+      fig.step('b');
+      await wait(() => false, 300);
+      const stepped = fig.state().labels;
+      LK3D.clock.speed = 1;
+      return { first, second, after, stepped };
+    },
+    [teardownScene(), stepUntil],
+  );
+  expect(got.first).toEqual(['base', 'lid']);
+  expect(got.second).toEqual(['base']);
+  expect(got.after).toEqual(['base']);
+  expect(got.stepped).toEqual(['box']);
+});
+
+test("the tour's first Play starts at its from; Play once it has ended starts again from the first step", async ({
+  page,
+}) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(
+    async ([scene, stepUntil]) => {
+      const wait = eval(stepUntil),
+        steps = [];
+      scene.steps = [
+        { id: 'a', title: 'A' },
+        { id: 'b', title: 'B' },
+        { id: 'c', title: 'C' },
+      ];
+      const fig = LK3D.mount(document.getElementById('g'), scene, {
+        controls: false,
+        onStory: (e) => void (e.type === 'step' && steps.push(e.index)),
+      });
+      await fig.ready;
+      LK3D.clock.speed = 0;
+      const tour = fig.tour({ from: 'c', dwell: 300 });
+      tour.play();
+      await wait(() => !tour.playing);
+      const fromC = steps.slice();
+      tour.play();
+      await wait(() => !tour.playing);
+      LK3D.clock.speed = 1;
+      return { fromC, again: steps.slice(fromC.length) };
+    },
+    [teardownScene(), stepUntil],
+  );
+  expect(got.fromC).toEqual([2]);
+  expect(got.again).toEqual([0, 1, 2]);
+});
+
+test('a tour paused while its step plays a sequence back plays it on the same way', async ({ page }) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(
+    async ([scene, stepUntil]) => {
+      const wait = eval(stepUntil);
+      // (the step starts apart, and plays the teardown back: the assembly)
+      scene.steps = [{ id: 'together', motion: { apart: 2 }, play: ['apart'] }];
+      const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false }),
+        apart = fig.sequence('apart');
+      await fig.ready;
+      LK3D.clock.speed = 0;
+      const tour = fig.tour({ dwell: 60000 });
+      tour.play();
+      await wait(() => apart.value < 1.5);
+      tour.pause();
+      const paused = apart.value;
+      tour.play();
+      await wait(() => false, 400);
+      LK3D.clock.speed = 1;
+      return { paused, after: apart.value };
+    },
+    [teardownScene(), stepUntil],
+  );
+  expect(got.paused).toBeLessThan(1.5);
+  expect(got.after).toBeLessThan(got.paused);
+});
+
+test('a tour played on a figure already out of view pauses within a second, as the page is told', async ({ page }) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(async (scene) => {
+    scene.steps = [
+      { id: 'a', title: 'A' },
+      { id: 'b', title: 'B' },
+    ];
+    document.getElementById('g').style.marginTop = '3000px';
+    const told = [],
+      fig = LK3D.mount(document.getElementById('g'), scene, {
+        controls: false,
+        onStory: (e) => void (e.type === 'pause' && told.push(e.by)),
+      });
+    await fig.ready;
+    const tour = fig.tour({ dwell: 60000 }),
+      sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    await sleep(1500); // (the observer has said where the figure is, before Play)
+    tour.play();
+    await sleep(1600);
+    return { playing: tour.playing, told };
+  }, teardownScene());
+  expect(got.playing).toBe(false);
+  expect(got.told).toEqual(['hidden']);
+});
+
+test("follow frames a stage's whole window, where its parts start and end; a step that plays it keeps its first stage's camera; a page's own set() leaves the camera following", async ({
+  page,
+}) => {
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(
+    async ([scene, stepUntil]) => {
+      const wait = eval(stepUntil);
+      scene.sequences[0].ms = 2000;
+      scene.sequences[0].stages = [
+        { parts: ['lid'], by: [0, 6, 0], focus: ['lid'], view: { yaw: -20, pitch: 10 } },
+        { parts: ['box'], by: [4, 0, 0], focus: ['box'], view: { yaw: 60, pitch: 30 } },
+      ];
+      scene.steps = [{ id: 'still' }, { id: 'go', view: { yaw: 90, pitch: 40 }, play: ['apart'] }];
+      const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false }),
+        apart = fig.sequence('apart'),
+        rect = () => document.querySelector('#g canvas[tabindex]').getBoundingClientRect(),
+        // (the lid's corners, at rest and lifted by 6: all on the stage)
+        inView = () =>
+          [0, 6].every((lift) =>
+            [0, 1, 2, 3, 4, 5, 6, 7].every((k) => {
+              const p = fig.project([k & 1 ? 0.5 : -0.5, (k & 2 ? 1 : 0.9) + lift, k & 4 ? 0.5 : -0.5]);
+              return p && p[0] >= 0 && p[1] >= 0 && p[0] <= rect().width && p[1] <= rect().height;
+            }),
+          );
+      await fig.ready;
+      LK3D.clock.speed = 0;
+      fig.step('go');
+      await wait(() => apart.value > 0.6);
+      const window = inView(),
+        yaw = Math.round(fig.camera().yaw);
+      fig.set({ labels: 'auto' }); // (the page's own: not the reader's hand)
+      await wait(() => apart.value > 1.6);
+      const second = Math.round(fig.camera().yaw);
+      LK3D.clock.speed = 1;
+      return { window, yaw, second };
+    },
+    [teardownScene(), stepUntil],
+  );
+  expect(got.window).toBe(true);
+  expect(got.yaw).toBe(-20);
+  expect(got.second).toBe(60);
+});
+
+test("on a phone with the card open as a sheet, follow frames a stage's parts in the stage above it", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 700 });
+  await page.addScriptTag({ url: '/dist/lk3d-story.min.js' });
+  const got = await page.evaluate(
+    async ([scene, stepUntil]) => {
+      const wait = eval(stepUntil);
+      document.getElementById('g').style.width = '375px';
+      scene.sequences[0].ms = 2000;
+      scene.sequences[0].stages = [
+        { parts: ['lid'], by: [0, 6, 0], focus: ['lid'], view: { yaw: -20, pitch: 10 } },
+        { parts: ['box'] },
+      ];
+      const fig = LK3D.mount(document.getElementById('g'), scene, { controls: false, card: true }),
+        apart = fig.sequence('apart');
+      await fig.ready;
+      fig.select('base');
+      const card = document.querySelector('#g .lk3d-card'),
+        canvas = document.querySelector('#g canvas[tabindex]');
+      LK3D.clock.speed = 0;
+      apart.play();
+      await wait(() => apart.value > 0.6);
+      const top = card.getBoundingClientRect().top - canvas.getBoundingClientRect().top,
+        lowest = Math.max(
+          ...[0, 6].flatMap((lift) =>
+            [0, 1, 2, 3, 4, 5, 6, 7].map(
+              (k) => fig.project([k & 1 ? 0.5 : -0.5, (k & 2 ? 1 : 0.9) + lift, k & 4 ? 0.5 : -0.5])[1],
+            ),
+          ),
+        );
+      LK3D.clock.speed = 1;
+      return { sheet: !card.hidden && top > 0, top, lowest };
+    },
+    [teardownScene(), stepUntil],
+  );
+  expect(got.sheet).toBe(true);
+  expect(got.lowest).toBeLessThan(got.top);
+});
+
+test("with motion reduced, a clip's hold at its end draws no frame while nothing moves", async ({ page }) => {
+  const got = await page.evaluate(async () => {
+    LK3D.reduce = true; // (as the other reduced-motion tests: the page's setting, read once as it loads)
+    // (each WebGL draw call counted: a frame drawn)
+    window.draws = 0;
+    for (const C of [window.WebGLRenderingContext, window.WebGL2RenderingContext].filter(Boolean))
+      for (const op of ['drawArrays', 'drawElements']) {
+        const f = C.prototype[op];
+        C.prototype[op] = function (...a) {
+          window.draws++;
+          return f.apply(this, a);
+        };
+      }
+    const fig = LK3D.mount(
+        document.getElementById('g'),
+        {
+          parts: [
+            { id: 'base', name: 'Base', shapes: [{ box: [2, 0.2, 2] }] },
+            { id: 'arm', name: 'Arm', at: [0, 0.6, 0], shapes: [{ box: [0.2, 1, 0.2] }] },
+          ],
+          motions: [{ id: 'wave', name: 'Wave', range: [0, 90], speed: 30, then: 'start' }],
+          joints: [{ id: 'j', parts: ['arm'], turn: { axis: [0, 0, 1], center: [0, 0.1, 0] }, drive: 'wave' }],
+        },
+        { controls: false },
+      ),
+      sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    await fig.ready;
+    await sleep(300);
+    const before = window.draws;
+    fig.motion('wave').play(); // (reduced: straight to its end, held there for its time, 3 s, then back)
+    await sleep(400); // (its one frame at the end drawn)
+    const drew = window.draws - before,
+      held = window.draws;
+    await sleep(1500);
+    const result = { drew, inHold: window.draws - held, at: fig.motion('wave').value };
+    LK3D.reduce = false;
+    return result;
+  });
+  expect(got.drew).toBeGreaterThan(0);
+  expect(got.at).toBe(90);
+  expect(got.inHold).toBe(0);
+});

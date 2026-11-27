@@ -536,7 +536,10 @@ async function contactSheet(browser, data, name, out, pictures) {
       `Is each stage of ${sequence.id} framed so that what moves in it is seen?`,
     );
   for (const item of data.expect || [])
-    if (item && item.seen != null) questions.push(`Is ${named(item.seen)} visible in step ${item.step}?`);
+    if (item && item.seen != null)
+      questions.push(
+        `Is ${named(item.seen)} visible ${item.sequence != null ? `at stage ${item.stage} of ${item.sequence}` : `in step ${item.step}`}?`,
+      );
   (data.steps || []).forEach((step, k) => {
     const text = String(step.text || '').replace(/<[^>]+>/g, '');
     const labels = Array.isArray(step.labels) ? step.labels.map(named).join(', ') : 'what it is about';

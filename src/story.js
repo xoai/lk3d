@@ -165,7 +165,8 @@ function player(host, motion) {
     run = null;
     done.cancel();
     if (host.playing().get(id) === done.mark) (host.playing().delete(id), host.kick());
-    if (done.labels !== undefined) ((state.labels = done.labels), host.kick());
+    // (the step's own labels back, unless something else set them meanwhile: a step gone to, which ends the play)
+    if (done.labels !== undefined && state.labels === done.shown) ((state.labels = done.labels), host.kick());
     done.resolve();
   };
   const self = {
@@ -175,6 +176,10 @@ function player(host, motion) {
     stop: () => (run && host.stopMotion(motion), end()),
     ended: () => end(),
     whenDone: () => (run ? run.promise : Promise.resolve()),
+    // (where the play under way is going: a tour paused and played on resumes it the same way)
+    get to() {
+      return run?.to;
+    },
     letGo: () => run && (run.follow = false),
     /** @param {{ to?: number, back?: boolean, camera?: boolean }} [o] */
     play(o = {}) {
@@ -203,8 +208,13 @@ function player(host, motion) {
       };
       if (!host.following) {
         host.following = true;
-        host.touched(() => host.players.forEach((/** @type {any} */ each) => each.letGo()));
+        // (the reader's hand ends the following; a page's own set() does not)
+        host.touched(
+          (/** @type {string} */ kind) =>
+            kind !== 'page' && host.players.forEach((/** @type {any} */ each) => each.letGo()),
+        );
       }
+      mine.to = to;
       run = mine;
       host.playing().set(id, noop);
       let time = core.clock.now();
@@ -228,9 +238,10 @@ function player(host, motion) {
           said(host, motion, k, stage);
           if (mine.follow) follow(host, motion, k, stage, core.reduce ? 0 : 0.4 * ms);
         }
-        if (stage.labels) {
+        // (a stage's labels over the step's own: the stage before's go as this one begins)
+        if (stage.labels || mine.labels !== undefined) {
           if (mine.labels === undefined) mine.labels = state.labels;
-          state.labels = [...(Array.isArray(mine.labels) ? mine.labels : []), ...stage.labels];
+          state.labels = mine.shown = [...(Array.isArray(mine.labels) ? mine.labels : []), ...(stage.labels || [])];
         }
         const rest = () => {
           set(stop);
@@ -291,8 +302,9 @@ export function words(motion, value, pattern) {
     .replace('{title}', title);
 }
 
-// the camera to a stage as it begins: its view, framing its focus (else its parts) where the stage leaves them, over
-// ms (its first 40 %; at once when motion is reduced)
+// the camera to a stage as it begins: its view, framing its focus (else its parts) over the stage's whole window, where
+// they start and where they end (the core's box round both), over ms (its first 40 %; at once when motion is reduced). With
+// the card open as a sheet at the foot of a narrow screen, framed in the stage above it
 function follow(
   /** @type {any} */ host,
   /** @type {any} */ motion,
@@ -303,16 +315,24 @@ function follow(
   if (typeof stage.view === 'string') return host.view(stage.view, { ms });
   const names = stage.focus || stage.parts,
     view = stage.view || {},
-    framing = host.frame(
+    card = host.stage.querySelector('.lk3d-card'),
+    // (the card as a sheet at the foot of a narrow screen: the parts framed in the stage's height above it)
+    above =
+      card && !card.hidden && matchMedia('(max-width:620px)').matches
+        ? Math.max(0.3, Math.min(1, card.offsetTop / host.stage.clientHeight))
+        : 1,
+    { target, dist, lower } = host.frame(
       host.parts().filter((/** @type {any} */ part) => names.includes(part.id) || names.includes(part.group)),
-      { [motion.id]: k },
+      [{ [motion.id]: k - 1 }, { [motion.id]: k }],
+      above,
     );
   host.view(
     {
       yaw: view.yaw,
       pitch: view.pitch,
-      target: view.target || framing.target,
-      dist: view.dist ?? (view.zoom ? undefined : framing.dist),
+      target: view.target || target,
+      lower: !view.target && lower, // (the core lowers it along its up: above a card's sheet)
+      dist: view.dist ?? (view.zoom ? undefined : dist),
       zoom: view.zoom,
     },
     { ms },
@@ -386,8 +406,10 @@ export function tour(host, options) {
     playing = false,
     run = 0, // (each play counted: a wait of an earlier one does nothing)
     cancel = () => {},
-    held = /** @type {any[]} */ ([]), // (what the step played, stopped by a pause: played again on Play)
-    pausedAt = -1;
+    held = /** @type {any[]} */ ([]), // (what the step played, stopped by a pause, with where it was going: played again on Play)
+    pausedAt = -1,
+    started = false, // (played once: from then on Play starts at the step the figure shows; before, at from)
+    over = false; // (played to its end: Play starts again from the first step)
   // (the Play/Pause button, between Back and Next)
   /** @type {HTMLButtonElement | null} */
   let button = null;
@@ -422,9 +444,9 @@ export function tour(host, options) {
       host.goToStep(order[at], { by: 'tour' });
       host.mark('tour');
     } else
-      for (const motion of held.splice(0))
+      for (const [motion, to] of held.splice(0))
         host.motions().includes(motion) &&
-          (motion.stages ? player(host, motion).play({ camera: false }) : host.playMotion(motion));
+          (motion.stages ? player(host, motion).play({ camera: false, to }) : host.playMotion(motion));
     // (the step's glides, and what it plays that ends: a frame-by-frame check while things move, a sequence's own end)
     const still = new Promise((done) => {
       const check = () => {
@@ -460,6 +482,7 @@ export function tour(host, options) {
           go(false);
         } else {
           playing = false;
+          over = true;
           show();
           host.mark('tour');
           tell({ type: 'end' });
@@ -479,7 +502,8 @@ export function tour(host, options) {
     held = [];
     for (const id of [...host.playing().keys()]) {
       const motion = host.motions().find((/** @type {any} */ m) => m.id === id);
-      if (motion && (all[order[at]].play || []).includes(id)) (held.push(motion), host.stopMotion(motion));
+      if (motion && (all[order[at]].play || []).includes(id))
+        (held.push([motion, motion.stages && player(host, motion).to]), host.stopMotion(motion));
     }
     show();
     if (by) tell({ type: 'pause', by });
@@ -493,13 +517,17 @@ export function tour(host, options) {
     },
     play() {
       if (playing) return;
-      // (from the step the figure shows, if it is one of the tour's: played on where it stood when paused there)
-      const shown = order.indexOf(host.stepAt()),
-        resume = shown === at && pausedAt === at;
-      if (shown >= 0) at = shown;
-      playing = true;
+      // (from the step the figure shows, if it is one of the tour's: played on where it stood when paused there; the
+      // first Play from `from`; after the end, from the first step, unless the reader went to another)
+      const shown = order.indexOf(host.stepAt());
+      let resume = shown === at && pausedAt === at;
+      if (over && (shown < 0 || shown === at)) ((at = 0), (resume = false));
+      else if (shown >= 0 && (started || o.from == null)) at = shown;
+      over = false;
+      started = playing = true;
       show();
       go(resume);
+      leave(); // (out of view already: paused in a second, as when it leaves)
     },
     pause: (/** @type {string} */ by = 'page') => halt(by),
     next: () => move(1),
@@ -527,16 +555,15 @@ export function tour(host, options) {
   host.touched((/** @type {string} */ kind) => halt(kind === 'page' ? 'page' : 'reader'));
   const hidden = () => document.hidden && halt('hidden');
   document.addEventListener('visibilitychange', hidden);
-  let away = 0;
+  let away = 0,
+    seen = 1; // (how much of the stage is in view, as the observer last said)
+  function leave() {
+    clearTimeout(away);
+    if (seen < 0.2) away = setTimeout(() => halt('hidden'), 1000);
+  }
   const watcher =
     typeof IntersectionObserver !== 'undefined' &&
-    new IntersectionObserver(
-      ([entry]) => {
-        clearTimeout(away);
-        if (entry.intersectionRatio < 0.2) away = setTimeout(() => halt('hidden'), 1000);
-      },
-      { threshold: [0, 0.2] },
-    );
+    new IntersectionObserver(([entry]) => ((seen = entry.intersectionRatio), leave()), { threshold: [0, 0.2] });
   if (watcher) watcher.observe(host.stage);
   host.cleanups(() => {
     halt(null);

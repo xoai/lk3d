@@ -592,7 +592,8 @@ export interface Figure {
   focus(ids: string[], o?: { yaw?: number; pitch?: number; ms?: number }): void;
   /** the scene's guided steps */
   readonly steps: Step[];
-  /** go to a step by its place (from 0) or id: its state glided to (ms: 0, at once); onStep is not called */
+  /** go to a step by its place (from 0) or id: its state glided to (ms: 0, at once); onStep is called with by 'page'
+   * (not for settled: true, a step as a picture) */
   step(which: number | string, o?: { ms?: number; settled?: boolean }): void;
   /** the step shown, from 0 (-1: the scene has none) */
   readonly currentStep: number;

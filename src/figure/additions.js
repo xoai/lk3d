@@ -369,7 +369,7 @@ export function makeAdditions(c) {
     stepAt: () => c.stepAt_,
     goToStep: (which, o) => c.goToStep_(which, o),
     view: (name, o) => c.view_(name, o),
-    frame: (ps, values) => c.frame_(ps, undefined, values),
+    frame: (ps, values, above) => c.frame_(ps, undefined, values, above),
     cancelView: () => c.cancelView_(),
     motions: () => c.motions_,
     setMotion: (motion, v) => c.setMotion_(motion, v),
